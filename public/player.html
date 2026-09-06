@@ -236,7 +236,13 @@ let picked = [];
 // Guards the timeout fallback below from firing twice for the same prompt —
 // reset alongside `picked` whenever a genuinely new prompt cycle begins.
 let autoSubmitted = false;
+let guessedCharacter = null;
 let slayerTarget = null;
+let gossipTarget = null;
+let gossipClaimType = null;
+let gossipClaimValue = null;
+let gossipMultiTargets = [];
+let gossipThreshold = null;
 let moonchildTarget = null;
 let revealed = false;
 let TOKENS = {};
@@ -355,9 +361,9 @@ function post(url, body) {
 /** Shared by the Lock in button, the Pass button, and the timeout fallback
     below — success clears the local selection, an error leaves it in place
     so the caller can re-enable its own button without losing the choice. */
-function submitPromptTargets(targets) {
-  return post('/api/action', { token, targets }).then(r => {
-    if (!r.error) picked = [];
+function submitPromptTargets(targets, characterGuess) {
+  return post('/api/action', { token, targets, characterGuess }).then(r => {
+    if (!r.error) { picked = []; guessedCharacter = null; }
     return r;
   });
 }
@@ -379,7 +385,10 @@ function maybeAutoSubmitPrompt() {
       picked.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0].id);
     }
   }
-  submitPromptTargets(picked);
+  if (P.prompt.guessCharacter && !guessedCharacter) {
+    guessedCharacter = P.prompt.characterOptions[Math.floor(Math.random() * P.prompt.characterOptions.length)].id;
+  }
+  submitPromptTargets(picked, guessedCharacter);
 }
 
 function buzz(ms) { if (navigator.vibrate) navigator.vibrate(ms); }
@@ -717,7 +726,7 @@ function render() {
   // its clock, and a Lock in button already competing for the screen, this
   // card was the difference between fitting and needing to scroll.
   const choosingTarget = (P.phase === 'night' && P.prompt && !P.submitted) ||
-    !!P.moonchildChoice || (P.phase === 'day' && !!P.slayerShot);
+    !!P.moonchildChoice || (P.phase === 'day' && (!!P.slayerShot || !!P.gossipClaim));
   if (!choosingTarget) {
     const roleCard = el('div', 'card');
     roleCard.append(holdToReveal('Hold to see who you are', () => {
@@ -773,6 +782,16 @@ function render() {
         list.append(b);
       });
       c.append(list);
+      if (P.prompt.guessCharacter && !P.watching) {
+        c.append(el('p', 'dim small', 'Now guess their character.'));
+        const guessList = el('div', 'targets');
+        P.prompt.characterOptions.forEach(opt => {
+          const b = targetButton(opt, guessedCharacter === opt.id);
+          b.onclick = () => { guessedCharacter = opt.id; render(); };
+          guessList.append(b);
+        });
+        c.append(guessList);
+      }
       if (P.watching) {
         c.append(el('p', 'dim small', 'Waiting for the bot to choose…'));
       } else {
@@ -782,12 +801,18 @@ function render() {
           const t = P.prompt.targets.find(x => x.id === id);
           return t ? t.name : null;
         }).filter(Boolean);
-        const ready = picked.length === P.prompt.count;
-        const go = el('button', 'primary', ready ? `Lock in ${chosenNames.join(' & ')}` : 'Lock in');
+        const guessName = guessedCharacter && P.prompt.characterOptions
+          ? (P.prompt.characterOptions.find(x => x.id === guessedCharacter) || {}).name
+          : null;
+        const ready = picked.length === P.prompt.count && (!P.prompt.guessCharacter || guessedCharacter);
+        const label = ready
+          ? `Lock in ${chosenNames.join(' & ')}${guessName ? ` — ${guessName}` : ''}`
+          : 'Lock in';
+        const go = el('button', 'primary', label);
         go.disabled = !ready;
         go.onclick = () => {
           go.disabled = true;
-          submitPromptTargets(picked).then(r => {
+          submitPromptTargets(picked, guessedCharacter).then(r => {
             if (r.error) { alert(r.error); go.disabled = false; }
           });
         };
@@ -941,6 +966,114 @@ function render() {
     };
     c.append(fire);
     app.append(c);
+  } else if (P.phase === 'day' && P.gossipClaim) {
+    const c = el('div', 'card');
+    c.append(
+      el('h2', null, 'Make a statement'),
+      el('p', 'dim small', 'Once per day. Say whatever you like out loud — pick below what you\'re actually claiming. Tonight, if it was true, someone dies at random. You will not be told which, or whether it was true.'),
+    );
+
+    const resetPick = () => { gossipTarget = null; gossipClaimValue = null; gossipMultiTargets = []; gossipThreshold = null; };
+
+    const kinds = el('div', 'targets');
+    const teamKind = el('button', 'target' + (gossipClaimType === 'team' ? ' on' : ''), 'A player\'s team');
+    teamKind.onclick = () => { gossipClaimType = 'team'; resetPick(); render(); };
+    const charKind = el('button', 'target' + (gossipClaimType === 'character' ? ' on' : ''), 'A player\'s exact character');
+    charKind.onclick = () => { gossipClaimType = 'character'; resetPick(); render(); };
+    const countKind = el('button', 'target' + (gossipClaimType === 'atleast' ? ' on' : ''), 'A count among several players');
+    countKind.onclick = () => { gossipClaimType = 'atleast'; resetPick(); render(); };
+    kinds.append(teamKind, charKind, countKind);
+    c.append(kinds);
+
+    if (gossipClaimType === 'team' || gossipClaimType === 'character') {
+      c.append(el('p', 'dim small', 'Choose a player.'));
+      const list = el('div', 'targets');
+      P.gossipClaim.targets.forEach(t => {
+        const b = targetButton(t, gossipTarget === t.id);
+        b.onclick = () => { gossipTarget = t.id; gossipClaimValue = null; render(); };
+        list.append(b);
+      });
+      c.append(list);
+    }
+
+    if (gossipClaimType === 'team' && gossipTarget) {
+      const name = (P.gossipClaim.targets.find(x => x.id === gossipTarget) || {}).name;
+      const opts = el('div', 'targets');
+      const good = el('button', 'target' + (gossipClaimValue === 'good' ? ' on' : ''), `${name} is good`);
+      good.onclick = () => { gossipClaimValue = 'good'; render(); };
+      const evil = el('button', 'target' + (gossipClaimValue === 'evil' ? ' on' : ''), `${name} is evil`);
+      evil.onclick = () => { gossipClaimValue = 'evil'; render(); };
+      opts.append(good, evil);
+      c.append(opts);
+    }
+
+    if (gossipClaimType === 'character' && gossipTarget) {
+      c.append(el('p', 'dim small', 'Which character?'));
+      const charList = el('div', 'targets');
+      P.gossipClaim.characterOptions.forEach(opt => {
+        const b = targetButton(opt, gossipClaimValue === opt.id);
+        b.onclick = () => { gossipClaimValue = opt.id; render(); };
+        charList.append(b);
+      });
+      c.append(charList);
+    }
+
+    if (gossipClaimType === 'atleast') {
+      c.append(el('p', 'dim small', 'Choose at least two players.'));
+      const list = el('div', 'targets');
+      P.gossipClaim.targets.forEach(t => {
+        const on = gossipMultiTargets.includes(t.id);
+        const b = targetButton(t, on);
+        b.onclick = () => {
+          gossipMultiTargets = on ? gossipMultiTargets.filter(id => id !== t.id) : [...gossipMultiTargets, t.id];
+          if (gossipThreshold > gossipMultiTargets.length) gossipThreshold = null;
+          render();
+        };
+        list.append(b);
+      });
+      c.append(list);
+
+      if (gossipMultiTargets.length >= 2) {
+        c.append(el('p', 'dim small', `At least how many of these ${gossipMultiTargets.length}?`));
+        const numRow = el('div', 'targets');
+        for (let n = 1; n <= gossipMultiTargets.length; n++) {
+          const b = el('button', 'target' + (gossipThreshold === n ? ' on' : ''), String(n));
+          b.onclick = () => { gossipThreshold = n; render(); };
+          numRow.append(b);
+        }
+        c.append(numRow);
+      }
+
+      if (gossipMultiTargets.length >= 2 && gossipThreshold) {
+        const opts = el('div', 'targets');
+        const good = el('button', 'target' + (gossipClaimValue === 'good' ? ' on' : ''), 'are good');
+        good.onclick = () => { gossipClaimValue = 'good'; render(); };
+        const evil = el('button', 'target' + (gossipClaimValue === 'evil' ? ' on' : ''), 'are evil');
+        evil.onclick = () => { gossipClaimValue = 'evil'; render(); };
+        opts.append(good, evil);
+        c.append(opts);
+      }
+    }
+
+    const ready =
+      (gossipClaimType === 'team' && gossipTarget && gossipClaimValue) ||
+      (gossipClaimType === 'character' && gossipTarget && gossipClaimValue) ||
+      (gossipClaimType === 'atleast' && gossipMultiTargets.length >= 2 && gossipThreshold && gossipClaimValue);
+
+    const go = el('button', 'primary', 'Make this claim');
+    go.disabled = !ready;
+    go.onclick = () => {
+      go.disabled = true;
+      const claimBody = gossipClaimType === 'atleast'
+        ? { token, claimType: 'atleast', targetIds: gossipMultiTargets, threshold: gossipThreshold, claimValue: gossipClaimValue }
+        : { token, targetId: gossipTarget, claimType: gossipClaimType, claimValue: gossipClaimValue };
+      post('/api/gossip-claim', claimBody).then(r => {
+        if (r.error) { alert(r.error); go.disabled = false; return; }
+        gossipClaimType = null; resetPick();
+      });
+    };
+    c.append(go);
+    app.append(c);
   } else if (P.phase === 'day' && !activeVote) {
     const c = el('div', 'card');
     c.append(el('h2', null, 'Daylight'), el('p', 'dim', 'Talk. Accuse. Decide. The phone has nothing more for you.'));
@@ -960,7 +1093,10 @@ function applyPlayerState(data) {
     lastPhaseKey = key;
     picked = [];
     autoSubmitted = false;
+    guessedCharacter = null;
     slayerTarget = null;
+    gossipTarget = null; gossipClaimType = null; gossipClaimValue = null;
+    gossipMultiTargets = []; gossipThreshold = null;
     moonchildTarget = null;
     if (P.phase === 'night') { buzz([90, 60, 90]); acquireWakeLock(); }
     else releaseWakeLock();

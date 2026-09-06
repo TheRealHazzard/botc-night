@@ -28,8 +28,10 @@ function autoAnswer(g) {
     const prompt = E.promptFor(g, p);
     if (!prompt) continue;
     const targets = prompt.targets.slice(0, prompt.count).map(t => t.id);
-    if (targets.length === prompt.count) {
-      g.pending[p.id] = { targets, decoy: !!prompt.decoy };
+    const countOk = targets.length === prompt.count || (prompt.optional && targets.length === 0);
+    if (countOk) {
+      const characterGuess = prompt.guessCharacter ? prompt.characterOptions[0].id : undefined;
+      g.pending[p.id] = { targets, decoy: !!prompt.decoy, characterGuess };
     }
   }
 }
@@ -460,7 +462,11 @@ console.log('\nBMR: Sailor');
   gs.players = [mk('sailor1', 'sailor'), mk('imp1', 'imp')];
   check('a functioning Sailor cannot be killed by the Demon',
     E.wouldBlockKill(gs, gs.players[0], { demonAttack: true }) === 'sailor');
-  check('...but can still be executed',
+  check('...nor executed — "You can\'t die" has no carve-out for execution',
+    E.wouldBlockKill(gs, gs.players[0], { executionAttack: true }) === 'sailor');
+
+  gs.players[0].statuses.drunk = true;
+  check('...but a drunk Sailor has no protection at all, including from execution',
     E.wouldBlockKill(gs, gs.players[0], { executionAttack: true }) === null);
 }
 
@@ -477,14 +483,26 @@ console.log('\nBMR: Chambermaid');
   check('Chambermaid counts both a choice-role and a pure-info role as woken',
     g.results.cm1.body.includes('2'), g.results.cm1.body);
 
+  // Official ruling: "Players that woke tonight due to their ability but are
+  // drunk or poisoned still count as having woke tonight" — impairment
+  // silences the effect, not the physical act of waking. A character with
+  // no night ability at all (never in the acting order) still doesn't count.
   const g2 = E.newGame();
   g2.script = 'bmr'; g2.nightNumber = 2; g2.phase = 'night'; g2.wave = 1; g2.results = {};
   g2.players = [mk('cm1', 'chambermaid'), mk('poi1', 'poisoner'), mk('t1', 'soldier')];
-  g2.players.find(p => p.id === 'poi1').statuses.poisoned = true; // impaired: does not really wake
+  g2.players.find(p => p.id === 'poi1').statuses.poisoned = true;
   g2.pending = { cm1: { targets: ['poi1', 't1'], decoy: false } };
   E.resolveNight(g2, 1);
-  check('...but not an impaired role, nor one with no ability at all',
-    g2.results.cm1.body.includes('0'), g2.results.cm1.body);
+  check('an impaired role that still wakes counts as 1, not 0',
+    g2.results.cm1.body.includes('1'), g2.results.cm1.body);
+
+  const g3 = E.newGame();
+  g3.script = 'bmr'; g3.nightNumber = 2; g3.phase = 'night'; g3.wave = 1; g3.results = {};
+  g3.players = [mk('cm1', 'chambermaid'), mk('t1', 'soldier'), mk('t2', 'fool')];
+  g3.pending = { cm1: { targets: ['t1', 't2'], decoy: false } };
+  E.resolveNight(g3, 1);
+  check('...but a character with no night ability at all is never counted',
+    g3.results.cm1.body.includes('0'), g3.results.cm1.body);
 }
 
 console.log('\nBMR: Exorcist blocks the Demon');
@@ -521,6 +539,193 @@ console.log('\nBMR: Innkeeper');
   check('both Innkeeper picks survive a Demon attack', t1.alive && t2.alive);
   check('exactly one of the two ends up drunk until dusk',
     (!!t1.statuses.drunk) !== (!!t2.statuses.drunk));
+}
+
+console.log('\nBMR: Gambler');
+{
+  const mk = (id, characterId) => ({ id, name: id, characterId, believedId: characterId, alive: true, statuses: {} });
+
+  const g = E.newGame();
+  g.script = 'bmr'; g.nightNumber = 2; g.phase = 'night'; g.wave = 1; g.results = {};
+  g.players = [mk('ga1', 'gambler'), mk('t1', 'chef')];
+  g.pending = { ga1: { targets: ['t1'], decoy: false, characterGuess: 'chef' } };
+  E.resolveNight(g, 1);
+  check('a correct guess costs the Gambler nothing', g.players.find(p => p.id === 'ga1').alive);
+
+  const g2 = E.newGame();
+  g2.script = 'bmr'; g2.nightNumber = 2; g2.phase = 'night'; g2.wave = 1; g2.results = {};
+  g2.players = [mk('ga1', 'gambler'), mk('t1', 'chef')];
+  g2.pending = { ga1: { targets: ['t1'], decoy: false, characterGuess: 'empath' } };
+  E.resolveNight(g2, 1);
+  check('a wrong guess kills the Gambler', !g2.players.find(p => p.id === 'ga1').alive);
+  check('the Gambler is never told whether they were right or wrong',
+    !g2.results.ga1);
+
+  const g3 = E.newGame();
+  g3.script = 'bmr'; g3.nightNumber = 2; g3.phase = 'night'; g3.wave = 1; g3.results = {};
+  g3.players = [mk('ga1', 'gambler'), mk('t1', 'chef')];
+  g3.players[0].statuses.poisoned = true;
+  g3.pending = { ga1: { targets: ['t1'], decoy: false, characterGuess: 'empath' } };
+  E.resolveNight(g3, 1);
+  check('a poisoned Gambler never dies from a wrong guess — the ability just fails',
+    g3.players.find(p => p.id === 'ga1').alive);
+
+  // Goes through the same protection stack as everyone else (checkKill with
+  // no special flags) — not a bypass-all kill like the Assassin's. Forcing
+  // characterId/believedId apart like this only happens for real via Drunk
+  // or Lunatic, but it's the direct way to prove the death check reads true
+  // character (protection) independently of believed character (dispatch).
+  const g4 = E.newGame();
+  g4.script = 'bmr'; g4.nightNumber = 2; g4.phase = 'night'; g4.wave = 1; g4.results = {};
+  g4.players = [{ id: 'ga1', name: 'ga1', characterId: 'fool', believedId: 'gambler', alive: true, statuses: {} }, mk('t1', 'chef')];
+  g4.pending = { ga1: { targets: ['t1'], decoy: false, characterGuess: 'empath' } };
+  E.resolveNight(g4, 1);
+  check('a wrong guess still respects the Fool\'s one-time survival',
+    g4.players.find(p => p.id === 'ga1').alive && g4.players.find(p => p.id === 'ga1').statuses.foolUsed);
+}
+
+console.log('\nBMR: Gossip');
+{
+  const mk = (id, characterId) => ({ id, name: id, characterId, believedId: characterId, alive: true, statuses: {} });
+
+  // The Gossip never chooses who dies any more — the kill is fully
+  // automatic (randomKiller()), so there's nothing left for a real prompt
+  // to offer. Always a decoy, regardless of whether the claim was true —
+  // which also means there's no real-vs-decoy leak of the claim's truth.
+  const g = E.newGame();
+  g.script = 'bmr'; g.nightNumber = 2; g.phase = 'night'; g.wave = 1; g.results = {};
+  g.players = [mk('go1', 'gossip'), mk('t1', 'chef')];
+  g.players[0].statuses.gossipClaimDay = 1;
+  g.players[0].statuses.gossipClaimTrue = true;
+  check('a true claim still gets a decoy prompt — there is nothing left to choose',
+    E.promptFor(g, g.players[0]).decoy === true);
+
+  const g2 = E.newGame();
+  g2.script = 'bmr'; g2.nightNumber = 2; g2.phase = 'night'; g2.wave = 1; g2.results = {};
+  g2.players = [mk('go1', 'gossip'), mk('t1', 'chef')];
+  g2.players[0].statuses.gossipClaimDay = 1;
+  g2.players[0].statuses.gossipClaimTrue = false;
+  check('a false claim also gets a decoy', E.promptFor(g2, g2.players[0]).decoy === true);
+
+  // A true claim from yesterday kills someone tonight — chosen at random,
+  // since gossipClaimDay/gossipClaimTrue are frozen by /api/gossip-claim
+  // (server.js), and this only tests what the engine does once they're set.
+  const g3 = E.newGame();
+  g3.script = 'bmr'; g3.nightNumber = 2; g3.phase = 'night'; g3.wave = 1; g3.results = {};
+  g3.players = [mk('go1', 'gossip'), mk('t1', 'chef')];
+  g3.players[0].statuses.gossipClaimDay = 1;
+  g3.players[0].statuses.gossipClaimTrue = true;
+  E.resolveNight(g3, 1);
+  check('a true claim from yesterday kills the only other player automatically',
+    !g3.players.find(p => p.id === 't1').alive);
+
+  // No claim, or a claim from an earlier day (not yesterday relative to
+  // tonight), never kills anyone.
+  const g4 = E.newGame();
+  g4.script = 'bmr'; g4.nightNumber = 3; g4.phase = 'night'; g4.wave = 1; g4.results = {};
+  g4.players = [mk('go1', 'gossip'), mk('t1', 'chef')];
+  g4.players[0].statuses.gossipClaimDay = 1; // would have fired night 2, not night 3
+  g4.players[0].statuses.gossipClaimTrue = true;
+  E.resolveNight(g4, 1);
+  check('a stale claim from an earlier day never kills anyone', g4.players.find(p => p.id === 't1').alive);
+
+  const g5 = E.newGame();
+  g5.script = 'bmr'; g5.nightNumber = 2; g5.phase = 'night'; g5.wave = 1; g5.results = {};
+  g5.players = [mk('go1', 'gossip'), mk('t1', 'chef')];
+  E.resolveNight(g5, 1);
+  check('no claim made at all never kills anyone', g5.players.find(p => p.id === 't1').alive);
+
+  // Impairment at the moment the kill would happen (independent of the
+  // frozen day-time truth) blocks it entirely, same as every other ability.
+  const g6 = E.newGame();
+  g6.script = 'bmr'; g6.nightNumber = 2; g6.phase = 'night'; g6.wave = 1; g6.results = {};
+  g6.players = [mk('go1', 'gossip'), mk('t1', 'chef')];
+  g6.players[0].statuses.gossipClaimDay = 1;
+  g6.players[0].statuses.gossipClaimTrue = true;
+  g6.players[0].statuses.poisoned = true;
+  E.resolveNight(g6, 1);
+  check('poisoned at the moment of the kill, it fails even though the claim was true',
+    g6.players.find(p => p.id === 't1').alive);
+
+  // The Gossip is never their own random victim.
+  let goSurvivedAll = true;
+  for (let i = 0; i < 30; i++) {
+    const gt = E.newGame();
+    gt.script = 'bmr'; gt.nightNumber = 2; gt.phase = 'night'; gt.wave = 1; gt.results = {};
+    gt.players = [mk('go1', 'gossip'), mk('t1', 'chef'), mk('t2', 'soldier'), mk('t3', 'empath')];
+    gt.players[0].statuses.gossipClaimDay = 1;
+    gt.players[0].statuses.gossipClaimTrue = true;
+    E.resolveNight(gt, 1);
+    if (!gt.players.find(p => p.id === 'go1').alive) goSurvivedAll = false;
+  }
+  check('the Gossip is never their own random victim (30 trials)', goSurvivedAll);
+
+  // The kill is tagged distinctly from both the Demon and a Minion — it
+  // must never trigger the Grandmother's link, whichever random victim it
+  // happens to land on.
+  let linkNeverFalselyTriggered = true;
+  for (let i = 0; i < 30; i++) {
+    const gl = E.newGame();
+    gl.script = 'bmr'; gl.nightNumber = 2; gl.phase = 'night'; gl.wave = 1; gl.results = {};
+    gl.players = [mk('go1', 'gossip'), mk('gm1', 'grandmother'), mk('gc1', 'chef'), mk('t1', 'soldier')];
+    gl.players[0].statuses.gossipClaimDay = 1;
+    gl.players[0].statuses.gossipClaimTrue = true;
+    gl.players.find(p => p.id === 'gm1').statuses.grandchildId = 'gc1';
+    E.resolveNight(gl, 1);
+    const gc1Died = !gl.players.find(p => p.id === 'gc1').alive;
+    const gmAlive = gl.players.find(p => p.id === 'gm1').alive;
+    if (gc1Died && !gmAlive) linkNeverFalselyTriggered = false;
+  }
+  check('whenever the random victim is the Grandmother\'s grandchild, the Grandmother never also dies (30 trials)',
+    linkNeverFalselyTriggered);
+}
+
+console.log('\nBMR: randomKiller (shared Mayor-redirect resolver)');
+{
+  const mk = (id, characterId) => ({ id, name: id, characterId, believedId: characterId, alive: true, statuses: {} });
+
+  const g = E.newGame();
+  g.players = [mk('t1', 'chef')];
+  check('a non-Mayor single-candidate pool is returned as-is',
+    E.randomKiller(g, [g.players[0]]) === g.players[0]);
+
+  // Forcing the roll (chance = 1) against a lone Mayor with alternates
+  // available must redirect to one of them, never the Mayor.
+  let redirectedEveryTime = true;
+  for (let i = 0; i < 20; i++) {
+    const gm = E.newGame();
+    gm.config.mayorRedirectChance = 1;
+    gm.players = [mk('may1', 'mayor'), mk('t1', 'chef'), mk('t2', 'soldier')];
+    const result = E.randomKiller(gm, [gm.players[0]]);
+    if (result.id === 'may1') redirectedEveryTime = false;
+  }
+  check('mayorRedirectChance=1 always redirects away from the Mayor (20 trials)', redirectedEveryTime);
+
+  // chance = 0 must never redirect.
+  const gm0 = E.newGame();
+  gm0.config.mayorRedirectChance = 0;
+  gm0.players = [mk('may1', 'mayor'), mk('t1', 'chef')];
+  check('mayorRedirectChance=0 never redirects', E.randomKiller(gm0, [gm0.players[0]]).id === 'may1');
+
+  // An impaired Mayor never redirects — the ability just fails.
+  const gmi = E.newGame();
+  gmi.config.mayorRedirectChance = 1;
+  gmi.players = [mk('may1', 'mayor'), mk('t1', 'chef')];
+  gmi.players[0].statuses.poisoned = true;
+  check('a poisoned Mayor never redirects, even at chance=1', E.randomKiller(gmi, [gmi.players[0]]).id === 'may1');
+
+  // With no alternates to redirect to, the Mayor is the result regardless.
+  const gmSolo = E.newGame();
+  gmSolo.config.mayorRedirectChance = 1;
+  gmSolo.players = [mk('may1', 'mayor')];
+  check('no living alternates to redirect to -> the Mayor stands', E.randomKiller(gmSolo, [gmSolo.players[0]]).id === 'may1');
+
+  // A pool of many, no Mayor involved, spreads across more than one victim.
+  const seen = new Set();
+  const gp = E.newGame();
+  gp.players = [mk('a', 'chef'), mk('b', 'soldier'), mk('c', 'empath'), mk('d', 'fool')];
+  for (let i = 0; i < 30; i++) seen.add(E.randomKiller(gp, gp.players).id);
+  check('a multi-candidate pool is genuinely randomized, not always the same pick (30 trials)', seen.size > 1);
 }
 
 console.log('\nBMR: Courtier');
@@ -668,6 +873,25 @@ console.log('\nBMR: Pukka');
     !g.players.find(p => p.id === 't1').alive);
   check('...and the new target becomes poisoned in their place',
     g.players.find(p => p.id === 't2').statuses.poisoned && g.players.find(p => p.id === 't2').alive);
+
+  // "Becomes healthy" applies even when the follow-up kill is blocked — a
+  // survivor shouldn't stay permanently poisoned just because Pukka moved
+  // on. Uses a real Monk protection rather than Soldier: a poisoned Soldier
+  // actually loses their demon immunity (poison disables the ability,
+  // correctly), so that combination wouldn't isolate this fix from that
+  // other rule. The Monk resolves before Pukka every night (order 12 vs
+  // 26), so t1 is freshly protected by the time Pukka's follow-up runs.
+  const g2 = E.newGame();
+  g2.script = 'bmr'; g2.nightNumber = 2; g2.phase = 'night'; g2.wave = 1; g2.results = {};
+  g2.players = [mk('pu1', 'pukka'), mk('t1', 'chef'), mk('t2', 'chef'), mk('mo1', 'monk')];
+  g2.pending = { pu1: { targets: ['t1'], decoy: false } };
+  E.resolveNight(g2, 1);
+  g2.nightNumber = 3; g2.results = {};
+  g2.pending = { pu1: { targets: ['t2'], decoy: false }, mo1: { targets: ['t1'], decoy: false } };
+  E.resolveNight(g2, 1);
+  const t1After = g2.players.find(p => p.id === 't1');
+  check('a Monk-protected survivor of Pukka\'s follow-up kill becomes healthy again',
+    t1After.alive && !t1After.statuses.poisoned);
 }
 
 console.log('\nBMR: Shabaloth');
@@ -688,13 +912,26 @@ console.log('\nBMR: Shabaloth');
     g2.nightNumber = 3; g2.phase = 'night'; g2.wave = 1; g2.results = {};
     g2.players = [mk('sh1', 'shabaloth'), mk('t1', 'chef', ), mk('t3', 'slayer')];
     g2.players.find(p => p.id === 't1').alive = false;
-    g2.deaths = [{ night: 2, name: 't1', cause: 'demon' }];
+    g2.deaths = [{ night: 2, name: 't1', cause: 'demon', killedByDemon: true }];
     g2.pending = { sh1: { targets: ['t3'], decoy: false } };
     E.resolveNight(g2, 1);
     if (g2.players.find(p => p.id === 't1').alive) revived++;
   }
   check('regurgitation sometimes brings back last night\'s kill, sometimes not (40 trials)',
     revived > 5 && revived < 35, `revived ${revived}/40`);
+
+  // A Minion's same-night kill must never be an eligible regurgitate target —
+  // "a player YOU chose last night" means Shabaloth's own targets only.
+  const g3 = E.newGame();
+  g3.script = 'bmr'; g3.config.shabalothRegurgitateChance = 1; // force a pick every trial
+  g3.nightNumber = 3; g3.phase = 'night'; g3.wave = 1; g3.results = {};
+  g3.players = [mk('sh1', 'shabaloth'), mk('t1', 'chef'), mk('t3', 'slayer')];
+  g3.players.find(p => p.id === 't1').alive = false; // Assassin's kill last night, not Shabaloth's
+  g3.deaths = [{ night: 2, name: 't1', cause: 'minion', killedByDemon: false }];
+  g3.pending = { sh1: { targets: ['t3'], decoy: false } };
+  E.resolveNight(g3, 1);
+  check('a Minion\'s kill from the same night is never regurgitated by Shabaloth',
+    !g3.players.find(p => p.id === 't1').alive);
 }
 
 console.log('\nBMR: Po');
@@ -809,6 +1046,28 @@ console.log('\nBMR: Grandmother');
   E.resolveNight(g2, 1);
   check('the Demon killing the Grandmother directly does not also kill an untouched grandchild',
     g2.players.find(p => p.id === 'gc1').alive && !g2.players.find(p => p.id === 'gm1').alive);
+
+  // A Minion's kill (Assassin, Godfather) must NOT trigger the link — only
+  // "the Demon kills them" does. Both used to share the 'demon' cause tag.
+  const g3 = E.newGame();
+  g3.script = 'bmr'; g3.nightNumber = 2; g3.phase = 'night'; g3.wave = 1; g3.results = {};
+  g3.players = [mk('gm1', 'grandmother'), mk('gc1', 'chef'), mk('as1', 'assassin')];
+  g3.players.find(p => p.id === 'gm1').statuses.grandchildId = 'gc1';
+  g3.pending = { as1: { targets: ['gc1'], decoy: false } };
+  E.resolveNight(g3, 1);
+  check('the Assassin killing the grandchild does NOT also kill the Grandmother',
+    !g3.players.find(p => p.id === 'gc1').alive && g3.players.find(p => p.id === 'gm1').alive);
+
+  const g4 = E.newGame();
+  g4.script = 'bmr'; g4.nightNumber = 3; g4.phase = 'night'; g4.wave = 1; g4.results = {};
+  g4.players = [mk('gm1', 'grandmother'), mk('gc1', 'chef'), mk('gf1', 'godfather')];
+  g4.players.find(p => p.id === 'gm1').statuses.grandchildId = 'gc1';
+  g4.deaths = [{ night: 2, name: 'o1', cause: 'execution' }];
+  g4.players.push({ id: 'o1', name: 'o1', characterId: 'tinker', believedId: 'tinker', alive: false, statuses: {} });
+  g4.pending = { gf1: { targets: ['gc1'], decoy: false } };
+  E.resolveNight(g4, 1);
+  check('...nor does the Godfather',
+    !g4.players.find(p => p.id === 'gc1').alive && g4.players.find(p => p.id === 'gm1').alive);
 }
 
 console.log('\nBMR: Mastermind bonus-day resolution (pure function)');
@@ -832,6 +1091,52 @@ console.log('\nBMR: Pacifist\'s pacifistSaved status (engine-level)');
   check('pacifistSaved blocks an execution attack', E.wouldBlockKill(g, t, { executionAttack: true }) === 'pacifist');
   check('...but a night-time demon attack is a different check entirely',
     E.wouldBlockKill(g, t, { demonAttack: true }) === null);
+}
+
+console.log('\nBMR: Tea Lady');
+{
+  const mk = (id, characterId) => ({ id, name: id, characterId, believedId: characterId, alive: true, statuses: {} });
+
+  // 3-seat circle: with only two others, both are the Tea Lady's neighbors.
+  const g = E.newGame();
+  g.players = [mk('tl1', 'tealady'), mk('nA', 'chef'), mk('nB', 'soldier')];
+  const [tl1, nA, nB] = g.players;
+  check('a good neighbor is protected from a demon attack',
+    E.wouldBlockKill(g, nA, { demonAttack: true }) === 'tea-lady');
+  check('...and from execution too — "can\'t die" has no carve-out',
+    E.wouldBlockKill(g, nB, { executionAttack: true }) === 'tea-lady');
+  check('the Tea Lady herself is not protected by her own ability',
+    E.wouldBlockKill(g, tl1, { demonAttack: true }) !== 'tea-lady');
+
+  // One evil neighbor voids the protection for BOTH neighbors, not just the
+  // evil one — the ability requires both to be good.
+  const g2 = E.newGame();
+  g2.players = [mk('tl1', 'tealady'), mk('nA', 'chef'), mk('nB', 'poisoner')];
+  check('a good neighbor loses protection when the other neighbor is evil',
+    E.wouldBlockKill(g2, g2.players[1], { demonAttack: true }) !== 'tea-lady');
+
+  // 4 seats: a good player who ISN'T adjacent to the Tea Lady gets nothing.
+  const g3 = E.newGame();
+  g3.players = [mk('tl1', 'tealady'), mk('nA', 'chef'), mk('far', 'soldier'), mk('nB', 'empath')];
+  check('a good player who is not a neighbor is not protected',
+    E.wouldBlockKill(g3, g3.players[2], { demonAttack: true }) !== 'tea-lady');
+
+  // An impaired Tea Lady protects no one at all.
+  const g4 = E.newGame();
+  g4.players = [mk('tl1', 'tealady'), mk('nA', 'chef'), mk('nB', 'soldier')];
+  g4.players[0].statuses.poisoned = true;
+  check('a poisoned Tea Lady\'s neighbors have no protection',
+    E.wouldBlockKill(g4, g4.players[1], { demonAttack: true }) !== 'tea-lady');
+
+  // Adjacency is live, not fixed at setup — once a neighbor dies, the next
+  // living player around the circle becomes the new neighbor.
+  const g5 = E.newGame();
+  g5.players = [mk('tl1', 'tealady'), mk('nA', 'chef'), mk('nB', 'empath'), mk('nC', 'soldier')];
+  check('with 4 alive, the far side (nB) starts unprotected',
+    E.wouldBlockKill(g5, g5.players[2], { demonAttack: true }) !== 'tea-lady');
+  g5.players[1].alive = false; // nA dies — the circle closes up
+  check('once nA dies, nB becomes the Tea Lady\'s new live neighbor and is protected',
+    E.wouldBlockKill(g5, g5.players[2], { demonAttack: true }) === 'tea-lady');
 }
 
 console.log('\nBMR: drunk-until-dusk clears at the right night (the mechanism Minstrel/Sailor/Innkeeper/Courtier all share)');

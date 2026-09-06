@@ -6,7 +6,8 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "sim": "node tools/simulate.js"
+    "sim": "node tools/simulate.js",
+    "test:dom-shim": "node test/dom-shim/host.js && node test/dom-shim/player.js && node test/dom-shim/games.js && node test/dom-shim/simulate.js"
   },
   "engines": {
     "node": ">=18"

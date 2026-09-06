@@ -187,7 +187,7 @@ function recordExecution(playerId) {
         E.logEvent(game, `${p.name} was executed, but survives.`);
       } else {
         p.alive = false;
-        game.deaths.push({ night: game.nightNumber, name: p.name, cause: 'execution' });
+        game.deaths.push({ night: game.nightNumber, name: p.name, cause: 'execution', killedByDemon: false });
         E.logEvent(game, `${p.name} was executed.`);
         executedPlayer = p;
         E.triggerMoonchildIfNeeded(game, p);
@@ -231,7 +231,7 @@ function recordExecution(playerId) {
     } else {
       p.alive = false;
       if (tc && tc.id === 'saint') game.saintExecuted = true;
-      game.deaths.push({ night: game.nightNumber, name: p.name, cause: 'execution' });
+      game.deaths.push({ night: game.nightNumber, name: p.name, cause: 'execution', killedByDemon: false });
       E.logEvent(game, `${p.name} was executed.`);
       E.triggerMoonchildIfNeeded(game, p);
 
@@ -336,7 +336,7 @@ function recordGameHistory() {
 
 /* ---------------------------------------------------------- simulation */
 
-const BOT_NAMES = ['Ada', 'Bo', 'Cyrus', 'Dee', 'Eli', 'Fay', 'Gus', 'Hal', 'Ivy', 'Jos', 'Kit', 'Lou', 'Mo', 'Nell', 'Ozzy'];
+const BOT_NAMES = ['Aakanksha', 'Riya', 'Ritu', 'Ishaan', 'Rob', 'Shru', 'Shanks', 'Advaith', 'Sai', 'Surya', 'Hal', 'Ivy', 'Jos', 'Kit', 'Lou'];
 let simTimer = null;
 
 const pickOne = arr => arr[Math.floor(Math.random() * arr.length)];
@@ -345,6 +345,10 @@ const pickOne = arr => arr[Math.floor(Math.random() * arr.length)];
 function botChoice(p, prompt) {
   const living = prompt.targets;
   if (prompt.decoy) return [pickOne(living).id];
+  // An optional ability (Professor targeting the dead, most commonly) can
+  // legitimately have nothing to choose from — pass, same as a real player
+  // would, rather than crashing on an empty pick.
+  if (!living.length) return [];
 
   const evilIds = new Set(
     game.players.filter(x => {
@@ -403,20 +407,25 @@ function botsAnswer() {
     const prompt = E.promptFor(game, p);
     if (!prompt || game.pending[p.id]) continue;
     const targets = botChoice(p, prompt);
-    if (targets.length === prompt.count) {
-      game.pending[p.id] = { targets, decoy: !!prompt.decoy };
+    const countOk = targets.length === prompt.count || (prompt.optional && targets.length === 0);
+    if (countOk) {
+      const characterGuess = prompt.guessCharacter ? pickOne(prompt.characterOptions).id : undefined;
+      game.pending[p.id] = { targets, decoy: !!prompt.decoy, characterGuess };
     }
   }
   pushAll();
 }
 
-function startSimulation({ players = 9, speed = 5 } = {}) {
+function startSimulation({ players = 9, speed = 5, script = 'tb' } = {}) {
   clearTimeout(windowTimer);
   clearTimeout(simTimer);
   playerStreams.clear();
 
   game = E.newGame();
   game.simulation = true;
+  // Sects & Violets has no character logic yet — same restriction as a real
+  // game's script picker, so a bad value here can't silently deal it.
+  game.script = ['tb', 'bmr'].includes(script) ? script : 'tb';
   game.config.windowSeconds = speed;
   game.config.wave2Seconds = Math.max(2, Math.round(speed / 2));
   game.simSpeed = speed;
@@ -874,7 +883,14 @@ const server = http.createServer(async (req, res) => {
         if (!valid || !countOk) {
           return json(res, 400, { error: 'Invalid selection.' });
         }
-        game.pending[p.id] = { targets, decoy: !!prompt.decoy };
+        let characterGuess;
+        if (prompt.guessCharacter) {
+          if (targets.length && !prompt.characterOptions.some(c => c.id === body.characterGuess)) {
+            return json(res, 400, { error: 'Invalid character guess.' });
+          }
+          characterGuess = body.characterGuess;
+        }
+        game.pending[p.id] = { targets, decoy: !!prompt.decoy, characterGuess };
         pushPlayer(p.id);
         pushHost();
         return json(res, 200, { ok: true });
@@ -906,7 +922,7 @@ const server = http.createServer(async (req, res) => {
             E.logEvent(game, `${p.name} fired their shot at ${target.name} — somehow, the Demon survives.`);
           } else {
             target.alive = false;
-            game.deaths.push({ night: game.nightNumber, name: target.name, cause: 'slayer' });
+            game.deaths.push({ night: game.nightNumber, name: target.name, cause: 'slayer', killedByDemon: false });
             E.logEvent(game, `${p.name} fired their shot at ${target.name} — the Demon falls.`);
             E.triggerMoonchildIfNeeded(game, target);
             E.succeedDemon(game, target);
@@ -916,6 +932,58 @@ const server = http.createServer(async (req, res) => {
         }
         if (!finishIfOver()) pushAll();
         return json(res, 200, { ok: true, hit });
+      }
+
+      if (route === '/api/gossip-claim') {
+        // "Each day, you MAY make a public statement" — a structured stand-in
+        // for that statement (see game/ABILITY_PATTERNS.md, Bucket 3): the
+        // claim's truth is a real fact the engine checks now, at the moment
+        // it's made, and freezes for tonight — never revealed to the Gossip
+        // either way, so there's nothing here that leaks it back to them.
+        const p = E.byToken(game, body.token);
+        if (!p) return json(res, 404, { error: 'Unknown player.' });
+        if (p.bot) return json(res, 409, { error: 'This seat is bot-controlled.' });
+        if (game.phase !== 'day') return json(res, 409, { error: 'Only during the day.' });
+        const believed = E.char(p.believedId);
+        if (!believed || believed.id !== 'gossip') return json(res, 409, { error: 'Nothing to claim.' });
+        if (p.statuses.gossipClaimDay === game.nightNumber) return json(res, 409, { error: 'Already made a statement today.' });
+        let isTrue;
+        if (body.claimType === 'team') {
+          const target = E.byId(game, body.targetId);
+          if (!target) return json(res, 400, { error: 'Invalid target.' });
+          if (!['good', 'evil'].includes(body.claimValue)) return json(res, 400, { error: 'Invalid claim.' });
+          isTrue = E.isEvil(game, target, { forRegistration: true }) === (body.claimValue === 'evil');
+        } else if (body.claimType === 'character') {
+          const target = E.byId(game, body.targetId);
+          if (!target) return json(res, 400, { error: 'Invalid target.' });
+          if (!E.scriptPool(game.script).some(c => c.id === body.claimValue)) return json(res, 400, { error: 'Invalid claim.' });
+          isTrue = target.characterId === body.claimValue;
+        } else if (body.claimType === 'atleast') {
+          // "At least N among {a chosen set} are {good|evil}" — a richer,
+          // still fully deterministic template (see ABILITY_PATTERNS.md):
+          // more expressive than a single-player claim, but the truth is
+          // still a plain count against ground truth, nothing fuzzy.
+          if (!['good', 'evil'].includes(body.claimValue)) return json(res, 400, { error: 'Invalid claim.' });
+          const ids = Array.isArray(body.targetIds) ? [...new Set(body.targetIds)] : [];
+          const targets = ids.map(id => E.byId(game, id)).filter(Boolean);
+          if (targets.length < 2 || targets.length !== ids.length) return json(res, 400, { error: 'Choose at least two distinct players.' });
+          const threshold = Number(body.threshold);
+          if (!Number.isInteger(threshold) || threshold < 1 || threshold > targets.length) {
+            return json(res, 400, { error: 'Invalid threshold.' });
+          }
+          const matchCount = targets.filter(t => E.isEvil(game, t, { forRegistration: true }) === (body.claimValue === 'evil')).length;
+          isTrue = matchCount >= threshold;
+        } else {
+          return json(res, 400, { error: 'Invalid claim type.' });
+        }
+        if (E.impaired(p)) isTrue = false;
+
+        p.statuses.gossipClaimDay = game.nightNumber;
+        p.statuses.gossipClaimTrue = isTrue;
+        E.logEvent(game, `${p.name} makes a public statement.`, true);
+        pushPlayer(p.id);
+        pushHost();
+        return json(res, 200, { ok: true });
       }
 
       if (route === '/api/moonchild-choice') {
@@ -942,7 +1010,7 @@ const server = http.createServer(async (req, res) => {
             E.logEvent(game, `${p.name}'s Moonchild choice falls on ${target.name}, who survives.`);
           } else {
             target.alive = false;
-            game.deaths.push({ night: game.nightNumber, name: target.name, cause: 'moonchild' });
+            game.deaths.push({ night: game.nightNumber, name: target.name, cause: 'moonchild', killedByDemon: false });
             E.logEvent(game, `${p.name}'s Moonchild choice kills ${target.name}.`);
             E.triggerMoonchildIfNeeded(game, target);
             E.succeedDemon(game, target);
@@ -986,7 +1054,7 @@ const server = http.createServer(async (req, res) => {
               E.logEvent(game, `${nominator.name} nominated the Virgin and should have been executed immediately, but survives.`);
             } else {
               nominator.alive = false;
-              game.deaths.push({ night: game.nightNumber, name: nominator.name, cause: 'virgin' });
+              game.deaths.push({ night: game.nightNumber, name: nominator.name, cause: 'virgin', killedByDemon: false });
               E.logEvent(game, `${nominator.name} nominated the Virgin and was executed immediately.`);
               E.succeedDemon(game, nominator);
             }
@@ -1111,7 +1179,7 @@ const server = http.createServer(async (req, res) => {
       }
 
       if (route === '/api/sim/start') {
-        startSimulation({ players: Number(body.players) || 9, speed: Number(body.speed) || 5 });
+        startSimulation({ players: Number(body.players) || 9, speed: Number(body.speed) || 5, script: body.script });
         return json(res, 200, { ok: true });
       }
 

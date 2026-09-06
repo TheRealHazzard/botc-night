@@ -165,6 +165,7 @@ button:disabled{opacity:.35; cursor:not-allowed}
     <button id="modeTV">TV view</button>
   </span>
   <select id="focus" hidden></select>
+  <label>Script <select id="simScript"><option value="tb">Trouble Brewing</option><option value="bmr">Bad Moon Rising</option></select></label>
   <label>Players <input type="number" id="players" min="5" max="15" value="9"></label>
   <label>Night <input type="number" id="speed" min="2" max="60" value="6">s</label>
   <button class="primary" id="run">Run a game</button>
@@ -532,7 +533,8 @@ function connect() {
 document.getElementById('run').onclick = () => {
   const players = Number(document.getElementById('players').value) || 9;
   const speed = Number(document.getElementById('speed').value) || 6;
-  post('/api/sim/start', { players, speed }).then(() => connect());
+  const script = document.getElementById('simScript').value;
+  post('/api/sim/start', { players, speed, script }).then(() => connect());
 };
 document.getElementById('pause').onclick = () => post('/api/sim/pause');
 document.getElementById('modeObserver').onclick = () => setMode('observer');
