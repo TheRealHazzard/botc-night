@@ -1,0 +1,14 @@
+{
+  "name": "botc-night",
+  "version": "0.1.0",
+  "private": true,
+  "description": "An AI Storyteller for Blood on the Clocktower — runs the night, leaves the day to the humans.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "sim": "node tools/simulate.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

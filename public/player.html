@@ -1,0 +1,1076 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<title>Your Seat</title>
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#0a0806">
+<link rel="icon" href="/icons/icon-32.png">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Clocktower">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700&family=Cormorant+Garamond:wght@600;700&family=Spectral:ital,wght@0,400;0,500;1,400&family=Space+Mono:wght@700&display=swap">
+<style>
+:root{
+  --void:#0a0806; --ash:#151009; --smoke:#241b12;
+  --bone:#e8dcc4; --bone-dim:#93866c;
+  --oxblood:#8e2226; --ember:#c4553a; --brass:#b8863f;
+  --good:#4c6d8f; --evil:#8e2226;
+  /* A player's chosen color re-brands their own wordmark and primary
+     actions only — never the good/evil semantic colors above, so a purple
+     accent pick can never be mistaken for a team indicator. */
+  --personal-accent: var(--oxblood);
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+body{
+  margin:0; min-height:100vh; background:var(--void); color:var(--bone);
+  font-family:'Spectral',Georgia,serif; font-size:17px; line-height:1.5;
+  /* viewport-fit=cover (needed for a full-screen home-screen app) lets
+     content run under the Dynamic Island / notch / home indicator — these
+     env() values are how iOS reports how much to pad back. They're 0 on
+     anything without a cutout, so this is a no-op everywhere else. */
+  padding-top: calc(22px + env(safe-area-inset-top));
+  padding-left: calc(18px + env(safe-area-inset-left));
+  padding-right: calc(18px + env(safe-area-inset-right));
+  padding-bottom: calc(40px + env(safe-area-inset-bottom));
+  background-image:radial-gradient(ellipse at 50% -10%, #1b1209 0%, #0a0806 60%);
+}
+.topbar{display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:22px}
+h1{font-family:'Cinzel Decorative',Georgia,serif; font-size:1.15rem; color:var(--personal-accent); margin:0; letter-spacing:.05em}
+.scriptbtn{
+  width:auto; margin:0; padding:8px 14px; font-size:.82rem;
+  background:#191009; border:1px solid #3d2c1c; color:var(--bone-dim);
+}
+.scriptbtn:active{border-color:var(--brass); color:var(--brass)}
+
+.overlay{
+  position:fixed; inset:0; background:rgba(5,3,2,.86); z-index:20;
+  display:flex; align-items:flex-end; justify-content:center;
+}
+/* Setting display:flex above overrides the browser's own [hidden] handling —
+   author CSS always wins over that built-in rule, attribute or not — so
+   this has to be spelled out explicitly or the overlay never actually hides. */
+.overlay[hidden]{display:none}
+.overlay-card{
+  width:100%; max-width:520px; max-height:82vh;
+  background:var(--void); border:1px solid #3a2a1c; border-top-left-radius:14px; border-top-right-radius:14px;
+  box-shadow:0 -8px 30px rgba(0,0,0,.5);
+  /* A real flex column instead of a sticky header inside a padded scroll
+     box — Safari doesn't reliably respect a scroll container's own top
+     padding for position:sticky children, which is what pushed the header
+     down. This way the header simply isn't part of the scrolling area. */
+  display:flex; flex-direction:column; overflow:hidden;
+}
+.overlay-head{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:18px 18px 12px; flex-shrink:0; border-bottom:1px solid #241b12;
+}
+.overlay-head h2{margin:0}
+.overlay-scroll{
+  flex:1; min-height:0; overflow-y:auto;
+  -webkit-overflow-scrolling:touch;
+  /* Stops the scroll gesture "chaining" to the page behind the modal once
+     you hit the top or bottom of this list — the likely cause of scrolling
+     going dead, since iOS was handing the gesture off to the body. */
+  overscroll-behavior:contain;
+  padding:14px 18px calc(24px + env(safe-area-inset-bottom));
+}
+.scriptgroup{margin-bottom:16px}
+.scriptgroup-title{font-size:.7rem; text-transform:uppercase; letter-spacing:.18em; color:var(--bone-dim); margin-bottom:8px}
+.scriptchar{border:1px solid #2e2117; border-radius:4px; padding:10px 12px; margin-bottom:8px}
+.scriptchar .row{display:flex; align-items:center; justify-content:space-between; gap:8px}
+.scriptchar .cname{font-family:'Cormorant Garamond',Georgia,serif; font-weight:700; font-size:1.05rem}
+.scriptchar .ability{font-size:.88rem; margin-top:4px; color:var(--bone-dim)}
+h2{font-family:'Cormorant Garamond',Georgia,serif; font-size:1.5rem; margin:0 0 8px; text-wrap:balance}
+.dim{color:var(--bone-dim)}
+.small{font-size:.85rem}
+.card{border:1px solid #2e2117; background:#120d08; border-radius:4px; padding:18px; margin-bottom:14px}
+
+input,button{font-family:inherit; font-size:1.05rem}
+input[type=text]{
+  width:100%; padding:14px; background:#0d0906; color:var(--bone);
+  border:1px solid #3a2a1c; border-radius:3px;
+}
+button{
+  width:100%; padding:15px; margin-top:10px; cursor:pointer;
+  background:#191009; color:var(--bone); border:1px solid #3d2c1c; border-radius:3px;
+  font-family:'Cormorant Garamond',Georgia,serif; font-weight:600; letter-spacing:.03em;
+}
+button.primary{background:var(--personal-accent); border-color:var(--personal-accent); color:#fff2e8}
+button:disabled{opacity:.35}
+button.linklike{
+  width:auto; background:none; border:none; padding:6px 2px; margin-top:14px;
+  color:var(--bone-dim); font-size:.85rem; text-decoration:underline; text-underline-offset:3px;
+}
+a.linklike-a{
+  display:block; width:fit-content; margin-top:10px;
+  color:var(--bone-dim); font-size:.82rem; text-decoration:underline; text-underline-offset:3px;
+}
+
+.pickergrid{display:grid; grid-template-columns:repeat(auto-fill,minmax(128px,1fr)); gap:10px; margin:14px 0}
+.playercard{
+  border:1px solid #2e2117; background:#120d08; border-radius:6px; padding:14px 10px;
+  text-align:center; cursor:pointer; transition:border-color .15s, transform .1s;
+}
+.playercard:hover{border-color:var(--brass)}
+.playercard:active{transform:scale(.97)}
+.avatar{
+  width:50px; height:50px; border-radius:50%; margin:0 auto 8px;
+  display:flex; align-items:center; justify-content:center;
+  font-family:'Cinzel Decorative',Georgia,serif; font-size:1.2rem; color:var(--bone);
+  border:2px solid rgba(184,134,63,.45);
+}
+.playercard .pname{font-family:'Cormorant Garamond',Georgia,serif; font-weight:700; font-size:1.05rem; line-height:1.2; overflow-wrap:break-word}
+.playercard .pgames{font-size:.68rem; color:var(--bone-dim); margin:2px 0 8px}
+.playercard .prates{display:flex; gap:5px}
+.playercard .rate{flex:1; border-radius:10px; padding:3px 0; font-size:.72rem; font-weight:700; font-family:'Space Mono',monospace}
+.playercard .rate.good{background:#1c2c3c; color:#9dbdd9}
+.playercard .rate.evil{background:#361316; color:#e0a09c}
+
+.colorgrid{display:grid; grid-template-columns:repeat(auto-fill,minmax(92px,1fr)); gap:8px; margin:14px 0}
+.swatch{
+  border-radius:6px; padding:16px 6px; min-height:44px; text-align:center; cursor:pointer;
+  border:2px solid rgba(255,255,255,.14); display:flex; align-items:center; justify-content:center;
+}
+.swatch-name{font-size:.68rem; font-weight:700; color:#fff; text-shadow:0 1px 3px rgba(0,0,0,.7); line-height:1.25}
+.swatch.taken{opacity:.3; cursor:not-allowed; filter:grayscale(.7)}
+:focus-visible{outline:2px solid var(--brass); outline-offset:2px}
+
+.hold{
+  border:1px dashed #4a3722; background:#0d0906; border-radius:4px; padding:34px 18px;
+  text-align:center; color:var(--bone-dim); user-select:none; cursor:pointer;
+}
+.role{text-align:center; padding:22px 16px}
+.token{
+  width:150px; height:150px; border-radius:50%; object-fit:cover; display:block;
+  margin:0 auto 12px; border:2px solid #3d2c1c; background:#0d0906;
+}
+.role .name{font-family:'Cormorant Garamond',Georgia,serif; font-size:2rem; font-weight:700}
+.role .team{display:inline-block; font-size:.72rem; text-transform:uppercase; letter-spacing:.16em; padding:4px 12px; border-radius:20px; margin:8px 0}
+.team.good{background:#1c2c3c; color:#9dbdd9}
+.team.evil{background:#361316; color:#e0a09c}
+.role .ability{margin-top:10px; font-style:italic}
+
+.targets{display:flex; flex-direction:column; gap:8px; margin-top:14px}
+.target{
+  padding:14px 16px; border:2px solid #3a2a1c; border-radius:3px; background:#0d0906;
+  text-align:left; margin:0; width:100%;
+  display:flex; align-items:center; justify-content:space-between; gap:10px;
+}
+/* Border color is set inline per-button from that player's own assigned
+   color (falling back to the default above when they don't have one) — so
+   choosing someone matches how they already look everywhere else: their
+   ring dot, their avatar. Selecting just thickens it and fills the
+   background, rather than overwriting the identity color with a generic
+   "selected" one at exactly the moment it's most useful to still see. */
+.target.on{background:#22100f; color:#fff; border-width:3px}
+.target .icon{width:16px; height:16px; flex-shrink:0; opacity:.7}
+
+.clock{
+  font-family:'Cinzel Decorative',Georgia,serif; font-size:2.6rem; text-align:center;
+  color:var(--oxblood); font-variant-numeric:tabular-nums;
+}
+.clock.urgent{color:var(--ember)}
+.result{border-left:2px solid var(--brass); padding:14px 18px; background:#110c07}
+.result .title{font-family:'Cormorant Garamond',Georgia,serif; font-weight:700; font-size:1.25rem; color:var(--brass)}
+.result ul{margin:8px 0 0; padding-left:20px}
+.dead-banner{border:1px solid var(--brass); color:var(--brass); padding:12px; text-align:center; border-radius:3px; margin-bottom:14px}
+.dead-banner.spent{border-color:#3a2a1c; color:var(--bone-dim)}
+
+.ghosttoggle{
+  display:flex; align-items:center; gap:10px; padding:13px 14px; margin:14px 0 0;
+  border:1px solid #3a2a1c; border-radius:4px; background:#0d0906; cursor:pointer; color:var(--bone-dim);
+}
+.ghosttoggle.on{border-color:var(--brass); background:#1a1206; color:var(--brass)}
+.ghosttoggle svg{width:22px; height:22px; flex-shrink:0}
+.votebtns{display:flex; gap:10px; margin-top:14px}
+.votebtn{flex:1; padding:18px; font-size:1.1rem; margin-top:0}
+.votebtn.yes.on{border-color:var(--oxblood); background:#2a1210; color:#fff}
+.votebtn.no.on{border-color:#3d6b4a; background:#122016; color:#bfe3c9}
+.votelocked{text-align:center; padding:8px 4px}
+
+.reveal-overlay{
+  position:fixed; inset:0; z-index:40;
+  display:flex; align-items:center; justify-content:center; flex-direction:column; gap:16px;
+  color:#fff; text-align:center; padding:24px;
+}
+.reveal-overlay[hidden]{display:none}
+.reveal-overlay.yes{background:var(--oxblood)}
+.reveal-overlay.no{background:#1e6b45}
+.reveal-overlay.none{background:#050403}
+.reveal-overlay .revealword{font-family:'Cinzel Decorative',Georgia,serif; font-size:2.6rem; letter-spacing:.06em}
+.reveal-overlay .revealsub{font-size:.95rem; opacity:.8}
+.watch-banner{
+  border:1px dashed #4a3722; color:var(--bone-dim); padding:10px 14px;
+  text-align:center; border-radius:3px; margin-bottom:14px; font-size:.85rem;
+}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <h1>The Clocktower Wakes</h1>
+  <button id="scriptBtn" class="scriptbtn" type="button">The script</button>
+</div>
+<div id="app"></div>
+
+<div id="voteReveal" class="reveal-overlay" hidden></div>
+
+<div id="scriptOverlay" class="overlay" hidden>
+  <div class="overlay-card">
+    <div class="overlay-head">
+      <h2 id="scriptTitle">The script</h2>
+      <button id="scriptClose" class="linklike" type="button">Close</button>
+    </div>
+    <div class="overlay-scroll">
+      <div id="scriptBody"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+let P = null;
+let token = localStorage.getItem('botc-player-token');
+let picked = [];
+// Guards the timeout fallback below from firing twice for the same prompt —
+// reset alongside `picked` whenever a genuinely new prompt cycle begins.
+let autoSubmitted = false;
+let slayerTarget = null;
+let moonchildTarget = null;
+let revealed = false;
+let TOKENS = {};
+
+// The vote UI outlives the server's own voteRequest field — once the window
+// closes (or a ghost's one vote is spent), the server correctly stops
+// offering it, but the phone still needs the nominee's name and the
+// player's own choice to run the "locked in, reveal when ready" beat. So
+// this is tracked locally, keyed by nomination id, independent of P.
+let activeVote = null; // null | { nominationId, nomineeName, isGhostVote, windowEndsAt, myChoice, stage }
+let ghostVoteEnabled = false;
+let voteRevealTimer = null;
+
+function ghostIcon() {
+  const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  s.setAttribute('viewBox', '0 0 24 24');
+  s.setAttribute('fill', 'none');
+  s.setAttribute('stroke', 'currentColor');
+  s.setAttribute('stroke-width', '1.6');
+  s.setAttribute('stroke-linecap', 'round');
+  s.setAttribute('stroke-linejoin', 'round');
+  s.innerHTML = '<path d="M6 20V11a6 6 0 0 1 12 0v9l-2.2-1.6L14 20l-2-1.6L10 20l-1.8-1.6L6 20Z"/>' +
+    '<circle cx="9.6" cy="10.6" r=".9" fill="currentColor" stroke="none"/>' +
+    '<circle cx="14.4" cy="10.6" r=".9" fill="currentColor" stroke="none"/>';
+  return s;
+}
+
+/** Picks up a newly-opened nomination the moment the server offers one, and
+    leaves everything alone otherwise — this is the only place activeVote is
+    created, so the reveal flow below always has a stable snapshot to work
+    from even after the server's own field goes away. */
+function syncActiveVote() {
+  if (activeVote && P.phase !== 'day') {
+    // Night fell (or the game moved on) before this got revealed — the
+    // moment's passed, don't leave a stale full-screen overlay lying around.
+    clearTimeout(voteRevealTimer);
+    activeVote = null;
+    document.getElementById('voteReveal').hidden = true;
+    document.body.style.overflow = '';
+    return;
+  }
+  const vr = P.voteRequest;
+  if (vr && (!activeVote || activeVote.nominationId !== vr.nominationId)) {
+    activeVote = {
+      nominationId: vr.nominationId, nomineeName: vr.nomineeName,
+      windowEndsAt: vr.windowEndsAt, isGhostVote: vr.isGhostVote,
+      myChoice: null, stage: 'voting',
+    };
+    ghostVoteEnabled = false;
+    clearTimeout(voteRevealTimer);
+  }
+}
+
+function showVoteReveal(choice) {
+  const overlay = document.getElementById('voteReveal');
+  overlay.className = 'reveal-overlay ' + (choice === 'yes' ? 'yes' : choice === 'no' ? 'no' : 'none');
+  overlay.innerHTML = '';
+  overlay.append(
+    el('div', 'revealword', choice === 'yes' ? 'YES' : choice === 'no' ? 'NO' : 'NO VOTE'),
+    el('div', 'revealsub', activeVote ? `on ${activeVote.nomineeName}` : ''),
+  );
+  overlay.hidden = false;
+  document.body.style.overflow = 'hidden';
+  clearTimeout(voteRevealTimer);
+  voteRevealTimer = setTimeout(hideVoteReveal, 5000);
+}
+
+function hideVoteReveal() {
+  clearTimeout(voteRevealTimer);
+  document.getElementById('voteReveal').hidden = true;
+  document.body.style.overflow = '';
+  activeVote = null; // the whole cycle for this nomination is done
+  ghostVoteEnabled = false;
+  render();
+}
+
+/** Character art if it exists on this machine, otherwise nothing — the text
+    treatment stands on its own. */
+function tokenImage(characterId) {
+  const src = TOKENS[characterId];
+  if (!src) return null;
+  const img = document.createElement('img');
+  img.className = 'token';
+  img.src = src;
+  img.alt = '';
+  img.onerror = () => img.remove();
+  return img;
+}
+
+const el = (t, c, x) => { const n = document.createElement(t); if (c) n.className = c; if (x != null) n.textContent = x; return n; };
+/** A "choose a player" button's border is that player's own assigned
+    color, same identity cue as their ring dot everywhere else. A ghost
+    icon marks a dead player — shown only where the ability's own target
+    list actually includes them (Fortune Teller, Ravenkeeper, Professor),
+    since every other ability's list already excludes the dead entirely. */
+const targetButton = (t, selected) => {
+  const b = el('button', 'target' + (selected ? ' on' : ''));
+  b.append(el('span', null, t.name));
+  if (t.alive === false) {
+    const icon = ghostIcon();
+    icon.classList.add('icon');
+    b.append(icon);
+  }
+  if (t.color) b.style.borderColor = t.color.hex;
+  return b;
+};
+
+function post(url, body) {
+  return fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body || {}),
+  }).then(r => r.json());
+}
+
+/** Shared by the Lock in button, the Pass button, and the timeout fallback
+    below — success clears the local selection, an error leaves it in place
+    so the caller can re-enable its own button without losing the choice. */
+function submitPromptTargets(targets) {
+  return post('/api/action', { token, targets }).then(r => {
+    if (!r.error) picked = [];
+    return r;
+  });
+}
+
+/** A window that closes on a player who never locked in shouldn't just
+    quietly skip their character for the night — fill in whatever they'd
+    already picked, then fill any remaining slots at random, so the ability
+    always actually fires. Guarded by autoSubmitted so this only ever fires
+    once per prompt, reset alongside `picked` when a new one opens. */
+function maybeAutoSubmitPrompt() {
+  if (autoSubmitted) return;
+  if (!P || P.phase !== 'night' || !P.prompt || P.watching || P.submitted) return;
+  if (!P.windowEndsAt || Date.now() < P.windowEndsAt) return;
+  autoSubmitted = true;
+  const need = P.prompt.count - picked.length;
+  if (need > 0) {
+    const pool = P.prompt.targets.filter(t => !picked.includes(t.id));
+    for (let i = 0; i < need && pool.length; i++) {
+      picked.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0].id);
+    }
+  }
+  submitPromptTargets(picked);
+}
+
+function buzz(ms) { if (navigator.vibrate) navigator.vibrate(ms); }
+
+/* A phone that locks itself mid-window makes a player silently miss their
+   turn — the game has no way to tell them apart from someone deliberately
+   not answering. Hold the screen awake while it matters, nothing more. */
+let wakeLock = null;
+async function acquireWakeLock() {
+  if (!('wakeLock' in navigator) || wakeLock) return;
+  try {
+    wakeLock = await navigator.wakeLock.request('screen');
+    wakeLock.addEventListener('release', () => { wakeLock = null; });
+  } catch (e) { wakeLock = null; }
+}
+function releaseWakeLock() {
+  if (wakeLock) wakeLock.release().catch(() => {});
+  wakeLock = null;
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && P && P.phase === 'night') acquireWakeLock();
+});
+
+/* ------------------------------------------------------------- joining */
+
+/* A deterministic badge so returning players are visually distinct without
+   any photo — same name always lands on the same color and initial. */
+const AVATAR_COLORS = ['#6e2126', '#5c4c26', '#2c4258', '#3d2a4a', '#1f4a3d', '#4a3524', '#8e2226', '#3c5875'];
+function avatarColor(name) {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) | 0;
+  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+}
+function avatarNode(name, color) {
+  const a = el('div', 'avatar', (name[0] || '?').toUpperCase());
+  a.style.background = color ? color.hex : avatarColor(name);
+  return a;
+}
+
+function doJoin(name, onError) {
+  post('/api/join', { name }).then(r => {
+    if (r.error) { onError ? onError(r.error) : renderJoin(r.error); return; }
+    token = r.token;
+    localStorage.setItem('botc-player-token', token);
+    connect();
+  });
+}
+
+function renderJoin(message) {
+  // A running simulation occupies the one live game, so a real join isn't
+  // possible anyway right now — offer to watch it instead of letting
+  // someone hit a confusing "already started" error.
+  fetch('/api/sim/seats').then(r => r.json()).then(seats => {
+    if (seats.length) renderSimPicker(seats); else renderRealJoin(message);
+  }).catch(() => renderRealJoin(message));
+}
+
+function renderSimPicker(seats) {
+  const app = document.getElementById('app');
+  app.innerHTML = '';
+  const card = el('div', 'card');
+  card.append(
+    el('h2', null, 'A simulation is running'),
+    el('p', 'dim small', "Pick a seat to see exactly what that player's phone would show. Bots make every decision here — there's nothing for you to tap."),
+  );
+  const grid = el('div', 'pickergrid');
+  seats.forEach(s => {
+    const pc = el('div', 'playercard');
+    if (!s.alive) pc.style.opacity = '.55';
+    pc.append(avatarNode(s.name));
+    pc.append(el('div', 'pname', s.name));
+    pc.append(el('div', 'pgames', s.character || (s.alive ? 'not yet dealt' : 'dead')));
+    pc.onclick = () => {
+      token = s.token;
+      localStorage.setItem('botc-player-token', token);
+      connect();
+    };
+    grid.append(pc);
+  });
+  card.append(grid);
+  const refresh = el('button', 'linklike', 'Check again for a real game');
+  refresh.onclick = () => renderJoin();
+  card.append(refresh);
+  app.append(card);
+}
+
+function renderRealJoin(message) {
+  const app = document.getElementById('app');
+  app.innerHTML = '';
+  const card = el('div', 'card');
+  card.append(el('h2', null, 'Who\'s playing?'));
+  if (message) card.append(el('p', 'dim small', message));
+
+  const grid = el('div', 'pickergrid');
+  card.append(grid);
+  fetch('/api/profiles').then(r => r.json()).then(profiles => {
+    if (!profiles.length) return;
+    profiles.forEach(p => {
+      const pc = el('div', 'playercard');
+      pc.append(avatarNode(p.name, p.color));
+      pc.append(el('div', 'pname', p.name));
+      pc.append(el('div', 'pgames', `${p.gamesPlayed} game${p.gamesPlayed === 1 ? '' : 's'}`));
+      const rates = el('div', 'prates');
+      rates.append(
+        el('div', 'rate good', p.goodWinRate == null ? '—' : Math.round(p.goodWinRate * 100) + '%'),
+        el('div', 'rate evil', p.evilWinRate == null ? '—' : Math.round(p.evilWinRate * 100) + '%'),
+      );
+      pc.append(rates);
+      pc.onclick = () => { pc.style.opacity = '.5'; doJoin(p.name, err => { pc.style.opacity = '1'; renderJoin(err); }); };
+      grid.append(pc);
+    });
+  }).catch(() => {});
+
+  card.append(el('p', 'dim small', 'New player? Type your name below.'));
+
+  const input = el('input');
+  input.type = 'text';
+  input.placeholder = 'Your name';
+  input.maxLength = 24;
+  const go = el('button', 'primary', 'Sit down');
+  const submit = () => {
+    const name = input.value.trim();
+    if (!name) return;
+    go.disabled = true;
+    // Look up first — joining creates a real seat, and we don't want to
+    // create one just to abandon it if this turns out to be the wrong name
+    // (someone typing an existing card's name instead of tapping it).
+    fetch('/api/profile?name=' + encodeURIComponent(name)).then(r => r.json()).then(r => {
+      // Anyone without a color yet gets offered one here — not just a
+      // brand-new name. Most real profiles predate this feature, or the
+      // player tapped "Skip for now" once; either way they'd otherwise
+      // never see the picker again.
+      if (r.found && !r.color) {
+        renderColorPicker(name, color => (r.stats && r.stats.gamesPlayed)
+          ? renderWelcomeBack(name, r.stats, color)
+          : doJoin(name, err => { go.disabled = false; renderJoin(err); }));
+        return;
+      }
+      if (r.found && r.stats && r.stats.gamesPlayed) { renderWelcomeBack(name, r.stats, r.color); return; }
+      if (r.found) { doJoin(name, err => { go.disabled = false; renderJoin(err); }); return; }
+      renderColorPicker(name); // a name nobody's used before — offer a color before the seat exists
+    }).catch(() => doJoin(name, err => { go.disabled = false; renderJoin(err); }));
+  };
+  go.onclick = submit;
+  input.onkeydown = e => { if (e.key === 'Enter') submit(); };
+  card.append(input, go);
+
+  const switchLink = el('button', 'linklike', 'Already seated on another device? Reclaim your seat');
+  switchLink.onclick = () => renderReclaimPicker();
+  card.append(switchLink);
+
+  const statsLink = el('a', 'linklike-a', 'Check your stats without joining');
+  statsLink.href = '/stats';
+  card.append(statsLink);
+
+  const gamesLink = el('a', 'linklike-a', 'Browse game history');
+  gamesLink.href = '/games';
+  card.append(gamesLink);
+
+  app.append(card);
+  input.focus();
+}
+
+/* -------------------------------------------------- choosing a color, once */
+
+function renderColorPicker(name, next) {
+  const proceed = color => (next ? next(color) : doJoin(name));
+  const app = document.getElementById('app');
+  app.innerHTML = '';
+  const card = el('div', 'card');
+  card.append(
+    el('h2', null, `Choose a color, ${name}.`),
+    el('p', 'dim small', 'Yours alone — no two players share one. Change it later from your stats page.'),
+  );
+
+  const grid = el('div', 'colorgrid');
+  card.append(grid);
+  fetch('/api/colors?name=' + encodeURIComponent(name)).then(r => r.json()).then(colors => {
+    colors.forEach(c => {
+      const sw = el('div', 'swatch' + (c.takenBy ? ' taken' : ''));
+      sw.style.background = c.hex;
+      sw.append(el('span', 'swatch-name', c.takenBy ? `${c.name} — ${c.takenBy}'s` : c.name));
+      if (!c.takenBy) {
+        sw.onclick = () => {
+          grid.querySelectorAll('.swatch').forEach(s => s.onclick = null);
+          post('/api/profile/color', { name, colorId: c.id }).then(r2 => {
+            if (r2.error) { renderColorPicker(name, next); return; }
+            proceed(r2.color);
+          });
+        };
+      }
+      grid.append(sw);
+    });
+  }).catch(() => {});
+
+  const skip = el('button', 'linklike', 'Skip for now');
+  skip.onclick = () => proceed(null);
+  card.append(skip);
+  app.append(card);
+}
+
+/* ---------------------------------------------- recognizing a returning player */
+
+function fmtPct(x) { return x == null ? '—' : Math.round(x * 100) + '%'; }
+
+function renderWelcomeBack(name, stats, color) {
+  const app = document.getElementById('app');
+  app.innerHTML = '';
+  const card = el('div', 'card');
+  card.append(avatarNode(name, color));
+  card.append(el('h2', null, `Welcome back, ${name}.`));
+
+  const line = el('p', null);
+  line.append(`${stats.gamesPlayed} game${stats.gamesPlayed === 1 ? '' : 's'} played · ${fmtPct(stats.winRate)} win rate`);
+  card.append(line);
+
+  if (stats.favoriteCharacter) {
+    card.append(el('p', 'dim small', `Most played: ${stats.favoriteCharacter.name} (${stats.favoriteCharacter.count}×)`));
+  }
+  if (stats.survivalRate != null) {
+    card.append(el('p', 'dim small', `Survives to the reveal ${fmtPct(stats.survivalRate)} of the time`));
+  }
+
+  const go = el('button', 'primary', 'Take my seat');
+  go.onclick = () => { go.disabled = true; doJoin(name); };
+  const notMe = el('button', 'linklike', 'Not me — use a different name');
+  notMe.onclick = () => renderJoin(); // no seat was ever created, nothing to undo
+  card.append(go, notMe);
+  app.append(card);
+}
+
+/* ---------------------------------------------------- reclaiming a seat */
+
+function renderReclaimPicker() {
+  const app = document.getElementById('app');
+  app.innerHTML = '';
+  const card = el('div', 'card');
+  card.append(el('h2', null, 'Reclaim your seat'), el('p', 'dim small', 'Pick your name. Someone at the table will need to approve it.'));
+
+  fetch('/api/roster').then(r => r.json()).then(roster => {
+    if (!roster.length) { card.append(el('p', 'dim', 'No one has taken a seat yet.')); return; }
+    roster.forEach(p => {
+      const b = el('button', null, p.name + (p.connected ? '' : '  ·  disconnected'));
+      b.onclick = () => requestReclaim(p.id, p.name);
+      card.append(b);
+    });
+  });
+
+  const back = el('button', 'linklike', 'Back');
+  back.onclick = () => renderJoin();
+  card.append(back);
+  app.append(card);
+}
+
+function requestReclaim(targetId, name) {
+  post('/api/reclaim/request', { targetId }).then(r => {
+    if (r.error) { renderReclaimPicker(); return; }
+    pollReclaim(r.requestId, name);
+  });
+}
+
+function pollReclaim(requestId, name) {
+  const app = document.getElementById('app');
+  app.innerHTML = '';
+  const card = el('div', 'card');
+  card.append(el('h2', null, 'Waiting…'), el('p', 'dim', `Asking the table to approve you as ${name}.`));
+  // A misclick on the wrong name in the roster is the common case here —
+  // this both tells the host to drop the request and puts the roster back
+  // up immediately, instead of dumping them back at the name field to
+  // start the whole "reclaim" flow over from scratch.
+  const notYou = el('button', 'linklike', 'Not you? Switch player');
+  notYou.onclick = () => {
+    clearInterval(poll);
+    post('/api/reclaim/cancel', { requestId }).then(() => renderReclaimPicker());
+  };
+  card.append(notYou);
+  app.append(card);
+
+  const poll = setInterval(() => {
+    fetch('/api/reclaim/status?requestId=' + encodeURIComponent(requestId))
+      .then(r => r.json())
+      .then(r => {
+        if (r.status === 'approved') {
+          clearInterval(poll);
+          token = r.token;
+          localStorage.setItem('botc-player-token', token);
+          connect();
+        } else if (r.status === 'denied') {
+          clearInterval(poll);
+          renderJoin('That request was denied. You can try again.');
+        }
+      })
+      .catch(() => {});
+  }, 1500);
+}
+
+/* -------------------------------------------------------------- secret */
+
+function holdToReveal(label, buildContent) {
+  const wrap = el('div');
+  const box = el('div', 'hold', label);
+  const show = () => {
+    wrap.innerHTML = '';
+    const content = buildContent();
+    const hide = el('button', null, 'Hide');
+    hide.onclick = () => { wrap.innerHTML = ''; wrap.append(box); };
+    wrap.append(content, hide);
+  };
+  box.addEventListener('pointerdown', show);
+  wrap.append(box);
+  return wrap;
+}
+
+/* -------------------------------------------------------------- render */
+
+function render() {
+  if (!P) return;
+  syncActiveVote();
+  const app = document.getElementById('app');
+  app.innerHTML = '';
+
+  if (P.watching) {
+    app.append(el('div', 'watch-banner',
+      `Watching a simulation as ${P.you.name}. Bots decide everything here — this phone can only look.`));
+  }
+
+  if (!P.you.alive) {
+    app.append(el('div', 'dead-banner' + (P.you.ghostVoteUsed ? ' spent' : ''),
+      P.you.ghostVoteUsed
+        ? 'You are dead and your vote is spent. You may still speak.'
+        : 'You are dead. You still have a voice, and one vote left.'));
+  }
+
+  // Who you are — always available, except mid-choice: with a target list,
+  // its clock, and a Lock in button already competing for the screen, this
+  // card was the difference between fitting and needing to scroll.
+  const choosingTarget = (P.phase === 'night' && P.prompt && !P.submitted) ||
+    !!P.moonchildChoice || (P.phase === 'day' && !!P.slayerShot);
+  if (!choosingTarget) {
+    const roleCard = el('div', 'card');
+    roleCard.append(holdToReveal('Hold to see who you are', () => {
+      const c = P.you.character;
+      const box = el('div', 'role');
+      if (!c) { box.append(el('p', 'dim', 'Roles have not been dealt.')); return box; }
+      const evil = c.team === 'minion' || c.team === 'demon';
+      const art = tokenImage(c.id);
+      if (art) box.append(art);
+      box.append(el('div', 'name', c.name));
+      box.append(el('div', 'team ' + (evil ? 'evil' : 'good'), c.team));
+      box.append(el('div', 'ability', c.ability));
+      return box;
+    }));
+    app.append(roleCard);
+  }
+
+  if (P.phase === 'lobby') {
+    const c = el('div', 'card');
+    c.append(el('h2', null, `Seated as ${P.you.name}`), el('p', 'dim', 'Waiting for the table to fill.'));
+    app.append(c);
+  }
+
+  if (P.phase === 'reveal') {
+    const c = el('div', 'card');
+    c.append(el('h2', null, 'Learn yourself'), el('p', 'dim', 'Hold the panel above. Show no one.'));
+    app.append(c);
+  }
+
+  if (P.phase === 'night' && P.prompt) {
+    const c = el('div', 'card');
+    const left = P.windowEndsAt ? Math.max(0, Math.ceil((P.windowEndsAt - Date.now()) / 1000)) : 0;
+    c.append(el('div', 'clock' + (left <= 10 ? ' urgent' : ''), String(left)));
+
+    if (P.submitted) {
+      c.append(el('h2', null, 'Answered.'),
+        el('p', 'dim', P.watching ? 'The bot has decided.' : 'Put the phone down. Keep your face still.'));
+    } else {
+      c.append(el('h2', null, P.prompt.text));
+      if (P.prompt.count > 1) c.append(el('p', 'dim small', `Choose ${P.prompt.count}.`));
+      const list = el('div', 'targets');
+      P.prompt.targets.forEach(t => {
+        const b = targetButton(t, picked.includes(t.id));
+        if (P.watching) {
+          b.disabled = true;
+        } else {
+          b.onclick = () => {
+            if (picked.includes(t.id)) picked = picked.filter(x => x !== t.id);
+            else if (picked.length < P.prompt.count) picked.push(t.id);
+            render();
+          };
+        }
+        list.append(b);
+      });
+      c.append(list);
+      if (P.watching) {
+        c.append(el('p', 'dim small', 'Waiting for the bot to choose…'));
+      } else {
+        // Names the exact choice in the button itself — the whole point is
+        // a beat to notice "wait, that's not who I meant" before it's sent.
+        const chosenNames = picked.map(id => {
+          const t = P.prompt.targets.find(x => x.id === id);
+          return t ? t.name : null;
+        }).filter(Boolean);
+        const ready = picked.length === P.prompt.count;
+        const go = el('button', 'primary', ready ? `Lock in ${chosenNames.join(' & ')}` : 'Lock in');
+        go.disabled = !ready;
+        go.onclick = () => {
+          go.disabled = true;
+          submitPromptTargets(picked).then(r => {
+            if (r.error) { alert(r.error); go.disabled = false; }
+          });
+        };
+        c.append(go);
+        if (P.prompt.optional) {
+          const pass = el('button', 'linklike', 'Pass — choose no one');
+          pass.onclick = () => {
+            go.disabled = true; pass.disabled = true;
+            submitPromptTargets([]).then(r => {
+              if (r.error) { alert(r.error); go.disabled = picked.length !== P.prompt.count; pass.disabled = false; }
+            });
+          };
+          c.append(pass);
+        }
+      }
+    }
+    app.append(c);
+  }
+
+  if (P.phase === 'night' && !P.prompt && P.you.alive) {
+    const c = el('div', 'card');
+    c.append(el('h2', null, 'Eyes closed.'), el('p', 'dim', 'Wait.'));
+    app.append(c);
+  }
+
+  if (P.result) {
+    const c = el('div', 'card');
+    c.append(holdToReveal('Hold to read what you were told', () => {
+      const box = el('div', 'result');
+      box.append(el('div', 'title', P.result.title));
+      box.append(el('p', null, P.result.body));
+      if (P.result.names && P.result.names.length) {
+        const ul = el('ul');
+        P.result.names.forEach(n => ul.append(el('li', null, n)));
+        box.append(ul);
+      }
+      if (P.result.grimoire) {
+        const ul = el('ul');
+        P.result.grimoire.forEach(g => ul.append(el('li', null,
+          `${g.name} — ${g.character}` +
+          (g.believedCharacter ? ` (believes: ${g.believedCharacter})` : '') +
+          (g.alive ? '' : ' (dead)') +
+          (g.statuses.length ? ' [' + g.statuses.join(', ') + ']' : ''))));
+        box.append(ul);
+      }
+      return box;
+    }));
+    app.append(c);
+  }
+
+  if (P.moonchildChoice) {
+    const c = el('div', 'card');
+    c.append(
+      el('h2', null, 'The Moonchild'),
+      el('p', 'dim small', 'You have died. Publicly choose a player — if they are good, they die alongside you. Announce it out loud before you tap Choose.'),
+    );
+    const list = el('div', 'targets');
+    P.moonchildChoice.targets.forEach(t => {
+      const b = targetButton(t, moonchildTarget === t.id);
+      b.onclick = () => { moonchildTarget = t.id; render(); };
+      list.append(b);
+    });
+    c.append(list);
+    const choose = el('button', 'primary', 'Choose');
+    choose.disabled = !moonchildTarget;
+    choose.onclick = () => {
+      choose.disabled = true;
+      post('/api/moonchild-choice', { token, targetId: moonchildTarget }).then(r => {
+        if (r.error) { alert(r.error); choose.disabled = false; return; }
+        moonchildTarget = null;
+      });
+    };
+    c.append(choose);
+    app.append(c);
+  }
+
+  if (activeVote && activeVote.stage !== 'revealed') {
+    if (activeVote.stage === 'voting' && Date.now() >= activeVote.windowEndsAt) {
+      activeVote.stage = 'locked';
+    }
+    const c = el('div', 'card');
+    if (activeVote.stage === 'locked') {
+      c.append(el('h2', null, 'Vote locked in.'));
+      const box = el('div', 'votelocked');
+      box.append(el('p', 'dim', `Say why you voted the way you did on ${activeVote.nomineeName}, then reveal it.`));
+      const reveal = el('button', 'primary', 'Reveal my vote');
+      reveal.onclick = () => {
+        activeVote.stage = 'revealed';
+        showVoteReveal(activeVote.myChoice);
+      };
+      box.append(reveal);
+      c.append(box);
+    } else {
+      const left = Math.max(0, Math.ceil((activeVote.windowEndsAt - Date.now()) / 1000));
+      c.append(el('div', 'clock' + (left <= 5 ? ' urgent' : ''), String(left)));
+      c.append(el('h2', null, `Vote: ${activeVote.nomineeName}`));
+
+      const castVote = choice => {
+        const wasGhost = activeVote.isGhostVote;
+        post('/api/table/vote', { token, vote: choice }).then(r => {
+          if (r.error) { alert(r.error); return; }
+          activeVote.myChoice = choice;
+          if (wasGhost) activeVote.stage = 'locked'; // a spent ghost vote can't be changed again
+          render();
+        });
+      };
+
+      if (activeVote.isGhostVote) {
+        const toggle = el('div', 'ghosttoggle' + (ghostVoteEnabled ? ' on' : ''));
+        toggle.append(ghostIcon(), el('span', null,
+          ghostVoteEnabled ? 'Ghost vote armed — this is your only one, ever.' : 'Use my one ghost vote to vote here'));
+        toggle.onclick = () => { ghostVoteEnabled = !ghostVoteEnabled; render(); };
+        c.append(toggle);
+      }
+
+      const btns = el('div', 'votebtns');
+      const yes = el('button', 'votebtn yes' + (activeVote.myChoice === 'yes' ? ' on' : ''), 'Yes');
+      const no = el('button', 'votebtn no' + (activeVote.myChoice === 'no' ? ' on' : ''), 'No');
+      const locked = activeVote.isGhostVote && !ghostVoteEnabled;
+      yes.disabled = locked;
+      no.disabled = locked;
+      yes.onclick = () => castVote('yes');
+      no.onclick = () => castVote('no');
+      btns.append(yes, no);
+      c.append(btns);
+    }
+    app.append(c);
+  }
+
+  if (P.phase === 'day' && P.slayerShot) {
+    const c = el('div', 'card');
+    c.append(
+      el('h2', null, "The Slayer's shot"),
+      el('p', 'dim small', 'Once per game. Publicly choose a player — if they are the Demon, they die. Announce it out loud before you tap Fire.'),
+    );
+    const list = el('div', 'targets');
+    P.slayerShot.targets.forEach(t => {
+      const b = targetButton(t, slayerTarget === t.id);
+      b.onclick = () => { slayerTarget = t.id; render(); };
+      list.append(b);
+    });
+    c.append(list);
+    const fire = el('button', 'primary', 'Fire');
+    fire.disabled = !slayerTarget;
+    fire.onclick = () => {
+      fire.disabled = true;
+      post('/api/slayer-shot', { token, targetId: slayerTarget }).then(r => {
+        if (r.error) { alert(r.error); fire.disabled = false; return; }
+        slayerTarget = null;
+      });
+    };
+    c.append(fire);
+    app.append(c);
+  } else if (P.phase === 'day' && !activeVote) {
+    const c = el('div', 'card');
+    c.append(el('h2', null, 'Daylight'), el('p', 'dim', 'Talk. Accuse. Decide. The phone has nothing more for you.'));
+    app.append(c);
+  }
+}
+
+/* ---------------------------------------------------------- connection */
+
+let lastPhaseKey = '';
+
+function applyPlayerState(data) {
+  P = data;
+  if (P.you.color) document.documentElement.style.setProperty('--personal-accent', P.you.color.hex);
+  const key = `${P.phase}:${P.nightNumber}:${P.wave}`;
+  if (key !== lastPhaseKey) {
+    lastPhaseKey = key;
+    picked = [];
+    autoSubmitted = false;
+    slayerTarget = null;
+    moonchildTarget = null;
+    if (P.phase === 'night') { buzz([90, 60, 90]); acquireWakeLock(); }
+    else releaseWakeLock();
+  }
+  render();
+}
+
+/** The polling fallback below — same state, fetched on a plain interval
+    instead of pushed. Also the one place a dead token gets noticed while
+    polling, mirroring the live connection's onerror check. */
+function pollPlayerState() {
+  fetch('/api/state?token=' + encodeURIComponent(token)).then(r => {
+    if (r.status === 404) { localStorage.removeItem('botc-player-token'); location.reload(); return null; }
+    return r.json();
+  }).then(data => { if (data) applyPlayerState(data); }).catch(() => {});
+}
+
+function connect() {
+  let liveMessageReceived = false;
+  const es = new EventSource('/events?token=' + encodeURIComponent(token));
+  es.onmessage = e => {
+    liveMessageReceived = true;
+    clearTimeout(fallbackTimer);
+    applyPlayerState(JSON.parse(e.data));
+  };
+  es.onerror = () => {
+    // Token no longer matches anyone server-side (new game, or the token was
+    // never valid) — clear it and start over rather than spin forever.
+    fetch('/events?token=' + encodeURIComponent(token)).then(r => {
+      if (r.status === 404) {
+        localStorage.removeItem('botc-player-token');
+        location.reload();
+      }
+    }).catch(() => {});
+  };
+  // A proxy sitting in front of this server (a tunnel, most likely) can
+  // hold this connection open without ever actually delivering anything —
+  // by that point the join itself already succeeded, so without this the
+  // screen would just sit frozen forever with no indication anything's
+  // wrong. If nothing real arrives quickly, fall back to plain polling.
+  const fallbackTimer = setTimeout(() => {
+    if (liveMessageReceived) return;
+    es.close();
+    pollPlayerState();
+    setInterval(pollPlayerState, 1500);
+  }, 4000);
+}
+
+setInterval(() => {
+  if (!P) return;
+  maybeAutoSubmitPrompt();
+  if (P.phase === 'night' || (activeVote && activeVote.stage === 'voting')) render();
+}, 1000);
+
+fetch('/api/tokens')
+  .then(r => r.json())
+  .then(t => { TOKENS = t; render(); })
+  .catch(() => {});
+
+/* ------------------------------------------------------------ the script */
+
+const EDITION_NAMES = { tb: 'Trouble Brewing', bmr: 'Bad Moon Rising', sv: 'Sects & Violets', custom: 'Custom script' };
+const TEAM_ORDER = ['townsfolk', 'outsider', 'minion', 'demon'];
+const TEAM_LABEL = { townsfolk: 'Townsfolk', outsider: 'Outsiders', minion: 'Minions', demon: 'Demons' };
+let scriptCache = null; // the roster doesn't change mid-game — fetch it once
+
+function closeScript() {
+  document.getElementById('scriptOverlay').hidden = true;
+  document.body.style.overflow = '';
+}
+
+function openScript() {
+  const overlay = document.getElementById('scriptOverlay');
+  const body = document.getElementById('scriptBody');
+  overlay.hidden = false;
+  // iOS can still let a scroll gesture reach the page behind a fixed
+  // overlay — locking the body while it's open is the standard guard, on
+  // top of overscroll-behavior on the list itself.
+  document.body.style.overflow = 'hidden';
+
+  const draw = data => {
+    document.getElementById('scriptTitle').textContent = EDITION_NAMES[data.edition] || data.edition;
+    body.innerHTML = '';
+    TEAM_ORDER.forEach(team => {
+      const list = data.characters.filter(c => c.team === team);
+      if (!list.length) return;
+      const group = el('div', 'scriptgroup');
+      group.append(el('div', 'scriptgroup-title', `${TEAM_LABEL[team]} (${list.length})`));
+      list.forEach(c => {
+        const card = el('div', 'scriptchar');
+        const row = el('div', 'row');
+        row.append(el('span', 'cname', c.name), el('span', 'team ' + (team === 'townsfolk' || team === 'outsider' ? 'good' : 'evil'), team));
+        card.append(row, el('div', 'ability', c.ability));
+        group.append(card);
+      });
+      body.append(group);
+    });
+  };
+
+  if (scriptCache) { draw(scriptCache); return; }
+  body.innerHTML = '';
+  body.append(el('p', 'dim small', 'Loading…'));
+  fetch('/api/script').then(r => r.json()).then(data => { scriptCache = data; draw(data); });
+}
+
+document.getElementById('scriptBtn').onclick = openScript;
+document.getElementById('scriptClose').onclick = closeScript;
+document.getElementById('scriptOverlay').onclick = e => { if (e.target.id === 'scriptOverlay') closeScript(); };
+
+if (token) connect(); else renderJoin();
+</script>
+</body>
+</html>

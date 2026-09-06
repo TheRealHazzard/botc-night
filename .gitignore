@@ -1,0 +1,19 @@
+node_modules/
+
+# Character art, script logos, and team badges are local-only (copyright),
+# except each folder's own naming guide. Nothing in the app depends on
+# these existing — every image is loaded with a graceful text/icon
+# fallback, so a fresh clone works immediately with none of this present.
+public/tokens/*
+!public/tokens/README.md
+public/scripts/*
+!public/scripts/README.md
+public/team-icons/*
+!public/team-icons/README.md
+
+# The raw asset dump these were sorted from — already copied into the
+# folders above, kept only as a local reference, never redistributed.
+public/BOTC Assets/
+
+# Player profiles and game history are this table's own data, not the app's
+data/
