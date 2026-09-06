@@ -93,6 +93,11 @@ input[type=text]{
   width:100%; padding:14px; background:#0d0906; color:var(--bone);
   border:1px solid #3a2a1c; border-radius:3px;
 }
+textarea.freetext{
+  width:100%; padding:14px; background:#0d0906; color:var(--bone);
+  border:1px solid #3a2a1c; border-radius:3px; font-family:inherit; font-size:1rem;
+  resize:vertical; min-height:5.5em; margin-top:10px;
+}
 button{
   width:100%; padding:15px; margin-top:10px; cursor:pointer;
   background:#191009; color:var(--bone); border:1px solid #3d2c1c; border-radius:3px;
@@ -243,7 +248,17 @@ let gossipClaimType = null;
 let gossipClaimValue = null;
 let gossipMultiTargets = [];
 let gossipThreshold = null;
+let gossipFreeText = ''; // the LLM-judged "say it in your own words" path
 let moonchildTarget = null;
+let klutzTarget = null;
+let jugglerGuesses = []; // [{playerId, characterGuess}], built up on the Juggler's first day
+let jugglerPickingFor = null; // the player currently being assigned a character guess
+let artistClaimType = null;
+let artistTarget = null;
+let artistClaimValue = null;
+let artistMultiTargets = [];
+let artistThreshold = null;
+let artistFreeText = '';
 let revealed = false;
 let TOKENS = {};
 
@@ -726,7 +741,8 @@ function render() {
   // its clock, and a Lock in button already competing for the screen, this
   // card was the difference between fitting and needing to scroll.
   const choosingTarget = (P.phase === 'night' && P.prompt && !P.submitted) ||
-    !!P.moonchildChoice || (P.phase === 'day' && (!!P.slayerShot || !!P.gossipClaim));
+    !!P.moonchildChoice || !!P.klutzChoice || !!P.madClaim ||
+    (P.phase === 'day' && (!!P.slayerShot || !!P.gossipClaim || !!P.jugglerGuess || !!P.savantVisit || !!P.artistQuestion));
   if (!choosingTarget) {
     const roleCard = el('div', 'card');
     roleCard.append(holdToReveal('Hold to see who you are', () => {
@@ -805,8 +821,11 @@ function render() {
           ? (P.prompt.characterOptions.find(x => x.id === guessedCharacter) || {}).name
           : null;
         const ready = picked.length === P.prompt.count && (!P.prompt.guessCharacter || guessedCharacter);
+        // A character-only choice (no player target at all — the
+        // Philosopher) has nothing in chosenNames; don't leave a dangling
+        // " — " with nothing before it.
         const label = ready
-          ? `Lock in ${chosenNames.join(' & ')}${guessName ? ` — ${guessName}` : ''}`
+          ? `Lock in ${[chosenNames.join(' & '), guessName].filter(Boolean).join(' — ')}`
           : 'Lock in';
         const go = el('button', 'primary', label);
         go.disabled = !ready;
@@ -886,6 +905,49 @@ function render() {
       });
     };
     c.append(choose);
+    app.append(c);
+  }
+
+  if (P.klutzChoice) {
+    const c = el('div', 'card');
+    c.append(
+      el('h2', null, 'The Klutz'),
+      el('p', 'dim small', 'You have died. Publicly choose a player right now — if they are evil, your team loses. Announce it out loud before you tap Choose.'),
+    );
+    const list = el('div', 'targets');
+    P.klutzChoice.targets.forEach(t => {
+      const b = targetButton(t, klutzTarget === t.id);
+      b.onclick = () => { klutzTarget = t.id; render(); };
+      list.append(b);
+    });
+    c.append(list);
+    const choose = el('button', 'primary', 'Choose');
+    choose.disabled = !klutzTarget;
+    choose.onclick = () => {
+      choose.disabled = true;
+      post('/api/klutz-choice', { token, targetId: klutzTarget }).then(r => {
+        if (r.error) { alert(r.error); choose.disabled = false; return; }
+        klutzTarget = null;
+      });
+    };
+    c.append(choose);
+    app.append(c);
+  }
+
+  if (P.madClaim) {
+    const c = el('div', 'card');
+    c.append(
+      el('h2', null, 'You are "mad"'),
+      el('p', 'dim small', `Say out loud, right now, that you are ${P.madClaim.label} — or you might be executed for it before tonight is over.`),
+    );
+    const claim = el('button', 'primary', 'Claim it');
+    claim.onclick = () => {
+      claim.disabled = true;
+      post('/api/mad-claim', { token }).then(r => {
+        if (r.error) { alert(r.error); claim.disabled = false; }
+      });
+    };
+    c.append(claim);
     app.append(c);
   }
 
@@ -973,7 +1035,11 @@ function render() {
       el('p', 'dim small', 'Once per day. Say whatever you like out loud — pick below what you\'re actually claiming. Tonight, if it was true, someone dies at random. You will not be told which, or whether it was true.'),
     );
 
-    const resetPick = () => { gossipTarget = null; gossipClaimValue = null; gossipMultiTargets = []; gossipThreshold = null; };
+    const resetPick = () => { gossipTarget = null; gossipClaimValue = null; gossipMultiTargets = []; gossipThreshold = null; gossipFreeText = ''; };
+    // Declared up front so the free-text box below can toggle it directly on
+    // every keystroke without a full render() — re-rendering the textarea on
+    // every character would drop focus and the cursor position mid-type.
+    let go;
 
     const kinds = el('div', 'targets');
     const teamKind = el('button', 'target' + (gossipClaimType === 'team' ? ' on' : ''), 'A player\'s team');
@@ -983,7 +1049,25 @@ function render() {
     const countKind = el('button', 'target' + (gossipClaimType === 'atleast' ? ' on' : ''), 'A count among several players');
     countKind.onclick = () => { gossipClaimType = 'atleast'; resetPick(); render(); };
     kinds.append(teamKind, charKind, countKind);
+    // Only offered once a table has turned on the LLM Storyteller — see
+    // game/ABILITY_PATTERNS.md's Bucket 4 for why this isn't the default.
+    if (P.llmEnabled) {
+      const freeKind = el('button', 'target' + (gossipClaimType === 'freeform' ? ' on' : ''), 'Say it in your own words');
+      freeKind.onclick = () => { gossipClaimType = 'freeform'; resetPick(); render(); };
+      kinds.append(freeKind);
+    }
     c.append(kinds);
+
+    if (gossipClaimType === 'freeform') {
+      c.append(el('p', 'dim small', 'Type your claim exactly as you\'d say it out loud. The Storyteller judges it against the truth — you still won\'t be told if you were right.'));
+      const box = document.createElement('textarea');
+      box.className = 'freetext';
+      box.maxLength = 400;
+      box.placeholder = 'e.g. "Ada is not on the good team."';
+      box.value = gossipFreeText;
+      box.oninput = () => { gossipFreeText = box.value; if (go) go.disabled = !gossipFreeText.trim(); };
+      c.append(box);
+    }
 
     if (gossipClaimType === 'team' || gossipClaimType === 'character') {
       c.append(el('p', 'dim small', 'Choose a player.'));
@@ -1058,18 +1142,239 @@ function render() {
     const ready =
       (gossipClaimType === 'team' && gossipTarget && gossipClaimValue) ||
       (gossipClaimType === 'character' && gossipTarget && gossipClaimValue) ||
-      (gossipClaimType === 'atleast' && gossipMultiTargets.length >= 2 && gossipThreshold && gossipClaimValue);
+      (gossipClaimType === 'atleast' && gossipMultiTargets.length >= 2 && gossipThreshold && gossipClaimValue) ||
+      (gossipClaimType === 'freeform' && gossipFreeText.trim().length > 0);
 
-    const go = el('button', 'primary', 'Make this claim');
+    go = el('button', 'primary', 'Make this claim');
     go.disabled = !ready;
     go.onclick = () => {
       go.disabled = true;
+      const isFreeform = gossipClaimType === 'freeform';
+      if (isFreeform) go.textContent = 'Asking the Storyteller…';
       const claimBody = gossipClaimType === 'atleast'
         ? { token, claimType: 'atleast', targetIds: gossipMultiTargets, threshold: gossipThreshold, claimValue: gossipClaimValue }
-        : { token, targetId: gossipTarget, claimType: gossipClaimType, claimValue: gossipClaimValue };
+        : isFreeform
+          ? { token, claimType: 'freeform', claimText: gossipFreeText.trim() }
+          : { token, targetId: gossipTarget, claimType: gossipClaimType, claimValue: gossipClaimValue };
       post('/api/gossip-claim', claimBody).then(r => {
-        if (r.error) { alert(r.error); go.disabled = false; return; }
+        if (r.error) { alert(r.error); go.disabled = false; go.textContent = 'Make this claim'; return; }
         gossipClaimType = null; resetPick();
+      });
+    };
+    c.append(go);
+    app.append(c);
+  } else if (P.phase === 'day' && P.jugglerGuess) {
+    const c = el('div', 'card');
+    c.append(
+      el('h2', null, 'Juggle'),
+      el('p', 'dim small', 'Your first day only. Publicly guess up to 5 players\' characters — say each guess out loud before adding it. Tonight you\'ll learn how many were correct.'),
+    );
+
+    if (jugglerGuesses.length) {
+      const ul = el('ul');
+      jugglerGuesses.forEach((guess, i) => {
+        const name = (P.jugglerGuess.targets.find(t => t.id === guess.playerId) || {}).name || '?';
+        const charName = (P.jugglerGuess.characterOptions.find(o => o.id === guess.characterGuess) || {}).name || '?';
+        const li = el('li', null, `${name} — ${charName} `);
+        const remove = el('button', 'linklike', 'Remove');
+        remove.onclick = () => { jugglerGuesses = jugglerGuesses.filter((_, j) => j !== i); render(); };
+        li.append(remove);
+        ul.append(li);
+      });
+      c.append(ul);
+    }
+
+    const usedIds = new Set(jugglerGuesses.map(g => g.playerId));
+    const remaining = P.jugglerGuess.targets.filter(t => !usedIds.has(t.id));
+
+    if (jugglerGuesses.length < 5 && remaining.length) {
+      if (!jugglerPickingFor) {
+        c.append(el('p', 'dim small', `Guess ${jugglerGuesses.length + 1} of up to 5 — choose a player.`));
+        const list = el('div', 'targets');
+        remaining.forEach(t => {
+          const b = targetButton(t, false);
+          b.onclick = () => { jugglerPickingFor = t.id; render(); };
+          list.append(b);
+        });
+        c.append(list);
+      } else {
+        const pickedName = (P.jugglerGuess.targets.find(t => t.id === jugglerPickingFor) || {}).name;
+        c.append(el('p', 'dim small', `Now guess ${pickedName}'s character.`));
+        const list = el('div', 'targets');
+        P.jugglerGuess.characterOptions.forEach(opt => {
+          const b = targetButton(opt, false);
+          b.onclick = () => {
+            jugglerGuesses = [...jugglerGuesses, { playerId: jugglerPickingFor, characterGuess: opt.id }];
+            jugglerPickingFor = null;
+            render();
+          };
+          list.append(b);
+        });
+        c.append(list);
+        const cancel = el('button', 'linklike', 'Cancel this guess');
+        cancel.onclick = () => { jugglerPickingFor = null; render(); };
+        c.append(cancel);
+      }
+    }
+
+    const submitLabel = jugglerGuesses.length
+      ? `Submit ${jugglerGuesses.length} guess${jugglerGuesses.length === 1 ? '' : 'es'}`
+      : 'Submit (no guesses)';
+    const submit = el('button', 'primary', submitLabel);
+    submit.disabled = !!jugglerPickingFor;
+    submit.onclick = () => {
+      submit.disabled = true;
+      post('/api/juggler-guess', { token, guesses: jugglerGuesses }).then(r => {
+        if (r.error) { alert(r.error); submit.disabled = false; return; }
+        jugglerGuesses = []; jugglerPickingFor = null;
+      });
+    };
+    c.append(submit);
+    app.append(c);
+  } else if (P.phase === 'day' && P.savantVisit) {
+    const c = el('div', 'card');
+    c.append(
+      el('h2', null, 'Visit the Storyteller'),
+      el('p', 'dim small', 'Once per day. You\'ll be told two things — one true, one false — and not which is which.'),
+    );
+    const visit = el('button', 'primary', 'Visit');
+    visit.onclick = () => {
+      visit.disabled = true;
+      post('/api/savant-visit', { token }).then(r => {
+        if (r.error) { alert(r.error); visit.disabled = false; }
+      });
+    };
+    c.append(visit);
+    app.append(c);
+  } else if (P.phase === 'day' && P.artistQuestion) {
+    const c = el('div', 'card');
+    c.append(
+      el('h2', null, 'Ask the Storyteller'),
+      el('p', 'dim small', 'Once per game. Privately ask a yes/no question — pick below what you\'re actually asking. You\'ll be told the true answer immediately.'),
+    );
+
+    const resetArtistPick = () => { artistTarget = null; artistClaimValue = null; artistMultiTargets = []; artistThreshold = null; artistFreeText = ''; };
+    // See the same declaration in the Gossip block above for why this is
+    // hoisted: the free-text box toggles it directly, without a full
+    // render() that would otherwise drop focus mid-keystroke.
+    let go;
+
+    const kinds = el('div', 'targets');
+    const teamKind = el('button', 'target' + (artistClaimType === 'team' ? ' on' : ''), 'A player\'s team');
+    teamKind.onclick = () => { artistClaimType = 'team'; resetArtistPick(); render(); };
+    const charKind = el('button', 'target' + (artistClaimType === 'character' ? ' on' : ''), 'A player\'s exact character');
+    charKind.onclick = () => { artistClaimType = 'character'; resetArtistPick(); render(); };
+    const countKind = el('button', 'target' + (artistClaimType === 'atleast' ? ' on' : ''), 'A count among several players');
+    countKind.onclick = () => { artistClaimType = 'atleast'; resetArtistPick(); render(); };
+    kinds.append(teamKind, charKind, countKind);
+    if (P.llmEnabled) {
+      const freeKind = el('button', 'target' + (artistClaimType === 'freeform' ? ' on' : ''), 'Ask it in my own words');
+      freeKind.onclick = () => { artistClaimType = 'freeform'; resetArtistPick(); render(); };
+      kinds.append(freeKind);
+    }
+    c.append(kinds);
+
+    if (artistClaimType === 'freeform') {
+      c.append(el('p', 'dim small', 'Type your question exactly as you\'d ask it. The Storyteller answers from the true state of the game — nothing about tone or anything unsaid.'));
+      const box = document.createElement('textarea');
+      box.className = 'freetext';
+      box.maxLength = 400;
+      box.placeholder = 'e.g. "Is the Empath still alive?"';
+      box.value = artistFreeText;
+      box.oninput = () => { artistFreeText = box.value; if (go) go.disabled = !artistFreeText.trim(); };
+      c.append(box);
+    }
+
+    if (artistClaimType === 'team' || artistClaimType === 'character') {
+      c.append(el('p', 'dim small', 'Choose a player.'));
+      const list = el('div', 'targets');
+      P.artistQuestion.targets.forEach(t => {
+        const b = targetButton(t, artistTarget === t.id);
+        b.onclick = () => { artistTarget = t.id; artistClaimValue = null; render(); };
+        list.append(b);
+      });
+      c.append(list);
+    }
+
+    if (artistClaimType === 'team' && artistTarget) {
+      const name = (P.artistQuestion.targets.find(x => x.id === artistTarget) || {}).name;
+      const opts = el('div', 'targets');
+      const good = el('button', 'target' + (artistClaimValue === 'good' ? ' on' : ''), `${name} is good`);
+      good.onclick = () => { artistClaimValue = 'good'; render(); };
+      const evil = el('button', 'target' + (artistClaimValue === 'evil' ? ' on' : ''), `${name} is evil`);
+      evil.onclick = () => { artistClaimValue = 'evil'; render(); };
+      opts.append(good, evil);
+      c.append(opts);
+    }
+
+    if (artistClaimType === 'character' && artistTarget) {
+      c.append(el('p', 'dim small', 'Which character?'));
+      const charList = el('div', 'targets');
+      P.artistQuestion.characterOptions.forEach(opt => {
+        const b = targetButton(opt, artistClaimValue === opt.id);
+        b.onclick = () => { artistClaimValue = opt.id; render(); };
+        charList.append(b);
+      });
+      c.append(charList);
+    }
+
+    if (artistClaimType === 'atleast') {
+      c.append(el('p', 'dim small', 'Choose at least two players.'));
+      const list = el('div', 'targets');
+      P.artistQuestion.targets.forEach(t => {
+        const on = artistMultiTargets.includes(t.id);
+        const b = targetButton(t, on);
+        b.onclick = () => {
+          artistMultiTargets = on ? artistMultiTargets.filter(id => id !== t.id) : [...artistMultiTargets, t.id];
+          if (artistThreshold > artistMultiTargets.length) artistThreshold = null;
+          render();
+        };
+        list.append(b);
+      });
+      c.append(list);
+
+      if (artistMultiTargets.length >= 2) {
+        c.append(el('p', 'dim small', `At least how many of these ${artistMultiTargets.length}?`));
+        const numRow = el('div', 'targets');
+        for (let n = 1; n <= artistMultiTargets.length; n++) {
+          const b = el('button', 'target' + (artistThreshold === n ? ' on' : ''), String(n));
+          b.onclick = () => { artistThreshold = n; render(); };
+          numRow.append(b);
+        }
+        c.append(numRow);
+      }
+
+      if (artistMultiTargets.length >= 2 && artistThreshold) {
+        const opts = el('div', 'targets');
+        const good = el('button', 'target' + (artistClaimValue === 'good' ? ' on' : ''), 'are good');
+        good.onclick = () => { artistClaimValue = 'good'; render(); };
+        const evil = el('button', 'target' + (artistClaimValue === 'evil' ? ' on' : ''), 'are evil');
+        evil.onclick = () => { artistClaimValue = 'evil'; render(); };
+        opts.append(good, evil);
+        c.append(opts);
+      }
+    }
+
+    const ready =
+      (artistClaimType === 'team' && artistTarget && artistClaimValue) ||
+      (artistClaimType === 'character' && artistTarget && artistClaimValue) ||
+      (artistClaimType === 'atleast' && artistMultiTargets.length >= 2 && artistThreshold && artistClaimValue) ||
+      (artistClaimType === 'freeform' && artistFreeText.trim().length > 0);
+
+    go = el('button', 'primary', 'Ask this question');
+    go.disabled = !ready;
+    go.onclick = () => {
+      go.disabled = true;
+      const isFreeform = artistClaimType === 'freeform';
+      if (isFreeform) go.textContent = 'Asking the Storyteller…';
+      const claimBody = artistClaimType === 'atleast'
+        ? { token, claimType: 'atleast', targetIds: artistMultiTargets, threshold: artistThreshold, claimValue: artistClaimValue }
+        : isFreeform
+          ? { token, claimType: 'freeform', claimText: artistFreeText.trim() }
+          : { token, targetId: artistTarget, claimType: artistClaimType, claimValue: artistClaimValue };
+      post('/api/artist-question', claimBody).then(r => {
+        if (r.error) { alert(r.error); go.disabled = false; go.textContent = 'Ask this question'; return; }
+        artistClaimType = null; resetArtistPick();
       });
     };
     c.append(go);

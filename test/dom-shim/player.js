@@ -533,6 +533,339 @@ try {
 }
 
 // -------------------------------------------------------------------------
+// Sects & Violets' Philosopher: a choiceCount-0, guessCharacter-only prompt
+// (no player targets at all) must still render as a real prompt rather than
+// falling through to a decoy, and Lock in must gate on the character pick
+// alone — this is the exact promptFor gap the engine had to be patched for.
+try {
+  const philosopherPrompt = {
+    phase: 'night', you: you({ character: { id: 'philosopher', name: 'Philosopher', team: 'townsfolk', ability: 'x' } }),
+    nightNumber: 1, wave: 1, windowEndsAt: Date.now() + 20000,
+    prompt: {
+      decoy: false, characterId: 'philosopher', count: 0, text: "You may gain a good character's ability.",
+      targets: [], optional: true, guessCharacter: true,
+      characterOptions: [{ id: 'dreamer', name: 'Dreamer' }, { id: 'oracle', name: 'Oracle' }],
+    },
+    submitted: false, result: null, moonchildChoice: null, klutzChoice: null, slayerShot: null, jugglerGuess: null, voteRequest: null, simulation: false, watching: false,
+  };
+  vm.runInContext('P = ' + JSON.stringify(philosopherPrompt) + ';', ctx);
+  vm.runInContext('picked = []; guessedCharacter = null;', ctx);
+  vm.runInContext('render();', ctx);
+  const lockInBefore = findByText(ctx.document._registry.app, 'Lock in');
+  if (!lockInBefore || !lockInBefore.disabled) throw new Error('Lock in should start disabled with no character chosen');
+  const passBtn = findByText(ctx.document._registry.app, 'Pass — choose no one');
+  if (!passBtn) throw new Error('an optional character-only choice should still offer Pass');
+  console.log('  ok    Philosopher: real prompt renders with zero player targets, Lock in starts disabled, Pass is offered');
+
+  const dreamerOpt = findButtonByDeepText(ctx.document._registry.app, 'Dreamer');
+  if (!dreamerOpt) throw new Error('character option button not found');
+  dreamerOpt.onclick();
+  const lockInAfter = findByText(ctx.document._registry.app, 'Lock in Dreamer');
+  if (!lockInAfter || lockInAfter.disabled) throw new Error('Lock in should enable and name the chosen character once picked');
+  console.log('  ok    Philosopher: Lock in enables and names the chosen character');
+
+  ctx._fetchCalls.length = 0;
+  lockInAfter.onclick();
+  const call = ctx._fetchCalls.find(c => c.url === '/api/action');
+  if (!call) throw new Error('Lock in did not submit');
+  const body = JSON.parse(call.opts.body);
+  if (JSON.stringify(body.targets) !== '[]' || body.characterGuess !== 'dreamer') {
+    throw new Error('expected empty targets + characterGuess "dreamer": ' + JSON.stringify(body));
+  }
+  console.log('  ok    Philosopher: submission carries zero targets and the chosen characterGuess');
+
+  // Passing: no character picked, empty targets — a legitimate omission.
+  vm.runInContext('P = ' + JSON.stringify(philosopherPrompt) + ';', ctx);
+  vm.runInContext('picked = []; guessedCharacter = null;', ctx);
+  vm.runInContext('render();', ctx);
+  const passBtn2 = findByText(ctx.document._registry.app, 'Pass — choose no one');
+  ctx._fetchCalls.length = 0;
+  passBtn2.onclick();
+  const passCall = ctx._fetchCalls.find(c => c.url === '/api/action');
+  if (!passCall) throw new Error('Pass did not submit');
+  const passBody = JSON.parse(passCall.opts.body);
+  if (JSON.stringify(passBody.targets) !== '[]' || passBody.characterGuess) {
+    throw new Error('a pass should submit empty targets and no characterGuess: ' + JSON.stringify(passBody));
+  }
+  console.log('  ok    Philosopher: Pass submits empty targets with no characterGuess');
+} catch (e) {
+  failed = true;
+  console.log('  FAIL  Philosopher character-only prompt');
+  console.error(e);
+}
+
+// -------------------------------------------------------------------------
+// Klutz: the "acts from beyond" public choice, same shape as the
+// Moonchild's, but posting to /api/klutz-choice instead.
+try {
+  const klutzScenario = {
+    phase: 'day', you: you({ alive: false }), nightNumber: 2, wave: 0, windowEndsAt: null, prompt: null, submitted: false, result: null,
+    moonchildChoice: null, slayerShot: null, jugglerGuess: null,
+    klutzChoice: { targets: [{ id: 'p2', name: 'Bo' }, { id: 'p3', name: 'Cy' }] },
+    voteRequest: null, simulation: false, watching: false,
+  };
+  vm.runInContext('P = ' + JSON.stringify(klutzScenario) + ';', ctx);
+  vm.runInContext('klutzTarget = null;', ctx);
+  vm.runInContext('render();', ctx);
+  const chooseBtn = findByText(ctx.document._registry.app, 'Choose');
+  if (!chooseBtn || !chooseBtn.disabled) throw new Error('Choose should start disabled with no target picked');
+
+  const boBtn = findButtonByDeepText(ctx.document._registry.app, 'Bo');
+  if (!boBtn) throw new Error('target button for Bo not found');
+  boBtn.onclick();
+  const chooseBtn2 = findByText(ctx.document._registry.app, 'Choose');
+  if (chooseBtn2.disabled) throw new Error('Choose should enable once a target is picked');
+
+  ctx._fetchCalls.length = 0;
+  chooseBtn2.onclick();
+  const call = ctx._fetchCalls.find(c => c.url === '/api/klutz-choice');
+  if (!call) throw new Error('Choose did not call /api/klutz-choice');
+  const body = JSON.parse(call.opts.body);
+  if (body.targetId !== 'p2') throw new Error('wrong targetId sent: ' + JSON.stringify(body));
+  console.log('  ok    Klutz: choosing a player posts to /api/klutz-choice with the right targetId');
+} catch (e) {
+  failed = true;
+  console.log('  FAIL  Klutz public choice');
+  console.error(e);
+}
+
+// -------------------------------------------------------------------------
+// Juggler: build up to 5 (player, character) guesses on the first day, then
+// submit them all to /api/juggler-guess.
+try {
+  const jugglerScenario = {
+    phase: 'day', you: you({ character: { id: 'juggler', name: 'Juggler', team: 'townsfolk', ability: 'x' } }),
+    nightNumber: 1, wave: 0, windowEndsAt: null, prompt: null, submitted: false, result: null,
+    moonchildChoice: null, slayerShot: null, klutzChoice: null,
+    jugglerGuess: {
+      targets: [{ id: 'p2', name: 'Bo' }, { id: 'p3', name: 'Cy' }],
+      characterOptions: [{ id: 'chef', name: 'Chef' }, { id: 'imp', name: 'Imp' }],
+    },
+    voteRequest: null, simulation: false, watching: false,
+  };
+  vm.runInContext('P = ' + JSON.stringify(jugglerScenario) + ';', ctx);
+  vm.runInContext('jugglerGuesses = []; jugglerPickingFor = null;', ctx);
+  vm.runInContext('render();', ctx);
+
+  const boOpt = findButtonByDeepText(ctx.document._registry.app, 'Bo');
+  if (!boOpt) throw new Error('player option (Bo) not found');
+  boOpt.onclick();
+  const chefOpt = findButtonByDeepText(ctx.document._registry.app, 'Chef');
+  if (!chefOpt) throw new Error('character option (Chef) not found after picking a player');
+  chefOpt.onclick();
+
+  const guesses1 = vm.runInContext('jugglerGuesses', ctx);
+  if (guesses1.length !== 1 || guesses1[0].playerId !== 'p2' || guesses1[0].characterGuess !== 'chef') {
+    throw new Error('expected one guess {p2, chef}: ' + JSON.stringify(guesses1));
+  }
+  console.log('  ok    Juggler: picking a player then a character records one guess');
+
+  const submitBtn = findByText(ctx.document._registry.app, 'Submit 1 guess');
+  if (!submitBtn) throw new Error('Submit button did not name the pending guess count');
+  ctx._fetchCalls.length = 0;
+  submitBtn.onclick();
+  const call = ctx._fetchCalls.find(c => c.url === '/api/juggler-guess');
+  if (!call) throw new Error('Submit did not call /api/juggler-guess');
+  const body = JSON.parse(call.opts.body);
+  if (!Array.isArray(body.guesses) || body.guesses.length !== 1 || body.guesses[0].characterGuess !== 'chef') {
+    throw new Error('wrong guesses payload: ' + JSON.stringify(body));
+  }
+  console.log('  ok    Juggler: submission carries the built-up guesses array');
+} catch (e) {
+  failed = true;
+  console.log('  FAIL  Juggler first-day guesses');
+  console.error(e);
+}
+
+// -------------------------------------------------------------------------
+// Sects & Violets' Savant: a single tap, no target of any kind.
+try {
+  const savantScenario = {
+    phase: 'day', you: you({ character: { id: 'savant', name: 'Savant', team: 'townsfolk', ability: 'x' } }),
+    nightNumber: 2, wave: 0, windowEndsAt: null, prompt: null, submitted: false, result: null,
+    moonchildChoice: null, slayerShot: null, klutzChoice: null, jugglerGuess: null, artistQuestion: null,
+    savantVisit: true, voteRequest: null, simulation: false, watching: false,
+  };
+  vm.runInContext('P = ' + JSON.stringify(savantScenario) + ';', ctx);
+  vm.runInContext('render();', ctx);
+  const visitBtn = findByText(ctx.document._registry.app, 'Visit');
+  if (!visitBtn) throw new Error('Visit button not found');
+  ctx._fetchCalls.length = 0;
+  visitBtn.onclick();
+  const call = ctx._fetchCalls.find(c => c.url === '/api/savant-visit');
+  if (!call) throw new Error('Visit did not call /api/savant-visit');
+  console.log('  ok    Savant: tapping Visit posts to /api/savant-visit');
+} catch (e) {
+  failed = true;
+  console.log('  FAIL  Savant visit');
+  console.error(e);
+}
+
+// -------------------------------------------------------------------------
+// Sects & Violets' Artist: the same claim-shape menu as the Gossip's, but
+// its own state variables and its own endpoint.
+try {
+  const artistScenario = {
+    phase: 'day', you: you({ character: { id: 'artist', name: 'Artist', team: 'townsfolk', ability: 'x' } }),
+    nightNumber: 2, wave: 0, windowEndsAt: null, prompt: null, submitted: false, result: null,
+    moonchildChoice: null, slayerShot: null, klutzChoice: null, jugglerGuess: null, savantVisit: null,
+    artistQuestion: {
+      targets: [{ id: 'p2', name: 'Bo', alive: true }, { id: 'p3', name: 'Cy', alive: false }],
+      characterOptions: [{ id: 'chef', name: 'Chef' }, { id: 'imp', name: 'Imp' }],
+    },
+    voteRequest: null, simulation: false, watching: false,
+  };
+  vm.runInContext('P = ' + JSON.stringify(artistScenario) + ';', ctx);
+  vm.runInContext('artistClaimType = null; artistTarget = null; artistClaimValue = null; artistMultiTargets = []; artistThreshold = null;', ctx);
+  vm.runInContext('render();', ctx);
+
+  const teamKind = findByText(ctx.document._registry.app, "A player's team");
+  if (!teamKind) throw new Error('claim-kind picker not found');
+  teamKind.onclick();
+  const boBtn = findButtonByDeepText(ctx.document._registry.app, 'Bo');
+  if (!boBtn) throw new Error('target button (Bo) not found after picking "team"');
+  boBtn.onclick();
+  const evilBtn = findByText(ctx.document._registry.app, 'Bo is evil');
+  if (!evilBtn) throw new Error('"Bo is evil" option not found');
+  evilBtn.onclick();
+
+  const go = findByText(ctx.document._registry.app, 'Ask this question');
+  if (!go || go.disabled) throw new Error('"Ask this question" should be enabled once kind+target+value are all picked');
+  ctx._fetchCalls.length = 0;
+  go.onclick();
+  const call = ctx._fetchCalls.find(c => c.url === '/api/artist-question');
+  if (!call) throw new Error('did not submit to /api/artist-question');
+  const body = JSON.parse(call.opts.body);
+  if (body.claimType !== 'team' || body.targetId !== 'p2' || body.claimValue !== 'evil') {
+    throw new Error('wrong claim body: ' + JSON.stringify(body));
+  }
+  console.log('  ok    Artist: team claim (kind -> player -> good/evil) submits the right body');
+} catch (e) {
+  failed = true;
+  console.log('  FAIL  Artist question');
+  console.error(e);
+}
+
+// -------------------------------------------------------------------------
+// The LLM Storyteller's free-text path — only offered when llmEnabled is
+// true (the table's toggle AND a real key, both computed server-side into
+// privateState), and shows a real waiting state since this is the one
+// action in the whole app with a multi-second round trip.
+try {
+  const noLlmScenario = {
+    phase: 'day', you: you({ character: { id: 'artist', name: 'Artist', team: 'townsfolk', ability: 'x' } }),
+    nightNumber: 2, wave: 0, windowEndsAt: null, prompt: null, submitted: false, result: null,
+    moonchildChoice: null, slayerShot: null, klutzChoice: null, jugglerGuess: null, savantVisit: null,
+    artistQuestion: { targets: [{ id: 'p2', name: 'Bo', alive: true }], characterOptions: [{ id: 'chef', name: 'Chef' }] },
+    voteRequest: null, simulation: false, watching: false, llmEnabled: false,
+  };
+  vm.runInContext('P = ' + JSON.stringify(noLlmScenario) + ';', ctx);
+  vm.runInContext('render();', ctx);
+  const noFreeKind = findByText(ctx.document._registry.app, 'Ask it in my own words');
+  console.log('  ok    the free-text option is absent when llmEnabled is false', !noFreeKind);
+
+  const llmScenario = { ...noLlmScenario, llmEnabled: true };
+  vm.runInContext('P = ' + JSON.stringify(llmScenario) + ';', ctx);
+  vm.runInContext('artistClaimType = null; artistFreeText = "";', ctx);
+  vm.runInContext('render();', ctx);
+  const freeKind = findByText(ctx.document._registry.app, 'Ask it in my own words');
+  if (!freeKind) throw new Error('free-text option not found with llmEnabled:true');
+  freeKind.onclick();
+
+  const goBefore = findByText(ctx.document._registry.app, 'Ask this question');
+  if (!goBefore || !goBefore.disabled) throw new Error('should stay disabled with no text typed yet');
+
+  const box = findAll(ctx.document._registry.app, n => n.tagName === 'TEXTAREA')[0];
+  if (!box) throw new Error('free-text textarea not found');
+  box.value = 'Is Bo the Chef?';
+  box.oninput();
+
+  const goAfter = findByText(ctx.document._registry.app, 'Ask this question');
+  if (!goAfter || goAfter.disabled) throw new Error('should enable once text is typed');
+
+  ctx._fetchCalls.length = 0;
+  goAfter.onclick();
+  const call = ctx._fetchCalls.find(c => c.url === '/api/artist-question');
+  if (!call) throw new Error('did not submit to /api/artist-question');
+  const body = JSON.parse(call.opts.body);
+  if (body.claimType !== 'freeform' || body.claimText !== 'Is Bo the Chef?' || 'targetId' in body || 'claimValue' in body) {
+    throw new Error('wrong freeform body: ' + JSON.stringify(body));
+  }
+  console.log('  ok    Artist freeform: submits {claimType:"freeform", claimText}, no targetId/claimValue');
+  console.log('  ok    Artist freeform: button shows a waiting state while the request is in flight', goAfter.textContent === 'Asking the Storyteller…');
+} catch (e) {
+  failed = true;
+  console.log('  FAIL  LLM free-text path (Artist)');
+  console.error(e);
+}
+
+// Gossip's own freeform path — the higher-stakes one (a true claim kills
+// someone at random that night), so this specifically checks the toggling
+// works with its own state variables, not just that the pattern was copied.
+try {
+  const gossipLlmScenario = {
+    phase: 'day', you: you({ character: { id: 'gossip', name: 'Gossip', team: 'townsfolk', ability: 'x' } }),
+    nightNumber: 2, wave: 0, windowEndsAt: null, prompt: null, submitted: false, result: null,
+    moonchildChoice: null, slayerShot: null, klutzChoice: null, jugglerGuess: null, savantVisit: null, artistQuestion: null,
+    gossipClaim: { targets: [{ id: 'p2', name: 'Bo', alive: true }], characterOptions: [{ id: 'chef', name: 'Chef' }] },
+    voteRequest: null, simulation: false, watching: false, llmEnabled: true,
+  };
+  vm.runInContext('P = ' + JSON.stringify(gossipLlmScenario) + ';', ctx);
+  vm.runInContext('gossipClaimType = null; gossipFreeText = "";', ctx);
+  vm.runInContext('render();', ctx);
+
+  const freeKind = findByText(ctx.document._registry.app, 'Say it in your own words');
+  if (!freeKind) throw new Error('free-text option not found with llmEnabled:true');
+  freeKind.onclick();
+
+  const box = findAll(ctx.document._registry.app, n => n.tagName === 'TEXTAREA')[0];
+  if (!box) throw new Error('free-text textarea not found');
+  const goBefore = findByText(ctx.document._registry.app, 'Make this claim');
+  if (!goBefore || !goBefore.disabled) throw new Error('should stay disabled with no text typed yet');
+
+  box.value = 'Bo is not on the good team.';
+  box.oninput();
+  console.log('  ok    Gossip freeform: the submit button enables on typing, without a full re-render', goBefore.disabled === false);
+
+  ctx._fetchCalls.length = 0;
+  goBefore.onclick();
+  const call = ctx._fetchCalls.find(c => c.url === '/api/gossip-claim');
+  if (!call) throw new Error('did not submit to /api/gossip-claim');
+  const body = JSON.parse(call.opts.body);
+  if (body.claimType !== 'freeform' || body.claimText !== 'Bo is not on the good team.') {
+    throw new Error('wrong freeform body: ' + JSON.stringify(body));
+  }
+  console.log('  ok    Gossip freeform: submits {claimType:"freeform", claimText}');
+} catch (e) {
+  failed = true;
+  console.log('  FAIL  LLM free-text path (Gossip)');
+  console.error(e);
+}
+
+// -------------------------------------------------------------------------
+// Sects & Violets' Mutant/Cerenovus "madness": a single public-claim button.
+try {
+  const madScenario = {
+    phase: 'day', you: you(), nightNumber: 2, wave: 0, windowEndsAt: null, prompt: null, submitted: false, result: null,
+    moonchildChoice: null, slayerShot: null, klutzChoice: null, jugglerGuess: null, savantVisit: null, artistQuestion: null,
+    madClaim: { label: 'an Outsider' }, voteRequest: null, simulation: false, watching: false,
+  };
+  vm.runInContext('P = ' + JSON.stringify(madScenario) + ';', ctx);
+  vm.runInContext('render();', ctx);
+  const claimBtn = findByText(ctx.document._registry.app, 'Claim it');
+  if (!claimBtn) throw new Error('Claim it button not found');
+  ctx._fetchCalls.length = 0;
+  claimBtn.onclick();
+  const call = ctx._fetchCalls.find(c => c.url === '/api/mad-claim');
+  if (!call) throw new Error('Claim it did not call /api/mad-claim');
+  console.log('  ok    Madness: tapping "Claim it" posts to /api/mad-claim');
+} catch (e) {
+  failed = true;
+  console.log('  FAIL  madness claim');
+  console.error(e);
+}
+
+// -------------------------------------------------------------------------
 // The persistent role card should disappear specifically while choosing a
 // target (night prompt, moonchild choice, slayer shot) and reappear once
 // answered or once there's nothing to choose — freeing the viewport for

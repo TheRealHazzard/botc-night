@@ -7,9 +7,10 @@
 
 const buildTb = require('./tb');
 const buildBmr = require('./bmr');
+const buildSv = require('./sv');
 
 function buildRegistry(h) {
-  const entries = [...buildTb(h), ...buildBmr(h)];
+  const entries = [...buildTb(h), ...buildBmr(h), ...buildSv(h)];
   const byId = {};
   for (const entry of entries) {
     if (byId[entry.id]) throw new Error(`Duplicate character registry entry: ${entry.id}`);

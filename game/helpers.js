@@ -15,6 +15,28 @@ const SETUP_TABLE = DATA.meta.setupTable;
 const char = id => CHARACTERS.find(c => c.id === id);
 const scriptPool = script => CHARACTERS.filter(c => c.edition === script && c.team !== 'special');
 
+// "Bucket 4": characters whose ability reduces "ask/tell the Storyteller
+// something open-ended" to a fixed menu or template for lack of a real
+// Storyteller — see game/ABILITY_PATTERNS.md and game/llmStoryteller.js. The
+// one host-facing toggle that can turn these three off lives here as a flat
+// list (not a general per-character disable system) specifically so it can
+// never starve a team's setup pool: all three are Townsfolk in scripts with
+// 13 Townsfolk each.
+const BUCKET4_IDS = ['gossip', 'savant', 'artist'];
+
+/** scriptPool(), narrowed to what this specific table actually has in play —
+    everything that decides what's *selectable* right now (dealing roles,
+    demon bluffs, decoy reveals, "guess a character" menus) should read from
+    this instead of scriptPool() directly, so a disabled character silently
+    stops being offered everywhere at once. scriptPool() itself is untouched
+    and keeps describing the script's full, fixed content (e.g. the lobby's
+    "25 characters" card) regardless of what a table has turned off. */
+function activeScriptPool(g) {
+  const disabled = g.config.disabledCharacterIds || [];
+  if (!disabled.length) return scriptPool(g.script);
+  return scriptPool(g.script).filter(c => !disabled.includes(c.id));
+}
+
 function shuffle(input) {
   const a = [...input];
   for (let i = a.length - 1; i > 0; i--) {
@@ -52,19 +74,54 @@ function publiclyAlive(p) {
   return p.alive && !p.statuses.appearsDead;
 }
 
+/** The (up to) two living players seated either side of `p`, in the fixed
+    seating order — a circle of 1 has none, a circle of 2 has the same
+    player on both sides (deduped via the Set). Shared by anything that
+    cares about "neighbours" among the living: Tea Lady's protection,
+    No Dashii's poison, and anything Sects & Violets adds later. */
+function livingNeighbors(g, p) {
+  const living = alive(g);
+  const i = living.indexOf(p);
+  if (i === -1) return [];
+  const neighbors = new Set([living[(i - 1 + living.length) % living.length], living[(i + 1) % living.length]]);
+  neighbors.delete(p);
+  return [...neighbors];
+}
+
 /** True while both of a living Tea Lady's living neighbours are actually
     good — real protection, so it's checked against true alignment, not
     registration (a Recluse fooling an info-role shouldn't also fool this). */
 function tealadyProtects(g, target) {
   const tl = alive(g).find(x => trueChar(x) && trueChar(x).id === 'tealady' && !impaired(x));
   if (!tl || tl.id === target.id) return false;
-  const living = alive(g);
-  const i = living.indexOf(tl);
-  if (i === -1) return false;
-  const neighbors = new Set([living[(i - 1 + living.length) % living.length], living[(i + 1) % living.length]]);
-  neighbors.delete(tl);
-  if (!neighbors.has(target)) return false;
-  return [...neighbors].every(n => !isEvil(g, n));
+  const neighbors = livingNeighbors(g, tl);
+  if (!neighbors.includes(target)) return false;
+  return neighbors.every(n => !isEvil(g, n));
+}
+
+/**
+ * Reassigns a player to a different character outright — Snake Charmer's
+ * swap, Pit-Hag's "become this", and Barber's Demon-driven swap all funnel
+ * through this rather than each hand-rolling the same characterId/
+ * believedId mutation. `abilityOnly` is the Philosopher's case: they gain
+ * another character's ability (so what they act as, and thus dispatch on,
+ * has to change) but their own true identity and team never do — so only
+ * believedId moves, not characterId.
+ */
+function reassignCharacter(g, player, newCharacterId, { abilityOnly = false } = {}) {
+  if (!abilityOnly) player.characterId = newCharacterId;
+  player.believedId = newCharacterId;
+}
+
+/** Marks a player's night as having gone abnormally due to someone else's
+    ability — poisoned, reassigned, cursed, swapped. Reset at the top of
+    every night alongside the other per-night markers; the Mathematician
+    is the only thing that ever reads it. Deliberately opt-in per call site
+    rather than inferred, so it only ever reflects effects that actually
+    happened, not everything that merely *could* have. */
+function flagAbnormal(g, player) {
+  if (!g.abnormalTonight) g.abnormalTonight = new Set();
+  g.abnormalTonight.add(player.id);
 }
 
 /**
@@ -203,6 +260,35 @@ function somebodyDiedYesterday(g) {
   return g.deaths.some(d => d.night === g.nightNumber - 1);
 }
 
+/** Is a Vortox alive right now — Sects & Violets' "Townsfolk abilities
+    yield false info" is gated on this everywhere it's read, matching the
+    general rule that a dead character's passive text stops applying unless
+    it explicitly says otherwise (see checkVictory's comment on the Mayor
+    for the same convention applied to a different character). */
+function vortoxActive(g) {
+  return alive(g).some(p => p.characterId === 'vortox');
+}
+
+/** Did a Minion nominate on the given day — the Town Crier's trigger. */
+function minionNominatedToday(g, day) {
+  return g.nominations.some(n => {
+    if (n.day !== day) return false;
+    const nominator = byId(g, n.nominatorId);
+    return nominator && trueChar(nominator) && trueChar(nominator).team === 'minion';
+  });
+}
+
+/** Did a Demon vote on the given day — the Flowergirl's trigger. */
+function demonVotedToday(g, day) {
+  return g.nominations.some(n => {
+    if (n.day !== day) return false;
+    return (n.votes || []).some(v => {
+      const voter = byId(g, v.playerId);
+      return voter && trueChar(voter) && trueChar(voter).team === 'demon';
+    });
+  });
+}
+
 const numberSignal = n => String(n);
 
 function falseNumber(trueValue, max) {
@@ -258,7 +344,7 @@ function pairInfo(g, p, team, wrong) {
   // A registrant isn't really that role, so a real member of the category
   // gets named instead — the Spy is never announced as "the Spy" here.
   const shownChar = registrants.includes(subject)
-    ? pick(scriptPool(g.script).filter(c => c.team === team))
+    ? pick(activeScriptPool(g).filter(c => c.team === team))
     : trueChar(subject);
   const decoyPool = g.players.filter(x => x.id !== p.id && x.id !== subject.id);
   if (!wrong) {
@@ -281,10 +367,12 @@ function pairInfo(g, p, team, wrong) {
 }
 
 module.exports = {
-  DATA, CHARACTERS, SETUP_TABLE, char, scriptPool,
+  DATA, CHARACTERS, SETUP_TABLE, char, scriptPool, BUCKET4_IDS, activeScriptPool,
   shuffle, pick, take,
   byId, byToken, alive, seatIndex, actingChar, trueChar, impaired, publiclyAlive,
-  tealadyProtects, wouldBlockKill, randomKiller, checkKill, isEvil, triggerMoonchildIfNeeded,
+  livingNeighbors, tealadyProtects, wouldBlockKill, randomKiller, checkKill, isEvil, triggerMoonchildIfNeeded,
+  reassignCharacter, flagAbnormal,
   logEvent, outsiderDiedToday, minionDiedToday, somebodyDiedYesterday,
+  minionNominatedToday, demonVotedToday, vortoxActive,
   numberSignal, falseNumber, evilNeighbourCount, evilPairCount, pairInfo,
 };

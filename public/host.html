@@ -381,6 +381,52 @@ button.ghost.spent{
 .powerlog-target-token{width:18px; height:18px; border-radius:50%; object-fit:cover; border:1px solid var(--line); background:var(--surface-2); flex-shrink:0; vertical-align:middle}
 .powerlog-target-token-fallback{width:18px; height:18px; border-radius:50%; flex-shrink:0; background:var(--surface-2); border:1px solid var(--line); display:inline-block; vertical-align:middle}
 
+/* ----------------------------------------------------------- settings */
+.settings-overlay{position:fixed; inset:0; z-index:45; background:var(--void); display:flex; flex-direction:column}
+.settings-header{
+  flex:0 0 auto; display:flex; align-items:center; justify-content:space-between; gap:16px;
+  padding:16px 32px; border-bottom:1px solid var(--line);
+}
+.settings-header h2{margin:0; font-family:'Cinzel Decorative',Georgia,serif; font-size:1.3rem; color:var(--primary)}
+.settings-body{flex:1; min-height:0; overflow:auto; padding:24px 32px; max-width:640px; margin:0 auto; width:100%}
+.settings-section{margin-bottom:34px}
+.settings-section:last-child{margin-bottom:0}
+.settings-section h3{
+  font-size:.68rem; text-transform:uppercase; letter-spacing:.18em; color:var(--bone-dim);
+  margin:0 0 14px; padding-bottom:8px; border-bottom:1px solid var(--line);
+}
+.settings-row{display:flex; align-items:center; justify-content:space-between; gap:16px; padding:10px 0}
+.settings-row .lbl{display:flex; flex-direction:column; gap:2px; flex:1; min-width:0}
+.settings-row .lbl b{font-weight:500; color:var(--bone); font-size:.92rem}
+.settings-row .lbl span{font-size:.78rem; color:var(--bone-faint)}
+.settings-row input[type="range"]{width:150px; accent-color:var(--brass)}
+.settings-row input[type="number"]{
+  width:72px; background:var(--surface-2); border:1px solid var(--line); border-radius:6px;
+  color:var(--bone); padding:6px 8px; font-size:.9rem; text-align:right;
+}
+.settings-row .val{font-family:'Space Mono',monospace; font-size:.82rem; color:var(--bone-dim); width:2.4em; text-align:right}
+.settings-nights{display:flex; gap:8px}
+.settings-nights label{
+  display:flex; align-items:center; gap:5px; font-size:.82rem; color:var(--bone-dim);
+  border:1px solid var(--line); border-radius:6px; padding:5px 10px; cursor:pointer;
+}
+.settings-nights input{accent-color:var(--brass)}
+.toggle{position:relative; width:42px; height:24px; flex-shrink:0}
+.toggle input{position:absolute; inset:0; opacity:0; margin:0; cursor:pointer}
+.toggle .track{
+  position:absolute; inset:0; background:var(--surface-2); border:1px solid var(--line); border-radius:999px;
+  transition:background .15s;
+}
+.toggle .track::after{
+  content:''; position:absolute; top:2px; left:2px; width:18px; height:18px; border-radius:50%;
+  background:var(--bone-faint); transition:transform .15s, background .15s;
+}
+.toggle input:checked + .track{background:var(--oxblood)}
+.toggle input:checked + .track::after{transform:translateX(18px); background:var(--bone)}
+.llm-status{font-size:.82rem; margin-top:6px}
+.llm-status.ok{color:var(--verdigris,#6b9b7c)}
+.llm-status.off{color:var(--bone-faint)}
+
 /* -------------------------------------------------------------- footer */
 footer{flex:0 0 auto; display:flex; gap:10px; justify-content:center; flex-wrap:wrap; padding:14px 40px; border-top:1px solid var(--line)}
 button{
@@ -421,6 +467,7 @@ select{
 <header>
   <span class="brand"><span id="brandIcon"></span><span class="mark">The Clocktower Wakes</span></span>
   <span class="header-right">
+    <button id="settingsBtn" class="mutebtn" title="Table settings"></button>
     <button id="muteBtn" class="mutebtn" title="Mute sound"></button>
     <span class="phase" id="phase"></span>
   </span>
@@ -464,6 +511,7 @@ const ICON_PATHS = {
   brandmark: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none"/><path d="M12 12 16.6 16.3"/>',
   speaker: '<path d="M4 9v6h4l5 4V5L8 9H4Z"/><path d="M16.5 8.5a5 5 0 0 1 0 7"/><path d="M19.3 6a8.5 8.5 0 0 1 0 12"/>',
   speakerOff: '<path d="M4 9v6h4l5 4V5L8 9H4Z"/><path d="M16 9.5l5 5M21 9.5l-5 5"/>',
+  gear: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82A1.65 1.65 0 0 0 3 13.09H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/>',
 };
 function wrapIcon(name, size) {
   const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -664,6 +712,9 @@ function setMuted(next) {
 
 document.getElementById('muteBtn').onclick = () => setMuted(!soundMuted);
 setMuted(soundMuted);
+
+document.getElementById('settingsBtn').append(wrapIcon('gear', 17));
+document.getElementById('settingsBtn').onclick = () => settingsOverlay();
 // AudioContext can't produce sound until a real user gesture has happened
 // on the page at least once — the host will have clicked something (Deal,
 // the mute button, anything) long before the first cue would ever fire,
@@ -1137,6 +1188,165 @@ function powerLogOverlay() {
   });
 
   body.append(table);
+  overlay.append(body);
+  document.body.append(overlay);
+}
+
+// Storyteller-whim knobs (Bucket 1 in ABILITY_PATTERNS.md) — the help text
+// is each key's own inline comment in engine.js's newGame(), copied here so
+// the two can't quietly drift apart.
+const CHANCE_FIELDS = [
+  { key: 'mayorRedirectChance', label: 'Mayor redirect', help: '"might" redirect a night kill onto the Mayor instead' },
+  { key: 'shabalothRegurgitateChance', label: 'Shabaloth regurgitate', help: '"might" bring back last night’s kill' },
+  { key: 'pacifistSaveChance', label: 'Pacifist save', help: '"might" save an executed good player' },
+  { key: 'tinkerDeathChance', label: 'Tinker death', help: '"might die at any time" — rolled once per night' },
+  { key: 'madExecutionChance', label: 'Madness execution', help: 'Mutant/Cerenovus: "might be executed" for not acting mad enough' },
+  { key: 'recluseRegistersEvil', label: 'Recluse / Spy registration', help: 'how often a Recluse or Spy misregisters as the wrong team' },
+];
+const SECONDS_FIELDS = [
+  { key: 'windowSeconds', label: 'Night window (seconds)' },
+  { key: 'wave2Seconds', label: 'Second-wave window (seconds)' },
+  { key: 'voteWindowSeconds', label: 'Vote window (seconds)' },
+];
+
+function settingsOverlay() {
+  const overlay = el('div', 'settings-overlay');
+
+  const header = el('div', 'settings-header');
+  header.append(el('h2', null, 'Table settings'));
+  const close = withIcon(el('button', 'ghostbtn', 'Close'), 'close');
+  close.onclick = () => overlay.remove();
+  header.append(close);
+  overlay.append(header);
+
+  const body = el('div', 'settings-body');
+
+  const patch = (cfg) => post('/api/table/config', { config: cfg }).then(r => { if (!r.error) S.config = r.config; });
+
+  // ---- Timing ----
+  const timing = el('div', 'settings-section');
+  timing.append(el('h3', null, 'Timing'));
+  SECONDS_FIELDS.forEach(f => {
+    const row = el('div', 'settings-row');
+    const lbl = el('div', 'lbl');
+    lbl.append(el('b', null, f.label));
+    const input = document.createElement('input');
+    input.type = 'number';
+    input.min = '5'; input.max = '600'; input.step = '5';
+    input.value = S.config[f.key];
+    input.onchange = () => patch({ [f.key]: Number(input.value) });
+    row.append(lbl, input);
+    timing.append(row);
+  });
+  body.append(timing);
+
+  // ---- Drama ----
+  const drama = el('div', 'settings-section');
+  drama.append(el('h3', null, 'Drama'));
+  {
+    const row = el('div', 'settings-row');
+    const lbl = el('div', 'lbl');
+    lbl.append(el('b', null, 'Drama bias'), el('span', null, '0 = coldly random, 1 = maximum tension'));
+    const input = document.createElement('input');
+    input.type = 'range'; input.min = '0'; input.max = '1'; input.step = '0.05';
+    input.value = S.config.dramaBias;
+    const val = el('span', 'val', Number(S.config.dramaBias).toFixed(2));
+    input.oninput = () => { val.textContent = Number(input.value).toFixed(2); };
+    input.onchange = () => patch({ dramaBias: Number(input.value) });
+    row.append(lbl, val, input);
+    drama.append(row);
+  }
+  {
+    const row = el('div', 'settings-row');
+    const lbl = el('div', 'lbl');
+    lbl.append(el('b', null, 'Hint nights'), el('span', null, 'the dead stop speaking after these nights'));
+    const nights = el('div', 'settings-nights');
+    [1, 2, 3].forEach(n => {
+      const label = document.createElement('label');
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.checked = (S.config.hintNights || []).includes(n);
+      cb.onchange = () => {
+        const set = new Set(S.config.hintNights || []);
+        if (cb.checked) set.add(n); else set.delete(n);
+        patch({ hintNights: [...set] });
+      };
+      label.append(cb, document.createTextNode(`Night ${n}`));
+      nights.append(label);
+    });
+    row.append(lbl, nights);
+    drama.append(row);
+  }
+  body.append(drama);
+
+  // ---- Storyteller whim ----
+  const whim = el('div', 'settings-section');
+  whim.append(el('h3', null, 'Storyteller whim'));
+  CHANCE_FIELDS.forEach(f => {
+    const row = el('div', 'settings-row');
+    const lbl = el('div', 'lbl');
+    lbl.append(el('b', null, f.label), el('span', null, f.help));
+    const input = document.createElement('input');
+    input.type = 'range'; input.min = '0'; input.max = '1'; input.step = '0.05';
+    input.value = S.config[f.key];
+    const val = el('span', 'val', Number(S.config[f.key]).toFixed(2));
+    input.oninput = () => { val.textContent = Number(input.value).toFixed(2); };
+    input.onchange = () => patch({ [f.key]: Number(input.value) });
+    row.append(lbl, val, input);
+    whim.append(row);
+  });
+  body.append(whim);
+
+  // ---- Roster ----
+  const roster = el('div', 'settings-section');
+  roster.append(el('h3', null, 'Roster'));
+  {
+    const lobbyOnly = S.phase !== 'lobby';
+    const row = el('div', 'settings-row');
+    const lbl = el('div', 'lbl');
+    lbl.append(
+      el('b', null, 'Turn off Gossip, Savant, and Artist'),
+      el('span', null, lobbyOnly
+        ? 'Only changeable before roles are dealt.'
+        : 'The "ask/tell the Storyteller" characters — see Bucket 4 in ABILITY_PATTERNS.md.'),
+    );
+    const toggle = el('label', 'toggle');
+    const input = document.createElement('input');
+    input.type = 'checkbox';
+    input.disabled = lobbyOnly;
+    input.checked = (S.config.disabledCharacterIds || []).length > 0;
+    input.onchange = () => patch({ disabledCharacterIds: input.checked ? ['gossip', 'savant', 'artist'] : [] });
+    toggle.append(input, el('span', 'track'));
+    row.append(lbl, toggle);
+    roster.append(row);
+  }
+  body.append(roster);
+
+  // ---- LLM Storyteller ----
+  const llm = el('div', 'settings-section');
+  llm.append(el('h3', null, 'LLM Storyteller (experimental)'));
+  {
+    const row = el('div', 'settings-row');
+    const lbl = el('div', 'lbl');
+    lbl.append(
+      el('b', null, 'Connect an LLM Storyteller'),
+      el('span', null, 'Lets Gossip/Artist take a free-text claim or question, and gives Savant richer phrasing.'),
+    );
+    const toggle = el('label', 'toggle');
+    const input = document.createElement('input');
+    input.type = 'checkbox';
+    input.checked = !!S.config.llmStorytellerEnabled;
+    input.onchange = () => patch({ llmStorytellerEnabled: input.checked });
+    toggle.append(input, el('span', 'track'));
+    row.append(lbl, toggle);
+    llm.append(row);
+
+    const status = el('p', 'llm-status ' + (S.llmConfigured ? 'ok' : 'off'),
+      S.llmConfigured ? 'Connected — ANTHROPIC_API_KEY is set on the server.' : 'Not configured — set ANTHROPIC_API_KEY on the server to actually use this.');
+    llm.append(status);
+  }
+  body.append(llm);
+
   overlay.append(body);
   document.body.append(overlay);
 }

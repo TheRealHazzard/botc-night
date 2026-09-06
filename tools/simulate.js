@@ -1232,6 +1232,788 @@ console.log('\nVoting: resolveDayVote');
   }
 }
 
+console.log('\nSV: Clockmaker');
+{
+  const mk = (id, characterId) => ({ id, name: id, characterId, believedId: characterId, alive: true, statuses: {} });
+  const g = E.newGame();
+  g.script = 'sv'; g.nightNumber = 1; g.phase = 'night'; g.wave = 1; g.results = {};
+  // Seats 0..5, demon at 3, minion at 4 -> 1 step apart.
+  g.players = [mk('cm', 'clockmaker'), mk('a', 'oracle'), mk('b', 'oracle'), mk('imp1', 'imp'), mk('min1', 'witch'), mk('c', 'oracle')];
+  g.pending = {};
+  E.resolveNight(g, 1);
+  check('Clockmaker learns the correct step count', g.results.cm.body.includes('1'));
+}
+
+console.log('\nSV: Dreamer');
+{
+  const mk = (id, characterId) => ({ id, name: id, characterId, believedId: characterId, alive: true, statuses: {} });
+  const g = E.newGame();
+  g.script = 'sv'; g.nightNumber = 2; g.phase = 'night'; g.wave = 1; g.results = {};
+  g.players = [mk('dr', 'dreamer'), mk('t1', 'oracle'), mk('imp1', 'imp')];
+  g.pending = { dr: { targets: ['imp1'], decoy: false } };
+  E.resolveNight(g, 1);
+  check('Dreamer names the targeted player', g.results.dr.names[0] === 'imp1');
+  check('Dreamer shows the true character among the pair, since unimpaired', g.results.dr.body.includes('Imp'));
+
+  const g2 = E.newGame();
+  g2.script = 'sv'; g2.nightNumber = 2; g2.phase = 'night'; g2.wave = 1; g2.results = {};
+  g2.players = [mk('dr', 'dreamer'), mk('t1', 'oracle'), mk('imp1', 'imp')];
+  g2.players.find(p => p.id === 'dr').statuses.poisoned = true;
+  g2.pending = { dr: { targets: ['imp1'], decoy: false } };
+  E.resolveNight(g2, 1);
+  check('a poisoned Dreamer still gets a body, just not a guaranteed-correct one', !!g2.results.dr);
+}
+
+console.log('\nSV: Mathematician');
+{
+  const mk = (id, characterId) => ({ id, name: id, characterId, believedId: characterId, alive: true, statuses: {} });
+  const g = E.newGame();
+  g.script = 'sv'; g.nightNumber = 2; g.phase = 'night'; g.wave = 1; g.results = {};
+  g.players = [mk('math', 'mathematician'), mk('sc', 'snakecharmer'), mk('imp1', 'imp'), mk('t1', 'oracle')];
+  g.pending = { sc: { targets: ['imp1'], decoy: false } };
+  E.resolveNight(g, 1);
+  check('Mathematician counts both players the Snake Charmer swap flagged', g.results.math.body.includes('2'));
+}
+
+console.log('\nSV: Flowergirl and Town Crier');
+{
+  const mk = (id, characterId) => ({ id, name: id, characterId, believedId: characterId, alive: true, statuses: {} });
+  const g = E.newGame();
+  g.script = 'sv'; g.nightNumber = 2; g.phase = 'night'; g.wave = 1; g.results = {};
+  g.players = [mk('fg', 'flowergirl'), mk('tc', 'towncrier'), mk('imp1', 'imp'), mk('min1', 'witch'), mk('t1', 'oracle')];
+  g.nominations = [{
+    day: 1, nomineeId: 't1', nominatorId: 'min1', closed: true,
+    votes: [{ playerId: 'imp1', vote: 'yes' }, { playerId: 't1', vote: 'no' }],
+  }];
+  E.resolveNight(g, 1);
+  check('Flowergirl correctly learns a Demon voted yesterday', g.results.fg.body.includes('Yes'));
+  check('Town Crier correctly learns a Minion nominated yesterday', g.results.tc.body.includes('Yes'));
+
+  const g2 = E.newGame();
+  g2.script = 'sv'; g2.nightNumber = 2; g2.phase = 'night'; g2.wave = 1; g2.results = {};
+  g2.players = [mk('fg', 'flowergirl'), mk('tc', 'towncrier'), mk('imp1', 'imp'), mk('min1', 'witch'), mk('t1', 'oracle')];
+  g2.nominations = [{ day: 1, nomineeId: 'imp1', nominatorId: 't1', closed: true, votes: [{ playerId: 't1', vote: 'yes' }] }];
+  E.resolveNight(g2, 1);
+  check('Flowergirl correctly learns no Demon voted yesterday', g2.results.fg.body.includes('No'));
+  check('Town Crier correctly learns no Minion nominated yesterday', g2.results.tc.body.includes('No'));
+}
+
+console.log('\nSV: Oracle');
+{
+  const mk = (id, characterId, alive = true) => ({ id, name: id, characterId, believedId: characterId, alive, statuses: {} });
+  const g = E.newGame();
+  g.script = 'sv'; g.nightNumber = 2; g.phase = 'night'; g.wave = 1; g.results = {};
+  g.players = [mk('or', 'oracle'), mk('d1', 'oracle', false), mk('d2', 'witch', false), mk('t1', 'oracle', true)];
+  E.resolveNight(g, 1);
+  check('Oracle counts exactly the dead evil players', g.results.or.body.includes('1'));
+}
+
+console.log('\nSV: Seamstress');
+{
+  const mk = (id, characterId) => ({ id, name: id, characterId, believedId: characterId, alive: true, statuses: {} });
+  const g = E.newGame();
+  g.script = 'sv'; g.nightNumber = 1; g.phase = 'night'; g.wave = 1; g.results = {};
+  g.players = [mk('se', 'seamstress'), mk('a', 'oracle'), mk('b', 'witch')];
+  g.pending = { se: { targets: ['a', 'b'], decoy: false } };
+  E.resolveNight(g, 1);
+  check('two different-alignment players are correctly told apart', g.results.se.body.includes('No'));
+  check('the once-per-game charge is spent', g.players.find(p => p.id === 'se').statuses.seamstressUsed === true);
+
+  const g2 = E.newGame();
+  g2.script = 'sv'; g2.nightNumber = 1; g2.phase = 'night'; g2.wave = 1; g2.results = {};
+  g2.players = [mk('se', 'seamstress'), mk('a', 'oracle'), mk('b', 'oracle')];
+  g2.pending = { se: { targets: ['a', 'b'], decoy: false } };
+  E.resolveNight(g2, 1);
+  check('two same-alignment players are correctly told to match', g2.results.se.body.includes('Yes'));
+
+  const g3 = E.newGame();
+  g3.script = 'sv'; g3.nightNumber = 1; g3.phase = 'night'; g3.wave = 1; g3.results = {};
+  g3.players = [mk('se', 'seamstress'), mk('a', 'oracle'), mk('b', 'oracle')];
+  g3.players.find(p => p.id === 'se').statuses.poisoned = true;
+  g3.pending = { se: { targets: ['a', 'b'], decoy: false } };
+  E.resolveNight(g3, 1);
+  check('a poisoned Seamstress gets no result...', !g3.results.se);
+  check('...and keeps the once-per-game charge for later', !g3.players.find(p => p.id === 'se').statuses.seamstressUsed);
+}
+
+console.log('\nSV: Sage');
+{
+  const mk = (id, characterId) => ({ id, name: id, characterId, believedId: characterId, alive: true, statuses: {} });
+  const g = E.newGame();
+  g.script = 'sv'; g.nightNumber = 2; g.phase = 'night'; g.wave = 1; g.results = {};
+  g.players = [mk('sg', 'sage'), mk('imp1', 'imp'), mk('t1', 'oracle')];
+  g.pending = { imp1: { targets: ['sg'], decoy: false } };
+  E.resolveNight(g, 1);
+  check('the Sage dies to the Demon', !g.players.find(p => p.id === 'sg').alive);
+  check('the Sage learns a pair including the real Demon', g.results.sg.names.includes('imp1'));
+
+  // Killed by a Minion instead — must require killedByDemon specifically,
+  // same distinction that mattered for the Grandmother's own link.
+  const g2 = E.newGame();
+  g2.script = 'sv'; g2.nightNumber = 2; g2.phase = 'night'; g2.wave = 1; g2.results = {};
+  g2.players = [mk('sg', 'sage'), mk('as1', 'assassin'), mk('t1', 'oracle')];
+  g2.pending = { as1: { targets: ['sg'], decoy: false } };
+  E.resolveNight(g2, 1);
+  check("a Minion kill does not trigger the Sage's reveal", !g2.results.sg);
+}
+
+console.log('\nSV: Snake Charmer');
+{
+  const mk = (id, characterId) => ({ id, name: id, characterId, believedId: characterId, alive: true, statuses: {} });
+
+  const g = E.newGame();
+  g.script = 'sv'; g.nightNumber = 2; g.phase = 'night'; g.wave = 1; g.results = {};
+  g.players = [mk('sc', 'snakecharmer'), mk('imp1', 'imp'), mk('t1', 'oracle')];
+  g.pending = { sc: { targets: ['imp1'], decoy: false } };
+  E.resolveNight(g, 1);
+  const sc = g.players.find(p => p.id === 'sc');
+  const imp1 = g.players.find(p => p.id === 'imp1');
+  check('Snake Charmer becomes the Demon after targeting the real Demon', sc.characterId === 'imp' && sc.believedId === 'imp');
+  check('the ex-Demon becomes the Snake Charmer', imp1.characterId === 'snakecharmer' && imp1.believedId === 'snakecharmer');
+  check('the new Snake Charmer (ex-Demon) is poisoned', !!imp1.statuses.poisoned);
+  check('the new Demon (ex-Snake Charmer) is not poisoned', !sc.statuses.poisoned);
+
+  const g2 = E.newGame();
+  g2.script = 'sv'; g2.nightNumber = 2; g2.phase = 'night'; g2.wave = 1; g2.results = {};
+  g2.players = [mk('sc', 'snakecharmer'), mk('t1', 'oracle'), mk('imp1', 'imp')];
+  g2.pending = { sc: { targets: ['t1'], decoy: false } };
+  E.resolveNight(g2, 1);
+  const sc2 = g2.players.find(p => p.id === 'sc');
+  check('targeting a non-Demon does nothing', sc2.characterId === 'snakecharmer' && !sc2.statuses.poisoned);
+
+  // The genuinely tricky part: the ex-Demon's own kill choice, submitted in
+  // good faith before the swap, was already pending for their slot later
+  // this same night. It must not still go through.
+  const g3 = E.newGame();
+  g3.script = 'sv'; g3.nightNumber = 2; g3.phase = 'night'; g3.wave = 1; g3.results = {};
+  g3.players = [mk('sc', 'snakecharmer'), mk('imp1', 'imp'), mk('v1', 'oracle')];
+  g3.pending = { sc: { targets: ['imp1'], decoy: false }, imp1: { targets: ['v1'], decoy: false } };
+  E.resolveNight(g3, 1);
+  check("the ex-Demon's already-pending kill this same night is nullified by the fresh poison",
+    g3.players.find(p => p.id === 'v1').alive);
+}
+
+console.log('\nSV: Philosopher');
+{
+  const mk = (id, characterId) => ({ id, name: id, characterId, believedId: characterId, alive: true, statuses: {} });
+  const g = E.newGame();
+  g.script = 'sv'; g.nightNumber = 1; g.phase = 'night'; g.wave = 1; g.results = {};
+  g.players = [mk('ph', 'philosopher'), mk('dr', 'dreamer'), mk('imp1', 'imp')];
+  const phPlayer = g.players.find(p => p.id === 'ph');
+
+  const prompt = E.promptFor(g, phPlayer);
+  check('the Philosopher gets a real prompt (not a decoy) despite choiceCount 0', !!prompt && prompt.characterId === 'philosopher');
+  check('the prompt asks for a character guess with zero player targets', prompt.count === 0 && prompt.guessCharacter === true);
+  check('a character with no registry entry at all (Savant) is excluded', !prompt.characterOptions.some(o => o.id === 'savant'));
+  check('a purely onDeath-reactive character (Sweetheart) is excluded — gaining it would never fire for the Philosopher\'s own death',
+    !prompt.characterOptions.some(o => o.id === 'sweetheart'));
+  check('an in-play, genuinely night-active character (Dreamer) is still offered', prompt.characterOptions.some(o => o.id === 'dreamer'));
+  check('their own character is excluded from the options', !prompt.characterOptions.some(o => o.id === 'philosopher'));
+
+  g.pending = { ph: { targets: [], decoy: false, characterGuess: 'dreamer' } };
+  E.resolveNight(g, 1);
+  check('the Philosopher gains the chosen ability (believedId changes, characterId does not)',
+    phPlayer.believedId === 'dreamer' && phPlayer.characterId === 'philosopher');
+  check('the once-per-game flag is set', phPlayer.statuses.philosopherUsed === true);
+  check('the real holder of the gained character becomes drunk', g.players.find(p => p.id === 'dr').statuses.drunk === true);
+
+  g.nightNumber = 2; g.wave = 1; g.results = {};
+  g.pending = { ph: { targets: ['imp1'], decoy: false } };
+  E.resolveNight(g, 1);
+  check('the following night, the Philosopher acts as their gained character', !!g.results.ph && g.results.ph.title === 'Dreamer');
+}
+
+console.log('\nSV: Pit-Hag');
+{
+  const mk = (id, characterId) => ({ id, name: id, characterId, believedId: characterId, alive: true, statuses: {} });
+  const g = E.newGame();
+  g.script = 'sv'; g.nightNumber = 2; g.phase = 'night'; g.wave = 1; g.results = {};
+  g.players = [mk('ph', 'pithag'), mk('t1', 'oracle')];
+  g.pending = { ph: { targets: ['t1'], decoy: false, characterGuess: 'empath' } };
+  E.resolveNight(g, 1);
+  const t1 = g.players.find(p => p.id === 't1');
+  check('Pit-Hag remakes the target into the chosen not-in-play character', t1.characterId === 'empath' && t1.believedId === 'empath');
+
+  const g2 = E.newGame();
+  g2.script = 'sv'; g2.nightNumber = 2; g2.phase = 'night'; g2.wave = 1; g2.results = {};
+  g2.players = [mk('ph', 'pithag'), mk('t1', 'oracle'), mk('e1', 'empath')];
+  g2.pending = { ph: { targets: ['t1'], decoy: false, characterGuess: 'empath' } };
+  E.resolveNight(g2, 1);
+  check('Pit-Hag does nothing if the chosen character is already in play',
+    g2.players.find(p => p.id === 't1').characterId === 'oracle');
+}
+
+console.log('\nSV: Sweetheart');
+{
+  const mk = (id, characterId) => ({ id, name: id, characterId, believedId: characterId, alive: true, statuses: {} });
+  const g = E.newGame();
+  g.script = 'sv'; g.nightNumber = 2; g.results = {};
+  g.players = [mk('sh', 'sweetheart'), mk('t1', 'oracle'), mk('t2', 'witch')];
+  const sh = g.players.find(p => p.id === 'sh');
+  sh.alive = false;
+  E.triggerDeathHooks(g, sh, { killedByDemon: false });
+  check('Sweetheart\'s death makes exactly one other living player drunk',
+    !!g.players.find(p => p.id !== 'sh' && p.statuses.drunk));
+}
+
+console.log('\nSV: Klutz');
+{
+  const mk = (id, characterId) => ({ id, name: id, characterId, believedId: characterId, alive: true, statuses: {} });
+  const g = E.newGame();
+  g.script = 'sv'; g.nightNumber = 2; g.results = {};
+  g.players = [mk('kl', 'klutz'), mk('imp1', 'imp')];
+  const kl = g.players.find(p => p.id === 'kl');
+  kl.alive = false;
+  E.triggerDeathHooks(g, kl, { killedByDemon: true });
+  check('the Klutz\'s public choice opens on death', kl.statuses.klutzPending === true);
+  check('the once-only guard is set', kl.statuses.klutzUsed === true);
+
+  kl.statuses.klutzPending = false;
+  E.triggerDeathHooks(g, kl, { killedByDemon: false });
+  check('a second trigger does not reopen the pending choice', kl.statuses.klutzPending === false);
+}
+
+console.log('\nSV: Witch');
+{
+  const mk = (id, characterId) => ({ id, name: id, characterId, believedId: characterId, alive: true, statuses: {} });
+  const g = E.newGame();
+  g.script = 'sv'; g.nightNumber = 1; g.phase = 'night'; g.wave = 1; g.results = {};
+  g.players = [mk('w', 'witch'), mk('t1', 'oracle'), mk('t2', 'oracle'), mk('t3', 'oracle'), mk('t4', 'oracle')];
+  g.pending = { w: { targets: ['t1'], decoy: false } };
+  E.resolveNight(g, 1);
+  check('Witch curses the chosen player', g.players.find(p => p.id === 't1').statuses.witchCursed === true);
+
+  const g2 = E.newGame();
+  g2.script = 'sv'; g2.nightNumber = 1; g2.phase = 'night'; g2.wave = 1;
+  g2.players = [mk('w', 'witch'), mk('t1', 'oracle'), mk('t2', 'oracle')];
+  const promptAt3 = E.promptFor(g2, g2.players[0]);
+  check('at 3 living, the Witch gets no real prompt (decoy only) — she has lost the ability',
+    !!promptAt3 && !promptAt3.characterId);
+
+  const g3 = E.newGame();
+  g3.script = 'sv'; g3.nightNumber = 2; g3.phase = 'night'; g3.wave = 1; g3.results = {};
+  g3.players = [mk('w', 'witch'), mk('t1', 'oracle'), mk('t2', 'oracle'), mk('t3', 'oracle')];
+  g3.players.find(p => p.id === 't1').statuses.witchCursed = true; // stale, never consumed
+  g3.pending = {};
+  E.resolveNight(g3, 1);
+  check("a stale, unconsumed curse from a previous night is cleared at the next night's reset",
+    !g3.players.find(p => p.id === 't1').statuses.witchCursed);
+}
+
+console.log('\nSV: No Dashii');
+{
+  const mk = (id, characterId) => ({ id, name: id, characterId, believedId: characterId, alive: true, statuses: {} });
+  const g = E.newGame();
+  g.script = 'sv'; g.nightNumber = 2; g.phase = 'night'; g.wave = 1; g.results = {};
+  // Circle: nd - t1 - t2 - v1 - t3 (back to nd). nd's living neighbours are t1 and t3.
+  g.players = [mk('nd', 'nodashii'), mk('t1', 'oracle'), mk('t2', 'oracle'), mk('v1', 'witch'), mk('t3', 'oracle')];
+  g.pending = { nd: { targets: ['t2'], decoy: false } };
+  E.resolveNight(g, 1);
+  const t1 = g.players.find(p => p.id === 't1'), t3 = g.players.find(p => p.id === 't3'), t2 = g.players.find(p => p.id === 't2');
+  check('No Dashii poisons both Townsfolk neighbours', !!t1.statuses.poisoned && !!t3.statuses.poisoned);
+  check('No Dashii kills the chosen target', !t2.alive);
+
+  const g2 = E.newGame();
+  g2.script = 'sv'; g2.results = {};
+  g2.players = [mk('nd', 'nodashii'), mk('t1', 'oracle'), mk('t2', 'oracle'), mk('v1', 'witch'), mk('t3', 'oracle')];
+  g2.nightNumber = 2; g2.phase = 'night'; g2.wave = 1;
+  g2.pending = { nd: { targets: ['v1'], decoy: false } };
+  E.resolveNight(g2, 1);
+  check('night 2: t1 and t3 (the living neighbours) are poisoned',
+    !!g2.players.find(p => p.id === 't1').statuses.poisoned && !!g2.players.find(p => p.id === 't3').statuses.poisoned);
+
+  // t1 dies between nights — no longer a neighbour at all.
+  g2.players.find(p => p.id === 't1').alive = false;
+  g2.nightNumber = 3; g2.wave = 1; g2.results = {};
+  g2.pending = { nd: { targets: ['t2'], decoy: false } };
+  E.resolveNight(g2, 1);
+  check('night 3: the departed neighbour (t1) is no longer poisoned', !g2.players.find(p => p.id === 't1').statuses.poisoned);
+  check('night 3: the new adjacent Townsfolk (t2) is poisoned instead', !!g2.players.find(p => p.id === 't2').statuses.poisoned);
+  check('night 3: t3 remains a neighbour and stays poisoned', !!g2.players.find(p => p.id === 't3').statuses.poisoned);
+}
+
+console.log('\nSV: Juggler');
+{
+  const mk = (id, characterId) => ({ id, name: id, characterId, believedId: characterId, alive: true, statuses: {} });
+  const g = E.newGame();
+  g.script = 'sv'; g.nightNumber = 2; g.phase = 'night'; g.wave = 1; g.results = {};
+  g.players = [mk('ju', 'juggler'), mk('t1', 'oracle'), mk('imp1', 'imp')];
+  g.players.find(p => p.id === 'ju').statuses.jugglerGuesses = [
+    { playerId: 't1', characterGuess: 'oracle' },   // correct
+    { playerId: 'imp1', characterGuess: 'witch' },  // wrong
+  ];
+  E.resolveNight(g, 1);
+  check('Juggler correctly counts 1 of 2 guesses right', g.results.ju.body.includes('1'));
+  check('the stored guesses are consumed after the reveal', !g.players.find(p => p.id === 'ju').statuses.jugglerGuesses);
+}
+
+console.log('\nSV: Fang Gu / Vigormortis setup modifiers (dealRoles)');
+{
+  const base = E.SETUP_TABLE['9'].outsider;
+  let sawFangGu = false, sawVigormortis = false, allCorrect = true;
+  for (let i = 0; i < 30; i++) {
+    const g = E.newGame();
+    g.script = 'sv';
+    seat(g, 9);
+    E.dealRoles(g);
+    const demon = g.players.find(p => E.trueChar(p).team === 'demon');
+    const outsiderCount = g.players.filter(p => E.trueChar(p).team === 'outsider').length;
+    if (demon.characterId === 'fanggu') {
+      sawFangGu = true;
+      if (outsiderCount !== base + 1) allCorrect = false;
+    } else if (demon.characterId === 'vigormortis') {
+      sawVigormortis = true;
+      if (outsiderCount !== base - 1) allCorrect = false;
+    } else if (outsiderCount !== base) {
+      allCorrect = false;
+    }
+  }
+  check('across 30 deals, Fang Gu always shows exactly +1 Outsider and Vigormortis exactly -1', allCorrect);
+  check('...and both demons actually came up at least once, so the check above is meaningful', sawFangGu && sawVigormortis);
+}
+
+console.log('\nSV: Evil Twin');
+{
+  const mk = (id, characterId) => ({ id, name: id, characterId, believedId: characterId, alive: true, statuses: {} });
+  const g = E.newGame();
+  g.script = 'sv'; g.nightNumber = 1; g.phase = 'night'; g.wave = 1; g.results = {};
+  g.players = [mk('et', 'eviltwin'), mk('gt', 'oracle'), mk('vx1', 'vortox')];
+  g.players.find(p => p.id === 'et').statuses.twinId = 'gt';
+  g.players.find(p => p.id === 'gt').statuses.evilTwinId = 'et';
+  E.resolveNight(g, 1);
+  check('the Evil Twin learns their Twin', g.results.et.body.includes('gt'));
+  check('the good Twin learns the Evil Twin', g.results.gt.body.includes('et'));
+
+  const g2 = E.newGame();
+  g2.script = 'sv'; g2.nightNumber = 1; g2.phase = 'night'; g2.wave = 1; g2.results = {};
+  g2.players = [mk('et', 'eviltwin'), mk('gt', 'oracle'), mk('vx1', 'vortox')];
+  g2.players.find(p => p.id === 'et').statuses.twinId = 'gt';
+  g2.players.find(p => p.id === 'et').statuses.poisoned = true;
+  E.resolveNight(g2, 1);
+  check('a poisoned Evil Twin tells neither side anything', !g2.results.et && !g2.results.gt);
+}
+
+console.log('\nSV: Evil Twin blocks/forces victory');
+{
+  const mk = (id, characterId) => ({ id, name: id, characterId, believedId: characterId, alive: true, statuses: {} });
+  const g = E.newGame();
+  g.phase = 'day';
+  g.players = [mk('et', 'eviltwin'), mk('gt', 'oracle'), mk('t1', 'oracle')];
+  g.players.find(p => p.id === 'et').statuses.twinId = 'gt';
+  g.players.find(p => p.id === 'gt').statuses.evilTwinId = 'et';
+  check('good cannot win while the Evil Twin and their Twin are both alive (no Demon in play at all here)',
+    E.checkVictory(g) === null);
+
+  g.players.find(p => p.id === 'et').alive = false;
+  check('once the Evil Twin dies, good can win normally again', !!E.checkVictory(g) && E.checkVictory(g).winner === 'good');
+
+  // 4 living besides the executed Twin, so this can't accidentally pass via
+  // the unrelated "only the Demon and one other remain" rule instead.
+  const g2 = E.newGame();
+  g2.phase = 'day'; g2.evilTwinGoodExecuted = true;
+  g2.players = [mk('et', 'eviltwin'), mk('gt', 'oracle'), mk('vx1', 'vortox'), mk('t1', 'oracle'), mk('t2', 'oracle')];
+  g2.players.find(p => p.id === 'gt').alive = false;
+  const v2 = E.checkVictory(g2);
+  check('executing the good Twin forces an evil win even with a Demon still alive',
+    !!v2 && v2.winner === 'evil' && v2.reason.includes('Twin'));
+}
+
+console.log('\nSV: Fang Gu');
+{
+  const mk = (id, characterId) => ({ id, name: id, characterId, believedId: characterId, alive: true, statuses: {} });
+  const g = E.newGame();
+  g.script = 'sv'; g.nightNumber = 2; g.phase = 'night'; g.wave = 1; g.results = {};
+  g.players = [mk('fg', 'fanggu'), mk('out1', 'sweetheart'), mk('t1', 'oracle')];
+  g.pending = { fg: { targets: ['out1'], decoy: false } };
+  E.resolveNight(g, 1);
+  check('the targeted Outsider becomes the new Fang Gu', g.players.find(p => p.id === 'out1').characterId === 'fanggu');
+  check('the original Fang Gu dies instead', !g.players.find(p => p.id === 'fg').alive);
+  check('the game-wide transform flag is now set', g.fangGuTransformUsed === true);
+
+  const g2 = E.newGame();
+  g2.script = 'sv'; g2.nightNumber = 2; g2.phase = 'night'; g2.wave = 1; g2.results = {};
+  g2.players = [mk('fg', 'fanggu'), mk('out1', 'sweetheart'), mk('t1', 'oracle')];
+  g2.fangGuTransformUsed = true;
+  g2.pending = { fg: { targets: ['out1'], decoy: false } };
+  E.resolveNight(g2, 1);
+  check('once the transform is already used, a later Outsider kill is just a normal kill',
+    !g2.players.find(p => p.id === 'out1').alive && g2.players.find(p => p.id === 'fg').alive);
+
+  const g3 = E.newGame();
+  g3.script = 'sv'; g3.nightNumber = 2; g3.phase = 'night'; g3.wave = 1; g3.results = {};
+  g3.players = [mk('fg', 'fanggu'), mk('t1', 'oracle')];
+  g3.pending = { fg: { targets: ['t1'], decoy: false } };
+  E.resolveNight(g3, 1);
+  check('killing a Townsfolk is always a normal kill, never a transform',
+    !g3.players.find(p => p.id === 't1').alive && g3.players.find(p => p.id === 'fg').alive);
+}
+
+console.log('\nSV: Vigormortis');
+{
+  const mk = (id, characterId) => ({ id, name: id, characterId, believedId: characterId, alive: true, statuses: {} });
+  const g = E.newGame();
+  g.script = 'sv'; g.nightNumber = 2; g.phase = 'night'; g.wave = 1; g.results = {};
+  g.players = [mk('vg', 'vigormortis'), mk('min1', 'poisoner'), mk('t1', 'oracle'), mk('t2', 'oracle')];
+  g.pending = { vg: { targets: ['min1'], decoy: false } };
+  E.resolveNight(g, 1);
+  const min1 = g.players.find(p => p.id === 'min1');
+  check('the killed Minion is marked dead', !min1.alive);
+  check('...but flagged to keep acting', min1.statuses.vigormortisKept === true);
+  check('one Townsfolk neighbour of the dead Minion is poisoned', g.players.find(p => p.id === 't1').statuses.poisoned === true);
+
+  g.nightNumber = 3; g.wave = 1; g.results = {};
+  const prompt = E.promptFor(g, min1);
+  check('the dead-but-kept Minion still receives a real prompt the following night',
+    !!prompt && prompt.characterId === 'poisoner');
+  g.pending = { min1: { targets: ['t2'], decoy: false } };
+  E.resolveNight(g, 1);
+  check('...and their kept ability actually still works', g.players.find(p => p.id === 't2').statuses.poisoned === true);
+
+  const g2 = E.newGame();
+  g2.script = 'sv'; g2.nightNumber = 2; g2.phase = 'night'; g2.wave = 1; g2.results = {};
+  g2.players = [mk('vg', 'vigormortis'), mk('t1', 'oracle'), mk('t2', 'oracle')];
+  g2.pending = { vg: { targets: ['t1'], decoy: false } };
+  E.resolveNight(g2, 1);
+  check('killing a Townsfolk grants no kept-ability status', !g2.players.find(p => p.id === 't1').statuses.vigormortisKept);
+}
+
+console.log('\nSV: Vortox');
+{
+  const mk = (id, characterId, alive = true) => ({ id, name: id, characterId, believedId: characterId, alive, statuses: {} });
+  const g = E.newGame();
+  g.script = 'sv'; g.nightNumber = 2; g.phase = 'night'; g.wave = 1; g.results = {};
+  g.players = [mk('vx', 'vortox'), mk('t1', 'oracle')];
+  g.pending = { vx: { targets: ['t1'], decoy: false } };
+  E.resolveNight(g, 1);
+  check('Vortox kills its target like any other demon', !g.players.find(p => p.id === 't1').alive);
+
+  const g2 = E.newGame();
+  g2.script = 'sv'; g2.nightNumber = 2; g2.phase = 'night'; g2.wave = 1; g2.results = {};
+  g2.players = [mk('or', 'oracle'), mk('vx', 'vortox'), mk('d1', 'oracle', false)];
+  E.resolveNight(g2, 1);
+  check('an unimpaired Oracle shows false info while a living Vortox is in play',
+    !g2.results.or.body.includes('Dead players who are evil: 0'));
+
+  // Vortox dead now counts as a dead evil player itself — 1 (Vortox), not 0.
+  const g3 = E.newGame();
+  g3.script = 'sv'; g3.nightNumber = 2; g3.phase = 'night'; g3.wave = 1; g3.results = {};
+  g3.players = [mk('or', 'oracle'), mk('vx', 'vortox', false), mk('d1', 'oracle', false)];
+  E.resolveNight(g3, 1);
+  check('once Vortox is dead, the same Oracle reports truthfully again',
+    g3.results.or.body.includes('Dead players who are evil: 1'));
+}
+
+console.log('\nSV: Vortox — "no execution" win condition');
+{
+  const mk = (id, characterId, alive = true) => ({ id, name: id, characterId, believedId: characterId, alive, statuses: {} });
+  const g = E.newGame();
+  g.phase = 'day'; g.noExecutionToday = true;
+  g.players = [mk('vx', 'vortox'), mk('t1', 'oracle'), mk('t2', 'oracle')];
+  const v = E.checkVictory(g);
+  check('no execution with a living Vortox -> evil wins immediately', !!v && v.winner === 'evil');
+
+  const g2 = E.newGame();
+  g2.phase = 'day'; g2.noExecutionToday = false;
+  g2.players = [mk('vx', 'vortox'), mk('t1', 'oracle'), mk('t2', 'oracle')];
+  check('an executed day with a living Vortox does not end the game on its own', E.checkVictory(g2) === null);
+
+  // Vortox dead but a second Demon (an unrealistic setup, but isolates the
+  // mechanic) still alive — demonAlive stays true, so this can't fall
+  // through to the ordinary "Demon is dead" good win instead.
+  const g3 = E.newGame();
+  g3.phase = 'day'; g3.noExecutionToday = true;
+  g3.players = [mk('vx', 'vortox', false), mk('nd', 'nodashii'), mk('t1', 'oracle'), mk('t2', 'oracle')];
+  check('no execution once Vortox specifically is dead does not trigger its win condition',
+    E.checkVictory(g3) === null);
+}
+
+console.log('\nSV: Barber');
+{
+  const mk = (id, characterId) => ({ id, name: id, characterId, believedId: characterId, alive: true, statuses: {} });
+  // Vortox, not Fang Gu — a Fang Gu killing an Outsider triggers its own
+  // transform mechanic instead of a plain death (see the Fang Gu tests
+  // above), which would confuse what this test is isolating.
+  const g = E.newGame();
+  g.script = 'sv'; g.nightNumber = 2; g.phase = 'night'; g.wave = 1; g.results = {};
+  g.players = [mk('fg', 'vortox'), mk('ba', 'barber'), mk('t1', 'oracle'), mk('t2', 'dreamer')];
+  g.pending = { fg: { targets: ['ba'], decoy: false } };
+  E.resolveNight(g, 1);
+  const fg = g.players.find(p => p.id === 'fg');
+  check("the Barber dies to the Demon's kill tonight", !g.players.find(p => p.id === 'ba').alive);
+  check('the Demon is flagged for a wave-2 barber-swap prompt', fg.statuses.barberSwapPending === true);
+  check('wave 2 is now needed', E.needsWaveTwo(g) === true);
+
+  g.wave = 2;
+  const prompt = E.promptFor(g, fg);
+  check('the Demon gets the synthetic barber-swap prompt in wave 2',
+    !!prompt && prompt.characterId === 'barber-swap' && prompt.count === 2 && prompt.optional === true);
+
+  g.pending = { fg: { targets: ['t1', 't2'], decoy: false } };
+  E.resolveNight(g, 2);
+  const t1 = g.players.find(p => p.id === 't1'), t2 = g.players.find(p => p.id === 't2');
+  check('the swap exchanges their characters', t1.characterId === 'dreamer' && t2.characterId === 'oracle');
+  check('...and their believedId moves with it', t1.believedId === 'dreamer' && t2.believedId === 'oracle');
+  check('the pending flag is cleared after use', fg.statuses.barberSwapPending === false);
+}
+{
+  const mk = (id, characterId) => ({ id, name: id, characterId, believedId: characterId, alive: true, statuses: {} });
+  const g = E.newGame();
+  g.script = 'sv'; g.nightNumber = 2; g.phase = 'night'; g.wave = 2; g.results = {};
+  g.players = [mk('fg', 'fanggu'), mk('t1', 'oracle'), mk('t2', 'dreamer')];
+  g.players.find(p => p.id === 'fg').statuses.barberSwapPending = true;
+  g.pending = {};
+  E.resolveNight(g, 2);
+  check('passing (no targets) leaves everyone unchanged', g.players.find(p => p.id === 't1').characterId === 'oracle');
+  check('the flag is still cleared even on a pass', g.players.find(p => p.id === 'fg').statuses.barberSwapPending === false);
+}
+{
+  const mk = (id, characterId) => ({ id, name: id, characterId, believedId: characterId, alive: true, statuses: {} });
+  const g = E.newGame();
+  g.script = 'sv'; g.nightNumber = 2; g.phase = 'night'; g.wave = 2; g.results = {};
+  g.players = [mk('fg', 'fanggu'), mk('t1', 'oracle'), mk('t2', 'dreamer')];
+  const fg = g.players.find(p => p.id === 'fg');
+  fg.statuses.barberSwapPending = true;
+  fg.statuses.poisoned = true;
+  g.pending = { fg: { targets: ['t1', 't2'], decoy: false } };
+  E.resolveNight(g, 2);
+  check('a poisoned Demon cannot use the barber-swap even if submitted', g.players.find(p => p.id === 't1').characterId === 'oracle');
+}
+{
+  // The other trigger: executed today (not killed tonight) — the exact
+  // mechanism server.js's recordExecution already uses for every execution.
+  const mk = (id, characterId) => ({ id, name: id, characterId, believedId: characterId, alive: true, statuses: {} });
+  const g = E.newGame();
+  g.script = 'sv';
+  g.players = [mk('fg', 'fanggu'), mk('vg', 'vigormortis'), mk('t1', 'oracle')];
+  const ba = { id: 'ba', name: 'ba', characterId: 'barber', believedId: 'barber', alive: false, statuses: {} };
+  g.players.push(ba);
+  E.triggerDeathHooks(g, ba, { killedByDemon: false });
+  check('executing the Barber flags a living Demon too', g.players.find(p => p.id === 'fg').statuses.barberSwapPending === true);
+  check('wave 2 is needed starting the next night', E.needsWaveTwo(g) === true);
+
+  g.nightNumber = 3; g.phase = 'night'; g.wave = 2;
+  const prompt = E.promptFor(g, g.players.find(p => p.id === 'fg'));
+  check('another living Demon is excluded from the swap targets', !prompt.targets.some(t => t.id === 'vg'));
+  check('a non-Demon player is still offered', prompt.targets.some(t => t.id === 't1'));
+}
+{
+  const mk = (id, characterId) => ({ id, name: id, characterId, believedId: characterId, alive: true, statuses: {} });
+  const g = E.newGame();
+  g.script = 'sv'; g.nightNumber = 2; g.phase = 'night'; g.wave = 1;
+  g.players = [mk('ba', 'barber'), mk('t1', 'oracle')];
+  const prompt = E.promptFor(g, g.players.find(p => p.id === 'ba'));
+  check('a living Barber has no active ability of their own — just a decoy', !!prompt && prompt.decoy === true);
+}
+
+console.log('\nSV: Mutant setup (dealRoles)');
+{
+  let sawMutant = false, allCorrect = true;
+  for (let i = 0; i < 40; i++) {
+    const g = E.newGame();
+    g.script = 'sv';
+    seat(g, 9);
+    E.dealRoles(g);
+    const mutant = g.players.find(p => p.characterId === 'mutant');
+    if (mutant) {
+      sawMutant = true;
+      const reasons = mutant.statuses.madReasons;
+      if (!reasons || reasons.length !== 1 || reasons[0].label !== 'an Outsider' || reasons[0].expiresAfterCheck !== false) {
+        allCorrect = false;
+      }
+    }
+  }
+  check('across 40 deals, the Mutant is always permanently mad about being an Outsider', allCorrect);
+  check('...and the Mutant actually came up at least once, so the check above is meaningful', sawMutant);
+}
+
+console.log('\nSV: Cerenovus');
+{
+  const mk = (id, characterId) => ({ id, name: id, characterId, believedId: characterId, alive: true, statuses: {} });
+  const g = E.newGame();
+  g.script = 'sv'; g.nightNumber = 1; g.phase = 'night'; g.wave = 1; g.results = {};
+  g.players = [mk('ce', 'cerenovus'), mk('t1', 'oracle')];
+  g.pending = { ce: { targets: ['t1'], decoy: false, characterGuess: 'dreamer' } };
+  E.resolveNight(g, 1);
+  const t1 = g.players.find(p => p.id === 't1');
+  check('the target becomes mad about the chosen character',
+    t1.statuses.madReasons && t1.statuses.madReasons.length === 1 && t1.statuses.madReasons[0].label === 'Dreamer');
+  check("Cerenovus's madness expires after one check", t1.statuses.madReasons[0].expiresAfterCheck === true);
+}
+{
+  // Additive: a Mutant who is also Cerenovus'd keeps both reasons.
+  const mk = (id, characterId) => ({ id, name: id, characterId, believedId: characterId, alive: true, statuses: {} });
+  const g = E.newGame();
+  g.script = 'sv'; g.nightNumber = 1; g.phase = 'night'; g.wave = 1; g.results = {};
+  g.players = [mk('ce', 'cerenovus'), mk('mu', 'mutant')];
+  g.players.find(p => p.id === 'mu').statuses.madReasons = [{ label: 'an Outsider', expiresAfterCheck: false }];
+  g.pending = { ce: { targets: ['mu'], decoy: false, characterGuess: 'oracle' } };
+  E.resolveNight(g, 1);
+  const mu = g.players.find(p => p.id === 'mu');
+  check("a Mutant who is also Cerenovus'd keeps both madness reasons", mu.statuses.madReasons.length === 2);
+}
+
+console.log('\nSV: resolveMadness');
+{
+  const mk = (id, characterId) => ({ id, name: id, characterId, believedId: characterId, alive: true, statuses: {} });
+  const g = E.newGame();
+  g.nightNumber = 2; g.config.madExecutionChance = 1; // deterministic for this test
+  g.players = [mk('mu', 'mutant'), mk('t1', 'oracle')];
+  g.players.find(p => p.id === 'mu').statuses.madReasons = [{ label: 'an Outsider', expiresAfterCheck: false }];
+  E.resolveMadness(g);
+  const mu = g.players.find(p => p.id === 'mu');
+  check('an unclaimed mad player is executed when the roll always hits', !mu.alive);
+  check('the death is recorded with cause "madness"', g.deaths.some(d => d.name === 'mu' && d.cause === 'madness'));
+  check('a permanent reason is NOT cleared just because the check ran', mu.statuses.madReasons.length === 1);
+}
+{
+  const mk = (id, characterId) => ({ id, name: id, characterId, believedId: characterId, alive: true, statuses: {} });
+  const g = E.newGame();
+  g.nightNumber = 2; g.config.madExecutionChance = 1;
+  g.players = [mk('mu', 'mutant')];
+  const mu = g.players[0];
+  mu.statuses.madReasons = [{ label: 'an Outsider', expiresAfterCheck: false }];
+  mu.statuses.madClaimedToday = true;
+  E.resolveMadness(g);
+  check('claiming today protects them from the roll entirely', mu.alive);
+  check("the claim flag resets for tomorrow's check", mu.statuses.madClaimedToday === false);
+}
+{
+  const mk = (id, characterId) => ({ id, name: id, characterId, believedId: characterId, alive: true, statuses: {} });
+  const g = E.newGame();
+  g.nightNumber = 2; g.config.madExecutionChance = 0; // never fires, but still processes claims/expiry
+  g.players = [mk('ceTarget', 'oracle')];
+  const t = g.players[0];
+  t.statuses.madReasons = [{ label: 'Dreamer', expiresAfterCheck: true }];
+  E.resolveMadness(g);
+  check('a Cerenovus-style reason is cleared after one check, survived or not', t.statuses.madReasons.length === 0);
+  check('they survive when the chance is zero', t.alive);
+}
+{
+  // A mad-executed Demon should let checkVictory notice good has won.
+  const mk = (id, characterId) => ({ id, name: id, characterId, believedId: characterId, alive: true, statuses: {} });
+  const g = E.newGame();
+  g.phase = 'day'; g.nightNumber = 2; g.config.madExecutionChance = 1;
+  g.players = [mk('vx', 'vortox'), mk('t1', 'oracle'), mk('t2', 'dreamer')];
+  g.players.find(p => p.id === 'vx').statuses.madReasons = [{ label: 'Oracle', expiresAfterCheck: true }];
+  E.resolveMadness(g);
+  const v = E.checkVictory(g);
+  check('mad-executing the only Demon lets good win', !!v && v.winner === 'good');
+}
+
+console.log('\nSV: evaluateClaim (shared by Gossip and Artist)');
+{
+  const mk = (id, characterId) => ({ id, name: id, characterId, believedId: characterId, alive: true, statuses: {} });
+  const g = E.newGame();
+  g.script = 'sv';
+  g.players = [mk('t1', 'oracle'), mk('vx', 'vortox')];
+  check('team claim, correctly evil', E.evaluateClaim(g, { claimType: 'team', targetId: 'vx', claimValue: 'evil' }).isTrue === true);
+  check('team claim, correctly not evil', E.evaluateClaim(g, { claimType: 'team', targetId: 't1', claimValue: 'evil' }).isTrue === false);
+  check('character claim, correct', E.evaluateClaim(g, { claimType: 'character', targetId: 't1', claimValue: 'oracle' }).isTrue === true);
+  check('character claim, wrong', E.evaluateClaim(g, { claimType: 'character', targetId: 't1', claimValue: 'dreamer' }).isTrue === false);
+  check('atleast claim, threshold met', E.evaluateClaim(g, { claimType: 'atleast', targetIds: ['t1', 'vx'], threshold: 1, claimValue: 'evil' }).isTrue === true);
+  check('atleast claim, threshold not met', E.evaluateClaim(g, { claimType: 'atleast', targetIds: ['t1', 'vx'], threshold: 2, claimValue: 'evil' }).isTrue === false);
+  check('invalid claim type is rejected', !!E.evaluateClaim(g, { claimType: 'nonsense' }).error);
+  check('invalid target is rejected', !!E.evaluateClaim(g, { claimType: 'team', targetId: 'nope', claimValue: 'evil' }).error);
+  check('too few distinct targets for atleast is rejected', !!E.evaluateClaim(g, { claimType: 'atleast', targetIds: ['t1'], threshold: 1, claimValue: 'evil' }).error);
+}
+
+console.log('\nSV: buildSavantStatements');
+{
+  const mk = (id, characterId) => ({ id, name: id, characterId, believedId: characterId, alive: true, statuses: {} });
+  const g = E.newGame();
+  g.script = 'sv';
+  g.players = [mk('sa', 'savant'), mk('t1', 'oracle'), mk('t2', 'dreamer')];
+  const statements = E.buildSavantStatements(g, g.players[0]);
+  check('exactly two statements are returned', statements.length === 2);
+  check("exactly one of the two is a literally true statement about someone's real character",
+    statements.filter(s => s === 't1 is the Oracle.' || s === 't2 is the Dreamer.').length === 1);
+}
+
+console.log('\nBucket 4: activeScriptPool / dealRoles with disabled characters');
+{
+  const mk = (id, characterId) => ({ id, name: id, characterId, believedId: characterId, alive: true, statuses: {} });
+  const g = E.newGame();
+  g.script = 'sv';
+  g.config.disabledCharacterIds = ['gossip', 'savant', 'artist']; // gossip isn't even SV, harmless no-op for it here
+  g.players = [mk('t1', 'oracle')];
+  const pool = E.activeScriptPool(g);
+  check('disabled characters are excluded from activeScriptPool', !pool.some(c => c.id === 'savant' || c.id === 'artist'));
+  check('everything else stays available', pool.some(c => c.id === 'oracle') && pool.some(c => c.id === 'dreamer'));
+
+  let sawSavantOrArtist = false;
+  for (let i = 0; i < 25; i++) {
+    const g2 = E.newGame();
+    g2.script = 'sv';
+    g2.config.disabledCharacterIds = ['savant', 'artist'];
+    seat(g2, 9);
+    E.dealRoles(g2);
+    check('9-player deal always succeeds with 2 of 13 SV Townsfolk disabled', g2.players.every(p => !!p.characterId));
+    if (g2.players.some(p => p.characterId === 'savant' || p.characterId === 'artist')) sawSavantOrArtist = true;
+  }
+  check('disabled characters are never actually dealt (25 trials)', !sawSavantOrArtist);
+}
+
+console.log('\nBucket 4: BMR Gossip specifically');
+{
+  const mk = (id, characterId) => ({ id, name: id, characterId, believedId: characterId, alive: true, statuses: {} });
+  let sawGossip = false;
+  for (let i = 0; i < 25; i++) {
+    const g = E.newGame();
+    g.script = 'bmr';
+    g.config.disabledCharacterIds = ['gossip'];
+    seat(g, 9);
+    E.dealRoles(g);
+    if (g.players.some(p => p.characterId === 'gossip')) sawGossip = true;
+  }
+  check('a disabled BMR Gossip is never dealt either (25 trials)', !sawGossip);
+}
+
+console.log('\napplyConfigPatch');
+{
+  const g = E.newGame();
+  E.applyConfigPatch(g, { mayorRedirectChance: 2, tinkerDeathChance: -1, windowSeconds: 3, wave2Seconds: 99999 });
+  check('chance values are clamped to [0,1]', g.config.mayorRedirectChance === 1 && g.config.tinkerDeathChance === 0);
+  check('second values are clamped to a sane range', g.config.windowSeconds === 5 && g.config.wave2Seconds === 600);
+
+  const g2 = E.newGame();
+  E.applyConfigPatch(g2, { pacifistSaveChance: 0.42, notAKnownKey: 'hello', players: 'ignored' });
+  check('a valid known key is applied', g2.config.pacifistSaveChance === 0.42);
+  check('unknown keys are silently ignored, not stored', !('notAKnownKey' in g2.config));
+
+  const g3 = E.newGame();
+  E.applyConfigPatch(g3, { hintNights: [1, 1, 2, 5, 0, 'x'] });
+  check('hintNights keeps only distinct, valid night numbers 1-3, sorted', JSON.stringify(g3.config.hintNights) === JSON.stringify([1, 2]));
+
+  const g4 = E.newGame();
+  g4.phase = 'lobby';
+  E.applyConfigPatch(g4, { disabledCharacterIds: ['savant', 'artist', 'imp', 'nonsense'] });
+  check('disabledCharacterIds keeps only real Bucket 4 ids', JSON.stringify(g4.config.disabledCharacterIds.sort()) === JSON.stringify(['artist', 'savant']));
+
+  const g5 = E.newGame();
+  g5.phase = 'night';
+  E.applyConfigPatch(g5, { disabledCharacterIds: ['savant'] });
+  check('disabledCharacterIds is ignored once roles are dealt (lobby-only, like script selection)', g5.config.disabledCharacterIds.length === 0);
+
+  const g6 = E.newGame();
+  E.applyConfigPatch(g6, { llmStorytellerEnabled: 'yes' });
+  check('llmStorytellerEnabled is coerced to a real boolean', g6.config.llmStorytellerEnabled === true);
+}
+
+console.log('\nbuildStorytellerContext');
+{
+  const mk = (id, characterId, alive = true) => ({ id, name: id, characterId, believedId: characterId, alive, statuses: {} });
+  const g = E.newGame();
+  g.script = 'bmr';
+  g.players = [mk('Ada', 'imp'), mk('Bo', 'chef', false)];
+  const ctx = E.buildStorytellerContext(g);
+  check('one entry per player', ctx.length === 2);
+  const ada = ctx.find(x => x.name === 'Ada');
+  check('true character name is included', ada.character === 'Imp');
+  check('team is registration-aware evil/good, not a raw team string', ada.team === 'evil');
+  check('alive status is public alive status', ctx.find(x => x.name === 'Bo').alive === false);
+  check('nothing beyond name/character/team/alive leaks through', Object.keys(ada).sort().join(',') === 'alive,character,name,team');
+}
+
 console.log('\nEnd');
 g.revealed = true;
 check('reveal exposes the full grimoire',

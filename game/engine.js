@@ -5,10 +5,10 @@ const H = require('./helpers');
 const { buildRegistry } = require('./abilities');
 
 const {
-  DATA, CHARACTERS, SETUP_TABLE, char, scriptPool,
+  DATA, CHARACTERS, SETUP_TABLE, char, scriptPool, BUCKET4_IDS, activeScriptPool,
   shuffle, pick, take,
   byId, byToken, alive, actingChar, trueChar, impaired, publiclyAlive,
-  wouldBlockKill, randomKiller, checkKill, isEvil, triggerMoonchildIfNeeded,
+  wouldBlockKill, randomKiller, checkKill, isEvil, triggerMoonchildIfNeeded, flagAbnormal,
   logEvent, outsiderDiedToday, minionDiedToday, somebodyDiedYesterday,
   numberSignal, falseNumber, evilNeighbourCount, evilPairCount, pairInfo,
 } = H;
@@ -18,6 +18,25 @@ const {
 // every call below just looks a character up by id instead of touching a
 // switch statement plus several parallel by-id maps.
 const REGISTRY = buildRegistry(H);
+// Exposed back onto the shared helpers object for characters that need to
+// know whether some OTHER character is actually "real" (has a registry
+// entry, and isn't purely onDeath-reactive) rather than passive/setup-only —
+// currently only the Philosopher, whose "gain a good character's ability"
+// would be a silent dead end otherwise. Two distinct traps to rule out: a
+// character with no registry entry at all (Grandmother, Tea Lady, Fool,
+// ...), and one whose only real behavior is an onDeath hook (Sweetheart,
+// Klutz). The second matters even though both have a nonzero night order in
+// characters.json (the physical Storyteller sheet still wakes that slot to
+// check "did they die today") — this engine implements their effect
+// entirely via onDeath, which triggerDeathHooks dispatches off a player's
+// *true* characterId, never their believedId. resolve(), by contrast, is
+// reached through actingTonight()'s order array and so already respects
+// whatever the Philosopher currently believes itself to be — gaining an
+// onDeath-only ability wouldn't be wired to fire for the Philosopher's own
+// death at all. Safe to attach after the fact: every ability module reads
+// this as h.isActiveCharacter(...) at call time, well after this module has
+// finished loading, never destructured up front.
+H.isActiveCharacter = id => !!REGISTRY[id] && !REGISTRY[id].onDeath;
 
 /* ------------------------------------------------------------------ state */
 
@@ -41,7 +60,10 @@ function newGame() {
       shabalothRegurgitateChance: 0.5, // "might" bring back last night's kill
       pacifistSaveChance: 0.5, // "might" save an executed good player
       tinkerDeathChance: 0.1, // "might die at any time" — rolled once per night
+      madExecutionChance: 0.3, // Mutant/Cerenovus: "might be executed" for not acting mad enough
       voteWindowSeconds: 20, // how long a nomination stays open for votes
+      disabledCharacterIds: [], // Bucket 4 toggle — see BUCKET4_IDS in helpers.js
+      llmStorytellerEnabled: false, // see game/llmStoryteller.js
     },
     players: [],
     pending: {},
@@ -63,6 +85,8 @@ function newGame() {
     exorcistBlockedId: null, // who the Exorcist targeted the Demon as, tonight only
     goonFlippedTonight: false, // has the Goon already been targeted once tonight?
     mastermindExtraDay: false, // the exposed Demon was executed — one more day is played
+    evilTwinGoodExecuted: false, // the Evil Twin's good Twin was executed — evil wins
+    fangGuTransformUsed: false, // the 1st Outsider a Fang Gu kills becomes the new Fang Gu instead — once per game
   };
 }
 
@@ -73,7 +97,7 @@ function dealRoles(g) {
   const table = SETUP_TABLE[String(n)];
   if (!table) throw new Error(`No setup defined for ${n} players (need 5-15).`);
 
-  const pool = scriptPool(g.script);
+  const pool = activeScriptPool(g);
   const of = team => pool.filter(c => c.team === team);
 
   let counts = { ...table };
@@ -94,6 +118,17 @@ function dealRoles(g) {
     const actualDelta = newOutsiders - counts.outsider;
     counts.outsider = newOutsiders;
     counts.townsfolk -= actualDelta;
+  }
+  // Fang Gu: [+1 Outsider] — flat and deterministic, no coin flip needed.
+  if (demons.some(c => c.id === 'fanggu')) {
+    counts.outsider += 1;
+    counts.townsfolk -= 1;
+  }
+  // Vigormortis: [-1 Outsider], clamped the same way Godfather's delta is.
+  if (demons.some(c => c.id === 'vigormortis')) {
+    const newOutsiders = Math.max(0, counts.outsider - 1);
+    counts.townsfolk += (counts.outsider - newOutsiders);
+    counts.outsider = newOutsiders;
   }
 
   const outsiders = take(of('outsider'), counts.outsider);
@@ -137,6 +172,31 @@ function dealRoles(g) {
   const realDemon = g.players.find(p => trueChar(p) && trueChar(p).team === 'demon');
   if (lunatic && realDemon) lunatic.believedId = realDemon.characterId;
 
+  // Evil Twin: linked to one good player at setup — which one is Storyteller
+  // whim in the physical game (Bucket 1 in ABILITY_PATTERNS.md, no ground
+  // truth to get right), so a random pick, same spirit as the Godfather's
+  // setup coin flip above. Stored both directions: `twinId` is who the Evil
+  // Twin themselves points to; `evilTwinId` on the good player is what
+  // server.js's execution handling and checkVictory read.
+  const evilTwin = g.players.find(p => p.characterId === 'eviltwin');
+  if (evilTwin) {
+    const candidates = g.players.filter(p => p.id !== evilTwin.id && !isEvil(g, p));
+    if (candidates.length) {
+      const twin = pick(candidates);
+      evilTwin.statuses.twinId = twin.id;
+      twin.statuses.evilTwinId = evilTwin.id;
+    }
+  }
+
+  // Mutant: permanently "mad" about being an Outsider, for the rest of the
+  // game — not granted by another character's ability (unlike Cerenovus's
+  // targeted madness below), so it's set once here rather than flagged via
+  // onDeath/resolve. See resolveMadness for what "mad" actually does.
+  const mutant = g.players.find(p => p.characterId === 'mutant');
+  if (mutant) {
+    mutant.statuses.madReasons = [{ label: 'an Outsider', expiresAfterCheck: false }];
+  }
+
   g.phase = 'reveal';
   logEvent(g, `Roles dealt to ${n} players.`);
 }
@@ -148,7 +208,11 @@ function actingTonight(g) {
   const entries = [];
 
   for (const p of g.players) {
-    if (!p.alive && !(first === false && p.believedId === 'ravenkeeper')) continue;
+    // Two dead players still act: the Ravenkeeper, once, the night they die;
+    // a Minion Vigormortis killed, every night thereafter — "keeps their
+    // ability" is permanent, not a one-time epilogue.
+    const actsFromBeyond = (first === false && p.believedId === 'ravenkeeper') || p.statuses.vigormortisKept;
+    if (!p.alive && !actsFromBeyond) continue;
     const c = actingChar(p);
     if (!c) continue;
     const order = first ? c.firstNightOrder : c.otherNightOrder;
@@ -196,10 +260,32 @@ function decoyPrompt(g, p) {
     through to a decoy, exactly like never appearing in the old CHOICE_CHARS
     map did. */
 function promptFor(g, p) {
+  // Sects & Violets' Barber: a wave-2-only prompt for whichever player is
+  // currently the Demon, offered once the Barber has died today or tonight
+  // (see game/abilities/sv.js's onDeath, which sets barberSwapPending on
+  // the Demon the instant that happens). Checked before anything
+  // character-based below, because the acting player here is never the
+  // Barber's own (dead) player — the registry's per-character dispatch has
+  // no way to express "this player's death changes what a DIFFERENT
+  // player is asked," so this stays a named exception, same spirit as the
+  // Lunatic/Exorcist-block/Goon-flip cases in resolveNight below.
+  if (g.wave === 2 && p.alive && p.statuses.barberSwapPending && trueChar(p) && trueChar(p).team === 'demon') {
+    const targets = alive(g).filter(x => x.id === p.id || !trueChar(x) || trueChar(x).team !== 'demon');
+    return {
+      decoy: false,
+      characterId: 'barber-swap',
+      count: 2,
+      optional: true,
+      text: 'The Barber died. Choose 2 players (not another Demon) to swap characters, or pass.',
+      targets: targets.map(t => ({ id: t.id, name: t.name, color: t.color || null, alive: t.alive })),
+    };
+  }
+
   const c = actingChar(p);
   if (!c || !p.alive) {
-    // The Ravenkeeper is the one role that acts from beyond.
-    if (!(p.believedId === 'ravenkeeper' && p.statuses.diedTonight && g.wave === 2)) return null;
+    // The Ravenkeeper acts from beyond once, the night they die. A Minion
+    // Vigormortis killed keeps acting every night after — see actingTonight.
+    if (!((p.believedId === 'ravenkeeper' && p.statuses.diedTonight && g.wave === 2) || p.statuses.vigormortisKept)) return null;
   }
   const first = g.nightNumber === 1;
   const order = c ? (first ? c.firstNightOrder : c.otherNightOrder) : 0;
@@ -212,9 +298,17 @@ function promptFor(g, p) {
   // never counts as using it (see each character's resolve(), which only
   // sets these flags on a real choice, never on a pass).
   const usedUp = entry.usesOnceFlag && p.statuses[`${c.id}Used`];
+  const extra = entry.extraPrompt ? entry.extraPrompt(g, p, H) : null;
+  // Usually "is there a real choice" just means a nonzero player-target
+  // count. The Philosopher is the one exception: it picks a character with
+  // no player target at all (choiceCount 0), so a guessCharacter-only
+  // extraPrompt counts as something to do in its own right — otherwise
+  // !!need alone would always force it to a decoy, the same trap Gossip
+  // sidesteps by not using a night prompt at all.
+  const hasSomethingToDo = !!need || !!(extra && extra.guessCharacter);
 
   const acts =
-    !!need &&
+    hasSomethingToDo &&
     !!order &&
     waveFor(c.id) === g.wave &&
     !usedUp &&
@@ -224,7 +318,6 @@ function promptFor(g, p) {
 
   const targets = entry.targets(g, p, H);
   const text = entry.text(g, p, H);
-  const extra = entry.extraPrompt ? entry.extraPrompt(g, p, H) : null;
 
   return {
     decoy: false,
@@ -253,7 +346,7 @@ function deliverOpeningInfo(g, results) {
     let shown = subject && trueChar(subject);
     if (impaired(grandmother) || !subject) {
       subject = pick(g.players.filter(x => x.id !== grandmother.id));
-      shown = pick(scriptPool(g.script));
+      shown = pick(activeScriptPool(g));
     }
     results[grandmother.id] = { title: 'Grandmother', body: `${subject.name} is your grandchild — the ${shown.name}.` };
   }
@@ -290,7 +383,7 @@ function deliverOpeningInfo(g, results) {
   }
 
   const inPlay = new Set(g.players.map(p => p.characterId));
-  const bluffPool = scriptPool(g.script).filter(
+  const bluffPool = activeScriptPool(g).filter(
     c => !inPlay.has(c.id) && (c.team === 'townsfolk' || c.team === 'outsider')
   );
   const bluffs = take(bluffPool, 3).map(c => c.name);
@@ -301,6 +394,24 @@ function deliverOpeningInfo(g, results) {
       (results[demon.id] ? ` ${results[demon.id].body}` : ''),
     names: bluffs.map(b => `${b} — not in play`),
   };
+}
+
+/**
+ * Every death-reactive effect keyed off *this player's own* true character —
+ * Moonchild (any script) plus Sects & Violets' Sage/Sweetheart/Klutz — in
+ * one place, so a death from execution, the Slayer's shot, or a night kill
+ * all trigger the same way. `results` is optional (server.js's day-time
+ * death sites don't have a results object mid-turn to write into the way
+ * resolveNight does; Sage is the only one of these that needs it, and Sage
+ * can only ever trigger from a night kill anyway, since only the Demon
+ * kills at night).
+ */
+function triggerDeathHooks(g, player, { killedByDemon = false, results } = {}) {
+  triggerMoonchildIfNeeded(g, player);
+  const entry = REGISTRY[player.characterId];
+  if (entry && entry.onDeath) {
+    entry.onDeath(g, player, { killedByDemon, results: results || g.results });
+  }
 }
 
 /**
@@ -320,9 +431,11 @@ function resolveNight(g, wave = 1) {
       delete p.statuses.protected;
       delete p.statuses.diedTonight;
       delete p.statuses.executionImmune; // Devil's Advocate's protection covered only yesterday's execution
+      delete p.statuses.witchCursed; // the Witch's curse only ever covers the single day right after it's cast
     }
     g.exorcistBlockedId = null;
     g.goonFlippedTonight = false;
+    g.abnormalTonight = new Set(); // the Mathematician's count, flagged via flagAbnormal()
     // Poison, and drunk-until-dusk (Sailor/Innkeeper/Courtier), wear off at
     // dusk of the following day.
     for (const p of g.players) {
@@ -453,8 +566,31 @@ function resolveNight(g, wave = 1) {
     delete d.player.statuses.appearsDead; // no longer just appearing dead — this one's real
     g.deaths.push({ night: g.nightNumber, name: d.player.name, cause: d.cause, killedByDemon: !!d.killedByDemon });
     logEvent(g, `${d.player.name} died in the night (${d.cause}).`, true);
-    triggerMoonchildIfNeeded(g, d.player);
+    triggerDeathHooks(g, d.player, { killedByDemon: !!d.killedByDemon, results });
     if (!d.skipSuccession) succeedDemon(g, d.player);
+  }
+
+  // Sects & Violets' Barber: the wave-2 swap itself (see promptFor's
+  // synthetic 'barber-swap' prompt above, and needsWaveTwo). Not part of
+  // the per-character loop at the top of this function — the acting
+  // player here is the Demon, not the Barber, so there's no registry
+  // entry whose own turn this could be.
+  if (wave === 2) {
+    for (const demon of alive(g).filter(x => x.statuses.barberSwapPending)) {
+      demon.statuses.barberSwapPending = false; // one-shot, whether or not they chose anyone
+      const submitted = g.pending[demon.id];
+      const action = submitted && !submitted.decoy ? submitted : null;
+      const chosen = ((action && action.targets) || []).map(id => byId(g, id)).filter(Boolean);
+      if (chosen.length === 2 && !impaired(demon)) {
+        const [a, b] = chosen;
+        const aId = a.characterId, bId = b.characterId;
+        a.characterId = bId; a.believedId = bId;
+        b.characterId = aId; b.believedId = aId;
+        flagAbnormal(g, a);
+        flagAbnormal(g, b);
+        logEvent(g, `Barber's death lets the Demon swap ${a.name} and ${b.name}'s characters.`, true);
+      }
+    }
   }
 
   Object.assign(g.results, results);
@@ -499,6 +635,171 @@ function resolveMastermindDay(g, executedPlayer) {
 }
 
 /**
+ * Sects & Violets' "madness" (Mutant's permanent one, Cerenovus's one-day
+ * one): if a mad player didn't publicly claim it today, they might be
+ * executed outright, bypassing the normal nomination process entirely.
+ * There's no ground truth to "did they act mad enough" — it's pure
+ * Storyteller whim, the same bucket as the Mayor's redirect or the
+ * Pacifist's save (see ABILITY_PATTERNS.md) — so it's a config-driven roll,
+ * checked once at dusk, right before the night that follows begins (see
+ * server.js's startNight). Reasons flagged `expiresAfterCheck` (Cerenovus's)
+ * are cleared after one check either way; Mutant's own isn't, since it's
+ * permanent for the rest of the game.
+ */
+function resolveMadness(g) {
+  for (const p of alive(g)) {
+    if (!p.statuses.madReasons || !p.statuses.madReasons.length) continue;
+    if (!p.statuses.madClaimedToday && Math.random() < g.config.madExecutionChance) {
+      const blocked = checkKill(g, p, { executionAttack: true });
+      if (blocked) {
+        logEvent(g, `${p.name} didn't act mad enough and should have been executed, but survives (${blocked}).`);
+      } else {
+        p.alive = false;
+        g.deaths.push({ night: g.nightNumber, name: p.name, cause: 'madness', killedByDemon: false });
+        logEvent(g, `${p.name} didn't act mad enough and is executed for it.`);
+        triggerDeathHooks(g, p, { killedByDemon: false });
+        succeedDemon(g, p);
+      }
+    }
+    p.statuses.madReasons = p.statuses.madReasons.filter(r => !r.expiresAfterCheck);
+    p.statuses.madClaimedToday = false;
+  }
+}
+
+/** Sects & Violets' Savant: "learn 2 things in private: 1 is true & 1 is
+    false" — the closest this app gets to "the Storyteller tells you
+    something," since there's no human to ask. Fully computable (Bucket 2 in
+    ABILITY_PATTERNS.md), so it's built from the same "name a player's
+    character" fact every reveal in this game already uses, not anything
+    open-ended — two statements about two players, exactly one true, shown
+    in random order so which is which isn't given away by position. */
+function buildSavantStatements(g, p) {
+  const others = g.players.filter(x => x.id !== p.id);
+  const subject = pick(others);
+  const trueText = `${subject.name} is the ${trueChar(subject).name}.`;
+  const otherSubjects = others.filter(x => x.id !== subject.id);
+  const falseSubject = otherSubjects.length ? pick(otherSubjects) : subject;
+  const wrongPool = activeScriptPool(g).filter(c => c.id !== trueChar(falseSubject).id);
+  const falseText = `${falseSubject.name} is the ${pick(wrongPool).name}.`;
+  return shuffle([trueText, falseText]);
+}
+
+/**
+ * Shared ground-truth checker for the "structured claim" pattern (Bucket 3
+ * in ABILITY_PATTERNS.md) — a menu of claim shapes built from vocabulary the
+ * engine already understands (a player, a team, a character), replacing an
+ * open-ended real-world question with something deterministic. Used by both
+ * the Gossip's daily claim and Sects & Violets' Artist's once-per-game
+ * question — they apply impairment to the result differently (the Gossip's
+ * claim is forced false; the Artist's answer is randomized, matching every
+ * other yes/no reveal), so this only ever returns the raw ground truth,
+ * never adjusted for either. Returns `{ error }` for a malformed claim,
+ * else `{ isTrue }`.
+ */
+function evaluateClaim(g, body) {
+  if (body.claimType === 'team') {
+    const target = byId(g, body.targetId);
+    if (!target) return { error: 'Invalid target.' };
+    if (!['good', 'evil'].includes(body.claimValue)) return { error: 'Invalid claim.' };
+    return { isTrue: isEvil(g, target, { forRegistration: true }) === (body.claimValue === 'evil') };
+  }
+  if (body.claimType === 'character') {
+    const target = byId(g, body.targetId);
+    if (!target) return { error: 'Invalid target.' };
+    if (!activeScriptPool(g).some(c => c.id === body.claimValue)) return { error: 'Invalid claim.' };
+    return { isTrue: target.characterId === body.claimValue };
+  }
+  if (body.claimType === 'atleast') {
+    if (!['good', 'evil'].includes(body.claimValue)) return { error: 'Invalid claim.' };
+    const ids = Array.isArray(body.targetIds) ? [...new Set(body.targetIds)] : [];
+    const targets = ids.map(id => byId(g, id)).filter(Boolean);
+    if (targets.length < 2 || targets.length !== ids.length) return { error: 'Choose at least two distinct players.' };
+    const threshold = Number(body.threshold);
+    if (!Number.isInteger(threshold) || threshold < 1 || threshold > targets.length) {
+      return { error: 'Invalid threshold.' };
+    }
+    const matchCount = targets.filter(t => isEvil(g, t, { forRegistration: true }) === (body.claimValue === 'evil')).length;
+    return { isTrue: matchCount >= threshold };
+  }
+  return { error: 'Invalid claim type.' };
+}
+
+/**
+ * The redacted ground-truth snapshot an LLM Storyteller is allowed to see,
+ * for judging a free-text Gossip claim or Artist question (game/llmStoryteller.js)
+ * — deliberately scoped to exactly what evaluateClaim() above is already
+ * allowed to look at, nothing wider, so a free-text claim can never be "about"
+ * more than the structured menu could ever expose: per-player name and true
+ * character, registration-aware team (isEvil(..., {forRegistration:true}),
+ * matching evaluateClaim's own semantics — not literal trueChar().team, so a
+ * misregistering Recluse/Spy reads the same way to a free-text claim as it
+ * does to a structured one), and public alive status (a faked-dead Zombuul
+ * reads as dead, matching what the table could truthfully claim). Nothing
+ * from p.statuses (poison/drunk/protection internals), no night-order or
+ * ability-text detail. Pure and synchronous — isEvil()'s Recluse/Spy branch
+ * rolls Math.random() internally, so this must be called exactly once per
+ * request and its result reused, never recomputed mid-request.
+ */
+function buildStorytellerContext(g) {
+  return g.players.map(p => ({
+    name: p.name,
+    character: trueChar(p) ? trueChar(p).name : null,
+    team: isEvil(g, p, { forRegistration: true }) ? 'evil' : 'good',
+    alive: publiclyAlive(p),
+  }));
+}
+
+/**
+ * Table-side tuning (`/api/table/config`, server.js) validated and clamped
+ * here rather than left as a raw Object.assign — known scalar knobs are
+ * coerced to number and clamped to a sane range; `hintNights` is checked as
+ * an array of night numbers 1-3; `disabledCharacterIds` (Bucket 4, see
+ * BUCKET4_IDS in helpers.js) and `llmStorytellerEnabled` are validated on
+ * their own terms, not treated as arbitrary scalars. Any other key in the
+ * patch is silently ignored — this endpoint has never validated anything
+ * before, so tightening it now can't break an existing caller.
+ */
+function applyConfigPatch(g, patch) {
+  if (!patch || typeof patch !== 'object') return;
+
+  const clampedChance = key => {
+    if (!(key in patch)) return;
+    const n = Number(patch[key]);
+    if (Number.isFinite(n)) g.config[key] = Math.max(0, Math.min(1, n));
+  };
+  const clampedSeconds = key => {
+    if (!(key in patch)) return;
+    const n = Number(patch[key]);
+    if (Number.isFinite(n)) g.config[key] = Math.max(5, Math.min(600, Math.round(n)));
+  };
+
+  ['recluseRegistersEvil', 'mayorRedirectChance', 'shabalothRegurgitateChance',
+    'pacifistSaveChance', 'tinkerDeathChance', 'madExecutionChance', 'dramaBias']
+    .forEach(clampedChance);
+  ['windowSeconds', 'wave2Seconds', 'voteWindowSeconds'].forEach(clampedSeconds);
+
+  if ('hintNights' in patch) {
+    const nights = Array.isArray(patch.hintNights)
+      ? [...new Set(patch.hintNights.map(Number))].filter(n => Number.isInteger(n) && n >= 1 && n <= 3)
+      : null;
+    if (nights) g.config.hintNights = nights.sort((a, b) => a - b);
+  }
+
+  // Bucket 4 — lobby-only, same gate script selection itself already uses,
+  // since changing the roster mid-game makes no sense once roles are dealt.
+  if ('disabledCharacterIds' in patch && g.phase === 'lobby') {
+    const ids = Array.isArray(patch.disabledCharacterIds)
+      ? patch.disabledCharacterIds.filter(id => BUCKET4_IDS.includes(id))
+      : [];
+    g.config.disabledCharacterIds = ids;
+  }
+
+  if ('llmStorytellerEnabled' in patch) {
+    g.config.llmStorytellerEnabled = !!patch.llmStorytellerEnabled;
+  }
+}
+
+/**
  * Which nominee (if any) the town actually executes today, from every
  * *closed* nomination's already-final `yesCount` (the Butler exclusion is
  * baked in there at close time — this just applies the real majority rule:
@@ -517,9 +818,13 @@ function resolveDayVote(g) {
   return top[0].nomineeId;
 }
 
-/** Does anyone need a second window tonight? */
+/** Does anyone need a second window tonight? Either the Ravenkeeper died in
+    wave 1, or the Barber did (today's execution, or tonight in wave 1) and
+    flagged the Demon via barberSwapPending — see promptFor and the wave-2
+    step in resolveNight. */
 function needsWaveTwo(g) {
-  return g.players.some(p => p.believedId === 'ravenkeeper' && p.statuses.diedTonight);
+  return g.players.some(p => p.believedId === 'ravenkeeper' && p.statuses.diedTonight) ||
+    g.players.some(p => p.statuses.barberSwapPending);
 }
 
 /** The whole game's own numbers — safe to show only once revealed, same as
@@ -565,6 +870,18 @@ function gameSummary(g) {
   };
 }
 
+/** Sects & Violets' Evil Twin: "Good cannot win while you both live" — a
+    blanket block on any good-favoring verdict, checked at each point
+    checkVictory would otherwise hand good the win. Lifts the moment either
+    twin dies, from whichever side — including via the OTHER Evil Twin rule
+    just below, which fires from the good twin's own death. */
+function evilTwinBlocksGood(g) {
+  return g.players.some(p =>
+    p.alive && p.characterId === 'eviltwin' && p.statuses.twinId &&
+    (() => { const twin = byId(g, p.statuses.twinId); return twin && twin.alive; })()
+  );
+}
+
 /* ------------------------------------------------------------ victory */
 
 /** Returns null while the game is still alive, else {winner, reason}. */
@@ -582,6 +899,7 @@ function checkVictory(g) {
     // (a distinct win condition, not "no living Demon") via
     // resolveMastermindDay before ever calling checkVictory again.
     if (g.mastermindExtraDay) return null;
+    if (evilTwinBlocksGood(g)) return null;
     return { winner: 'good', reason: 'The Demon is dead.' };
   }
   if (living.length <= 2) {
@@ -590,13 +908,26 @@ function checkVictory(g) {
   if (g.saintExecuted) {
     return { winner: 'evil', reason: 'The Saint was executed.' };
   }
+  if (g.evilTwinGoodExecuted) {
+    return { winner: 'evil', reason: "The Evil Twin's twin was executed." };
+  }
+  // Vortox: "each day, if no-one is executed, evil wins" — like the Mayor's
+  // rule below, only while Vortox is actually alive to claim it (no card
+  // here says "even if dead"). Checked before the Mayor's own no-execution
+  // rule: the rare case where both could apply at once (3 living, Vortox
+  // AND a Mayor both alive, no execution) has no official tie-break I know
+  // of, and favoring the Demon's own win condition over the Mayor's
+  // corner-case rule felt like the safer default.
+  if (g.noExecutionToday && living.some(x => x.characterId === 'vortox')) {
+    return { winner: 'evil', reason: 'No one was executed, and the Vortox lives.' };
+  }
   // "If only 3 players live & no execution occurs, your team wins" — reads
   // as conditional on the Mayor still being alive to claim it, matching the
   // general rule that a dead character's passive text stops applying unless
   // it explicitly says otherwise (Recluse, Spy, and Saint all say "even if
   // dead"; Mayor doesn't).
   const mayor = living.find(x => x.characterId === 'mayor');
-  if (mayor && living.length === 3 && g.noExecutionToday) {
+  if (mayor && living.length === 3 && g.noExecutionToday && !evilTwinBlocksGood(g)) {
     return { winner: 'good', reason: 'Only 3 remain, no one was executed, and the Mayor still lives.' };
   }
   return null;
@@ -719,6 +1050,15 @@ function privateState(g, playerId) {
     slayerShot: (g.phase === 'day' && c && c.id === 'slayer' && !p.statuses.slayerUsed)
       ? { targets: g.players.filter(x => x.id !== p.id && publiclyAlive(x)).map(x => ({ id: x.id, name: x.name, color: x.color || null, alive: true })) }
       : null,
+    // Sects & Violets' Juggler: "on your 1st day" — day one only, once ever,
+    // via /api/juggler-guess. That night's reveal of how many were correct
+    // is a normal registry entry, not part of this.
+    jugglerGuess: (g.phase === 'day' && c && c.id === 'juggler' && g.nightNumber === 1 && !p.statuses.jugglerUsed)
+      ? {
+          targets: g.players.filter(x => x.id !== p.id && publiclyAlive(x)).map(x => ({ id: x.id, name: x.name, color: x.color || null, alive: true })),
+          characterOptions: activeScriptPool(g).map(x => ({ id: x.id, name: x.name })),
+        }
+      : null,
     // "Each day, you MAY" — once per day, never once per game, and never
     // told whether it was true (that's only ever revealed by tonight's
     // prompt existing at all, same indirect leak Godfather's conditional
@@ -727,12 +1067,40 @@ function privateState(g, playerId) {
     gossipClaim: (g.phase === 'day' && c && c.id === 'gossip' && p.statuses.gossipClaimDay !== g.nightNumber)
       ? {
           targets: g.players.map(x => ({ id: x.id, name: x.name, color: x.color || null, alive: x.alive })),
-          characterOptions: scriptPool(g.script).map(x => ({ id: x.id, name: x.name })),
+          characterOptions: activeScriptPool(g).map(x => ({ id: x.id, name: x.name })),
         }
+      : null,
+    // Sects & Violets' Savant: "each day, you may" — a plain once-a-day
+    // tap, no target of any kind; the two statements land in `result` like
+    // any other reveal, via /api/savant-visit.
+    savantVisit: (g.phase === 'day' && c && c.id === 'savant' && p.statuses.savantVisitDay !== g.nightNumber)
+      ? true : null,
+    // Sects & Violets' Artist: once per game, the same structured-claim menu
+    // Gossip's claim uses (see evaluateClaim in engine.js) — but answered
+    // immediately and privately via /api/artist-question, with no public
+    // claim and no waiting to see if it comes true.
+    artistQuestion: (g.phase === 'day' && c && c.id === 'artist' && !p.statuses.artistUsed)
+      ? {
+          targets: g.players.map(x => ({ id: x.id, name: x.name, color: x.color || null, alive: x.alive })),
+          characterOptions: activeScriptPool(g).map(x => ({ id: x.id, name: x.name })),
+        }
+      : null,
+    // Sects & Violets' Mutant/Cerenovus "madness" — see resolveMadness.
+    // `madReasons` can hold more than one simultaneously (a rare overlap of
+    // both sources); one shared claim covers all of them for the day.
+    madClaim: (g.phase === 'day' && p.statuses.madReasons && p.statuses.madReasons.length && !p.statuses.madClaimedToday)
+      ? { label: p.statuses.madReasons.map(r => r.label).join(' or ') }
       : null,
     // Acts from beyond, same as the Ravenkeeper — offered once, the first
     // time this player ever dies, in whatever phase that happens to be.
     moonchildChoice: p.statuses.moonchildPending
+      ? { targets: g.players.filter(x => x.id !== p.id && publiclyAlive(x)).map(x => ({ id: x.id, name: x.name, color: x.color || null, alive: true })) }
+      : null,
+    // Sects & Violets' Klutz: same "acts from beyond, the moment they learn
+    // they died" shape as the Moonchild above, but the choice ends the game
+    // outright if it lands on someone evil, instead of killing anyone — see
+    // /api/klutz-choice.
+    klutzChoice: p.statuses.klutzPending
       ? { targets: g.players.filter(x => x.id !== p.id && publiclyAlive(x)).map(x => ({ id: x.id, name: x.name, color: x.color || null, alive: true })) }
       : null,
     // Deliberately no live tally here — the running count is a shared
@@ -769,6 +1137,7 @@ module.exports = {
   generateHint, logEvent, publicState, privateState,
   checkVictory, succeedDemon, trueChar, impaired,
   checkKill, wouldBlockKill, publiclyAlive, randomKiller,
-  isEvil, minionDiedToday, triggerMoonchildIfNeeded, resolveMastermindDay,
-  resolveDayVote, gameSummary,
+  isEvil, minionDiedToday, triggerMoonchildIfNeeded, triggerDeathHooks, resolveMastermindDay,
+  resolveDayVote, gameSummary, resolveMadness, buildSavantStatements, evaluateClaim,
+  activeScriptPool, applyConfigPatch, buildStorytellerContext, BUCKET4_IDS,
 };

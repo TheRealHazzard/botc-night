@@ -20,7 +20,7 @@
         "name": "Sects & Violets",
         "description": "A script of madness and misinformation, where players can't always trust their own alignment, let alone anyone else's.",
         "difficulty": 3,
-        "playable": false
+        "playable": true
       }
     ],
     "setupTable": {

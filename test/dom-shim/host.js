@@ -111,7 +111,20 @@ function makeDocument() {
 const document = makeDocument();
 ['phase', 'stage', 'controls', 'reclaimBanner', 'brandIcon'].forEach(id => { document._registry[id] = new FakeNode('div'); });
 document._registry.muteBtn = new FakeNode('button');
+document._registry.settingsBtn = new FakeNode('button');
 const fetchCalls = [];
+const postBodies = [];
+// Tracked here, not read back out of the vm's own `S` (a top-level `let`
+// inside vm-run code lives in that context's lexical environment, not as a
+// property of the contextified object — `ctx.S` from out here would just be
+// undefined) — settingsOverlay() expects /api/table/config to echo the full
+// merged config, the same shape the real server returns.
+let mockConfig = null;
+const SCRIPTS_FIXTURE = [
+  { id: 'tb', name: 'Trouble Brewing', description: 'x', difficulty: 1, playable: true, characterCount: 22, gamesPlayed: 0 },
+  { id: 'bmr', name: 'Bad Moon Rising', description: 'x', difficulty: 2, playable: true, characterCount: 25, gamesPlayed: 0 },
+  { id: 'sv', name: 'Sects & Violets', description: 'x', difficulty: 3, playable: true, characterCount: 25, gamesPlayed: 0 },
+];
 const localStorageStore = {};
 const ctx = {
   window: { AudioContext: FakeAudioContext }, document, console,
@@ -125,11 +138,21 @@ const ctx = {
   requestAnimationFrame: cb => setTimeout(cb, 0),
   AudioContext: FakeAudioContext,
   fetch: (url, opts) => {
-    if (opts && opts.method === 'POST') fetchCalls.push(url);
+    if (opts && opts.method === 'POST') {
+      fetchCalls.push(url);
+      const parsedBody = opts.body ? JSON.parse(opts.body) : null;
+      postBodies.push({ url, body: parsedBody });
+      if (url.includes('/api/table/config') && parsedBody && mockConfig) Object.assign(mockConfig, parsedBody.config || {});
+    }
     return Promise.resolve({
       json: () => Promise.resolve(
         url.includes('/api/session/current')
           ? { gamesPlayed: 3, goodWins: 2, evilWins: 1, players: [{ profileId: 'a', name: 'Ada', gamesPlayed: 3, wins: 2 }, { profileId: 'b', name: 'Bo', gamesPlayed: 3, wins: 1 }] }
+          : url.includes('/api/scripts') ? SCRIPTS_FIXTURE
+          // Echoes the patch back the same shape the real /api/table/config
+          // does — settingsOverlay() reads r.config back into S.config, so a
+          // bare {} here would clobber it with undefined.
+          : url.includes('/api/table/config') ? { ok: true, config: mockConfig }
           : {}
       ),
     });
@@ -404,8 +427,84 @@ setTimeout(() => {
   console.log('  ok    muted: nothing plays at all:', toneCalls.length === 0 && noiseCalls.length === 0);
   vm.runInContext('soundMuted = false;', ctx);
 
+  testSettingsOverlay();
   testSlayerFlash();
 }, 20);
+
+// The new table-settings panel (Part A/B/C of the tuning work): opens over
+// the lobby, reflects the current config, and posts a patch per control —
+// this only checks the client wiring; applyConfigPatch's own clamping is
+// covered at the engine level in tools/simulate.js.
+function testSettingsOverlay() {
+  console.log('\n=== SETTINGS ===');
+  const settingsState = {
+    phase: 'lobby', nightNumber: 0, wave: 0, windowEndsAt: null, script: 'sv',
+    config: {
+      windowSeconds: 60, wave2Seconds: 20, hintNights: [1, 2], dramaBias: 0.5,
+      recluseRegistersEvil: 0.5, mayorRedirectChance: 0.5, shabalothRegurgitateChance: 0.5,
+      pacifistSaveChance: 0.5, tinkerDeathChance: 0.1, madExecutionChance: 0.3, voteWindowSeconds: 20,
+      disabledCharacterIds: [], llmStorytellerEnabled: false,
+    },
+    llmConfigured: false, revealed: false, victory: null, mastermindExtraDay: false,
+    players: [], deaths: [], nominations: [], hint: null, log: [], pendingReclaims: [],
+  };
+  mockConfig = JSON.parse(JSON.stringify(settingsState.config));
+  vm.runInContext('S = ' + JSON.stringify(settingsState) + ';', ctx);
+  vm.runInContext('renderNow();', ctx);
+
+  vm.runInContext('settingsOverlay();', ctx);
+  const overlay = findFirst(ctx.document.body, n => n._className === 'settings-overlay');
+  console.log('  ok    settingsBtn opens the settings overlay:', !!overlay);
+
+  const rangeInputs = findAll2(overlay, n => n.tagName === 'INPUT' && n.type === 'range');
+  console.log('  ok    one range slider per Storyteller-whim + drama-bias field (7):', rangeInputs.length === 7);
+
+  const numberInputs = findAll2(overlay, n => n.tagName === 'INPUT' && n.type === 'number');
+  console.log('  ok    one number field per timing setting (3):', numberInputs.length === 3);
+
+  const checkboxes = findAll2(overlay, n => n.tagName === 'INPUT' && n.type === 'checkbox');
+  console.log('  ok    3 hint-night boxes + Bucket 4 toggle + LLM toggle (5 checkboxes):', checkboxes.length === 5);
+
+  postBodies.length = 0;
+  const mayorSlider = rangeInputs.find(i => i.value === 0.5); // several share this default; just exercise one — note: this fake DOM stores .value as whatever type was assigned (a real browser always stringifies), so 0.5 (a number), not '0.5'
+  mayorSlider.value = '0.8';
+  mayorSlider.onchange();
+  const chanceCall = postBodies.find(c => c.url === '/api/table/config');
+  console.log('  ok    dragging a whim slider posts a numeric patch to /api/table/config:',
+    !!chanceCall && typeof Object.values(chanceCall.body.config)[0] === 'number');
+
+  postBodies.length = 0;
+  const bucket4Checkbox = checkboxes.find(cb => !cb.checked && cb !== checkboxes[0] && cb !== checkboxes[1] && cb !== checkboxes[2]);
+  bucket4Checkbox.checked = true;
+  bucket4Checkbox.onchange();
+  const bucket4Call = postBodies.find(c => c.url === '/api/table/config' && 'disabledCharacterIds' in c.body.config);
+  console.log('  ok    the Bucket 4 toggle posts all three ids:',
+    !!bucket4Call && JSON.stringify(bucket4Call.body.config.disabledCharacterIds.slice().sort()) === JSON.stringify(['artist', 'gossip', 'savant']));
+
+  postBodies.length = 0;
+  const llmCheckbox = checkboxes[checkboxes.length - 1];
+  llmCheckbox.checked = true;
+  llmCheckbox.onchange();
+  const llmCall = postBodies.find(c => c.url === '/api/table/config' && 'llmStorytellerEnabled' in c.body.config);
+  console.log('  ok    the LLM toggle posts llmStorytellerEnabled:true:', !!llmCall && llmCall.body.config.llmStorytellerEnabled === true);
+
+  const status = findFirst(overlay, n => n._className && n._className.includes('llm-status'));
+  console.log('  ok    the LLM status line reflects "not configured" when llmConfigured is false:', status && status.textContent.includes('Not configured'));
+
+  const closeBtn = findFirst(overlay, n => n.tagName === 'BUTTON' && n.textContent === 'Close');
+  closeBtn.onclick();
+  console.log('  ok    Close removes the overlay:', !findFirst(ctx.document.body, n => n._className === 'settings-overlay'));
+
+  // Mid-game: the Bucket 4 toggle must be disabled (lobby-only), matching
+  // script selection's own gate.
+  vm.runInContext('S.phase = "night";', ctx);
+  vm.runInContext('settingsOverlay();', ctx);
+  const nightOverlay = findFirst(ctx.document.body, n => n._className === 'settings-overlay');
+  const nightCheckboxes = findAll2(nightOverlay, n => n.tagName === 'INPUT' && n.type === 'checkbox');
+  const nightBucket4 = nightCheckboxes.find(cb => cb !== nightCheckboxes[0] && cb !== nightCheckboxes[1] && cb !== nightCheckboxes[2] && cb !== nightCheckboxes[nightCheckboxes.length - 1]);
+  console.log('  ok    the Bucket 4 toggle is disabled once roles are dealt:', !!nightBucket4 && nightBucket4.disabled === true);
+  vm.runInContext('S.phase = "lobby";', ctx);
+}
 
 // A Slayer's shot that ends the game should play the flash overlay instead
 // of the usual fade, and only reveal the actual 'over' screen once it's

@@ -9,6 +9,7 @@ const crypto = require('crypto');
 const E = require('./game/engine');
 const H = require('./game/history');
 const { COLOR_PALETTE } = require('./game/colors');
+const { askStoryteller } = require('./game/llmStoryteller');
 
 const PORT = process.env.PORT || 3000;
 const PUBLIC = path.join(__dirname, 'public');
@@ -29,15 +30,97 @@ function write(res, payload) {
   try { res.write(`data: ${JSON.stringify(payload)}\n\n`); } catch (e) {}
 }
 
+// Whether the server process actually has a key configured — distinct from
+// game.config.llmStorytellerEnabled (the per-table toggle), read fresh each
+// time rather than cached at module load, so an operator can set/rotate it
+// between games without the code caching a stale absence.
+function llmConfigured() {
+  return !!process.env.ANTHROPIC_API_KEY;
+}
+
+/** E.publicState() plus the one field that's a server-environment fact, not
+    game state — engine.js stays free of process.env entirely. */
+function hostState() {
+  return { ...E.publicState(game), llmConfigured: llmConfigured() };
+}
+
+/** E.privateState() plus whether this player's phone should actually offer
+    the free-text LLM path right now — both the table's toggle and a real key
+    have to be true, and neither on its own is enough. */
+function playerState(playerId) {
+  const state = E.privateState(game, playerId);
+  if (!state) return state;
+  return { ...state, llmEnabled: !!(game.config.llmStorytellerEnabled && llmConfigured()) };
+}
+
+const VERDICT_SCHEMA = {
+  type: 'object',
+  properties: { verdict: { type: 'string', enum: ['true', 'false', 'ambiguous'] } },
+  required: ['verdict'],
+};
+
+/** Sects & Violets' Gossip/Artist free-text path: judge a player's own words
+    against the game's real ground truth. Returns 'true' | 'false' |
+    'ambiguous', or null on any failure (missing key, network error, timeout,
+    malformed reply) — callers treat null as "couldn't judge," never as a
+    default verdict, since there's no deterministic fallback for free text
+    the way there is for Savant's statements below. */
+async function judgeFreeformClaim(game, claimText) {
+  const context = E.buildStorytellerContext(game);
+  const result = await askStoryteller({
+    system:
+      'You are silently judging one claim made during a game of Blood on the Clocktower. ' +
+      'You are given the true state of the game and a claim a player just made out loud. ' +
+      'Decide whether the claim is true, false, or ambiguous, using ONLY the facts provided — ' +
+      'nothing about tone, phrasing tricks, or anything not listed. Return "ambiguous" whenever ' +
+      'the claim is vague, compound, refers to something outside the provided facts, or could ' +
+      'reasonably be read more than one way. Do not guess.',
+    prompt: `Game state (each player's real name, character, team, and public alive status):\n${JSON.stringify(context)}\n\nThe claim: ${JSON.stringify(claimText)}`,
+    schema: VERDICT_SCHEMA,
+    maxTokens: 100,
+  });
+  if (!result.ok) return null;
+  const verdict = result.data && result.data.verdict;
+  if (!['true', 'false', 'ambiguous'].includes(verdict)) return null;
+  return verdict;
+}
+
+/** Sects & Violets' Savant: rephrase two already-decided, already-correct
+    statements more evocatively. The LLM never gets to assert a new fact here
+    — on any failure this returns null and the caller keeps the originals
+    verbatim, so correctness is guaranteed by buildSavantStatements() alone,
+    never by this call succeeding. */
+async function rephraseSavantStatements(statements) {
+  const result = await askStoryteller({
+    system:
+      'You add flavor to a fortune-telling reveal in a game of Blood on the Clocktower. ' +
+      'You will be given exactly two statements that have already been decided. Rephrase each ' +
+      'one to sound more evocative and mysterious, in the voice of an old Storyteller, WITHOUT ' +
+      'changing which people or characters they name and without changing their meaning in any ' +
+      'way — you may only change the wording. Return exactly two statements, in the same order.',
+    prompt: `The two statements:\n1. ${statements[0]}\n2. ${statements[1]}`,
+    schema: {
+      type: 'object',
+      properties: { statements: { type: 'array', items: { type: 'string' } } },
+      required: ['statements'],
+    },
+    maxTokens: 200,
+  });
+  if (!result.ok) return null;
+  const out = result.data && result.data.statements;
+  if (!Array.isArray(out) || out.length !== 2 || out.some(s => typeof s !== 'string' || !s.trim())) return null;
+  return out;
+}
+
 function pushHost() {
-  const payload = E.publicState(game);
+  const payload = hostState();
   for (const res of hostStreams) write(res, payload);
 }
 
 function pushPlayer(playerId) {
   const set = playerStreams.get(playerId);
   if (!set) return;
-  const payload = E.privateState(game, playerId);
+  const payload = playerState(playerId);
   if (!payload) return;
   for (const res of set) write(res, payload);
 }
@@ -57,11 +140,11 @@ const INTERNAL_ONLY_STATUSES = new Set([
     simulation. */
 function simPayload() {
   return {
-    table: E.publicState(game),
+    table: hostState(),
     seats: game.players.map(p => {
       const submitted = game.pending[p.id];
       return {
-        ...E.privateState(game, p.id),
+        ...playerState(p.id),
         trueCharacter: E.trueChar(p) ? E.trueChar(p).name : null,
         trueCharacterId: p.characterId,
         believed: p.believedId,
@@ -93,6 +176,14 @@ function pushAll() {
 function startNight() {
   clearTimeout(windowTimer);
   clearTimeout(voteTimer);
+  // Sects & Violets' "madness" (Mutant/Cerenovus): checked at dusk, right as
+  // today ends and the next night is about to begin — never on the very
+  // first reveal->night-1 transition, since game.phase is 'reveal' then and
+  // no day has happened yet for anyone to have failed to claim in.
+  if (game.phase === 'day') {
+    E.resolveMadness(game);
+    if (finishIfOver()) return;
+  }
   game.nightNumber += 1;
   game.phase = 'night';
   game.wave = 1;
@@ -190,7 +281,7 @@ function recordExecution(playerId) {
         game.deaths.push({ night: game.nightNumber, name: p.name, cause: 'execution', killedByDemon: false });
         E.logEvent(game, `${p.name} was executed.`);
         executedPlayer = p;
-        E.triggerMoonchildIfNeeded(game, p);
+        E.triggerDeathHooks(game, p, { killedByDemon: false });
       }
     } else {
       E.logEvent(game, 'No execution today.');
@@ -231,9 +322,14 @@ function recordExecution(playerId) {
     } else {
       p.alive = false;
       if (tc && tc.id === 'saint') game.saintExecuted = true;
+      // Evil Twin: unconditional on the Evil Twin's own survival — "if the
+      // good player is executed, evil wins" has no "while you both live"
+      // qualifier of its own; that qualifier belongs to the separate
+      // "good can't win" rule (see evilTwinBlocksGood in engine.js).
+      if (p.statuses.evilTwinId) game.evilTwinGoodExecuted = true;
       game.deaths.push({ night: game.nightNumber, name: p.name, cause: 'execution', killedByDemon: false });
       E.logEvent(game, `${p.name} was executed.`);
-      E.triggerMoonchildIfNeeded(game, p);
+      E.triggerDeathHooks(game, p, { killedByDemon: false });
 
       // Minstrel: everyone else is drunk until dusk tomorrow, once a Minion
       // is executed — a way for evil to blunt the town's next move.
@@ -416,16 +512,21 @@ function botsAnswer() {
   pushAll();
 }
 
-function startSimulation({ players = 9, speed = 5, script = 'tb' } = {}) {
+function startSimulation({ players = 9, speed = 5, script = 'tb', config } = {}) {
   clearTimeout(windowTimer);
   clearTimeout(simTimer);
   playerStreams.clear();
 
   game = E.newGame();
   game.simulation = true;
-  // Sects & Violets has no character logic yet — same restriction as a real
-  // game's script picker, so a bad value here can't silently deal it.
-  game.script = ['tb', 'bmr'].includes(script) ? script : 'tb';
+  // Same allowlist as the real game's script picker — a bad value here
+  // can't silently deal an unplayable script.
+  game.script = ['tb', 'bmr', 'sv'].includes(script) ? script : 'tb';
+  // A fresh E.newGame() above always resets config to defaults — apply any
+  // requested overrides (Bucket 4's disabledCharacterIds, in particular)
+  // before windowSeconds/wave2Seconds get their own simulation-speed
+  // overrides below, so a config patch can't undo those.
+  if (config) E.applyConfigPatch(game, config);
   game.config.windowSeconds = speed;
   game.config.wave2Seconds = Math.max(2, Math.round(speed / 2));
   game.simSpeed = speed;
@@ -596,7 +697,7 @@ const server = http.createServer(async (req, res) => {
       if (route === '/host-events') {
         hostStreams.add(res);
         openStream(req, res, () => hostStreams.delete(res));
-        write(res, E.publicState(game));
+        write(res, hostState());
         return;
       }
 
@@ -674,7 +775,7 @@ const server = http.createServer(async (req, res) => {
           if (set) set.delete(res);
           if (!set || !set.size) { p.connected = false; pushHost(); }
         });
-        write(res, E.privateState(game, p.id));
+        write(res, playerState(p.id));
         pushHost();
         return;
       }
@@ -741,11 +842,11 @@ const server = http.createServer(async (req, res) => {
         const token = url.searchParams.get('token');
         const p = E.byToken(game, token);
         if (!p) return json(res, 404, { error: 'Unknown player.' });
-        return json(res, 200, E.privateState(game, p.id));
+        return json(res, 200, playerState(p.id));
       }
 
       if (route === '/api/host-state') {
-        return json(res, 200, E.publicState(game));
+        return json(res, 200, hostState());
       }
 
       if (route === '/api/sim-state') {
@@ -885,10 +986,21 @@ const server = http.createServer(async (req, res) => {
         }
         let characterGuess;
         if (prompt.guessCharacter) {
-          if (targets.length && !prompt.characterOptions.some(c => c.id === body.characterGuess)) {
-            return json(res, 400, { error: 'Invalid character guess.' });
+          // Not gated on targets.length — a character-only choice (the
+          // Philosopher picks a character with no player target at all)
+          // has targets.length === 0 by design, and still needs validating.
+          if (body.characterGuess) {
+            if (!prompt.characterOptions.some(c => c.id === body.characterGuess)) {
+              return json(res, 400, { error: 'Invalid character guess.' });
+            }
+            characterGuess = body.characterGuess;
+          } else if (!prompt.optional) {
+            // The Gambler has no "pass" — a guess is mandatory. The
+            // Philosopher's once-per-game choice is optional, and omitting
+            // characterGuess entirely (alongside its always-empty targets)
+            // is how a real pass is expressed for a character-only choice.
+            return json(res, 400, { error: 'A character guess is required.' });
           }
-          characterGuess = body.characterGuess;
         }
         game.pending[p.id] = { targets, decoy: !!prompt.decoy, characterGuess };
         pushPlayer(p.id);
@@ -924,7 +1036,7 @@ const server = http.createServer(async (req, res) => {
             target.alive = false;
             game.deaths.push({ night: game.nightNumber, name: target.name, cause: 'slayer', killedByDemon: false });
             E.logEvent(game, `${p.name} fired their shot at ${target.name} — the Demon falls.`);
-            E.triggerMoonchildIfNeeded(game, target);
+            E.triggerDeathHooks(game, target, { killedByDemon: false });
             E.succeedDemon(game, target);
           }
         } else {
@@ -947,34 +1059,31 @@ const server = http.createServer(async (req, res) => {
         const believed = E.char(p.believedId);
         if (!believed || believed.id !== 'gossip') return json(res, 409, { error: 'Nothing to claim.' });
         if (p.statuses.gossipClaimDay === game.nightNumber) return json(res, 409, { error: 'Already made a statement today.' });
+
         let isTrue;
-        if (body.claimType === 'team') {
-          const target = E.byId(game, body.targetId);
-          if (!target) return json(res, 400, { error: 'Invalid target.' });
-          if (!['good', 'evil'].includes(body.claimValue)) return json(res, 400, { error: 'Invalid claim.' });
-          isTrue = E.isEvil(game, target, { forRegistration: true }) === (body.claimValue === 'evil');
-        } else if (body.claimType === 'character') {
-          const target = E.byId(game, body.targetId);
-          if (!target) return json(res, 400, { error: 'Invalid target.' });
-          if (!E.scriptPool(game.script).some(c => c.id === body.claimValue)) return json(res, 400, { error: 'Invalid claim.' });
-          isTrue = target.characterId === body.claimValue;
-        } else if (body.claimType === 'atleast') {
-          // "At least N among {a chosen set} are {good|evil}" — a richer,
-          // still fully deterministic template (see ABILITY_PATTERNS.md):
-          // more expressive than a single-player claim, but the truth is
-          // still a plain count against ground truth, nothing fuzzy.
-          if (!['good', 'evil'].includes(body.claimValue)) return json(res, 400, { error: 'Invalid claim.' });
-          const ids = Array.isArray(body.targetIds) ? [...new Set(body.targetIds)] : [];
-          const targets = ids.map(id => E.byId(game, id)).filter(Boolean);
-          if (targets.length < 2 || targets.length !== ids.length) return json(res, 400, { error: 'Choose at least two distinct players.' });
-          const threshold = Number(body.threshold);
-          if (!Number.isInteger(threshold) || threshold < 1 || threshold > targets.length) {
-            return json(res, 400, { error: 'Invalid threshold.' });
+        if (body.claimType === 'freeform') {
+          if (!game.config.llmStorytellerEnabled) return json(res, 409, { error: 'The LLM Storyteller is off for this table.' });
+          const claimText = typeof body.claimText === 'string' ? body.claimText.trim() : '';
+          if (!claimText || claimText.length > 400) return json(res, 400, { error: 'Say your claim in 400 characters or fewer.' });
+          const verdict = await judgeFreeformClaim(game, claimText);
+          if (verdict === null) return json(res, 409, { error: "The Storyteller couldn't judge that claim — try again, or use the menu below." });
+          // Re-validate everything the pre-checks above already confirmed:
+          // the await just spent real wall-clock time, and this game object
+          // is shared with every other request that ran while it was gone.
+          const stillP = E.byToken(game, body.token);
+          if (!stillP || game.phase !== 'day' || stillP.statuses.gossipClaimDay === game.nightNumber) {
+            return json(res, 409, { error: 'Too late — the moment for that claim has passed.' });
           }
-          const matchCount = targets.filter(t => E.isEvil(game, t, { forRegistration: true }) === (body.claimValue === 'evil')).length;
-          isTrue = matchCount >= threshold;
+          // Ambiguous collapses to false: zero downstream consequence, same
+          // move already made for impairment two lines below.
+          isTrue = verdict === 'true';
         } else {
-          return json(res, 400, { error: 'Invalid claim type.' });
+          // The claim-shape menu (team/character/atleast) and its
+          // ground-truth check are shared with Sects & Violets' Artist —
+          // see evaluateClaim in engine.js.
+          const evaluated = E.evaluateClaim(game, body);
+          if (evaluated.error) return json(res, 400, { error: evaluated.error });
+          isTrue = evaluated.isTrue;
         }
         if (E.impaired(p)) isTrue = false;
 
@@ -983,6 +1092,105 @@ const server = http.createServer(async (req, res) => {
         E.logEvent(game, `${p.name} makes a public statement.`, true);
         pushPlayer(p.id);
         pushHost();
+        return json(res, 200, { ok: true });
+      }
+
+      if (route === '/api/savant-visit') {
+        // "Each day, you may visit the Storyteller to learn 2 things in
+        // private: 1 is true & 1 is false" — no target, no claim to make,
+        // just a tap; the two statements land in the normal result screen.
+        const p = E.byToken(game, body.token);
+        if (!p) return json(res, 404, { error: 'Unknown player.' });
+        if (p.bot) return json(res, 409, { error: 'This seat is bot-controlled.' });
+        if (game.phase !== 'day') return json(res, 409, { error: 'Only during the day.' });
+        const believed = E.char(p.believedId);
+        if (!believed || believed.id !== 'savant') return json(res, 409, { error: 'Nothing to visit for.' });
+        if (p.statuses.savantVisitDay === game.nightNumber) return json(res, 409, { error: 'Already visited today.' });
+
+        // Ground truth, unconditionally — the LLM (if on) only ever gets to
+        // rephrase these two strings, never assert a new one. If it fails or
+        // is off, these are exactly what's shown.
+        let statements = E.buildSavantStatements(game, p);
+        if (game.config.llmStorytellerEnabled) {
+          const rephrased = await rephraseSavantStatements(statements);
+          if (rephrased) statements = rephrased;
+        }
+
+        const stillP = E.byToken(game, body.token);
+        if (!stillP || game.phase !== 'day' || stillP.statuses.savantVisitDay === game.nightNumber) {
+          return json(res, 409, { error: 'Too late — the day has moved on.' });
+        }
+
+        p.statuses.savantVisitDay = game.nightNumber;
+        game.results[p.id] = { title: 'Savant', body: 'The Storyteller tells you two things — one true, one false:', names: statements };
+        E.logEvent(game, `${p.name} (the Savant) visits the Storyteller.`, true);
+        pushPlayer(p.id);
+        pushHost();
+        return json(res, 200, { ok: true });
+      }
+
+      if (route === '/api/artist-question') {
+        // "Once per game, during the day, privately ask the Storyteller any
+        // yes/no question" — the same structured claim-shape menu as the
+        // Gossip's (see evaluateClaim in engine.js), but answered
+        // immediately and privately, with no public claim or later payoff.
+        const p = E.byToken(game, body.token);
+        if (!p) return json(res, 404, { error: 'Unknown player.' });
+        if (p.bot) return json(res, 409, { error: 'This seat is bot-controlled.' });
+        if (game.phase !== 'day') return json(res, 409, { error: 'Only during the day.' });
+        const believed = E.char(p.believedId);
+        if (!believed || believed.id !== 'artist') return json(res, 409, { error: 'Nothing to ask.' });
+        if (p.statuses.artistUsed) return json(res, 409, { error: 'Already used, once per game.' });
+
+        let isTrue, unsure = false;
+        if (body.claimType === 'freeform') {
+          if (!game.config.llmStorytellerEnabled) return json(res, 409, { error: 'The LLM Storyteller is off for this table.' });
+          const claimText = typeof body.claimText === 'string' ? body.claimText.trim() : '';
+          if (!claimText || claimText.length > 400) return json(res, 400, { error: 'Say your question in 400 characters or fewer.' });
+          const verdict = await judgeFreeformClaim(game, claimText);
+          if (verdict === null) return json(res, 409, { error: "The Storyteller couldn't judge that claim — try again, or use the menu below." });
+          const stillP = E.byToken(game, body.token);
+          if (!stillP || game.phase !== 'day' || stillP.statuses.artistUsed) {
+            return json(res, 409, { error: 'Too late — the moment for that question has passed.' });
+          }
+          // Unlike Gossip, nothing dies on an "ambiguous" — coercing it into
+          // a fake "No." would be a worse, less honest answer for a once-
+          // per-game private ability with no safety stakes.
+          if (verdict === 'ambiguous') unsure = true;
+          else isTrue = verdict === 'true';
+        } else {
+          const evaluated = E.evaluateClaim(game, body);
+          if (evaluated.error) return json(res, 400, { error: evaluated.error });
+          isTrue = evaluated.isTrue;
+        }
+        // Impaired means wrong, not "no answer" — the question was still
+        // asked; matches every other yes/no reveal's impairment convention
+        // (a random answer, not a guaranteed flip — see Flowergirl/Town
+        // Crier/Fortune Teller).
+        if (!unsure && E.impaired(p)) isTrue = Math.random() < 0.5;
+
+        p.statuses.artistUsed = true;
+        E.logEvent(game, `${p.name} (the Artist) privately asks the Storyteller a question.`, true);
+        game.results[p.id] = { title: 'Artist', body: unsure ? "The Storyteller isn't sure how to answer that." : (isTrue ? 'Yes.' : 'No.') };
+        pushPlayer(p.id);
+        pushHost();
+        return json(res, 200, { ok: true });
+      }
+
+      if (route === '/api/mad-claim') {
+        // Sects & Violets' Mutant/Cerenovus "madness" — a public claim made
+        // out loud at the table, with nothing structured to validate beyond
+        // "you currently have something to claim."
+        const p = E.byToken(game, body.token);
+        if (!p) return json(res, 404, { error: 'Unknown player.' });
+        if (p.bot) return json(res, 409, { error: 'This seat is bot-controlled.' });
+        if (game.phase !== 'day') return json(res, 409, { error: 'Only during the day.' });
+        if (!p.statuses.madReasons || !p.statuses.madReasons.length) return json(res, 409, { error: 'Nothing to claim.' });
+        if (p.statuses.madClaimedToday) return json(res, 409, { error: 'Already claimed today.' });
+
+        p.statuses.madClaimedToday = true;
+        E.logEvent(game, `${p.name} publicly claims their madness.`);
+        pushAll();
         return json(res, 200, { ok: true });
       }
 
@@ -1012,13 +1220,86 @@ const server = http.createServer(async (req, res) => {
             target.alive = false;
             game.deaths.push({ night: game.nightNumber, name: target.name, cause: 'moonchild', killedByDemon: false });
             E.logEvent(game, `${p.name}'s Moonchild choice kills ${target.name}.`);
-            E.triggerMoonchildIfNeeded(game, target);
+            E.triggerDeathHooks(game, target, { killedByDemon: false });
             E.succeedDemon(game, target);
           }
         } else {
           E.logEvent(game, `${p.name} named ${target.name} as their Moonchild choice — they weren't good, nothing happens.`);
         }
         if (!finishIfOver()) pushAll();
+        return json(res, 200, { ok: true });
+      }
+
+      if (route === '/api/klutz-choice') {
+        // Sects & Violets' Klutz — same "acts from beyond, the moment they
+        // learn they died" shape as the Moonchild above, but the choice
+        // ends the game outright if it lands on someone evil, instead of
+        // killing anyone.
+        const p = E.byToken(game, body.token);
+        if (!p) return json(res, 404, { error: 'Unknown player.' });
+        if (!p.statuses.klutzPending) return json(res, 409, { error: 'Nothing to choose.' });
+        const target = E.byId(game, body.targetId);
+        if (!target || target.id === p.id || !E.publiclyAlive(target)) return json(res, 400, { error: 'Invalid target.' });
+
+        p.statuses.klutzPending = false;
+        game.actionLog.push({
+          night: game.nightNumber, phase: game.phase,
+          playerId: p.id, playerName: p.name, characterId: 'klutz', characterName: 'Klutz',
+          targets: [target.name],
+        });
+        if (E.isEvil(game, target)) {
+          E.logEvent(game, `${p.name} (the Klutz) chooses ${target.name}, who is evil — evil wins.`);
+          clearTimeout(windowTimer);
+          clearTimeout(simTimer);
+          game.victory = { winner: 'evil', reason: `The Klutz chose ${target.name}, who is evil.` };
+          game.phase = 'over';
+          game.revealed = true;
+          game.windowEndsAt = null;
+          recordGameHistory();
+          pushAll();
+          return json(res, 200, { ok: true });
+        }
+        E.logEvent(game, `${p.name} (the Klutz) chooses ${target.name} — not evil, nothing happens.`);
+        pushAll();
+        return json(res, 200, { ok: true });
+      }
+
+      if (route === '/api/juggler-guess') {
+        // "On your 1st day, publicly guess up to 5 players' characters" — a
+        // player-triggered, public day action (same family as the Slayer's
+        // shot), not a night prompt. The night reveal of how many were
+        // correct is a normal registry entry (see game/abilities/sv.js)
+        // dispatched by otherNightOrder like anything else.
+        const p = E.byToken(game, body.token);
+        if (!p) return json(res, 404, { error: 'Unknown player.' });
+        if (p.bot) return json(res, 409, { error: 'This seat is bot-controlled.' });
+        if (game.phase !== 'day') return json(res, 409, { error: 'Only during the day.' });
+        const believed = E.char(p.believedId);
+        if (!believed || believed.id !== 'juggler') return json(res, 409, { error: 'Nothing to guess.' });
+        if (game.nightNumber !== 1) return json(res, 409, { error: 'Only on your first day.' });
+        if (p.statuses.jugglerUsed) return json(res, 409, { error: 'Already guessed, once per game.' });
+
+        const guesses = Array.isArray(body.guesses) ? body.guesses.slice(0, 5) : [];
+        const seen = new Set();
+        for (const guess of guesses) {
+          const t = E.byId(game, guess.playerId);
+          if (!t || t.id === p.id || !E.publiclyAlive(t)) return json(res, 400, { error: 'Invalid target.' });
+          if (seen.has(t.id)) return json(res, 400, { error: 'Duplicate player in guesses.' });
+          seen.add(t.id);
+          if (!E.scriptPool(game.script).some(c => c.id === guess.characterGuess)) {
+            return json(res, 400, { error: 'Invalid character guess.' });
+          }
+        }
+
+        p.statuses.jugglerUsed = true; // consumed whether or not any guess is correct
+        p.statuses.jugglerGuesses = guesses.map(guess => ({ playerId: guess.playerId, characterGuess: guess.characterGuess }));
+        game.actionLog.push({
+          night: game.nightNumber, phase: 'day',
+          playerId: p.id, playerName: p.name, characterId: 'juggler', characterName: 'Juggler',
+          targets: guesses.map(guess => `${E.byId(game, guess.playerId).name} as ${E.char(guess.characterGuess).name}`),
+        });
+        E.logEvent(game, `${p.name} (the Juggler) publicly guesses ${guesses.length} character${guesses.length === 1 ? '' : 's'}.`);
+        pushAll();
         return json(res, 200, { ok: true });
       }
 
@@ -1056,8 +1337,28 @@ const server = http.createServer(async (req, res) => {
               nominator.alive = false;
               game.deaths.push({ night: game.nightNumber, name: nominator.name, cause: 'virgin', killedByDemon: false });
               E.logEvent(game, `${nominator.name} nominated the Virgin and was executed immediately.`);
+              E.triggerDeathHooks(game, nominator, { killedByDemon: false });
               E.succeedDemon(game, nominator);
             }
+          }
+        }
+
+        // Witch: a player cursed at night who nominates tomorrow dies for
+        // it — same shape as the Virgin's trigger above, opposite polarity
+        // (checked on the nominator instead of the nominee). The
+        // nomination itself still proceeds either way, same as the
+        // Virgin's does — nothing in the ability says otherwise.
+        if (nominator.statuses.witchCursed) {
+          nominator.statuses.witchCursed = false;
+          const blocked = E.checkKill(game, nominator, {});
+          if (blocked) {
+            E.logEvent(game, `${nominator.name} nominates despite the Witch's curse, and somehow survives.`);
+          } else {
+            nominator.alive = false;
+            game.deaths.push({ night: game.nightNumber, name: nominator.name, cause: 'witch', killedByDemon: false });
+            E.logEvent(game, `${nominator.name} nominates despite the Witch's curse, and dies for it.`);
+            E.triggerDeathHooks(game, nominator, { killedByDemon: false });
+            E.succeedDemon(game, nominator);
           }
         }
 
@@ -1120,10 +1421,7 @@ const server = http.createServer(async (req, res) => {
 
       if (route === '/api/table/script') {
         if (game.phase !== 'lobby') return json(res, 409, { error: 'Roles are already dealt.' });
-        // Sects & Violets isn't wired up with real character logic yet —
-        // deliberately left off the list rather than dealing characters
-        // that would silently do nothing at night.
-        if (!['tb', 'bmr'].includes(body.script)) return json(res, 400, { error: 'That script isn\'t playable yet.' });
+        if (!['tb', 'bmr', 'sv'].includes(body.script)) return json(res, 400, { error: 'That script isn\'t playable yet.' });
         game.script = body.script;
         E.logEvent(game, `Script set to ${body.script.toUpperCase()}.`);
         pushHost();
@@ -1165,9 +1463,9 @@ const server = http.createServer(async (req, res) => {
 
 
       if (route === '/api/table/config') {
-        Object.assign(game.config, body.config || {});
+        E.applyConfigPatch(game, body.config || {});
         pushAll();
-        return json(res, 200, { ok: true });
+        return json(res, 200, { ok: true, config: game.config });
       }
 
       if (route === '/api/table/reveal') {
@@ -1179,7 +1477,7 @@ const server = http.createServer(async (req, res) => {
       }
 
       if (route === '/api/sim/start') {
-        startSimulation({ players: Number(body.players) || 9, speed: Number(body.speed) || 5, script: body.script });
+        startSimulation({ players: Number(body.players) || 9, speed: Number(body.speed) || 5, script: body.script, config: body.config });
         return json(res, 200, { ok: true });
       }
 
