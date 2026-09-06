@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>The Clocktower Wakes</title>
+<meta name="theme-color" content="#0a0806">
+<link rel="icon" href="/icons/icon-32.png">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Cormorant+Garamond:wght@400;600;700&family=Spectral:ital,wght@0,400;0,500;1,400&family=Space+Mono:wght@700&display=swap">
 <style>
 :root{
@@ -63,6 +65,14 @@ header{
   border:1px solid var(--line); border-radius:999px; padding:8px 18px 8px 14px;
 }
 .phase .icon{width:15px; height:15px; color:var(--brass)}
+.header-right{display:flex; align-items:center; gap:14px}
+.mutebtn{
+  width:auto; margin:0; padding:7px; background:transparent; border:1px solid transparent;
+  border-radius:999px; color:var(--bone-dim);
+}
+.mutebtn:hover:not(:disabled){background:var(--surface); border-color:var(--line); color:var(--bone)}
+.mutebtn .icon{width:17px; height:17px}
+.mutebtn.on{color:var(--brass)}
 
 main{
   flex:1; min-height:0; display:flex; flex-direction:column; align-items:center; justify-content:center;
@@ -264,11 +274,13 @@ main{
 .control-panel button{flex:1; margin:0}
 
 .roster-group-title{
-  display:flex; align-items:baseline; justify-content:space-between; gap:8px;
+  display:flex; align-items:center; justify-content:space-between; gap:8px;
   font-size:.66rem; text-transform:uppercase; letter-spacing:.16em; color:var(--bone-dim);
   margin:16px 0 8px;
 }
 .roster-group-title:first-child{margin-top:0}
+.roster-group-label{display:flex; align-items:center; gap:7px}
+.roster-group-icon{width:15px; height:15px; border-radius:50%; object-fit:cover; flex-shrink:0}
 .roster-group-count{color:var(--bone-faint); font-family:'Space Mono',monospace; letter-spacing:0}
 .roster-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(72px,1fr)); gap:10px}
 .roster-token{
@@ -408,7 +420,10 @@ select{
 <body>
 <header>
   <span class="brand"><span id="brandIcon"></span><span class="mark">The Clocktower Wakes</span></span>
-  <span class="phase" id="phase"></span>
+  <span class="header-right">
+    <button id="muteBtn" class="mutebtn" title="Mute sound"></button>
+    <span class="phase" id="phase"></span>
+  </span>
 </header>
 
 <div id="reclaimBanner"></div>
@@ -442,6 +457,13 @@ const ICON_PATHS = {
   bulb: '<path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.6 10.8c.6.5 1.1 1.3 1.1 2.2h5c0-.9.5-1.7 1.1-2.2A6 6 0 0 0 12 3Z"/>',
   crosshair: '<circle cx="12" cy="12" r="7.5"/><circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none"/><path d="M12 1.5v3.2M12 19.3v3.2M1.5 12h3.2M19.3 12h3.2"/>',
   close: '<path d="M5 5l14 14M19 5L5 19"/>',
+  // The brand mark — one hand, fixed at a dramatic hour rather than the
+  // ordinary two-handed 'clock' used elsewhere, same idea as the generated
+  // app icon. Static on purpose: the phase pill already spells out night
+  // vs. day in full, so this doesn't need to duplicate that.
+  brandmark: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none"/><path d="M12 12 16.6 16.3"/>',
+  speaker: '<path d="M4 9v6h4l5 4V5L8 9H4Z"/><path d="M16.5 8.5a5 5 0 0 1 0 7"/><path d="M19.3 6a8.5 8.5 0 0 1 0 12"/>',
+  speakerOff: '<path d="M4 9v6h4l5 4V5L8 9H4Z"/><path d="M16 9.5l5 5M21 9.5l-5 5"/>',
 };
 function wrapIcon(name, size) {
   const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -467,7 +489,7 @@ const withIcon = (btn, name) => { btn.prepend(wrapIcon(name, 15)); return btn; }
 function speak(line, { dread = false } = {}) {
   if (!line || line === spoken) return;
   spoken = line;
-  if (!('speechSynthesis' in window)) return;
+  if (soundMuted || !('speechSynthesis' in window)) return;
   const u = new SpeechSynthesisUtterance(line);
   u.rate = dread ? 0.78 : 0.86;
   u.pitch = dread ? 0.5 : 0.65;
@@ -475,6 +497,77 @@ function speak(line, { dread = false } = {}) {
   speechSynthesis.cancel();
   speechSynthesis.speak(u);
 }
+
+/* ------------------------------------------------------------ sound cues
+   Synthesized, not sampled — same reasoning as the generated app icons:
+   no external audio file to license or ship, and it costs nothing to add
+   a cue. A handful of short tones layered with delays stand in for real
+   instruments well enough for something this brief. */
+let soundMuted = localStorage.getItem('botc-host-muted') === '1';
+let audioCtx = null;
+function getAudioCtx() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx;
+}
+
+function tone(freq, { duration = 0.6, type = 'sine', gain = 0.14, delay = 0, attack = 0.02 } = {}) {
+  if (soundMuted) return;
+  const ctx = getAudioCtx();
+  const osc = ctx.createOscillator();
+  const g = ctx.createGain();
+  osc.type = type;
+  osc.frequency.value = freq;
+  const t0 = ctx.currentTime + delay;
+  g.gain.setValueAtTime(0, t0);
+  g.gain.linearRampToValueAtTime(gain, t0 + attack);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + duration);
+  osc.connect(g);
+  g.connect(ctx.destination);
+  osc.start(t0);
+  osc.stop(t0 + duration + 0.05);
+}
+
+function playNightFalls() {
+  // A low, receding pair of notes — the town settling into the dark.
+  tone(220.00, { duration: 1.3, type: 'sine', gain: 0.12 });
+  tone(164.81, { duration: 1.7, type: 'sine', gain: 0.1, delay: 0.35 });
+}
+function playDayBreaks() {
+  // Brighter, rising — dawn.
+  tone(392.00, { duration: 0.5, type: 'triangle', gain: 0.12 });
+  tone(523.25, { duration: 0.9, type: 'triangle', gain: 0.12, delay: 0.18 });
+}
+function playSlayerImpact() {
+  // A low thud with a thin metallic ring on top — a shot landing.
+  tone(80, { duration: 0.35, type: 'square', gain: 0.22, attack: 0.005 });
+  tone(1200, { duration: 0.6, type: 'sine', gain: 0.04, delay: 0.02 });
+}
+function playVictory(winner) {
+  if (winner === 'good') {
+    [392.00, 493.88, 587.33, 783.99].forEach((f, i) => tone(f, { duration: 1.4, type: 'triangle', gain: 0.1, delay: i * 0.12 }));
+  } else {
+    [220.00, 233.08, 174.61].forEach((f, i) => tone(f, { duration: 1.9, type: 'sawtooth', gain: 0.08, delay: i * 0.15 }));
+  }
+}
+
+function setMuted(next) {
+  soundMuted = next;
+  localStorage.setItem('botc-host-muted', next ? '1' : '0');
+  if (next) speechSynthesis.cancel();
+  const btn = document.getElementById('muteBtn');
+  btn.classList.toggle('on', !next);
+  btn.innerHTML = '';
+  btn.append(wrapIcon(next ? 'speakerOff' : 'speaker', 17));
+  btn.title = next ? 'Sound is off — tap to unmute' : 'Sound is on — tap to mute';
+}
+
+document.getElementById('muteBtn').onclick = () => setMuted(!soundMuted);
+setMuted(soundMuted);
+// AudioContext can't produce sound until a real user gesture has happened
+// on the page at least once — the host will have clicked something (Deal,
+// the mute button, anything) long before the first cue would ever fire,
+// but this makes sure that first click actually wakes it up either way.
+document.body.addEventListener('pointerdown', () => { if (!soundMuted) getAudioCtx().resume(); }, { once: true });
 
 function post(url, body) {
   return fetch(url, {
@@ -645,7 +738,14 @@ function scriptRosterCard() {
 
   TEAM_ORDER.filter(team => byTeam[team] && byTeam[team].length).forEach(team => {
     const heading = el('div', 'roster-group-title');
-    heading.append(el('span', null, TEAM_LABELS[team] || team), el('span', 'roster-group-count', String(byTeam[team].length)));
+    const label = el('span', 'roster-group-label');
+    const badge = document.createElement('img');
+    badge.className = 'roster-group-icon';
+    badge.src = '/team-icons/' + team + '.png';
+    badge.alt = '';
+    badge.onerror = () => badge.remove();
+    label.append(badge, document.createTextNode(TEAM_LABELS[team] || team));
+    heading.append(label, el('span', 'roster-group-count', String(byTeam[team].length)));
     card.append(heading);
 
     const grid = el('div', 'roster-grid');
@@ -1077,9 +1177,19 @@ function render() {
   if (changed && S.phase === 'over' && !reduceMotion) {
     const lastDeath = S.deaths[S.deaths.length - 1];
     if (lastDeath && lastDeath.cause === 'slayer') {
-      playSlayerFlash(lastDeath.name, renderNow);
+      playSlayerImpact();
+      playSlayerFlash(lastDeath.name, () => {
+        renderNow();
+        if (S.victory) playVictory(S.victory.winner);
+      });
       return;
     }
+  }
+
+  if (changed) {
+    if (S.phase === 'night') playNightFalls();
+    else if (S.phase === 'day') playDayBreaks();
+    else if (S.phase === 'over' && S.victory) playVictory(S.victory.winner);
   }
 
   if (changed && !reduceMotion && stage.childNodes.length) {
@@ -1111,8 +1221,7 @@ function renderNow() {
   }
 
   const brandIcon = document.getElementById('brandIcon');
-  brandIcon.innerHTML = '';
-  brandIcon.append(wrapIcon(S.phase === 'night' ? 'moon' : 'sun', 22));
+  if (!brandIcon.children.length) brandIcon.append(wrapIcon('brandmark', 22));
 
   const phaseEl = document.getElementById('phase');
   phaseEl.innerHTML = '';
