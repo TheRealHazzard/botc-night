@@ -13,7 +13,12 @@ const CHARACTERS = DATA.characters;
 const SETUP_TABLE = DATA.meta.setupTable;
 
 const char = id => CHARACTERS.find(c => c.id === id);
-const scriptPool = script => CHARACTERS.filter(c => c.edition === script && c.team !== 'special');
+// tb/bmr/sv each own their characters outright (edition is a plain string),
+// but a real custom script draws from a shared pool — the same Cannibal or
+// Pixie can belong to several unrelated scripts at once — so `edition` may
+// also be an array of every script id that includes it.
+const inEdition = (c, script) => Array.isArray(c.edition) ? c.edition.includes(script) : c.edition === script;
+const scriptPool = script => CHARACTERS.filter(c => inEdition(c, script) && c.team !== 'special');
 
 // "Bucket 4": characters whose ability reduces "ask/tell the Storyteller
 // something open-ended" to a fixed menu or template for lack of a real
@@ -232,6 +237,63 @@ function triggerMoonchildIfNeeded(g, deadPlayer) {
   }
 }
 
+/** Pixie: "if you were mad that you were this character, you gain their
+    ability when they die." The dying player here is whoever a Pixie was
+    shown at night 1 (`pixieRevealedId`, set in carousel.js's own entry),
+    not the Pixie's own death — a cross-cutting check against every death,
+    same shape as triggerMoonchildIfNeeded above, not something any one
+    character's onDeath could express (onDeath only ever fires for the
+    dying player's OWN registry entry). Cerenovus/Mutant's madReasons only
+    ever carry a display label (see sv.js's cerenovus entry), not a
+    characterId, so the match is by name. */
+function triggerPixieIfNeeded(g, deadPlayer) {
+  const dead = trueChar(deadPlayer);
+  if (!dead) return;
+  for (const pixie of g.players) {
+    if (!pixie.alive || pixie.characterId !== 'pixie' || pixie.statuses.pixieGainedAbility) continue;
+    if (pixie.statuses.pixieRevealedId !== dead.id) continue;
+    const revealedName = char(pixie.statuses.pixieRevealedId).name;
+    const wasMadAboutIt = (pixie.statuses.madReasons || []).some(r => r.label === revealedName);
+    if (!wasMadAboutIt) continue;
+    pixie.statuses.pixieGainedAbility = true;
+    reassignCharacter(g, pixie, deadPlayer.characterId, { abilityOnly: true });
+    logEvent(g, `${pixie.name} (the Pixie) gains the ${revealedName}'s ability.`, true);
+  }
+}
+
+/** Cannibal: "you have the ability of the recently killed executee" — an
+    ability transplant like the Philosopher's, but triggered by ANY
+    execution rather than the Cannibal's own choice, so it lives here and is
+    called from every execution site in server.js (the main one and the
+    Mastermind's bonus day) instead of anywhere in the registry. The
+    "poisoned until a good player dies by execution" half deliberately
+    never expires at dusk the way ordinary poison does — cured only by
+    scanning for it here on every later execution, regardless of who the
+    Cannibal happens to be by then. */
+function applyCannibalTransform(g, executedPlayer) {
+  const executedTrue = trueChar(executedPlayer);
+  if (!executedTrue) return;
+  if (!isEvil(g, executedPlayer)) {
+    for (const c of g.players) {
+      if (c.statuses.cannibalPoisoned) {
+        delete c.statuses.poisoned;
+        delete c.statuses.cannibalPoisoned;
+      }
+    }
+  }
+  const cannibal = g.players.find(p => p.alive && p.characterId === 'cannibal');
+  if (!cannibal || cannibal.id === executedPlayer.id) return;
+  reassignCharacter(g, cannibal, executedTrue.id, { abilityOnly: true });
+  if (isEvil(g, executedPlayer)) {
+    cannibal.statuses.poisoned = true;
+    cannibal.statuses.cannibalPoisoned = true;
+  } else {
+    delete cannibal.statuses.poisoned;
+    delete cannibal.statuses.cannibalPoisoned;
+  }
+  logEvent(g, `${cannibal.name} (the Cannibal) gains the ${executedTrue.name}'s ability.`, true);
+}
+
 function logEvent(g, text, secret = false) {
   g.log.push({ night: g.nightNumber, text, secret, at: Date.now() });
 }
@@ -371,6 +433,7 @@ module.exports = {
   shuffle, pick, take,
   byId, byToken, alive, seatIndex, actingChar, trueChar, impaired, publiclyAlive,
   livingNeighbors, tealadyProtects, wouldBlockKill, randomKiller, checkKill, isEvil, triggerMoonchildIfNeeded,
+  triggerPixieIfNeeded, applyCannibalTransform,
   reassignCharacter, flagAbnormal,
   logEvent, outsiderDiedToday, minionDiedToday, somebodyDiedYesterday,
   minionNominatedToday, demonVotedToday, vortoxActive,

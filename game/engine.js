@@ -9,6 +9,7 @@ const {
   shuffle, pick, take,
   byId, byToken, alive, actingChar, trueChar, impaired, publiclyAlive,
   wouldBlockKill, randomKiller, checkKill, isEvil, triggerMoonchildIfNeeded, flagAbnormal,
+  triggerPixieIfNeeded, applyCannibalTransform,
   logEvent, outsiderDiedToday, minionDiedToday, somebodyDiedYesterday,
   numberSignal, falseNumber, evilNeighbourCount, evilPairCount, pairInfo,
 } = H;
@@ -172,6 +173,15 @@ function dealRoles(g) {
   const realDemon = g.players.find(p => trueChar(p) && trueChar(p).team === 'demon');
   if (lunatic && realDemon) lunatic.believedId = realDemon.characterId;
 
+  // Marionette: same "believes something false" shape as the Lunatic just
+  // above, except a random good Townsfolk/Outsider rather than specifically
+  // the Demon. deliverOpeningInfo tells the real Demon who they are.
+  const marionette = g.players.find(p => p.characterId === 'marionette');
+  if (marionette) {
+    const goodPool = of('townsfolk').concat(of('outsider'));
+    if (goodPool.length) marionette.believedId = pick(goodPool).id;
+  }
+
   // Evil Twin: linked to one good player at setup — which one is Storyteller
   // whim in the physical game (Bucket 1 in ABILITY_PATTERNS.md, no ground
   // truth to get right), so a random pick, same spirit as the Godfather's
@@ -195,6 +205,22 @@ function dealRoles(g) {
   const mutant = g.players.find(p => p.characterId === 'mutant');
   if (mutant) {
     mutant.statuses.madReasons = [{ label: 'an Outsider', expiresAfterCheck: false }];
+  }
+
+  // Puzzlemaster: "1 player is drunk, even if you die" — a real, permanent
+  // impairment (reusing the Drunk's own `drunk` status, with no expiry, so
+  // impaired() picks it up everywhere for free), not merely a fact to guess.
+  // `g.puzzlemasterDrunkId` is who it landed on — carousel.js's puzzlemaster
+  // entry is the only thing that ever reads it, since the drunk player
+  // themself is never told.
+  const puzzlemaster = g.players.find(p => p.characterId === 'puzzlemaster');
+  if (puzzlemaster) {
+    const candidates = g.players.filter(p => p.id !== puzzlemaster.id);
+    if (candidates.length) {
+      const drunkOne = pick(candidates);
+      drunkOne.statuses.drunk = true;
+      g.puzzlemasterDrunkId = drunkOne.id;
+    }
   }
 
   g.phase = 'reveal';
@@ -373,11 +399,27 @@ function deliverOpeningInfo(g, results) {
   if (g.players.length < 7) return; // with 6 or fewer, evil stays in the dark
   if (!demon) return;
 
+  // Magician: "The Demon thinks you are a Minion. Minions think you are a
+  // Demon." — a real Magician replaces the true Demon's name in what the
+  // Minions are told (not shown alongside it — they only ever get the one,
+  // wrong, name) and is added to what the Demon is told about their
+  // Minions. A script with no Magician in play is untouched by either half.
+  const magician = g.players.find(p => p.characterId === 'magician');
+  // Damsel: "All Minions know you are in play" — every Minion's own opening
+  // briefing below gets a line naming her outright, unconditional on
+  // anything (this is what /api/damsel-guess later gives a Minion the
+  // chance to act on).
+  const damsel = g.players.find(p => p.characterId === 'damsel');
+  // Marionette: "The Demon knows who you are" — the reciprocal half of her
+  // dealRoles setup above, same shape as the Lunatic's own line to the
+  // Demon a few lines up.
+  const marionette = g.players.find(p => p.characterId === 'marionette');
+
   const minions = g.players.filter(p => trueChar(p) && trueChar(p).team === 'minion');
   for (const m of minions) {
     results[m.id] = {
       title: 'Your allies',
-      body: `${demon.name} is the Demon.`,
+      body: `${magician ? magician.name : demon.name} is the Demon.` + (damsel ? ` ${damsel.name} is the Damsel.` : ''),
       names: minions.filter(x => x.id !== m.id).map(x => `${x.name} — fellow Minion`),
     };
   }
@@ -391,6 +433,8 @@ function deliverOpeningInfo(g, results) {
   results[demon.id] = {
     title: 'Your Minions',
     body: (minions.length ? `${minions.map(m => m.name).join(', ')} serve you.` : 'You act alone.') +
+      (magician ? ` ${magician.name} also appears to be a Minion.` : '') +
+      (marionette ? ` ${marionette.name} is the Marionette.` : '') +
       (results[demon.id] ? ` ${results[demon.id].body}` : ''),
     names: bluffs.map(b => `${b} — not in play`),
   };
@@ -408,6 +452,7 @@ function deliverOpeningInfo(g, results) {
  */
 function triggerDeathHooks(g, player, { killedByDemon = false, results } = {}) {
   triggerMoonchildIfNeeded(g, player);
+  triggerPixieIfNeeded(g, player);
   const entry = REGISTRY[player.characterId];
   if (entry && entry.onDeath) {
     entry.onDeath(g, player, { killedByDemon, results: results || g.results });
@@ -558,6 +603,15 @@ function resolveNight(g, wave = 1) {
       }
     }
   }
+
+  // Lycanthrope: "they are the only player that can die tonight" — checked
+  // last, after every other death this wave (a night kill, Grandmother's
+  // link, Tinker's roll) has already been decided, and discards all of them
+  // the moment a real Lycanthrope kill landed — order-independent by
+  // construction, since carousel.js's own entry only ever decides whether
+  // ITS OWN kill happens, never anyone else's.
+  const lycanthropeKill = deaths.find(d => d.cause === 'lycanthrope');
+  if (lycanthropeKill) deaths.splice(0, deaths.length, lycanthropeKill);
 
   // Apply deaths
   for (const d of deaths) {
@@ -886,6 +940,23 @@ function evilTwinBlocksGood(g) {
 
 /** Returns null while the game is still alive, else {winner, reason}. */
 function checkVictory(g) {
+  const result = checkVictoryRaw(g);
+  // Politician: the real rule is a PERSONAL win-while-your-team-still-loses
+  // exception for "whoever was most responsible for the loss" — this
+  // engine's victory model is team-wide only, so this is simplified to
+  // flipping the whole team's fate instead, and "most responsible" is
+  // dropped entirely (merely being in the game is enough — "even if dead"
+  // is in the card text, so no alive/impaired check either, unlike almost
+  // everything else here). A deliberate reduction, not a full translation,
+  // same spirit as Sailor/Innkeeper's coin-flip standing in for a
+  // Storyteller's judgment call.
+  if (result && result.winner === 'evil' && g.players.some(p => p.characterId === 'politician')) {
+    return { winner: 'good', reason: `${result.reason} But the Politician turns it around.` };
+  }
+  return result;
+}
+
+function checkVictoryRaw(g) {
   if (g.phase === 'lobby' || g.phase === 'reveal') return null;
 
   const living = alive(g);
@@ -1140,4 +1211,5 @@ module.exports = {
   isEvil, minionDiedToday, triggerMoonchildIfNeeded, triggerDeathHooks, resolveMastermindDay,
   resolveDayVote, gameSummary, resolveMadness, buildSavantStatements, evaluateClaim,
   activeScriptPool, applyConfigPatch, buildStorytellerContext, BUCKET4_IDS,
+  applyCannibalTransform,
 };

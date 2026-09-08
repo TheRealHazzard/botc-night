@@ -4,37 +4,137 @@
       {
         "id": "tb",
         "name": "Trouble Brewing",
-        "description": "An introductory script full of information and fairly simple abilities. The best place for a new table to start.",
+        "description": "An introductory script full of information and fairly simple abilities. The best place for a new table to start. A single Imp hunts the town while information roles like the Empath, Fortune Teller, and Washerwoman teach new players how claims and cross-referencing actually work. The Poisoner is the only real deception in play, which keeps a first game honest without making it easy.",
         "difficulty": 1,
-        "playable": true
+        "playable": true,
+        "official": true
       },
       {
         "id": "bmr",
         "name": "Bad Moon Rising",
-        "description": "A harsher, more chaotic script — outsiders lie about who they are, and the demon comes in unpredictable, asymmetric shapes.",
+        "description": "A harsher, more chaotic script — outsiders lie about who they are, and the demon comes in unpredictable, asymmetric shapes. Four very different demons — Zombuul, Pukka, Shabaloth, and Po — each kill on their own strange schedule, so 'who's the demon' rarely has one clean answer. The Godfather and Devil's Advocate protect evil's secrets while a Mastermind waits behind the scenes, ready to drag the game past its expected ending.",
         "difficulty": 2,
-        "playable": true
+        "playable": true,
+        "official": true
       },
       {
         "id": "sv",
         "name": "Sects & Violets",
-        "description": "A script of madness and misinformation, where players can't always trust their own alignment, let alone anyone else's.",
+        "description": "A script of madness and misinformation, where players can't always trust their own alignment, let alone anyone else's. A Cerenovus can quietly convince a townsfolk they're someone else entirely, an Evil Twin ties two fates together from the first night, and a Vortox demon can turn every true piece of information in play into a lie. By the time a Pit-Hag or Witch has finished rearranging the grimoire, no claim is safe to trust at face value.",
         "difficulty": 3,
+        "playable": true,
+        "official": true
+      },
+      {
+        "id": "everyone-can-play",
+        "name": "Everyone Can Play",
+        "description": "Designed for a mixed table of veterans and first-timers — almost entirely Trouble Brewing, with a Scarlet Woman's extra night-death and a Mayor/Saint's execution stakes layered on top. Newer players get the same gentle information game — Empath, Fortune Teller, Librarian — while a Scarlet Woman ready to inherit the Imp and a Mayor's win-without-execution keep the more experienced half of the table just as engaged.",
+        "difficulty": 1,
+        "playable": true
+      },
+      {
+        "id": "hide-and-seek",
+        "name": "Hide & Seek",
+        "description": "Everyone is lying, or should be — a bluff-heavy script that rewards double-claims from both teams, good included. Four demons — Imp, Pukka, Vigormortis, Ojo — can all plausibly be hiding behind the same early claim, and a Witch's curse waits to punish whoever nominates carelessly. The Noble, Preacher, and Pixie still hand good just enough real information to make every bluff a genuine risk.",
+        "difficulty": 3,
+        "playable": true
+      },
+      {
+        "id": "lunar-eclipse",
+        "name": "Lunar Eclipse",
+        "description": "Can the Lunatic go an entire game without ever realizing what they are? Three demons who each kill differently — Zombuul's silence, Vigormortis's poisoned inheritance, No Dashii's spreading falsehood — share the night with a Marionette who quietly believes they're on the wrong team. The Lunatic is the heart of it, but far from the only one confused about themselves.",
+        "difficulty": 4,
+        "playable": true
+      },
+      {
+        "id": "trust",
+        "name": "Trust",
+        "description": "Built around keeping the Mayor's alternate win condition alive and contested — safety nets and threats to it on both sides. A Politician can flip a losing game to good from beyond the grave, while a Marionette and a Witch make sure evil always has a way to unsettle the town's trust in exactly who deserves protecting. Every execution here carries the weight of the Mayor's win looming behind it.",
+        "difficulty": 4,
+        "playable": true
+      },
+      {
+        "id": "boozling",
+        "name": "Boozling",
+        "description": "A high-tension chaos script built around Fang Gu and Baron threats, with Cerenovus madness thrown into the mix. A Golem can end the game with a single wrong nomination, a Cannibal inherits whatever the town just executed, and a High Priestess or Fisherman hand out just enough truth to make the chaos feel survivable. Fang Gu's jump and Baron's extra outsiders mean the setup itself is never quite what it first looks like.",
+        "difficulty": 3,
+        "playable": true
+      },
+      {
+        "id": "minotaurs-labyrinth",
+        "name": "The Minotaur's Labyrinth",
+        "description": "An information-forward script — plenty to learn, and a Cannibal ready to inherit whatever the town executes. Three roaming demons — Shabaloth, Po, Fang Gu — alongside the Imp keep the killer's identity shifting even as the Investigator, Fortune Teller, and Clockmaker pile up clues about it. A Politician and Recluse make sure good's information is never quite as safe as it looks.",
+        "difficulty": 2,
         "playable": true
       }
     ],
     "setupTable": {
-      "5": { "townsfolk": 3, "outsider": 0, "minion": 1, "demon": 1 },
-      "6": { "townsfolk": 3, "outsider": 1, "minion": 1, "demon": 1 },
-      "7": { "townsfolk": 5, "outsider": 0, "minion": 1, "demon": 1 },
-      "8": { "townsfolk": 5, "outsider": 1, "minion": 1, "demon": 1 },
-      "9": { "townsfolk": 5, "outsider": 2, "minion": 1, "demon": 1 },
-      "10": { "townsfolk": 7, "outsider": 0, "minion": 2, "demon": 1 },
-      "11": { "townsfolk": 7, "outsider": 1, "minion": 2, "demon": 1 },
-      "12": { "townsfolk": 7, "outsider": 2, "minion": 2, "demon": 1 },
-      "13": { "townsfolk": 9, "outsider": 0, "minion": 3, "demon": 1 },
-      "14": { "townsfolk": 9, "outsider": 1, "minion": 3, "demon": 1 },
-      "15": { "townsfolk": 9, "outsider": 2, "minion": 3, "demon": 1 }
+      "5": {
+        "townsfolk": 3,
+        "outsider": 0,
+        "minion": 1,
+        "demon": 1
+      },
+      "6": {
+        "townsfolk": 3,
+        "outsider": 1,
+        "minion": 1,
+        "demon": 1
+      },
+      "7": {
+        "townsfolk": 5,
+        "outsider": 0,
+        "minion": 1,
+        "demon": 1
+      },
+      "8": {
+        "townsfolk": 5,
+        "outsider": 1,
+        "minion": 1,
+        "demon": 1
+      },
+      "9": {
+        "townsfolk": 5,
+        "outsider": 2,
+        "minion": 1,
+        "demon": 1
+      },
+      "10": {
+        "townsfolk": 7,
+        "outsider": 0,
+        "minion": 2,
+        "demon": 1
+      },
+      "11": {
+        "townsfolk": 7,
+        "outsider": 1,
+        "minion": 2,
+        "demon": 1
+      },
+      "12": {
+        "townsfolk": 7,
+        "outsider": 2,
+        "minion": 2,
+        "demon": 1
+      },
+      "13": {
+        "townsfolk": 9,
+        "outsider": 0,
+        "minion": 3,
+        "demon": 1
+      },
+      "14": {
+        "townsfolk": 9,
+        "outsider": 1,
+        "minion": 3,
+        "demon": 1
+      },
+      "15": {
+        "townsfolk": 9,
+        "outsider": 2,
+        "minion": 3,
+        "demon": 1
+      }
     }
   },
   "characters": [
@@ -71,7 +171,10 @@
       "team": "townsfolk",
       "ability": "You start knowing that 1 of 2 players is a particular Townsfolk.",
       "setup": false,
-      "reminders": ["Townsfolk", "Wrong"],
+      "reminders": [
+        "Townsfolk",
+        "Wrong"
+      ],
       "firstNightOrder": 33,
       "firstNightReminder": "Show the character token of a Townsfolk in play. Point to two players, one of which is that character.",
       "otherNightOrder": 0,
@@ -80,11 +183,19 @@
     {
       "id": "librarian",
       "name": "Librarian",
-      "edition": "tb",
+      "edition": [
+        "tb",
+        "everyone-can-play",
+        "hide-and-seek",
+        "trust"
+      ],
       "team": "townsfolk",
       "ability": "You start knowing that 1 of 2 players is a particular Outsider. (Or that zero are in play.)",
       "setup": false,
-      "reminders": ["Outsider", "Wrong"],
+      "reminders": [
+        "Outsider",
+        "Wrong"
+      ],
       "firstNightOrder": 34,
       "firstNightReminder": "Show the character token of an Outsider in play. Point to two players, one of which is that character.",
       "otherNightOrder": 0,
@@ -93,11 +204,17 @@
     {
       "id": "investigator",
       "name": "Investigator",
-      "edition": "tb",
+      "edition": [
+        "tb",
+        "minotaurs-labyrinth"
+      ],
       "team": "townsfolk",
       "ability": "You start knowing that 1 of 2 players is a particular Minion.",
       "setup": false,
-      "reminders": ["Minion", "Wrong"],
+      "reminders": [
+        "Minion",
+        "Wrong"
+      ],
       "firstNightOrder": 35,
       "firstNightReminder": "Show the character token of a Minion in play. Point to two players, one of which is that character.",
       "otherNightOrder": 0,
@@ -119,7 +236,10 @@
     {
       "id": "empath",
       "name": "Empath",
-      "edition": "tb",
+      "edition": [
+        "tb",
+        "everyone-can-play"
+      ],
       "team": "townsfolk",
       "ability": "Each night, you learn how many of your 2 alive neighbours are evil.",
       "setup": false,
@@ -132,11 +252,19 @@
     {
       "id": "fortuneteller",
       "name": "Fortune Teller",
-      "edition": "tb",
+      "edition": [
+        "tb",
+        "everyone-can-play",
+        "trust",
+        "boozling",
+        "minotaurs-labyrinth"
+      ],
       "team": "townsfolk",
       "ability": "Each night, choose 2 players: you learn if either is a Demon. There is a good player that registers as a Demon to you.",
       "setup": false,
-      "reminders": ["Red herring"],
+      "reminders": [
+        "Red herring"
+      ],
       "firstNightOrder": 38,
       "firstNightReminder": "The Fortune Teller points to two players. Give the head signal (nod 'yes', shake 'no') for whether one of those players is the Demon.",
       "otherNightOrder": 54,
@@ -145,11 +273,17 @@
     {
       "id": "undertaker",
       "name": "Undertaker",
-      "edition": "tb",
+      "edition": [
+        "tb",
+        "everyone-can-play",
+        "hide-and-seek"
+      ],
       "team": "townsfolk",
       "ability": "Each night*, you learn which character died by execution today.",
       "setup": false,
-      "reminders": ["Executed"],
+      "reminders": [
+        "Executed"
+      ],
       "firstNightOrder": 0,
       "firstNightReminder": "",
       "otherNightOrder": 55,
@@ -158,11 +292,18 @@
     {
       "id": "monk",
       "name": "Monk",
-      "edition": "tb",
+      "edition": [
+        "tb",
+        "everyone-can-play",
+        "trust",
+        "minotaurs-labyrinth"
+      ],
       "team": "townsfolk",
       "ability": "Each night*, choose a player (not yourself): they are safe from the Demon tonight.",
       "setup": false,
-      "reminders": ["Protected"],
+      "reminders": [
+        "Protected"
+      ],
       "firstNightOrder": 0,
       "firstNightReminder": "",
       "otherNightOrder": 12,
@@ -171,7 +312,13 @@
     {
       "id": "ravenkeeper",
       "name": "Ravenkeeper",
-      "edition": "tb",
+      "edition": [
+        "tb",
+        "everyone-can-play",
+        "hide-and-seek",
+        "trust",
+        "minotaurs-labyrinth"
+      ],
       "team": "townsfolk",
       "ability": "If you die at night, you are woken to choose a player: you learn their character.",
       "setup": false,
@@ -184,11 +331,16 @@
     {
       "id": "virgin",
       "name": "Virgin",
-      "edition": "tb",
+      "edition": [
+        "tb",
+        "hide-and-seek"
+      ],
       "team": "townsfolk",
       "ability": "The 1st time you are nominated, if the nominator is a Townsfolk, they are executed immediately.",
       "setup": false,
-      "reminders": ["No ability"],
+      "reminders": [
+        "No ability"
+      ],
       "firstNightOrder": 0,
       "firstNightReminder": "",
       "otherNightOrder": 0,
@@ -197,11 +349,18 @@
     {
       "id": "slayer",
       "name": "Slayer",
-      "edition": "tb",
+      "edition": [
+        "tb",
+        "everyone-can-play",
+        "boozling",
+        "minotaurs-labyrinth"
+      ],
       "team": "townsfolk",
       "ability": "Once per game, during the day, publicly choose a player: if they are the Demon, they die.",
       "setup": false,
-      "reminders": ["No ability"],
+      "reminders": [
+        "No ability"
+      ],
       "firstNightOrder": 0,
       "firstNightReminder": "",
       "otherNightOrder": 0,
@@ -223,7 +382,12 @@
     {
       "id": "mayor",
       "name": "Mayor",
-      "edition": "tb",
+      "edition": [
+        "tb",
+        "everyone-can-play",
+        "lunar-eclipse",
+        "trust"
+      ],
       "team": "townsfolk",
       "ability": "If only 3 players live & no execution occurs, your team wins. If you die at night, another player might die instead.",
       "setup": false,
@@ -240,7 +404,9 @@
       "team": "outsider",
       "ability": "Each night, choose a player (not yourself): tomorrow, you may only vote if they are voting too.",
       "setup": false,
-      "reminders": ["Master"],
+      "reminders": [
+        "Master"
+      ],
       "firstNightOrder": 39,
       "firstNightReminder": "The Butler points to a player. Mark that player as 'Master'.",
       "otherNightOrder": 67,
@@ -249,11 +415,19 @@
     {
       "id": "drunk",
       "name": "Drunk",
-      "edition": "tb",
+      "edition": [
+        "tb",
+        "everyone-can-play",
+        "hide-and-seek",
+        "trust",
+        "boozling"
+      ],
       "team": "outsider",
       "ability": "You do not know you are the Drunk. You think you are a Townsfolk character, but you are not.",
       "setup": true,
-      "reminders": ["Drunk"],
+      "reminders": [
+        "Drunk"
+      ],
       "firstNightOrder": 0,
       "firstNightReminder": "",
       "otherNightOrder": 0,
@@ -262,7 +436,12 @@
     {
       "id": "recluse",
       "name": "Recluse",
-      "edition": "tb",
+      "edition": [
+        "tb",
+        "everyone-can-play",
+        "trust",
+        "minotaurs-labyrinth"
+      ],
       "team": "outsider",
       "ability": "You might register as evil & as a Minion or Demon, even if dead.",
       "setup": false,
@@ -275,7 +454,10 @@
     {
       "id": "saint",
       "name": "Saint",
-      "edition": "tb",
+      "edition": [
+        "tb",
+        "everyone-can-play"
+      ],
       "team": "outsider",
       "ability": "If you die by execution, your team loses.",
       "setup": false,
@@ -288,11 +470,17 @@
     {
       "id": "poisoner",
       "name": "Poisoner",
-      "edition": "tb",
+      "edition": [
+        "tb",
+        "everyone-can-play",
+        "hide-and-seek"
+      ],
       "team": "minion",
       "ability": "Each night, choose a player: they are poisoned tonight and tomorrow day.",
       "setup": false,
-      "reminders": ["Poisoned"],
+      "reminders": [
+        "Poisoned"
+      ],
       "firstNightOrder": 17,
       "firstNightReminder": "The Poisoner points to a player. That player is poisoned.",
       "otherNightOrder": 7,
@@ -301,7 +489,11 @@
     {
       "id": "spy",
       "name": "Spy",
-      "edition": "tb",
+      "edition": [
+        "tb",
+        "everyone-can-play",
+        "lunar-eclipse"
+      ],
       "team": "minion",
       "ability": "Each night, you see the Grimoire. You might register as good & as a Townsfolk or Outsider, even if dead.",
       "setup": false,
@@ -314,11 +506,18 @@
     {
       "id": "scarletwoman",
       "name": "Scarlet Woman",
-      "edition": "tb",
+      "edition": [
+        "tb",
+        "everyone-can-play",
+        "boozling",
+        "minotaurs-labyrinth"
+      ],
       "team": "minion",
       "ability": "If there are 5 or more players alive & the Demon dies, you become the Demon. (Travellers don't count.)",
       "setup": false,
-      "reminders": ["Demon"],
+      "reminders": [
+        "Demon"
+      ],
       "firstNightOrder": 0,
       "firstNightReminder": "",
       "otherNightOrder": 19,
@@ -327,7 +526,12 @@
     {
       "id": "baron",
       "name": "Baron",
-      "edition": "tb",
+      "edition": [
+        "tb",
+        "everyone-can-play",
+        "trust",
+        "boozling"
+      ],
       "team": "minion",
       "ability": "There are extra Outsiders in play. [+2 Outsiders]",
       "setup": true,
@@ -340,11 +544,20 @@
     {
       "id": "imp",
       "name": "Imp",
-      "edition": "tb",
+      "edition": [
+        "tb",
+        "everyone-can-play",
+        "hide-and-seek",
+        "trust",
+        "boozling",
+        "minotaurs-labyrinth"
+      ],
       "team": "demon",
       "ability": "Each night*, choose a player: they die. If you kill yourself this way, a Minion becomes the Imp.",
       "setup": false,
-      "reminders": ["Dead"],
+      "reminders": [
+        "Dead"
+      ],
       "firstNightOrder": 0,
       "firstNightReminder": "",
       "otherNightOrder": 24,
@@ -353,11 +566,17 @@
     {
       "id": "grandmother",
       "name": "Grandmother",
-      "edition": "bmr",
+      "edition": [
+        "bmr",
+        "everyone-can-play",
+        "lunar-eclipse"
+      ],
       "team": "townsfolk",
       "ability": "You start knowing a good player & their character. If the Demon kills them, you die too.",
       "setup": false,
-      "reminders": ["Grandchild"],
+      "reminders": [
+        "Grandchild"
+      ],
       "firstNightOrder": 40,
       "firstNightReminder": "Show the marked character token. Point to the marked player.",
       "otherNightOrder": 51,
@@ -366,11 +585,16 @@
     {
       "id": "sailor",
       "name": "Sailor",
-      "edition": "bmr",
+      "edition": [
+        "bmr",
+        "lunar-eclipse"
+      ],
       "team": "townsfolk",
       "ability": "Each night, choose an alive player: either you or they are drunk until dusk. You can't die.",
       "setup": false,
-      "reminders": ["Drunk"],
+      "reminders": [
+        "Drunk"
+      ],
       "firstNightOrder": 11,
       "firstNightReminder": "The Sailor points to a living player. Either the Sailor, or the chosen player, is drunk.",
       "otherNightOrder": 4,
@@ -379,7 +603,10 @@
     {
       "id": "chambermaid",
       "name": "Chambermaid",
-      "edition": "bmr",
+      "edition": [
+        "bmr",
+        "lunar-eclipse"
+      ],
       "team": "townsfolk",
       "ability": "Each night, choose 2 alive players (not yourself): you learn how many woke tonight due to their ability.",
       "setup": false,
@@ -396,7 +623,9 @@
       "team": "townsfolk",
       "ability": "Each night*, choose a player (different to last night): the Demon, if chosen, learns who you are then doesn't wake tonight.",
       "setup": false,
-      "reminders": ["Chosen"],
+      "reminders": [
+        "Chosen"
+      ],
       "firstNightOrder": 0,
       "firstNightReminder": "",
       "otherNightOrder": 21,
@@ -405,11 +634,17 @@
     {
       "id": "innkeeper",
       "name": "Innkeeper",
-      "edition": "bmr",
+      "edition": [
+        "bmr",
+        "lunar-eclipse"
+      ],
       "team": "townsfolk",
       "ability": "Each night*, choose 2 players: they can't die tonight, but 1 is drunk until dusk.",
       "setup": false,
-      "reminders": ["Protected", "Drunk"],
+      "reminders": [
+        "Protected",
+        "Drunk"
+      ],
       "firstNightOrder": 0,
       "firstNightReminder": "",
       "otherNightOrder": 9,
@@ -418,11 +653,16 @@
     {
       "id": "gambler",
       "name": "Gambler",
-      "edition": "bmr",
+      "edition": [
+        "bmr",
+        "everyone-can-play"
+      ],
       "team": "townsfolk",
       "ability": "Each night*, choose a player & guess their character: if you guess wrong, you die.",
       "setup": false,
-      "reminders": ["Dead"],
+      "reminders": [
+        "Dead"
+      ],
       "firstNightOrder": 0,
       "firstNightReminder": "",
       "otherNightOrder": 10,
@@ -435,7 +675,9 @@
       "team": "townsfolk",
       "ability": "Each day, you may make a public statement. Tonight, if it was true, a player dies.",
       "setup": false,
-      "reminders": ["Dead"],
+      "reminders": [
+        "Dead"
+      ],
       "firstNightOrder": 0,
       "firstNightReminder": "",
       "otherNightOrder": 38,
@@ -448,7 +690,12 @@
       "team": "townsfolk",
       "ability": "Once per game, at night, choose a character: they are drunk for 3 nights & 3 days.",
       "setup": false,
-      "reminders": ["Drunk 3", "Drunk 2", "Drunk 1", "No ability"],
+      "reminders": [
+        "Drunk 3",
+        "Drunk 2",
+        "Drunk 1",
+        "No ability"
+      ],
       "firstNightOrder": 19,
       "firstNightReminder": "The Courtier either shows the 'no' head signal, or points to a character on their character sheet. If they chose a character and it is in play, that player is drunk (mark 'Drunk 3').",
       "otherNightOrder": 8,
@@ -457,11 +704,17 @@
     {
       "id": "professor",
       "name": "Professor",
-      "edition": "bmr",
+      "edition": [
+        "bmr",
+        "minotaurs-labyrinth"
+      ],
       "team": "townsfolk",
       "ability": "Once per game, at night*, choose a dead player: if they are a Townsfolk, they are resurrected.",
       "setup": false,
-      "reminders": ["Alive", "No ability"],
+      "reminders": [
+        "Alive",
+        "No ability"
+      ],
       "firstNightOrder": 0,
       "firstNightReminder": "",
       "otherNightOrder": 43,
@@ -474,7 +727,9 @@
       "team": "townsfolk",
       "ability": "When a Minion dies by execution, all other players (except Travellers) are drunk until dusk tomorrow.",
       "setup": false,
-      "reminders": ["Everyone drunk"],
+      "reminders": [
+        "Everyone drunk"
+      ],
       "firstNightOrder": 0,
       "firstNightReminder": "",
       "otherNightOrder": 0,
@@ -483,11 +738,16 @@
     {
       "id": "tealady",
       "name": "Tea Lady",
-      "edition": "bmr",
+      "edition": [
+        "bmr",
+        "lunar-eclipse"
+      ],
       "team": "townsfolk",
       "ability": "If both your alive neighbours are good, they can't die.",
       "setup": false,
-      "reminders": ["Can't die"],
+      "reminders": [
+        "Can't die"
+      ],
       "firstNightOrder": 0,
       "firstNightReminder": "",
       "otherNightOrder": 0,
@@ -509,11 +769,16 @@
     {
       "id": "fool",
       "name": "Fool",
-      "edition": "bmr",
+      "edition": [
+        "bmr",
+        "everyone-can-play"
+      ],
       "team": "townsfolk",
       "ability": "The first time you die, you don't.",
       "setup": false,
-      "reminders": ["No ability"],
+      "reminders": [
+        "No ability"
+      ],
       "firstNightOrder": 0,
       "firstNightReminder": "",
       "otherNightOrder": 0,
@@ -526,7 +791,9 @@
       "team": "outsider",
       "ability": "You might die at any time.",
       "setup": false,
-      "reminders": ["Dead"],
+      "reminders": [
+        "Dead"
+      ],
       "firstNightOrder": 0,
       "firstNightReminder": "",
       "otherNightOrder": 49,
@@ -535,11 +802,16 @@
     {
       "id": "moonchild",
       "name": "Moonchild",
-      "edition": "bmr",
+      "edition": [
+        "bmr",
+        "everyone-can-play"
+      ],
       "team": "outsider",
       "ability": "When you learn that you died, publicly choose 1 alive player. Tonight, if it was a good player, they die.",
       "setup": false,
-      "reminders": ["Dead"],
+      "reminders": [
+        "Dead"
+      ],
       "firstNightOrder": 0,
       "firstNightReminder": "",
       "otherNightOrder": 50,
@@ -548,11 +820,17 @@
     {
       "id": "goon",
       "name": "Goon",
-      "edition": "bmr",
+      "edition": [
+        "bmr",
+        "hide-and-seek",
+        "lunar-eclipse"
+      ],
       "team": "outsider",
       "ability": "Each night, the 1st player to choose you with their ability is drunk until dusk. You become their alignment.",
       "setup": false,
-      "reminders": ["Drunk"],
+      "reminders": [
+        "Drunk"
+      ],
       "firstNightOrder": 0,
       "firstNightReminder": "",
       "otherNightOrder": 0,
@@ -561,11 +839,19 @@
     {
       "id": "lunatic",
       "name": "Lunatic",
-      "edition": "bmr",
+      "edition": [
+        "bmr",
+        "lunar-eclipse",
+        "trust"
+      ],
       "team": "outsider",
       "ability": "You think you are a Demon, but you are not. The Demon knows who you are & who you choose at night.",
       "setup": false,
-      "reminders": ["Attack 1", "Attack 2", "Attack 3"],
+      "reminders": [
+        "Attack 1",
+        "Attack 2",
+        "Attack 3"
+      ],
       "firstNightOrder": 8,
       "firstNightReminder": "If there are 7 or more players: show the Lunatic a number of arbitrary 'Minion' player positions equal to the number of Minions in play, and show 3 character tokens of arbitrary good characters as fake bluffs. If the token the Lunatic receives as their 'demon' identity is one that would wake tonight, allow the Lunatic to perform the demon-style actions and place their 'attack' markers accordingly. Afterwards, wake the real Demon, show them the Lunatic player, and if the Lunatic marked any players, show the real Demon which players were marked.",
       "otherNightOrder": 20,
@@ -574,11 +860,19 @@
     {
       "id": "godfather",
       "name": "Godfather",
-      "edition": "bmr",
+      "edition": [
+        "bmr",
+        "hide-and-seek",
+        "lunar-eclipse",
+        "minotaurs-labyrinth"
+      ],
       "team": "minion",
       "ability": "You start knowing which Outsiders are in play. If 1 died today, choose a player tonight: they die. [-1 or +1 Outsider]",
       "setup": true,
-      "reminders": ["Died today", "Dead"],
+      "reminders": [
+        "Died today",
+        "Dead"
+      ],
       "firstNightOrder": 21,
       "firstNightReminder": "Show each of the Outsider tokens in play.",
       "otherNightOrder": 37,
@@ -587,11 +881,17 @@
     {
       "id": "devilsadvocate",
       "name": "Devil's Advocate",
-      "edition": "bmr",
+      "edition": [
+        "bmr",
+        "everyone-can-play",
+        "lunar-eclipse"
+      ],
       "team": "minion",
       "ability": "Each night, choose a living player (different to last night): if executed tomorrow, they don't die.",
       "setup": false,
-      "reminders": ["Survives execution"],
+      "reminders": [
+        "Survives execution"
+      ],
       "firstNightOrder": 22,
       "firstNightReminder": "The Devil's Advocate points to a living player. That player survives execution tomorrow.",
       "otherNightOrder": 13,
@@ -600,11 +900,18 @@
     {
       "id": "assassin",
       "name": "Assassin",
-      "edition": "bmr",
+      "edition": [
+        "bmr",
+        "everyone-can-play",
+        "lunar-eclipse"
+      ],
       "team": "minion",
       "ability": "Once per game, at night*, choose a player: they die, even if for some reason they could not.",
       "setup": false,
-      "reminders": ["Dead", "No ability"],
+      "reminders": [
+        "Dead",
+        "No ability"
+      ],
       "firstNightOrder": 0,
       "firstNightReminder": "",
       "otherNightOrder": 36,
@@ -626,11 +933,17 @@
     {
       "id": "zombuul",
       "name": "Zombuul",
-      "edition": "bmr",
+      "edition": [
+        "bmr",
+        "lunar-eclipse"
+      ],
       "team": "demon",
       "ability": "Each night*, if no-one died today, choose a player: they die. The 1st time you die, you live but register as dead.",
       "setup": false,
-      "reminders": ["Died today", "Dead"],
+      "reminders": [
+        "Died today",
+        "Dead"
+      ],
       "firstNightOrder": 0,
       "firstNightReminder": "",
       "otherNightOrder": 25,
@@ -639,11 +952,17 @@
     {
       "id": "pukka",
       "name": "Pukka",
-      "edition": "bmr",
+      "edition": [
+        "bmr",
+        "hide-and-seek"
+      ],
       "team": "demon",
       "ability": "Each night, choose a player: they are poisoned. The previously poisoned player dies then becomes healthy.",
       "setup": false,
-      "reminders": ["Poisoned", "Dead"],
+      "reminders": [
+        "Poisoned",
+        "Dead"
+      ],
       "firstNightOrder": 28,
       "firstNightReminder": "The Pukka points to a player. That player is poisoned.",
       "otherNightOrder": 26,
@@ -652,11 +971,17 @@
     {
       "id": "shabaloth",
       "name": "Shabaloth",
-      "edition": "bmr",
+      "edition": [
+        "bmr",
+        "minotaurs-labyrinth"
+      ],
       "team": "demon",
       "ability": "Each night*, choose 2 players: they die. A dead player you chose last night might be regurgitated.",
       "setup": false,
-      "reminders": ["Dead", "Alive"],
+      "reminders": [
+        "Dead",
+        "Alive"
+      ],
       "firstNightOrder": 0,
       "firstNightReminder": "",
       "otherNightOrder": 27,
@@ -665,11 +990,17 @@
     {
       "id": "po",
       "name": "Po",
-      "edition": "bmr",
+      "edition": [
+        "bmr",
+        "minotaurs-labyrinth"
+      ],
       "team": "demon",
       "ability": "Each night*, you may choose a player: they die. If your last choice was no-one, choose 3 players tonight.",
       "setup": false,
-      "reminders": ["Dead", "3 attacks"],
+      "reminders": [
+        "Dead",
+        "3 attacks"
+      ],
       "firstNightOrder": 0,
       "firstNightReminder": "",
       "otherNightOrder": 28,
@@ -678,7 +1009,11 @@
     {
       "id": "clockmaker",
       "name": "Clockmaker",
-      "edition": "sv",
+      "edition": [
+        "sv",
+        "everyone-can-play",
+        "minotaurs-labyrinth"
+      ],
       "team": "townsfolk",
       "ability": "You start knowing how many steps from the Demon to its nearest Minion.",
       "setup": false,
@@ -691,7 +1026,10 @@
     {
       "id": "dreamer",
       "name": "Dreamer",
-      "edition": "sv",
+      "edition": [
+        "sv",
+        "hide-and-seek"
+      ],
       "team": "townsfolk",
       "ability": "Each night, choose a player (not yourself or Travellers): you learn 1 good and 1 evil character, 1 of which is correct.",
       "setup": false,
@@ -708,7 +1046,9 @@
       "team": "townsfolk",
       "ability": "Each night, choose an alive player: a chosen Demon swaps characters & alignments with you & is then poisoned.",
       "setup": false,
-      "reminders": ["Poisoned"],
+      "reminders": [
+        "Poisoned"
+      ],
       "firstNightOrder": 20,
       "firstNightReminder": "The Snake Charmer points to a player. If that player is the Demon: swap the Demon and Snake Charmer characters and alignments. Wake each player to inform them of their new role and alignment. The new Snake Charmer is poisoned.",
       "otherNightOrder": 11,
@@ -717,11 +1057,17 @@
     {
       "id": "mathematician",
       "name": "Mathematician",
-      "edition": "sv",
+      "edition": [
+        "sv",
+        "lunar-eclipse",
+        "minotaurs-labyrinth"
+      ],
       "team": "townsfolk",
       "ability": "Each night, you learn how many players' abilities worked abnormally (since dawn) due to another character's ability.",
       "setup": false,
-      "reminders": ["Abnormal"],
+      "reminders": [
+        "Abnormal"
+      ],
       "firstNightOrder": 52,
       "firstNightReminder": "Show the hand signal for the number (0, 1, 2, etc.) of players whose ability malfunctioned due to another character's ability.",
       "otherNightOrder": 71,
@@ -734,7 +1080,10 @@
       "team": "townsfolk",
       "ability": "Each night*, you learn if a Demon voted today.",
       "setup": false,
-      "reminders": ["Demon voted", "Demon not voted"],
+      "reminders": [
+        "Demon voted",
+        "Demon not voted"
+      ],
       "firstNightOrder": 0,
       "firstNightReminder": "",
       "otherNightOrder": 57,
@@ -743,11 +1092,18 @@
     {
       "id": "towncrier",
       "name": "Town Crier",
-      "edition": "sv",
+      "edition": [
+        "sv",
+        "hide-and-seek",
+        "minotaurs-labyrinth"
+      ],
       "team": "townsfolk",
       "ability": "Each night*, you learn if a Minion nominated today.",
       "setup": false,
-      "reminders": ["Minion nominated", "Minion not nominated"],
+      "reminders": [
+        "Minion nominated",
+        "Minion not nominated"
+      ],
       "firstNightOrder": 0,
       "firstNightReminder": "",
       "otherNightOrder": 58,
@@ -756,7 +1112,12 @@
     {
       "id": "oracle",
       "name": "Oracle",
-      "edition": "sv",
+      "edition": [
+        "sv",
+        "hide-and-seek",
+        "trust",
+        "boozling"
+      ],
       "team": "townsfolk",
       "ability": "Each night*, you learn how many dead players are evil.",
       "setup": false,
@@ -769,7 +1130,12 @@
     {
       "id": "savant",
       "name": "Savant",
-      "edition": "sv",
+      "edition": [
+        "sv",
+        "lunar-eclipse",
+        "boozling",
+        "minotaurs-labyrinth"
+      ],
       "team": "townsfolk",
       "ability": "Each day, you may visit the Storyteller to learn 2 things in private: 1 is true & 1 is false.",
       "setup": false,
@@ -782,11 +1148,18 @@
     {
       "id": "seamstress",
       "name": "Seamstress",
-      "edition": "sv",
+      "edition": [
+        "sv",
+        "hide-and-seek",
+        "trust",
+        "minotaurs-labyrinth"
+      ],
       "team": "townsfolk",
       "ability": "Once per game, at night, choose 2 players (not yourself): you learn if they are the same alignment.",
       "setup": false,
-      "reminders": ["No ability"],
+      "reminders": [
+        "No ability"
+      ],
       "firstNightOrder": 43,
       "firstNightReminder": "The Seamstress either shows the 'no' head signal, or points to two other players. If the Seamstress chose players, nod 'yes' or shake 'no' for whether they are the same alignment.",
       "otherNightOrder": 60,
@@ -795,11 +1168,18 @@
     {
       "id": "philosopher",
       "name": "Philosopher",
-      "edition": "sv",
+      "edition": [
+        "sv",
+        "trust",
+        "boozling"
+      ],
       "team": "townsfolk",
       "ability": "Once per game, at night, choose a good character: gain that ability. If this character is in play, they are drunk.",
       "setup": false,
-      "reminders": ["Drunk", "Is the Philosopher"],
+      "reminders": [
+        "Drunk",
+        "Is the Philosopher"
+      ],
       "firstNightOrder": 2,
       "firstNightReminder": "The Philosopher either shows the 'no' head signal, or points to a good character on their character sheet. If they chose a character: swap the out-of-play character token onto the Philosopher and add the 'Is the Philosopher' reminder. If the character is in play, place the 'Drunk' marker on that player.",
       "otherNightOrder": 2,
@@ -808,11 +1188,18 @@
     {
       "id": "artist",
       "name": "Artist",
-      "edition": "sv",
+      "edition": [
+        "sv",
+        "everyone-can-play",
+        "hide-and-seek",
+        "lunar-eclipse"
+      ],
       "team": "townsfolk",
       "ability": "Once per game, during the day, privately ask the Storyteller any yes/no question.",
       "setup": false,
-      "reminders": ["No ability"],
+      "reminders": [
+        "No ability"
+      ],
       "firstNightOrder": 0,
       "firstNightReminder": "",
       "otherNightOrder": 0,
@@ -825,7 +1212,9 @@
       "team": "townsfolk",
       "ability": "On your 1st day, publicly guess up to 5 players' characters. That night, you learn how many you got correct.",
       "setup": false,
-      "reminders": ["Correct"],
+      "reminders": [
+        "Correct"
+      ],
       "firstNightOrder": 0,
       "firstNightReminder": "",
       "otherNightOrder": 61,
@@ -834,7 +1223,10 @@
     {
       "id": "sage",
       "name": "Sage",
-      "edition": "sv",
+      "edition": [
+        "sv",
+        "boozling"
+      ],
       "team": "townsfolk",
       "ability": "If the Demon kills you, you learn that it is 1 of 2 players.",
       "setup": false,
@@ -847,7 +1239,12 @@
     {
       "id": "mutant",
       "name": "Mutant",
-      "edition": "sv",
+      "edition": [
+        "sv",
+        "hide-and-seek",
+        "boozling",
+        "minotaurs-labyrinth"
+      ],
       "team": "outsider",
       "ability": "If you are “mad” about being an Outsider, you might be executed.",
       "setup": false,
@@ -864,7 +1261,9 @@
       "team": "outsider",
       "ability": "When you die, 1 player is drunk from now on.",
       "setup": false,
-      "reminders": ["Drunk"],
+      "reminders": [
+        "Drunk"
+      ],
       "firstNightOrder": 0,
       "firstNightReminder": "",
       "otherNightOrder": 41,
@@ -873,11 +1272,16 @@
     {
       "id": "barber",
       "name": "Barber",
-      "edition": "sv",
+      "edition": [
+        "sv",
+        "lunar-eclipse"
+      ],
       "team": "outsider",
       "ability": "If you died today or tonight, the Demon may choose 2 players (not another Demon) to swap characters.",
       "setup": false,
-      "reminders": ["Haircuts tonight"],
+      "reminders": [
+        "Haircuts tonight"
+      ],
       "firstNightOrder": 0,
       "firstNightReminder": "",
       "otherNightOrder": 40,
@@ -886,7 +1290,11 @@
     {
       "id": "klutz",
       "name": "Klutz",
-      "edition": "sv",
+      "edition": [
+        "sv",
+        "boozling",
+        "minotaurs-labyrinth"
+      ],
       "team": "outsider",
       "ability": "When you learn that you died, publicly choose 1 alive player: if they are evil, your team loses.",
       "setup": false,
@@ -903,7 +1311,9 @@
       "team": "minion",
       "ability": "You & an opposing player know each other. If the good player is executed, evil wins. Good can't win if you both live.",
       "setup": false,
-      "reminders": ["Twin"],
+      "reminders": [
+        "Twin"
+      ],
       "firstNightOrder": 23,
       "firstNightReminder": "Wake the Evil Twin and their Twin together. Point to the Evil Twin and show the Twin player the Evil Twin token. Point to the Twin and show the Evil Twin player the Twin's character token. Confirm both have acknowledged each other.",
       "otherNightOrder": 0,
@@ -912,11 +1322,18 @@
     {
       "id": "witch",
       "name": "Witch",
-      "edition": "sv",
+      "edition": [
+        "sv",
+        "minotaurs-labyrinth",
+        "hide-and-seek",
+        "trust"
+      ],
       "team": "minion",
       "ability": "Each night, choose a player: if they nominate tomorrow, they die. If just 3 players live, you lose this ability.",
       "setup": false,
-      "reminders": ["Cursed"],
+      "reminders": [
+        "Cursed"
+      ],
       "firstNightOrder": 24,
       "firstNightReminder": "The Witch points to a player. If that player nominates tomorrow, they die immediately.",
       "otherNightOrder": 14,
@@ -925,11 +1342,19 @@
     {
       "id": "cerenovus",
       "name": "Cerenovus",
-      "edition": "sv",
+      "edition": [
+        "sv",
+        "hide-and-seek",
+        "trust",
+        "boozling",
+        "minotaurs-labyrinth"
+      ],
       "team": "minion",
       "ability": "Each night, choose a player & a good character: they are “mad” they are this character tomorrow, or might be executed.",
       "setup": false,
-      "reminders": ["Mad"],
+      "reminders": [
+        "Mad"
+      ],
       "firstNightOrder": 25,
       "firstNightReminder": "The Cerenovus points to a player, then to a good character on their character sheet. Wake that player, show them the 'This character selected you' card, then the Cerenovus token, then the selected character token. If the player is not 'mad' about being that character tomorrow, they can be executed.",
       "otherNightOrder": 15,
@@ -951,11 +1376,18 @@
     {
       "id": "fanggu",
       "name": "Fang Gu",
-      "edition": "sv",
+      "edition": [
+        "sv",
+        "boozling",
+        "minotaurs-labyrinth"
+      ],
       "team": "demon",
       "ability": "Each night*, choose a player: they die. The 1st Outsider this kills becomes an evil Fang Gu & you die instead. [+1 Outsider]",
       "setup": true,
-      "reminders": ["Dead", "Once"],
+      "reminders": [
+        "Dead",
+        "Once"
+      ],
       "firstNightOrder": 0,
       "firstNightReminder": "",
       "otherNightOrder": 29,
@@ -964,11 +1396,20 @@
     {
       "id": "vigormortis",
       "name": "Vigormortis",
-      "edition": "sv",
+      "edition": [
+        "sv",
+        "hide-and-seek",
+        "lunar-eclipse",
+        "trust"
+      ],
       "team": "demon",
       "ability": "Each night*, choose a player: they die. Minions you kill keep their ability & poison 1 Townsfolk neighbour. [-1 Outsider]",
       "setup": true,
-      "reminders": ["Dead", "Has ability", "Poisoned"],
+      "reminders": [
+        "Dead",
+        "Has ability",
+        "Poisoned"
+      ],
       "firstNightOrder": 0,
       "firstNightReminder": "",
       "otherNightOrder": 32,
@@ -977,11 +1418,18 @@
     {
       "id": "nodashii",
       "name": "No Dashii",
-      "edition": "sv",
+      "edition": [
+        "sv",
+        "lunar-eclipse",
+        "boozling"
+      ],
       "team": "demon",
       "ability": "Each night*, choose a player: they die. Your 2 Townsfolk neighbours are poisoned.",
       "setup": false,
-      "reminders": ["Dead", "Poisoned"],
+      "reminders": [
+        "Dead",
+        "Poisoned"
+      ],
       "firstNightOrder": 0,
       "firstNightReminder": "",
       "otherNightOrder": 30,
@@ -994,11 +1442,309 @@
       "team": "demon",
       "ability": "Each night*, choose a player: they die. Townsfolk abilities yield false info. Each day, if no-one is executed, evil wins.",
       "setup": false,
-      "reminders": ["Dead"],
+      "reminders": [
+        "Dead"
+      ],
       "firstNightOrder": 0,
       "firstNightReminder": "",
       "otherNightOrder": 31,
       "otherNightReminder": "The Vortox points to a player. That player dies."
+    },
+    {
+      "id": "noble",
+      "name": "Noble",
+      "edition": [
+        "hide-and-seek",
+        "trust",
+        "boozling"
+      ],
+      "team": "townsfolk",
+      "ability": "You start knowing 3 players, 1 and only 1 of which is evil.",
+      "setup": false,
+      "reminders": [],
+      "firstNightOrder": 33,
+      "firstNightReminder": "Show the Noble 3 players, exactly 1 of which is evil.",
+      "otherNightOrder": 0,
+      "otherNightReminder": ""
+    },
+    {
+      "id": "balloonist",
+      "name": "Balloonist",
+      "edition": [
+        "boozling"
+      ],
+      "team": "townsfolk",
+      "ability": "Each night, you learn 1 player of each character type, until there are no more types to learn.",
+      "setup": false,
+      "reminders": [
+        "Townsfolk",
+        "Outsider",
+        "Minion",
+        "Demon"
+      ],
+      "firstNightOrder": 34,
+      "firstNightReminder": "Show the Balloonist a player of a character type they haven't yet learned.",
+      "otherNightOrder": 53,
+      "otherNightReminder": "Show the Balloonist a player of a character type they haven't yet learned, if any remain."
+    },
+    {
+      "id": "golem",
+      "name": "Golem",
+      "edition": [
+        "boozling"
+      ],
+      "team": "outsider",
+      "ability": "You may only nominate once per game. When you do, if the nominee is not the Demon, they die.",
+      "setup": false,
+      "reminders": [
+        "Used"
+      ],
+      "firstNightOrder": 0,
+      "firstNightReminder": "",
+      "otherNightOrder": 0,
+      "otherNightReminder": ""
+    },
+    {
+      "id": "magician",
+      "name": "Magician",
+      "edition": [
+        "lunar-eclipse",
+        "trust"
+      ],
+      "team": "townsfolk",
+      "ability": "The Demon thinks you are a Minion. Minions think you are a Demon.",
+      "setup": false,
+      "reminders": [],
+      "firstNightOrder": 0,
+      "firstNightReminder": "",
+      "otherNightOrder": 0,
+      "otherNightReminder": ""
+    },
+    {
+      "id": "puzzlemaster",
+      "name": "Puzzlemaster",
+      "edition": [
+        "lunar-eclipse"
+      ],
+      "team": "outsider",
+      "ability": "1 player is drunk, even if you die. If you guess (once) who it is, learn the Demon player, but guess wrong & get false info.",
+      "setup": false,
+      "reminders": [
+        "Drunk",
+        "Guessed"
+      ],
+      "firstNightOrder": 36,
+      "firstNightReminder": "If the Puzzlemaster wishes to guess, they point to a player. Confirm correct/incorrect, and if correct, show the Demon.",
+      "otherNightOrder": 52,
+      "otherNightReminder": "If the Puzzlemaster wishes to guess (and hasn't yet), they point to a player. Confirm correct/incorrect, and if correct, show the Demon."
+    },
+    {
+      "id": "preacher",
+      "name": "Preacher",
+      "edition": [
+        "hide-and-seek"
+      ],
+      "team": "townsfolk",
+      "ability": "Each night, choose a player: a Minion, if chosen, learns this. All chosen Minions have no ability.",
+      "setup": false,
+      "reminders": [
+        "No ability"
+      ],
+      "firstNightOrder": 16,
+      "firstNightReminder": "The Preacher points to a player. If they are a Minion, nod to confirm and show them the Preacher token.",
+      "otherNightOrder": 6,
+      "otherNightReminder": "The Preacher points to a player. If they are a Minion, nod to confirm and show them the Preacher token."
+    },
+    {
+      "id": "pixie",
+      "name": "Pixie",
+      "edition": [
+        "hide-and-seek",
+        "lunar-eclipse",
+        "trust",
+        "boozling"
+      ],
+      "team": "townsfolk",
+      "ability": "You start knowing 1 in-play Townsfolk. If you were mad that you were this character, you gain their ability when they die.",
+      "setup": false,
+      "reminders": [
+        "Ability"
+      ],
+      "firstNightOrder": 33,
+      "firstNightReminder": "Show the Pixie a Townsfolk player in play.",
+      "otherNightOrder": 0,
+      "otherNightReminder": ""
+    },
+    {
+      "id": "ojo",
+      "name": "Ojo",
+      "edition": [
+        "hide-and-seek"
+      ],
+      "team": "demon",
+      "ability": "Each night*, choose a character: they die. If they are not in play, the Storyteller chooses who dies.",
+      "setup": false,
+      "reminders": [
+        "Dead"
+      ],
+      "firstNightOrder": 0,
+      "firstNightReminder": "",
+      "otherNightOrder": 29,
+      "otherNightReminder": "The Ojo names a character. Whoever holds it dies; if nobody does, choose who dies."
+    },
+    {
+      "id": "damsel",
+      "name": "Damsel",
+      "edition": [
+        "hide-and-seek",
+        "boozling"
+      ],
+      "team": "outsider",
+      "ability": "All Minions know you are in play. If a Minion publicly guesses you (once), your team loses.",
+      "setup": false,
+      "reminders": [
+        "Guessed"
+      ],
+      "firstNightOrder": 0,
+      "firstNightReminder": "",
+      "otherNightOrder": 0,
+      "otherNightReminder": ""
+    },
+    {
+      "id": "huntsman",
+      "name": "Huntsman",
+      "edition": [
+        "hide-and-seek",
+        "boozling"
+      ],
+      "team": "townsfolk",
+      "ability": "Once per game, at night, choose a living player: the Damsel, if chosen, becomes a not-in-play Townsfolk.",
+      "setup": false,
+      "reminders": [
+        "No longer the Damsel"
+      ],
+      "firstNightOrder": 37,
+      "firstNightReminder": "If the Huntsman wishes to choose (once, ever), they point to a player. If that player is the Damsel, she becomes a not-in-play Townsfolk.",
+      "otherNightOrder": 51,
+      "otherNightReminder": "If the Huntsman wishes to choose (once, ever, and hasn't yet), they point to a player. If that player is the Damsel, she becomes a not-in-play Townsfolk."
+    },
+    {
+      "id": "lycanthrope",
+      "name": "Lycanthrope",
+      "edition": [
+        "lunar-eclipse"
+      ],
+      "team": "townsfolk",
+      "ability": "Each night*, choose a living player: if good, they die, but they are the only player that can die tonight.",
+      "setup": false,
+      "reminders": [
+        "Dead"
+      ],
+      "firstNightOrder": 0,
+      "firstNightReminder": "",
+      "otherNightOrder": 22,
+      "otherNightReminder": "The Lycanthrope points to a player. If good, that player dies, and no one else can die tonight."
+    },
+    {
+      "id": "cannibal",
+      "name": "Cannibal",
+      "edition": [
+        "lunar-eclipse",
+        "trust",
+        "boozling",
+        "minotaurs-labyrinth"
+      ],
+      "team": "townsfolk",
+      "ability": "You have the ability of the recently killed executee. If they are evil, you are poisoned until a good player dies by execution.",
+      "setup": false,
+      "reminders": [
+        "Poisoned"
+      ],
+      "firstNightOrder": 0,
+      "firstNightReminder": "",
+      "otherNightOrder": 0,
+      "otherNightReminder": ""
+    },
+    {
+      "id": "marionette",
+      "name": "Marionette",
+      "edition": [
+        "lunar-eclipse",
+        "trust",
+        "boozling"
+      ],
+      "team": "minion",
+      "ability": "You think you are a good character but you are not. The Demon knows who you are.",
+      "setup": false,
+      "reminders": [],
+      "firstNightOrder": 0,
+      "firstNightReminder": "",
+      "otherNightOrder": 0,
+      "otherNightReminder": ""
+    },
+    {
+      "id": "general",
+      "name": "General",
+      "edition": [
+        "trust"
+      ],
+      "team": "townsfolk",
+      "ability": "Each night, you learn which alignment the Storyteller believes is winning: good, evil, or neither.",
+      "setup": false,
+      "reminders": [],
+      "firstNightOrder": 37,
+      "firstNightReminder": "Show the General the good, evil, or neither signal for who is believed to be winning.",
+      "otherNightOrder": 53,
+      "otherNightReminder": "Show the General the good, evil, or neither signal for who is believed to be winning."
+    },
+    {
+      "id": "politician",
+      "name": "Politician",
+      "edition": [
+        "trust",
+        "minotaurs-labyrinth"
+      ],
+      "team": "outsider",
+      "ability": "If you were the player most responsible for your team losing, you change alignment & win, even if dead.",
+      "setup": false,
+      "reminders": [],
+      "firstNightOrder": 0,
+      "firstNightReminder": "",
+      "otherNightOrder": 0,
+      "otherNightReminder": ""
+    },
+    {
+      "id": "highpriestess",
+      "name": "High Priestess",
+      "edition": [
+        "boozling"
+      ],
+      "team": "townsfolk",
+      "ability": "Each night, learn which player the Storyteller believes you should talk to most.",
+      "setup": false,
+      "reminders": [],
+      "firstNightOrder": 38,
+      "firstNightReminder": "Show the High Priestess a player.",
+      "otherNightOrder": 55,
+      "otherNightReminder": "Show the High Priestess a player."
+    },
+    {
+      "id": "fisherman",
+      "name": "Fisherman",
+      "edition": [
+        "boozling",
+        "minotaurs-labyrinth"
+      ],
+      "team": "townsfolk",
+      "ability": "Once per game, during the day, visit the Storyteller for some advice to help you win.",
+      "setup": false,
+      "reminders": [
+        "Advice given"
+      ],
+      "firstNightOrder": 0,
+      "firstNightReminder": "",
+      "otherNightOrder": 0,
+      "otherNightReminder": ""
     }
   ]
 }

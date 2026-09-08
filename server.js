@@ -14,6 +14,12 @@ const { askStoryteller } = require('./game/llmStoryteller');
 const PORT = process.env.PORT || 3000;
 const PUBLIC = path.join(__dirname, 'public');
 
+// Derived from characters.json's own edition list rather than hand-copied
+// here a second time — adding a script is then just a characters.json entry
+// (playable: true once it's actually ready) instead of also touching this
+// file's two allowlists by hand.
+const PLAYABLE_SCRIPTS = E.DATA.meta.editions.filter(ed => ed.playable !== false).map(ed => ed.id);
+
 let game = E.newGame();
 let windowTimer = null;
 let voteTimer = null;
@@ -282,6 +288,7 @@ function recordExecution(playerId) {
         E.logEvent(game, `${p.name} was executed.`);
         executedPlayer = p;
         E.triggerDeathHooks(game, p, { killedByDemon: false });
+        E.applyCannibalTransform(game, p);
       }
     } else {
       E.logEvent(game, 'No execution today.');
@@ -330,6 +337,7 @@ function recordExecution(playerId) {
       game.deaths.push({ night: game.nightNumber, name: p.name, cause: 'execution', killedByDemon: false });
       E.logEvent(game, `${p.name} was executed.`);
       E.triggerDeathHooks(game, p, { killedByDemon: false });
+      E.applyCannibalTransform(game, p);
 
       // Minstrel: everyone else is drunk until dusk tomorrow, once a Minion
       // is executed — a way for evil to blunt the town's next move.
@@ -521,7 +529,7 @@ function startSimulation({ players = 9, speed = 5, script = 'tb', config } = {})
   game.simulation = true;
   // Same allowlist as the real game's script picker — a bad value here
   // can't silently deal an unplayable script.
-  game.script = ['tb', 'bmr', 'sv'].includes(script) ? script : 'tb';
+  game.script = PLAYABLE_SCRIPTS.includes(script) ? script : 'tb';
   // A fresh E.newGame() above always resets config to defaults — apply any
   // requested overrides (Bucket 4's disabledCharacterIds, in particular)
   // before windowSeconds/wave2Seconds get their own simulation-speed
@@ -707,14 +715,20 @@ const server = http.createServer(async (req, res) => {
       }
 
       if (route === '/api/scripts') {
-        // The lobby's script selector: each script's own blurb plus how it's
-        // actually played out at this table so far — never per-player, this
-        // is the script's own track record.
-        return json(res, 200, E.DATA.meta.editions.map(ed => ({
-          ...ed,
-          characterCount: E.scriptPool(ed.id).length,
-          ...H.statsForEdition(ed.id),
-        })));
+        // The lobby's script selector: each script's own blurb, its full
+        // roster (id/name/team only — the picker's cast grid reads this,
+        // nothing here is secret at this level of detail), and how it's
+        // actually played out at this table so far — never per-player,
+        // this is the script's own track record.
+        return json(res, 200, E.DATA.meta.editions.map(ed => {
+          const pool = E.scriptPool(ed.id);
+          return {
+            ...ed,
+            characterCount: pool.length,
+            characters: pool.map(c => ({ id: c.id, name: c.name, team: c.team })),
+            ...H.statsForEdition(ed.id),
+          };
+        }));
       }
 
       if (route === '/api/join-address') {
@@ -1129,6 +1143,40 @@ const server = http.createServer(async (req, res) => {
         return json(res, 200, { ok: true });
       }
 
+      if (route === '/api/fisherman-advice') {
+        // "Once per game, during the day, visit the Storyteller for some
+        // advice to help you win" — reduced from open-ended Storyteller
+        // improvisation (nothing bounds an LLM's guess at "helpful advice"
+        // the way Bucket 4's claim-verification is bounded by ground truth)
+        // to one true, computed fact: which team a random other living
+        // player is really on. A deliberate simplification, not a full
+        // translation of "advice" — same spirit as Fisherman's neighbors
+        // here reducing what they can't safely automate.
+        const p = E.byToken(game, body.token);
+        if (!p) return json(res, 404, { error: 'Unknown player.' });
+        if (p.bot) return json(res, 409, { error: 'This seat is bot-controlled.' });
+        if (game.phase !== 'day') return json(res, 409, { error: 'Only during the day.' });
+        const believed = E.char(p.believedId);
+        if (!believed || believed.id !== 'fisherman') return json(res, 409, { error: 'Nothing to visit for.' });
+        if (p.statuses.fishermanUsed) return json(res, 409, { error: 'Already used, once ever.' });
+
+        p.statuses.fishermanUsed = true;
+        const others = E.alive(game).filter(x => x.id !== p.id);
+        let adviceBody;
+        if (!others.length) {
+          adviceBody = 'There is no one left to tell you about.';
+        } else {
+          const subject = others[Math.floor(Math.random() * others.length)];
+          const evil = E.isEvil(game, subject, { forRegistration: true });
+          adviceBody = `${subject.name} is on the ${evil ? 'evil' : 'good'} team.`;
+        }
+        game.results[p.id] = { title: 'Fisherman', body: adviceBody };
+        E.logEvent(game, `${p.name} (the Fisherman) visits the Storyteller for advice.`, true);
+        pushPlayer(p.id);
+        pushHost();
+        return json(res, 200, { ok: true });
+      }
+
       if (route === '/api/artist-question') {
         // "Once per game, during the day, privately ask the Storyteller any
         // yes/no question" — the same structured claim-shape menu as the
@@ -1264,6 +1312,46 @@ const server = http.createServer(async (req, res) => {
         return json(res, 200, { ok: true });
       }
 
+      if (route === '/api/damsel-guess') {
+        // "If a Minion publicly guesses you (once), your team loses" — a
+        // public day action any living Minion can make, once ever across
+        // the whole evil team (not once per Minion) — same immediate-win
+        // shape as the Klutz's choice above, opposite team.
+        const guesser = E.byToken(game, body.token);
+        if (!guesser) return json(res, 404, { error: 'Unknown player.' });
+        if (guesser.bot) return json(res, 409, { error: 'This seat is bot-controlled.' });
+        if (game.phase !== 'day') return json(res, 409, { error: 'Only during the day.' });
+        if (!E.publiclyAlive(guesser) || E.trueChar(guesser).team !== 'minion') {
+          return json(res, 400, { error: 'Only a living Minion may guess.' });
+        }
+        if (game.damselGuessUsed) return json(res, 409, { error: 'That guess has already been used.' });
+        const guessed = E.byId(game, body.guessedId);
+        if (!guessed) return json(res, 404, { error: 'Unknown player.' });
+
+        game.damselGuessUsed = true;
+        game.actionLog.push({
+          night: game.nightNumber, phase: game.phase,
+          playerId: guesser.id, playerName: guesser.name, characterId: 'damsel-guess', characterName: 'Damsel guess',
+          targets: [guessed.name],
+        });
+        const correct = !E.impaired(guesser) && E.trueChar(guessed).id === 'damsel';
+        if (correct) {
+          E.logEvent(game, `${guesser.name} publicly names ${guessed.name} as the Damsel — correct. Evil wins.`);
+          clearTimeout(windowTimer);
+          clearTimeout(simTimer);
+          game.victory = { winner: 'evil', reason: `${guesser.name} correctly named the Damsel.` };
+          game.phase = 'over';
+          game.revealed = true;
+          game.windowEndsAt = null;
+          recordGameHistory();
+          pushAll();
+          return json(res, 200, { ok: true, correct: true });
+        }
+        E.logEvent(game, `${guesser.name} publicly names ${guessed.name} as the Damsel — wrong.`);
+        pushAll();
+        return json(res, 200, { ok: true, correct: false });
+      }
+
       if (route === '/api/juggler-guess') {
         // "On your 1st day, publicly guess up to 5 players' characters" — a
         // player-triggered, public day action (same family as the Slayer's
@@ -1321,6 +1409,10 @@ const server = http.createServer(async (req, res) => {
         if (today.some(n => !n.closed)) return json(res, 409, { error: 'A nomination is still being voted on.' });
         if (today.some(n => n.nomineeId === nominee.id)) return json(res, 409, { error: `${nominee.name} has already been nominated today.` });
         if (today.some(n => n.nominatorId === nominator.id)) return json(res, 409, { error: `${nominator.name} has already nominated someone today.` });
+        const nominatorChar = E.trueChar(nominator);
+        if (nominatorChar && nominatorChar.id === 'golem' && nominator.statuses.golemUsed) {
+          return json(res, 409, { error: 'The Golem may only nominate once per game.' });
+        }
 
         let virginFired = false;
         const nomineeChar = E.trueChar(nominee);
@@ -1362,18 +1454,51 @@ const server = http.createServer(async (req, res) => {
           }
         }
 
+        // Golem: the one nomination they ever get is spent right here,
+        // regardless of what it does — a poisoned/drunk Golem still nominates,
+        // it just doesn't kill. Not modeled as a demon or execution attack
+        // (it's neither), so only the universal protections apply — same
+        // `checkKill(game, x, {})` shape the Witch's curse above uses.
+        // Kills the nominee directly instead of opening a vote — there's
+        // nothing left to vote on once they're already dead.
+        let golemKilled = false;
+        if (nominatorChar && nominatorChar.id === 'golem') {
+          nominator.statuses.golemUsed = true;
+          if (!E.impaired(nominator) && (!nomineeChar || nomineeChar.team !== 'demon')) {
+            const blocked = E.checkKill(game, nominee, {});
+            if (blocked) {
+              E.logEvent(game, `${nominator.name} (the Golem) nominated ${nominee.name}, who should have died, but survives (${blocked}).`);
+            } else {
+              nominee.alive = false;
+              golemKilled = true;
+              game.deaths.push({ night: game.nightNumber, name: nominee.name, cause: 'golem', killedByDemon: false });
+              E.logEvent(game, `${nominator.name} (the Golem) nominated ${nominee.name} — not the Demon, and they die.`);
+              E.triggerDeathHooks(game, nominee, { killedByDemon: false });
+              E.succeedDemon(game, nominee);
+            }
+          } else {
+            E.logEvent(game, `${nominator.name} (the Golem) nominated ${nominee.name} — nothing happens.`);
+          }
+        }
+
         const nom = {
           id: crypto.randomBytes(6).toString('hex'),
           day: game.nightNumber, nominatorId: nominator.id, nominatorName: nominator.name,
           nomineeId: nominee.id, nomineeName: nominee.name, virginFired,
           windowEndsAt: Date.now() + game.config.voteWindowSeconds * 1000,
-          closed: false, votes: [], yesCount: 0,
+          closed: golemKilled, votes: [], yesCount: 0,
         };
         game.nominations.push(nom);
         E.logEvent(game, `${nominator.name} nominated ${nominee.name}.`);
 
         if (finishIfOver()) {
-          nom.closed = true; // the virgin firing just ended the game — nothing left to vote on
+          nom.closed = true; // the virgin firing (or the Golem's kill) just ended the game — nothing left to vote on
+          return json(res, 200, { ok: true, virginFired });
+        }
+        if (golemKilled) {
+          // The game continues, but this specific nomination doesn't — the
+          // nominee is already dead, so there's nothing left to vote on.
+          pushAll();
           return json(res, 200, { ok: true, virginFired });
         }
         clearTimeout(voteTimer);
@@ -1421,7 +1546,7 @@ const server = http.createServer(async (req, res) => {
 
       if (route === '/api/table/script') {
         if (game.phase !== 'lobby') return json(res, 409, { error: 'Roles are already dealt.' });
-        if (!['tb', 'bmr', 'sv'].includes(body.script)) return json(res, 400, { error: 'That script isn\'t playable yet.' });
+        if (!PLAYABLE_SCRIPTS.includes(body.script)) return json(res, 400, { error: 'That script isn\'t playable yet.' });
         game.script = body.script;
         E.logEvent(game, `Script set to ${body.script.toUpperCase()}.`);
         pushHost();
