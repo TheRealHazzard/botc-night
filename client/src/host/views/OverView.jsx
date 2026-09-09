@@ -1,0 +1,103 @@
+import { useEffect, useState } from 'react';
+import DashboardLayout from '../components/DashboardLayout.jsx';
+import RingSeats from '../components/RingSeats.jsx';
+import GameSummaryCard from '../components/GameSummaryCard.jsx';
+import SidepanelCard from '../components/SidepanelCard.jsx';
+import ControlPanelRow from '../components/ControlPanelRow.jsx';
+import SessionStatsCard from '../components/SessionStatsCard.jsx';
+import PowerLogOverlay from '../components/PowerLogOverlay.jsx';
+import Icon from '../components/Icon.jsx';
+
+export default function OverView({ players, victory, gameSummary, log, actionLog, nightNumber }) {
+  const [showPowerLog, setShowPowerLog] = useState(false);
+
+  const main = (
+    <div className="stage-main">
+      <div className="narration">The truth, then.</div>
+      {victory && (
+        <div className="victory-banner">
+          <div className="icon-badge"><Icon name={victory.winner === 'good' ? 'sun' : 'skull'} size={24} /></div>
+          <div>
+            <div className="who">{victory.winner === 'good' ? 'Good wins' : 'Evil wins'}</div>
+            <div>{victory.reason}</div>
+          </div>
+        </div>
+      )}
+      {/* Same ring the table's watched all game — avatars swap for the real
+          token art now that it's revealed, with a shroud over anyone who died. */}
+      <RingSeats players={players} revealed />
+    </div>
+  );
+
+  const left = (
+    <div className="sidepanel">
+      {gameSummary && <GameSummaryCard gs={gameSummary} />}
+      <SidepanelCard icon="scroll" title="What actually happened">
+        <div className="log">
+          {log.map((l, i) => <p key={i}>Night {l.night}: {l.text}</p>)}
+        </div>
+      </SidepanelCard>
+    </div>
+  );
+
+  const right = (
+    <div className="sidepanel">
+      <ControlPanelRow />
+      {actionLog && actionLog.length > 0 && (
+        <button type="button" onClick={() => setShowPowerLog(true)}>
+          <Icon name="scroll" size={15} /> Power log
+        </button>
+      )}
+      {/* Only worth a card once there's a second game tonight to compare
+          against — SessionStatsCard removes itself if there isn't one. */}
+      <SessionStatsCard />
+      <SidepanelCard icon="users" title="Full roster">
+        <div className="rosterlist">
+          {players.map(p => <RosterRow key={p.id} player={p} />)}
+        </div>
+      </SidepanelCard>
+    </div>
+  );
+
+  return (
+    <>
+      <DashboardLayout left={left} main={main} right={right} />
+      {showPowerLog && (
+        <PowerLogOverlay players={players} actionLog={actionLog} nightNumber={nightNumber} onClose={() => setShowPowerLog(false)} />
+      )}
+    </>
+  );
+}
+
+function RosterRow({ player: p }) {
+  const [career, setCareer] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    // A game just got written to this name's record — show the updated line.
+    fetch('/api/profile?name=' + encodeURIComponent(p.name))
+      .then(r => r.json())
+      .then(r => {
+        if (!cancelled && r.found && r.stats && r.stats.gamesPlayed) setCareer(r.stats);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [p.name]);
+
+  return (
+    <div className="rosterrow" style={p.color ? { borderLeftColor: p.color.hex } : undefined}>
+      <div className="rosterrow-top">
+        <strong className={p.alive ? undefined : 'deadname'}>{p.name}</strong>
+        <span className="rosterrole">{p.character || 'unknown'}</span>
+      </div>
+      <div className="career">
+        {career && (
+          <>
+            <Icon name="trend" size={12} />
+            <span>{career.gamesPlayed} games · {Math.round((career.winRate || 0) * 100)}% win rate</span>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}

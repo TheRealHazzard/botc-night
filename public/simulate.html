@@ -1,555 +1,1152 @@
 <!doctype html>
 <html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Dry Run</title>
-<meta name="theme-color" content="#0a0806">
-<link rel="icon" href="/icons/icon-32.png">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700&family=Cormorant+Garamond:wght@600;700&family=Spectral:ital,wght@0,400;0,500;1,400&display=swap">
-<style>
-:root{
-  --void:#0a0806; --panel:#120d08; --line:#2c2016;
-  --bone:#e8dcc4; --bone-dim:#8d8067;
-  --oxblood:#8e2226; --ember:#c4553a; --brass:#b8863f;
-  --good:#6f93b5; --evil:#d08a86;
-}
-*{box-sizing:border-box}
-body{
-  margin:0; background:var(--void); color:var(--bone);
-  font-family:'Spectral',Georgia,serif; font-size:15px; line-height:1.45;
-  background-image:radial-gradient(ellipse at 50% -10%, #17100a 0%, #0a0806 55%);
-}
-header{
-  display:flex; align-items:center; gap:14px; flex-wrap:wrap;
-  padding:14px 22px; border-bottom:1px solid var(--line); position:sticky; top:0;
-  background:#0a0806ee; backdrop-filter:blur(6px); z-index:5;
-}
-.mark{font-family:'Cinzel Decorative',Georgia,serif; color:var(--oxblood); font-size:1.05rem; letter-spacing:.05em}
-.warn{font-size:.72rem; color:var(--brass); border:1px solid #3a2a18; padding:4px 10px; border-radius:3px}
-.spacer{flex:1}
-label{font-size:.78rem; color:var(--bone-dim); display:flex; align-items:center; gap:6px}
-input[type=number]{width:58px; background:#0d0906; color:var(--bone); border:1px solid #3a2a1c; border-radius:3px; padding:6px 8px; font-family:inherit}
-select{background:#0d0906; color:var(--bone); border:1px solid #3a2a1c; border-radius:3px; padding:7px 9px; font-family:inherit; font-size:.92rem}
-button{
-  font-family:'Cormorant Garamond',Georgia,serif; font-weight:600; font-size:1rem;
-  background:#191009; color:var(--bone); border:1px solid #3d2c1c; border-radius:3px;
-  padding:8px 16px; cursor:pointer;
-}
-button.primary{background:var(--oxblood); border-color:var(--oxblood); color:#fff2e8}
-button:hover:not(:disabled){border-color:var(--oxblood)}
-button:disabled{opacity:.35; cursor:not-allowed}
-:focus-visible{outline:2px solid var(--brass); outline-offset:2px}
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Dry Run</title>
+    <meta name="theme-color" content="#0a0806" />
+    <link rel="icon" href="/icons/icon-32.png" />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700&family=Cormorant+Garamond:wght@600;700&family=Spectral:ital,wght@0,400;0,500;1,400&display=swap"
+    />
+    <style>
+      :root {
+        --void: #0a0806;
+        --panel: #120d08;
+        --line: #2c2016;
+        --bone: #e8dcc4;
+        --bone-dim: #8d8067;
+        --oxblood: #8e2226;
+        --ember: #c4553a;
+        --brass: #b8863f;
+        --good: #6f93b5;
+        --evil: #d08a86;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--void);
+        color: var(--bone);
+        font-family: "Spectral", Georgia, serif;
+        font-size: 15px;
+        line-height: 1.45;
+        background-image: radial-gradient(
+          ellipse at 50% -10%,
+          #17100a 0%,
+          #0a0806 55%
+        );
+      }
+      header {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        flex-wrap: wrap;
+        padding: 14px 22px;
+        border-bottom: 1px solid var(--line);
+        position: sticky;
+        top: 0;
+        background: #0a0806ee;
+        backdrop-filter: blur(6px);
+        z-index: 5;
+      }
+      .mark {
+        font-family: "Cinzel Decorative", Georgia, serif;
+        color: var(--oxblood);
+        font-size: 1.05rem;
+        letter-spacing: 0.05em;
+      }
+      .warn {
+        font-size: 0.72rem;
+        color: var(--brass);
+        border: 1px solid #3a2a18;
+        padding: 4px 10px;
+        border-radius: 3px;
+      }
+      .spacer {
+        flex: 1;
+      }
+      label {
+        font-size: 0.78rem;
+        color: var(--bone-dim);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      input[type="number"] {
+        width: 58px;
+        background: #0d0906;
+        color: var(--bone);
+        border: 1px solid #3a2a1c;
+        border-radius: 3px;
+        padding: 6px 8px;
+        font-family: inherit;
+      }
+      select {
+        background: #0d0906;
+        color: var(--bone);
+        border: 1px solid #3a2a1c;
+        border-radius: 3px;
+        padding: 7px 9px;
+        font-family: inherit;
+        font-size: 0.92rem;
+      }
+      button {
+        font-family: "Cormorant Garamond", Georgia, serif;
+        font-weight: 600;
+        font-size: 1rem;
+        background: #191009;
+        color: var(--bone);
+        border: 1px solid #3d2c1c;
+        border-radius: 3px;
+        padding: 8px 16px;
+        cursor: pointer;
+      }
+      button.primary {
+        background: var(--oxblood);
+        border-color: var(--oxblood);
+        color: #fff2e8;
+      }
+      button:hover:not(:disabled) {
+        border-color: var(--oxblood);
+      }
+      button:disabled {
+        opacity: 0.35;
+        cursor: not-allowed;
+      }
+      :focus-visible {
+        outline: 2px solid var(--brass);
+        outline-offset: 2px;
+      }
 
-.seg{display:flex; border:1px solid #3d2c1c; border-radius:3px; overflow:hidden}
-.seg button{border:none; border-radius:0; padding:8px 14px; font-size:.92rem}
-.seg button.on{background:var(--oxblood); color:#fff2e8}
+      .seg {
+        display: flex;
+        border: 1px solid #3d2c1c;
+        border-radius: 3px;
+        overflow: hidden;
+      }
+      .seg button {
+        border: none;
+        border-radius: 0;
+        padding: 8px 14px;
+        font-size: 0.92rem;
+      }
+      .seg button.on {
+        background: var(--oxblood);
+        color: #fff2e8;
+      }
 
-.wrap{display:grid; grid-template-columns:minmax(280px,340px) 1fr; gap:18px; padding:18px 22px 48px; align-items:start}
-@media (max-width:900px){ .wrap{grid-template-columns:1fr} }
-/* An explicit `display` on the same selector as [hidden] always wins over
+      .wrap {
+        display: grid;
+        grid-template-columns: minmax(280px, 340px) 1fr;
+        gap: 18px;
+        padding: 18px 22px 48px;
+        align-items: start;
+      }
+      @media (max-width: 900px) {
+        .wrap {
+          grid-template-columns: 1fr;
+        }
+      }
+      /* An explicit `display` on the same selector as [hidden] always wins over
    the browser's own [hidden]{display:none} UA rule, no matter the
    specificity — same bug already found once in player.html's overlay.
    Both toggled containers need their own override or hiding one silently
    does nothing. */
-.wrap[hidden], .tvwrap[hidden]{display:none}
+      .wrap[hidden],
+      .tvwrap[hidden] {
+        display: none;
+      }
 
-.tvwrap{display:flex; flex-direction:column; gap:10px; padding:18px 22px 48px; max-width:1400px; margin:0 auto}
-.tvlabel{font-size:.72rem; text-transform:uppercase; letter-spacing:.2em; color:var(--bone-dim); text-align:center}
-.tvframe-shell{
-  border:10px solid #17110b; border-radius:12px; background:#000;
-  box-shadow:0 0 0 1px #3a2a1c, 0 24px 50px rgba(0,0,0,.55);
-  overflow:hidden; aspect-ratio:16/9; width:100%;
-}
-.tvframe-shell iframe{width:100%; height:100%; border:0; display:block; background:var(--void)}
+      .tvwrap {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        padding: 18px 22px 48px;
+        max-width: 1400px;
+        margin: 0 auto;
+      }
+      .tvlabel {
+        font-size: 0.72rem;
+        text-transform: uppercase;
+        letter-spacing: 0.2em;
+        color: var(--bone-dim);
+        text-align: center;
+      }
+      .tvframe-shell {
+        border: 10px solid #17110b;
+        border-radius: 12px;
+        background: #000;
+        box-shadow:
+          0 0 0 1px #3a2a1c,
+          0 24px 50px rgba(0, 0, 0, 0.55);
+        overflow: hidden;
+        aspect-ratio: 16/9;
+        width: 100%;
+      }
+      .tvframe-shell iframe {
+        width: 100%;
+        height: 100%;
+        border: 0;
+        display: block;
+        background: var(--void);
+      }
 
-.stage{
-  border:1px solid var(--line); border-radius:5px; background:var(--panel);
-  padding:22px 20px; text-align:center; position:sticky; top:66px;
-}
-.phase{font-size:.7rem; text-transform:uppercase; letter-spacing:.2em; color:var(--bone-dim)}
-.narration{font-family:'Cormorant Garamond',Georgia,serif; font-size:1.55rem; line-height:1.2; margin:12px 0; text-wrap:balance}
-.narration.dread{color:var(--ember)}
-.clock{font-family:'Cinzel Decorative',Georgia,serif; font-size:3rem; color:var(--oxblood); font-variant-numeric:tabular-nums}
-.hint{border-left:2px solid var(--oxblood); padding:10px 14px; text-align:left; font-style:italic; color:#c9b693; margin-top:12px; font-size:.95rem}
-.verdict{border:1px solid var(--brass); border-radius:4px; padding:14px; margin-top:12px}
-.verdict .who{font-family:'Cinzel Decorative',Georgia,serif; font-size:1.3rem; color:var(--brass)}
+      .stage {
+        border: 1px solid var(--line);
+        border-radius: 5px;
+        background: var(--panel);
+        padding: 22px 20px;
+        text-align: center;
+        position: sticky;
+        top: 66px;
+      }
+      .phase {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.2em;
+        color: var(--bone-dim);
+      }
+      .narration {
+        font-family: "Cormorant Garamond", Georgia, serif;
+        font-size: 1.55rem;
+        line-height: 1.2;
+        margin: 12px 0;
+        text-wrap: balance;
+      }
+      .narration.dread {
+        color: var(--ember);
+      }
+      .clock {
+        font-family: "Cinzel Decorative", Georgia, serif;
+        font-size: 3rem;
+        color: var(--oxblood);
+        font-variant-numeric: tabular-nums;
+      }
+      .hint {
+        border-left: 2px solid var(--oxblood);
+        padding: 10px 14px;
+        text-align: left;
+        font-style: italic;
+        color: #c9b693;
+        margin-top: 12px;
+        font-size: 0.95rem;
+      }
+      .verdict {
+        border: 1px solid var(--brass);
+        border-radius: 4px;
+        padding: 14px;
+        margin-top: 12px;
+      }
+      .verdict .who {
+        font-family: "Cinzel Decorative", Georgia, serif;
+        font-size: 1.3rem;
+        color: var(--brass);
+      }
 
-/* ---- observer grid ---- */
-.seats{display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:12px}
-.seat{border:1px solid var(--line); border-radius:5px; background:var(--panel); padding:13px 15px}
-.seat.dead{opacity:.5}
-.seat.focus{border-color:var(--brass)}
-.seat .top{display:flex; justify-content:space-between; align-items:baseline; gap:8px; margin-bottom:3px}
-.seat .name{font-family:'Cormorant Garamond',Georgia,serif; font-weight:700; font-size:1.15rem}
-.seat .role{font-size:.8rem}
-.role.good{color:var(--good)} .role.evil{color:var(--evil)}
-.tag{display:inline-block; font-size:.62rem; text-transform:uppercase; letter-spacing:.12em; padding:2px 7px; border-radius:10px; margin:2px 4px 0 0}
-.tag.status{background:#3a2410; color:#e0b070}
-.tag.believes{background:#2a1c30; color:#c3a2d8}
+      /* ---- observer grid ---- */
+      .seats {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+        gap: 12px;
+      }
+      .seat {
+        border: 1px solid var(--line);
+        border-radius: 5px;
+        background: var(--panel);
+        padding: 13px 15px;
+      }
+      .seat.dead {
+        opacity: 0.5;
+      }
+      .seat.focus {
+        border-color: var(--brass);
+      }
+      .seat .top {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 8px;
+        margin-bottom: 3px;
+      }
+      .seat .name {
+        font-family: "Cormorant Garamond", Georgia, serif;
+        font-weight: 700;
+        font-size: 1.15rem;
+      }
+      .seat .role {
+        font-size: 0.8rem;
+      }
+      .role.good {
+        color: var(--good);
+      }
+      .role.evil {
+        color: var(--evil);
+      }
+      .tag {
+        display: inline-block;
+        font-size: 0.62rem;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        padding: 2px 7px;
+        border-radius: 10px;
+        margin: 2px 4px 0 0;
+      }
+      .tag.status {
+        background: #3a2410;
+        color: #e0b070;
+      }
+      .tag.believes {
+        background: #2a1c30;
+        color: #c3a2d8;
+      }
 
-.prompt{margin-top:9px; padding:9px 11px; border-radius:3px; font-size:.86rem}
-.prompt.real{border:1px solid var(--brass); background:#1a1206}
-.prompt.decoy{border:1px dashed #4a3c2c; background:#0f0b07; color:var(--bone-dim)}
-.prompt .kind{font-size:.6rem; text-transform:uppercase; letter-spacing:.14em; display:block; margin-bottom:3px}
-.prompt.real .kind{color:var(--brass)}
-.prompt.decoy .kind{color:#6b5c48}
-.answer{margin-top:5px; font-size:.8rem; color:var(--bone-dim)}
-.answer strong{color:var(--bone)}
+      .prompt {
+        margin-top: 9px;
+        padding: 9px 11px;
+        border-radius: 3px;
+        font-size: 0.86rem;
+      }
+      .prompt.real {
+        border: 1px solid var(--brass);
+        background: #1a1206;
+      }
+      .prompt.decoy {
+        border: 1px dashed #4a3c2c;
+        background: #0f0b07;
+        color: var(--bone-dim);
+      }
+      .prompt .kind {
+        font-size: 0.6rem;
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        display: block;
+        margin-bottom: 3px;
+      }
+      .prompt.real .kind {
+        color: var(--brass);
+      }
+      .prompt.decoy .kind {
+        color: #6b5c48;
+      }
+      .answer {
+        margin-top: 5px;
+        font-size: 0.8rem;
+        color: var(--bone-dim);
+      }
+      .answer strong {
+        color: var(--bone);
+      }
 
-.result{margin-top:9px; border-left:2px solid var(--brass); padding:8px 11px; background:#150f08; font-size:.85rem}
-.result .title{font-weight:600; color:var(--brass)}
-.result ul{margin:4px 0 0; padding-left:18px}
+      .result {
+        margin-top: 9px;
+        border-left: 2px solid var(--brass);
+        padding: 8px 11px;
+        background: #150f08;
+        font-size: 0.85rem;
+      }
+      .result .title {
+        font-weight: 600;
+        color: var(--brass);
+      }
+      .result ul {
+        margin: 4px 0 0;
+        padding-left: 18px;
+      }
 
-/* ---- player's-eye view ---- */
-.phonewrap{display:flex; flex-direction:column; align-items:center; gap:14px}
-.phone{
-  width:min(100%,352px); border:11px solid #17110b; border-radius:30px;
-  background:var(--void); padding:20px 17px 28px;
-  box-shadow:0 0 0 1px #3a2a1c, 0 20px 44px rgba(0,0,0,.55);
-  background-image:radial-gradient(ellipse at 50% -10%, #1b1209 0%, #0a0806 60%);
-}
-.phone h1{font-family:'Cinzel Decorative',Georgia,serif; font-size:1rem; color:var(--oxblood); margin:0 0 18px; letter-spacing:.05em}
-.pcard{border:1px solid #2e2117; background:#120d08; border-radius:4px; padding:15px; margin-bottom:12px}
-.prole{text-align:center}
-.ptoken{
-  width:132px; height:132px; border-radius:50%; object-fit:cover; display:block;
-  margin:0 auto 10px; border:2px solid #3d2c1c; background:#0d0906;
-}
-.stoken{
-  width:30px; height:30px; border-radius:50%; object-fit:cover; flex-shrink:0;
-  border:1px solid #3d2c1c; background:#0d0906;
-}
-.seat .top{align-items:center}
-.prole .pname{font-family:'Cormorant Garamond',Georgia,serif; font-size:1.75rem; font-weight:700}
-.prole .pteam{display:inline-block; font-size:.66rem; text-transform:uppercase; letter-spacing:.16em; padding:4px 12px; border-radius:20px; margin:7px 0}
-.pteam.good{background:#1c2c3c; color:#9dbdd9}
-.pteam.evil{background:#361316; color:#e0a09c}
-.prole .pability{margin-top:8px; font-style:italic; font-size:.9rem}
-.pclock{font-family:'Cinzel Decorative',Georgia,serif; font-size:2.3rem; text-align:center; color:var(--oxblood); font-variant-numeric:tabular-nums}
-.pask{font-family:'Cormorant Garamond',Georgia,serif; font-size:1.3rem; margin:6px 0 10px; text-wrap:balance}
-.ptargets{display:flex; flex-direction:column; gap:7px}
-.ptarget{padding:11px 13px; border:2px solid #3a2a1c; border-radius:3px; background:#0d0906; font-size:.92rem}
-.ptarget.on{background:#22100f; color:#fff; border-width:3px}
-.presult{border-left:2px solid var(--brass); padding:11px 13px; background:#110c07}
-.presult .ptitle{font-family:'Cormorant Garamond',Georgia,serif; font-weight:700; font-size:1.15rem; color:var(--brass)}
-.presult ul{margin:6px 0 0; padding-left:18px; font-size:.9rem}
-.pdead{border:1px solid #3a2a1c; color:var(--bone-dim); padding:10px; text-align:center; border-radius:3px; margin-bottom:12px; font-size:.88rem}
-.pdead.hasvote{border-color:var(--brass); color:var(--brass)}
-.seat .ghost{font-size:.72rem; color:var(--brass); margin-top:4px}
-.seat .ghost.spent{color:#6b6152; text-decoration:line-through}
-.pdim{color:var(--bone-dim); font-size:.9rem}
+      /* ---- player's-eye view ---- */
+      .phonewrap {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 14px;
+      }
+      .phone {
+        width: min(100%, 352px);
+        border: 11px solid #17110b;
+        border-radius: 30px;
+        background: var(--void);
+        padding: 20px 17px 28px;
+        box-shadow:
+          0 0 0 1px #3a2a1c,
+          0 20px 44px rgba(0, 0, 0, 0.55);
+        background-image: radial-gradient(
+          ellipse at 50% -10%,
+          #1b1209 0%,
+          #0a0806 60%
+        );
+      }
+      .phone h1 {
+        font-family: "Cinzel Decorative", Georgia, serif;
+        font-size: 1rem;
+        color: var(--oxblood);
+        margin: 0 0 18px;
+        letter-spacing: 0.05em;
+      }
+      .pcard {
+        border: 1px solid #2e2117;
+        background: #120d08;
+        border-radius: 4px;
+        padding: 15px;
+        margin-bottom: 12px;
+      }
+      .prole {
+        text-align: center;
+      }
+      .ptoken {
+        width: 132px;
+        height: 132px;
+        border-radius: 50%;
+        object-fit: cover;
+        display: block;
+        margin: 0 auto 10px;
+        border: 2px solid #3d2c1c;
+        background: #0d0906;
+      }
+      .stoken {
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        object-fit: cover;
+        flex-shrink: 0;
+        border: 1px solid #3d2c1c;
+        background: #0d0906;
+      }
+      .seat .top {
+        align-items: center;
+      }
+      .prole .pname {
+        font-family: "Cormorant Garamond", Georgia, serif;
+        font-size: 1.75rem;
+        font-weight: 700;
+      }
+      .prole .pteam {
+        display: inline-block;
+        font-size: 0.66rem;
+        text-transform: uppercase;
+        letter-spacing: 0.16em;
+        padding: 4px 12px;
+        border-radius: 20px;
+        margin: 7px 0;
+      }
+      .pteam.good {
+        background: #1c2c3c;
+        color: #9dbdd9;
+      }
+      .pteam.evil {
+        background: #361316;
+        color: #e0a09c;
+      }
+      .prole .pability {
+        margin-top: 8px;
+        font-style: italic;
+        font-size: 0.9rem;
+      }
+      .pclock {
+        font-family: "Cinzel Decorative", Georgia, serif;
+        font-size: 2.3rem;
+        text-align: center;
+        color: var(--oxblood);
+        font-variant-numeric: tabular-nums;
+      }
+      .pask {
+        font-family: "Cormorant Garamond", Georgia, serif;
+        font-size: 1.3rem;
+        margin: 6px 0 10px;
+        text-wrap: balance;
+      }
+      .ptargets {
+        display: flex;
+        flex-direction: column;
+        gap: 7px;
+      }
+      .ptarget {
+        padding: 11px 13px;
+        border: 2px solid #3a2a1c;
+        border-radius: 3px;
+        background: #0d0906;
+        font-size: 0.92rem;
+      }
+      .ptarget.on {
+        background: #22100f;
+        color: #fff;
+        border-width: 3px;
+      }
+      .presult {
+        border-left: 2px solid var(--brass);
+        padding: 11px 13px;
+        background: #110c07;
+      }
+      .presult .ptitle {
+        font-family: "Cormorant Garamond", Georgia, serif;
+        font-weight: 700;
+        font-size: 1.15rem;
+        color: var(--brass);
+      }
+      .presult ul {
+        margin: 6px 0 0;
+        padding-left: 18px;
+        font-size: 0.9rem;
+      }
+      .pdead {
+        border: 1px solid #3a2a1c;
+        color: var(--bone-dim);
+        padding: 10px;
+        text-align: center;
+        border-radius: 3px;
+        margin-bottom: 12px;
+        font-size: 0.88rem;
+      }
+      .pdead.hasvote {
+        border-color: var(--brass);
+        color: var(--brass);
+      }
+      .seat .ghost {
+        font-size: 0.72rem;
+        color: var(--brass);
+        margin-top: 4px;
+      }
+      .seat .ghost.spent {
+        color: #6b6152;
+        text-decoration: line-through;
+      }
+      .pdim {
+        color: var(--bone-dim);
+        font-size: 0.9rem;
+      }
 
-.aside{
-  max-width:352px; font-size:.82rem; color:var(--bone-dim); text-align:center;
-  border-top:1px dashed #33251a; padding-top:12px;
-}
-.aside .lie{color:var(--ember)}
-.aside .truth{color:var(--brass)}
+      .aside {
+        max-width: 352px;
+        font-size: 0.82rem;
+        color: var(--bone-dim);
+        text-align: center;
+        border-top: 1px dashed #33251a;
+        padding-top: 12px;
+      }
+      .aside .lie {
+        color: var(--ember);
+      }
+      .aside .truth {
+        color: var(--brass);
+      }
 
-.log{grid-column:1/-1; border:1px solid var(--line); border-radius:5px; background:var(--panel); padding:14px 18px; max-height:260px; overflow:auto}
-.log h3{font-family:'Cormorant Garamond',Georgia,serif; margin:0 0 8px; font-size:1.1rem}
-.log p{margin:2px 0; font-size:.85rem; color:var(--bone-dim)}
-.log p.secret{color:var(--ember)}
-.empty{color:var(--bone-dim); padding:40px 20px; text-align:center; grid-column:1/-1}
-</style>
-</head>
-<body>
-<header>
-  <span class="mark">Dry Run</span>
-  <span class="warn">Observer view — simulations only</span>
-  <span class="spacer"></span>
-  <span class="seg">
-    <button id="modeObserver" class="on">Observer</button>
-    <button id="modePlayer">Player view</button>
-    <button id="modeTV">TV view</button>
-  </span>
-  <select id="focus" hidden></select>
-  <label>Script <select id="simScript"><option value="tb">Trouble Brewing</option><option value="bmr">Bad Moon Rising</option><option value="sv">Sects &amp; Violets</option></select></label>
-  <label>Players <input type="number" id="players" min="5" max="15" value="9"></label>
-  <label>Night <input type="number" id="speed" min="2" max="60" value="6">s</label>
-  <button class="primary" id="run">Run a game</button>
-  <button id="pause" disabled>Pause</button>
-</header>
+      .log {
+        grid-column: 1/-1;
+        border: 1px solid var(--line);
+        border-radius: 5px;
+        background: var(--panel);
+        padding: 14px 18px;
+        max-height: 260px;
+        overflow: auto;
+      }
+      .log h3 {
+        font-family: "Cormorant Garamond", Georgia, serif;
+        margin: 0 0 8px;
+        font-size: 1.1rem;
+      }
+      .log p {
+        margin: 2px 0;
+        font-size: 0.85rem;
+        color: var(--bone-dim);
+      }
+      .log p.secret {
+        color: var(--ember);
+      }
+      .empty {
+        color: var(--bone-dim);
+        padding: 40px 20px;
+        text-align: center;
+        grid-column: 1/-1;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <span class="mark">Dry Run</span>
+      <span class="warn">Observer view — simulations only</span>
+      <span class="spacer"></span>
+      <span class="seg">
+        <button id="modeObserver" class="on">Observer</button>
+        <button id="modePlayer">Player view</button>
+        <button id="modeTV">TV view</button>
+      </span>
+      <select id="focus" hidden></select>
+      <label
+        >Script
+        <select id="simScript">
+          <option value="tb">Trouble Brewing</option>
+          <option value="bmr">Bad Moon Rising</option>
+          <option value="sv">Sects &amp; Violets</option>
+        </select></label
+      >
+      <label
+        >Players <input type="number" id="players" min="5" max="15" value="9"
+      /></label>
+      <label
+        >Night
+        <input type="number" id="speed" min="2" max="60" value="6" />s</label
+      >
+      <button class="primary" id="run">Run a game</button>
+      <button id="pause" disabled>Pause</button>
+    </header>
 
-<div class="wrap" id="wrap">
-  <div class="empty" id="empty">Press <strong>Run a game</strong> to watch nine strangers get picked off one at a time.</div>
-</div>
+    <div class="wrap" id="wrap">
+      <div class="empty" id="empty">
+        Press <strong>Run a game</strong> to watch nine strangers get picked off
+        one at a time.
+      </div>
+    </div>
 
-<!-- The real table screen, live — not a second copy of its rendering logic.
+    <!-- The real table screen, live — not a second copy of its rendering logic.
      Kept permanently in the DOM (never rebuilt on every render() tick like
      the panels above) so its own SSE connection stays put; only its
      visibility toggles with the mode buttons. -->
-<div class="tvwrap" id="tvWrap" hidden>
-  <div class="tvlabel">What the table screen shows right now</div>
-  <div class="tvframe-shell"><iframe id="tvFrame" src="/host" title="Table screen preview"></iframe></div>
-</div>
+    <div class="tvwrap" id="tvWrap" hidden>
+      <div class="tvlabel">What the table screen shows right now</div>
+      <div class="tvframe-shell">
+        <iframe id="tvFrame" src="/host" title="Table screen preview"></iframe>
+      </div>
+    </div>
 
-<script>
-let S = null;
-let mode = 'observer';
-let focusId = null;
-let TOKENS = {};
+    <script>
+      let S = null;
+      let mode = "observer";
+      let focusId = null;
+      let TOKENS = {};
 
-/** Character art if present locally; otherwise the text treatment stands alone. */
-function tokenImage(characterId, cls) {
-  const src = TOKENS[characterId];
-  if (!src) return null;
-  const img = document.createElement('img');
-  img.className = cls;
-  img.src = src;
-  img.alt = '';
-  img.onerror = () => img.remove();
-  return img;
-}
+      /** Character art if present locally; otherwise the text treatment stands alone. */
+      function tokenImage(characterId, cls) {
+        const src = TOKENS[characterId];
+        if (!src) return null;
+        const img = document.createElement("img");
+        img.className = cls;
+        img.src = src;
+        img.alt = "";
+        img.onerror = () => img.remove();
+        return img;
+      }
 
-const el = (t, c, x) => { const n = document.createElement(t); if (c) n.className = c; if (x != null) n.textContent = x; return n; };
-const post = (u, b) => fetch(u, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(b||{}) }).then(r => r.json());
+      const el = (t, c, x) => {
+        const n = document.createElement(t);
+        if (c) n.className = c;
+        if (x != null) n.textContent = x;
+        return n;
+      };
+      const post = (u, b) =>
+        fetch(u, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(b || {}),
+        }).then(r => r.json());
 
-const EVIL = new Set(['minion', 'demon']);
+      const EVIL = new Set(["minion", "demon"]);
 
-/* Each real reminder token gets its own color, same idea as the physical
+      /* Each real reminder token gets its own color, same idea as the physical
    token set having a different token per effect — a wall of same-colored
    "status" pills was no faster to scan than reading the raw list. Anything
    not listed here still shows up (humanized), just in a neutral color, so
    a future status never silently disappears from this debug view. */
-const STATUS_INFO = {
-  drunk: { label: 'Drunk', color: '#c9a13b' },
-  poisoned: { label: 'Poisoned', color: '#6b8e4e' },
-  protected: { label: 'Protected', color: '#5c86ab' },
-  appearsDead: { label: 'Appears dead', color: '#7a7267' },
-  goonEvil: { label: 'Turned evil', color: '#9a2f35' },
-  foolUsed: { label: 'Fool used', color: '#7a4a8e' },
-  moonchildPending: { label: 'Moonchild pending', color: '#5b3866' },
-  slayerUsed: { label: 'Slayer used', color: '#a1522c' },
-  executionImmune: { label: 'Immune today', color: '#2d6b6b' },
-};
+      const STATUS_INFO = {
+        drunk: { label: "Drunk", color: "#c9a13b" },
+        poisoned: { label: "Poisoned", color: "#6b8e4e" },
+        protected: { label: "Protected", color: "#5c86ab" },
+        appearsDead: { label: "Appears dead", color: "#7a7267" },
+        goonEvil: { label: "Turned evil", color: "#9a2f35" },
+        foolUsed: { label: "Fool used", color: "#7a4a8e" },
+        moonchildPending: { label: "Moonchild pending", color: "#5b3866" },
+        slayerUsed: { label: "Slayer used", color: "#a1522c" },
+        executionImmune: { label: "Immune today", color: "#2d6b6b" },
+      };
 
-function humanizeStatus(key) {
-  return key.replace(/([A-Z])/g, ' $1').replace(/^./, c => c.toUpperCase());
-}
+      function humanizeStatus(key) {
+        return key
+          .replace(/([A-Z])/g, " $1")
+          .replace(/^./, c => c.toUpperCase());
+      }
 
-/* ------------------------------------------------------------ the room */
+      /* ------------------------------------------------------------ the room */
 
-function stagePanel(t) {
-  const box = el('div', 'stage');
-  box.append(el('div', 'phase',
-    t.phase === 'night' ? `Night ${t.nightNumber}${t.wave === 2 ? ' — again' : ''}`
-    : t.phase === 'day' ? `Day ${t.nightNumber}`
-    : t.phase));
+      function stagePanel(t) {
+        const box = el("div", "stage");
+        box.append(
+          el(
+            "div",
+            "phase",
+            t.phase === "night"
+              ? `Night ${t.nightNumber}${t.wave === 2 ? " — again" : ""}`
+              : t.phase === "day"
+                ? `Day ${t.nightNumber}`
+                : t.phase,
+          ),
+        );
 
-  if (t.phase === 'night') {
-    const left = t.windowEndsAt ? Math.max(0, Math.ceil((t.windowEndsAt - Date.now())/1000)) : 0;
-    box.append(
-      el('div','narration dread', t.wave === 2 ? 'Something is not finished.' : 'Close your eyes.'),
-      el('div','clock', String(left)),
-      el('div', null, `${t.players.filter(p=>p.submitted).length} of ${t.players.filter(p=>p.alive).length} have answered`)
-    );
-  } else if (t.phase === 'day') {
-    const fell = t.deaths.filter(d => d.night === t.nightNumber && d.cause !== 'execution');
-    box.append(el('div','narration', fell.length ? `${fell.map(d=>d.name).join(' and ')} did not wake.` : 'Everyone wakes.'));
-  } else if (t.phase === 'reveal') {
-    box.append(el('div','narration','Look at your hands.'));
-  } else if (t.phase === 'over') {
-    box.append(el('div','narration','It is finished.'));
-  }
+        if (t.phase === "night") {
+          const left = t.windowEndsAt
+            ? Math.max(0, Math.ceil((t.windowEndsAt - Date.now()) / 1000))
+            : 0;
+          box.append(
+            el(
+              "div",
+              "narration dread",
+              t.wave === 2 ? "Something is not finished." : "Close your eyes.",
+            ),
+            el("div", "clock", String(left)),
+            el(
+              "div",
+              null,
+              `${t.players.filter(p => p.submitted).length} of ${t.players.filter(p => p.alive).length} have answered`,
+            ),
+          );
+        } else if (t.phase === "day") {
+          const fell = t.deaths.filter(
+            d => d.night === t.nightNumber && d.cause !== "execution",
+          );
+          box.append(
+            el(
+              "div",
+              "narration",
+              fell.length
+                ? `${fell.map(d => d.name).join(" and ")} did not wake.`
+                : "Everyone wakes.",
+            ),
+          );
+        } else if (t.phase === "reveal") {
+          box.append(el("div", "narration", "Look at your hands."));
+        } else if (t.phase === "over") {
+          box.append(el("div", "narration", "It is finished."));
+        }
 
-  if (t.hint) box.append(el('div','hint', t.hint));
+        if (t.hint) box.append(el("div", "hint", t.hint));
 
-  if (t.victory) {
-    const v = el('div','verdict');
-    v.append(el('div','who', t.victory.winner === 'good' ? 'Good wins' : 'Evil wins'), el('div', null, t.victory.reason));
-    box.append(v);
-  }
+        if (t.victory) {
+          const v = el("div", "verdict");
+          v.append(
+            el(
+              "div",
+              "who",
+              t.victory.winner === "good" ? "Good wins" : "Evil wins",
+            ),
+            el("div", null, t.victory.reason),
+          );
+          box.append(v);
+        }
 
-  box.append(el('div', 'phase', `${t.players.filter(p=>p.alive).length} alive of ${t.players.length}`));
-  return box;
-}
+        box.append(
+          el(
+            "div",
+            "phase",
+            `${t.players.filter(p => p.alive).length} alive of ${t.players.length}`,
+          ),
+        );
+        return box;
+      }
 
-/* -------------------------------------------------------- observer grid */
+      /* -------------------------------------------------------- observer grid */
 
-function seatCard(s) {
-  const evil = EVIL.has((s.you.character || {}).team);
-  const card = el('div', 'seat' + (s.you.alive ? '' : ' dead') + (s.you.id === focusId ? ' focus' : ''));
+      function seatCard(s) {
+        const evil = EVIL.has((s.you.character || {}).team);
+        const card = el(
+          "div",
+          "seat" +
+            (s.you.alive ? "" : " dead") +
+            (s.you.id === focusId ? " focus" : ""),
+        );
 
-  const top = el('div','top');
-  const left = el('div');
-  left.style.cssText = 'display:flex;align-items:center;gap:8px';
-  const art = tokenImage(s.trueCharacterId, 'stoken');
-  if (art) left.append(art);
-  left.append(el('span','name', s.you.name));
-  top.append(left);
-  top.append(el('span','role ' + (evil ? 'evil' : 'good'), s.trueCharacter || '—'));
-  card.append(top);
+        const top = el("div", "top");
+        const left = el("div");
+        left.style.cssText = "display:flex;align-items:center;gap:8px";
+        const art = tokenImage(s.trueCharacterId, "stoken");
+        if (art) left.append(art);
+        left.append(el("span", "name", s.you.name));
+        top.append(left);
+        top.append(
+          el(
+            "span",
+            "role " + (evil ? "evil" : "good"),
+            s.trueCharacter || "—",
+          ),
+        );
+        card.append(top);
 
-  const tags = el('div');
-  if (s.you.character && s.trueCharacter && s.you.character.name !== s.trueCharacter) {
-    tags.append(el('span','tag believes', 'believes ' + s.you.character.name));
-  }
-  s.statuses.forEach(st => {
-    const info = STATUS_INFO[st];
-    const pill = el('span', 'tag status', info ? info.label : humanizeStatus(st));
-    pill.style.background = (info ? info.color : '#4d5b66') + '2e';
-    pill.style.color = info ? info.color : '#9aa7b0';
-    tags.append(pill);
-  });
-  if (tags.children.length) card.append(tags);
+        const tags = el("div");
+        if (
+          s.you.character &&
+          s.trueCharacter &&
+          s.you.character.name !== s.trueCharacter
+        ) {
+          tags.append(
+            el("span", "tag believes", "believes " + s.you.character.name),
+          );
+        }
+        s.statuses.forEach(st => {
+          const info = STATUS_INFO[st];
+          const pill = el(
+            "span",
+            "tag status",
+            info ? info.label : humanizeStatus(st),
+          );
+          pill.style.background = (info ? info.color : "#4d5b66") + "2e";
+          pill.style.color = info ? info.color : "#9aa7b0";
+          tags.append(pill);
+        });
+        if (tags.children.length) card.append(tags);
 
-  if (!s.you.alive) {
-    card.append(el('div', 'ghost' + (s.you.ghostVoteUsed ? ' spent' : ''),
-      s.you.ghostVoteUsed ? 'ghost vote spent' : 'ghost vote available'));
-  }
+        if (!s.you.alive) {
+          card.append(
+            el(
+              "div",
+              "ghost" + (s.you.ghostVoteUsed ? " spent" : ""),
+              s.you.ghostVoteUsed ? "ghost vote spent" : "ghost vote available",
+            ),
+          );
+        }
 
-  if (s.prompt) {
-    const p = el('div', 'prompt ' + (s.prompt.decoy ? 'decoy' : 'real'));
-    p.append(el('span','kind', s.prompt.decoy ? 'decoy wake' : 'acts tonight'));
-    p.append(el('span', null, s.prompt.text));
-    if (s.submitted) {
-      const a = el('div','answer');
-      a.append(document.createTextNode('answered: '), el('strong', null, (s.choice || []).join(', ') || '—'));
-      p.append(a);
-    }
-    card.append(p);
-  }
+        if (s.prompt) {
+          const p = el("div", "prompt " + (s.prompt.decoy ? "decoy" : "real"));
+          p.append(
+            el("span", "kind", s.prompt.decoy ? "decoy wake" : "acts tonight"),
+          );
+          p.append(el("span", null, s.prompt.text));
+          if (s.submitted) {
+            const a = el("div", "answer");
+            a.append(
+              document.createTextNode("answered: "),
+              el("strong", null, (s.choice || []).join(", ") || "—"),
+            );
+            p.append(a);
+          }
+          card.append(p);
+        }
 
-  if (s.result) {
-    const r = el('div','result');
-    r.append(el('div','title', s.result.title));
-    r.append(el('div', null, s.result.body));
-    (s.result.names || []).forEach((n, i) => {
-      if (i === 0) r.append(el('ul'));
-      r.lastChild.append(el('li', null, n));
-    });
-    if (s.result.grimoire) r.append(el('div','answer','sees the whole grimoire'));
-    card.append(r);
-  }
+        if (s.result) {
+          const r = el("div", "result");
+          r.append(el("div", "title", s.result.title));
+          r.append(el("div", null, s.result.body));
+          (s.result.names || []).forEach((n, i) => {
+            if (i === 0) r.append(el("ul"));
+            r.lastChild.append(el("li", null, n));
+          });
+          if (s.result.grimoire)
+            r.append(el("div", "answer", "sees the whole grimoire"));
+          card.append(r);
+        }
 
-  card.onclick = () => { focusId = s.you.id; setMode('player'); };
-  return card;
-}
+        card.onclick = () => {
+          focusId = s.you.id;
+          setMode("player");
+        };
+        return card;
+      }
 
-/* --------------------------------------------------- player's-eye view */
+      /* --------------------------------------------------- player's-eye view */
 
-/* Inside the frame, only what the player actually knows: their *believed*
+      /* Inside the frame, only what the player actually knows: their *believed*
    character, and a prompt with no hint of whether it means anything. */
-function phonePanel(s, table) {
-  const wrap = el('div','phonewrap');
-  const phone = el('div','phone');
-  phone.append(el('h1', null, 'The Clocktower Wakes'));
+      function phonePanel(s, table) {
+        const wrap = el("div", "phonewrap");
+        const phone = el("div", "phone");
+        phone.append(el("h1", null, "Blood On The Clocktower"));
 
-  if (!s.you.alive) {
-    phone.append(el('div','pdead' + (s.you.ghostVoteUsed ? '' : ' hasvote'),
-      s.you.ghostVoteUsed
-        ? 'You are dead and your vote is spent. You may still speak.'
-        : 'You are dead. You still have a voice, and one vote left.'));
-  }
+        if (!s.you.alive) {
+          phone.append(
+            el(
+              "div",
+              "pdead" + (s.you.ghostVoteUsed ? "" : " hasvote"),
+              s.you.ghostVoteUsed
+                ? "You are dead and your vote is spent. You may still speak."
+                : "You are dead. You still have a voice, and one vote left.",
+            ),
+          );
+        }
 
-  const roleCard = el('div','pcard');
-  const c = s.you.character;
-  if (c) {
-    const box = el('div','prole');
-    const evil = EVIL.has(c.team);
-    // The believed character's art — the Drunk sees the role they think they are.
-    const art = tokenImage(c.id, 'ptoken');
-    if (art) box.append(art);
-    box.append(el('div','pname', c.name));
-    box.append(el('div','pteam ' + (evil ? 'evil' : 'good'), c.team));
-    box.append(el('div','pability', c.ability));
-    roleCard.append(box);
-  } else {
-    roleCard.append(el('div','pdim','Roles have not been dealt.'));
-  }
-  phone.append(roleCard);
+        const roleCard = el("div", "pcard");
+        const c = s.you.character;
+        if (c) {
+          const box = el("div", "prole");
+          const evil = EVIL.has(c.team);
+          // The believed character's art — the Drunk sees the role they think they are.
+          const art = tokenImage(c.id, "ptoken");
+          if (art) box.append(art);
+          box.append(el("div", "pname", c.name));
+          box.append(el("div", "pteam " + (evil ? "evil" : "good"), c.team));
+          box.append(el("div", "pability", c.ability));
+          roleCard.append(box);
+        } else {
+          roleCard.append(el("div", "pdim", "Roles have not been dealt."));
+        }
+        phone.append(roleCard);
 
-  if (table.phase === 'night' && s.prompt) {
-    const card = el('div','pcard');
-    const left = s.windowEndsAt ? Math.max(0, Math.ceil((s.windowEndsAt - Date.now())/1000)) : 0;
-    card.append(el('div','pclock', String(left)));
-    if (s.submitted) {
-      card.append(el('div','pask','Answered.'), el('div','pdim','Put the phone down. Keep your face still.'));
-      const list = el('div','ptargets');
-      (s.prompt.targets || []).forEach(t => {
-        const chip = el('div','ptarget' + ((s.choice||[]).includes(t.name) ? ' on' : ''), t.name);
-        if (t.color) chip.style.borderColor = t.color.hex;
-        list.append(chip);
-      });
-      card.append(list);
-    } else {
-      card.append(el('div','pask', s.prompt.text));
-      if (s.prompt.count > 1) card.append(el('div','pdim', `Choose ${s.prompt.count}.`));
-      const list = el('div','ptargets');
-      (s.prompt.targets || []).forEach(t => {
-        const chip = el('div','ptarget', t.name);
-        if (t.color) chip.style.borderColor = t.color.hex;
-        list.append(chip);
-      });
-      card.append(list);
-    }
-    phone.append(card);
-  }
+        if (table.phase === "night" && s.prompt) {
+          const card = el("div", "pcard");
+          const left = s.windowEndsAt
+            ? Math.max(0, Math.ceil((s.windowEndsAt - Date.now()) / 1000))
+            : 0;
+          card.append(el("div", "pclock", String(left)));
+          if (s.submitted) {
+            card.append(
+              el("div", "pask", "Answered."),
+              el("div", "pdim", "Put the phone down. Keep your face still."),
+            );
+            const list = el("div", "ptargets");
+            (s.prompt.targets || []).forEach(t => {
+              const chip = el(
+                "div",
+                "ptarget" + ((s.choice || []).includes(t.name) ? " on" : ""),
+                t.name,
+              );
+              if (t.color) chip.style.borderColor = t.color.hex;
+              list.append(chip);
+            });
+            card.append(list);
+          } else {
+            card.append(el("div", "pask", s.prompt.text));
+            if (s.prompt.count > 1)
+              card.append(el("div", "pdim", `Choose ${s.prompt.count}.`));
+            const list = el("div", "ptargets");
+            (s.prompt.targets || []).forEach(t => {
+              const chip = el("div", "ptarget", t.name);
+              if (t.color) chip.style.borderColor = t.color.hex;
+              list.append(chip);
+            });
+            card.append(list);
+          }
+          phone.append(card);
+        }
 
-  if (table.phase === 'night' && !s.prompt && s.you.alive) {
-    const card = el('div','pcard');
-    card.append(el('div','pask','Eyes closed.'), el('div','pdim','Wait.'));
-    phone.append(card);
-  }
+        if (table.phase === "night" && !s.prompt && s.you.alive) {
+          const card = el("div", "pcard");
+          card.append(
+            el("div", "pask", "Eyes closed."),
+            el("div", "pdim", "Wait."),
+          );
+          phone.append(card);
+        }
 
-  if (s.result) {
-    const card = el('div','pcard');
-    const r = el('div','presult');
-    r.append(el('div','ptitle', s.result.title));
-    r.append(el('div', null, s.result.body));
-    const names = s.result.names || [];
-    if (names.length) {
-      const ul = el('ul');
-      names.forEach(n => ul.append(el('li', null, n)));
-      r.append(ul);
-    }
-    if (s.result.grimoire) {
-      const ul = el('ul');
-      s.result.grimoire.forEach(g => ul.append(el('li', null,
-        `${g.name} — ${g.character}` +
-        (g.believedCharacter ? ` (believes: ${g.believedCharacter})` : '') +
-        (g.alive ? '' : ' (dead)'))));
-      r.append(ul);
-    }
-    card.append(r);
-    phone.append(card);
-  }
+        if (s.result) {
+          const card = el("div", "pcard");
+          const r = el("div", "presult");
+          r.append(el("div", "ptitle", s.result.title));
+          r.append(el("div", null, s.result.body));
+          const names = s.result.names || [];
+          if (names.length) {
+            const ul = el("ul");
+            names.forEach(n => ul.append(el("li", null, n)));
+            r.append(ul);
+          }
+          if (s.result.grimoire) {
+            const ul = el("ul");
+            s.result.grimoire.forEach(g =>
+              ul.append(
+                el(
+                  "li",
+                  null,
+                  `${g.name} — ${g.character}` +
+                    (g.believedCharacter
+                      ? ` (believes: ${g.believedCharacter})`
+                      : "") +
+                    (g.alive ? "" : " (dead)"),
+                ),
+              ),
+            );
+            r.append(ul);
+          }
+          card.append(r);
+          phone.append(card);
+        }
 
-  if (table.phase === 'day') {
-    const card = el('div','pcard');
-    card.append(el('div','pask','Daylight'), el('div','pdim','Talk. Accuse. Decide. The phone has nothing more for you.'));
-    phone.append(card);
-  }
+        if (table.phase === "day") {
+          const card = el("div", "pcard");
+          card.append(
+            el("div", "pask", "Daylight"),
+            el(
+              "div",
+              "pdim",
+              "Talk. Accuse. Decide. The phone has nothing more for you.",
+            ),
+          );
+          phone.append(card);
+        }
 
-  wrap.append(phone);
+        wrap.append(phone);
 
-  // Outside the frame: what they are not being told.
-  const aside = el('div','aside');
-  const notes = [];
-  if (s.you.character && s.trueCharacter && s.you.character.name !== s.trueCharacter) {
-    notes.push(['lie', `They are really the ${s.trueCharacter}. They will never be told.`]);
-  }
-  if (s.statuses.includes('poisoned')) {
-    notes.push(['lie', 'Poisoned — anything they learn tonight may be false.']);
-  }
-  if (s.prompt) {
-    notes.push(s.prompt.decoy
-      ? ['lie', 'This is a decoy. Their answer does nothing.']
-      : ['truth', 'This is a real ability. Their answer matters.']);
-  }
-  if (!notes.length) notes.push(['', 'Nothing hidden from them right now.']);
-  notes.forEach(([cls, text]) => aside.append(el('div', cls, text)));
-  wrap.append(aside);
+        // Outside the frame: what they are not being told.
+        const aside = el("div", "aside");
+        const notes = [];
+        if (
+          s.you.character &&
+          s.trueCharacter &&
+          s.you.character.name !== s.trueCharacter
+        ) {
+          notes.push([
+            "lie",
+            `They are really the ${s.trueCharacter}. They will never be told.`,
+          ]);
+        }
+        if (s.statuses.includes("poisoned")) {
+          notes.push([
+            "lie",
+            "Poisoned — anything they learn tonight may be false.",
+          ]);
+        }
+        if (s.prompt) {
+          notes.push(
+            s.prompt.decoy
+              ? ["lie", "This is a decoy. Their answer does nothing."]
+              : ["truth", "This is a real ability. Their answer matters."],
+          );
+        }
+        if (!notes.length)
+          notes.push(["", "Nothing hidden from them right now."]);
+        notes.forEach(([cls, text]) => aside.append(el("div", cls, text)));
+        wrap.append(aside);
 
-  return wrap;
-}
+        return wrap;
+      }
 
-/* -------------------------------------------------------------- render */
+      /* -------------------------------------------------------------- render */
 
-function syncFocusOptions() {
-  const sel = document.getElementById('focus');
-  const names = S.seats.map(s => s.you.id + ':' + s.you.name).join('|');
-  if (sel.dataset.roster === names) return;
-  sel.dataset.roster = names;
-  sel.innerHTML = '';
-  S.seats.forEach(s => {
-    const o = new Option(s.you.name + (s.you.alive ? '' : ' (dead)'), s.you.id);
-    sel.append(o);
-  });
-  if (!focusId || !S.seats.some(s => s.you.id === focusId)) focusId = S.seats[0] && S.seats[0].you.id;
-  sel.value = focusId;
-}
+      function syncFocusOptions() {
+        const sel = document.getElementById("focus");
+        const names = S.seats.map(s => s.you.id + ":" + s.you.name).join("|");
+        if (sel.dataset.roster === names) return;
+        sel.dataset.roster = names;
+        sel.innerHTML = "";
+        S.seats.forEach(s => {
+          const o = new Option(
+            s.you.name + (s.you.alive ? "" : " (dead)"),
+            s.you.id,
+          );
+          sel.append(o);
+        });
+        if (!focusId || !S.seats.some(s => s.you.id === focusId))
+          focusId = S.seats[0] && S.seats[0].you.id;
+        sel.value = focusId;
+      }
 
-function setMode(next) {
-  mode = next;
-  document.getElementById('modeObserver').classList.toggle('on', mode === 'observer');
-  document.getElementById('modePlayer').classList.toggle('on', mode === 'player');
-  document.getElementById('modeTV').classList.toggle('on', mode === 'tv');
-  document.getElementById('focus').hidden = mode !== 'player';
-  document.getElementById('wrap').hidden = mode === 'tv';
-  document.getElementById('tvWrap').hidden = mode !== 'tv';
-  render();
-}
+      function setMode(next) {
+        mode = next;
+        document
+          .getElementById("modeObserver")
+          .classList.toggle("on", mode === "observer");
+        document
+          .getElementById("modePlayer")
+          .classList.toggle("on", mode === "player");
+        document.getElementById("modeTV").classList.toggle("on", mode === "tv");
+        document.getElementById("focus").hidden = mode !== "player";
+        document.getElementById("wrap").hidden = mode === "tv";
+        document.getElementById("tvWrap").hidden = mode !== "tv";
+        render();
+      }
 
-function render() {
-  if (!S) return;
-  syncFocusOptions();
-  document.getElementById('focus').value = focusId;
+      function render() {
+        if (!S) return;
+        syncFocusOptions();
+        document.getElementById("focus").value = focusId;
 
-  const pause = document.getElementById('pause');
-  pause.disabled = !S.table.simulation || S.table.phase === 'over';
-  pause.textContent = S.table.paused ? 'Resume' : 'Pause';
+        const pause = document.getElementById("pause");
+        pause.disabled = !S.table.simulation || S.table.phase === "over";
+        pause.textContent = S.table.paused ? "Resume" : "Pause";
 
-  // The embedded /host page renders and updates itself off its own SSE
-  // connection — nothing left to rebuild here while it's showing.
-  if (mode === 'tv') return;
+        // The embedded /host page renders and updates itself off its own SSE
+        // connection — nothing left to rebuild here while it's showing.
+        if (mode === "tv") return;
 
-  const wrap = document.getElementById('wrap');
-  wrap.innerHTML = '';
-  wrap.append(stagePanel(S.table));
+        const wrap = document.getElementById("wrap");
+        wrap.innerHTML = "";
+        wrap.append(stagePanel(S.table));
 
-  if (mode === 'player') {
-    const seat = S.seats.find(s => s.you.id === focusId) || S.seats[0];
-    if (seat) wrap.append(phonePanel(seat, S.table));
-  } else {
-    const seats = el('div','seats');
-    S.seats.forEach(s => seats.append(seatCard(s)));
-    wrap.append(seats);
-  }
+        if (mode === "player") {
+          const seat = S.seats.find(s => s.you.id === focusId) || S.seats[0];
+          if (seat) wrap.append(phonePanel(seat, S.table));
+        } else {
+          const seats = el("div", "seats");
+          S.seats.forEach(s => seats.append(seatCard(s)));
+          wrap.append(seats);
+        }
 
-  const log = el('div','log');
-  log.append(el('h3', null, 'What actually happened'));
-  S.log.slice().reverse().forEach(l => {
-    log.append(el('p', l.secret ? 'secret' : '', `Night ${l.night} — ${l.text}`));
-  });
-  wrap.append(log);
-}
+        const log = el("div", "log");
+        log.append(el("h3", null, "What actually happened"));
+        S.log
+          .slice()
+          .reverse()
+          .forEach(l => {
+            log.append(
+              el("p", l.secret ? "secret" : "", `Night ${l.night} — ${l.text}`),
+            );
+          });
+        wrap.append(log);
+      }
 
-/* ---------------------------------------------------------- connection */
+      /* ---------------------------------------------------------- connection */
 
-function pollSimState() {
-  fetch('/api/sim-state').then(r => r.json()).then(data => { S = data; render(); }).catch(() => {});
-}
+      function pollSimState() {
+        fetch("/api/sim-state")
+          .then(r => r.json())
+          .then(data => {
+            S = data;
+            render();
+          })
+          .catch(() => {});
+      }
 
-let es = null;
-function connect() {
-  if (es) es.close();
-  let simLiveMessageReceived = false;
-  es = new EventSource('/sim-events');
-  es.onmessage = e => { simLiveMessageReceived = true; S = JSON.parse(e.data); render(); };
-  // A proxy in front of this server (a tunnel, most likely) can hold this
-  // connection open without ever delivering anything — fall back to plain
-  // polling rather than leaving the observer view stuck on nothing.
-  setTimeout(() => {
-    if (simLiveMessageReceived) return;
-    es.close();
-    pollSimState();
-    setInterval(pollSimState, 1500);
-  }, 4000);
-}
+      let es = null;
+      function connect() {
+        if (es) es.close();
+        let simLiveMessageReceived = false;
+        es = new EventSource("/sim-events");
+        es.onmessage = e => {
+          simLiveMessageReceived = true;
+          S = JSON.parse(e.data);
+          render();
+        };
+        // A proxy in front of this server (a tunnel, most likely) can hold this
+        // connection open without ever delivering anything — fall back to plain
+        // polling rather than leaving the observer view stuck on nothing.
+        setTimeout(() => {
+          if (simLiveMessageReceived) return;
+          es.close();
+          pollSimState();
+          setInterval(pollSimState, 1500);
+        }, 4000);
+      }
 
-document.getElementById('run').onclick = () => {
-  const players = Number(document.getElementById('players').value) || 9;
-  const speed = Number(document.getElementById('speed').value) || 6;
-  const script = document.getElementById('simScript').value;
-  post('/api/sim/start', { players, speed, script }).then(() => connect());
-};
-document.getElementById('pause').onclick = () => post('/api/sim/pause');
-document.getElementById('modeObserver').onclick = () => setMode('observer');
-document.getElementById('modePlayer').onclick = () => setMode('player');
-document.getElementById('modeTV').onclick = () => setMode('tv');
-document.getElementById('focus').onchange = e => { focusId = e.target.value; render(); };
+      document.getElementById("run").onclick = () => {
+        const players = Number(document.getElementById("players").value) || 9;
+        const speed = Number(document.getElementById("speed").value) || 6;
+        const script = document.getElementById("simScript").value;
+        post("/api/sim/start", { players, speed, script }).then(() =>
+          connect(),
+        );
+      };
+      document.getElementById("pause").onclick = () => post("/api/sim/pause");
+      document.getElementById("modeObserver").onclick = () =>
+        setMode("observer");
+      document.getElementById("modePlayer").onclick = () => setMode("player");
+      document.getElementById("modeTV").onclick = () => setMode("tv");
+      document.getElementById("focus").onchange = e => {
+        focusId = e.target.value;
+        render();
+      };
 
-setInterval(() => { if (S && S.table.phase === 'night') render(); }, 500);
+      setInterval(() => {
+        if (S && S.table.phase === "night") render();
+      }, 500);
 
-fetch('/api/tokens')
-  .then(r => r.json())
-  .then(t => { TOKENS = t; render(); })
-  .catch(() => {});
+      fetch("/api/tokens")
+        .then(r => r.json())
+        .then(t => {
+          TOKENS = t;
+          render();
+        })
+        .catch(() => {});
 
-fetch('/sim-events', { method:'GET' }).then(r => { if (r.ok) connect(); }).catch(() => {});
-</script>
-</body>
+      fetch("/sim-events", { method: "GET" })
+        .then(r => {
+          if (r.ok) connect();
+        })
+        .catch(() => {});
+    </script>
+  </body>
 </html>

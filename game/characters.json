@@ -4,68 +4,153 @@
       {
         "id": "tb",
         "name": "Trouble Brewing",
-        "description": "An introductory script full of information and fairly simple abilities. The best place for a new table to start. A single Imp hunts the town while information roles like the Empath, Fortune Teller, and Washerwoman teach new players how claims and cross-referencing actually work. The Poisoner is the only real deception in play, which keeps a first game honest without making it easy.",
+        "description": "An introductory script full of information and fairly simple abilities. The best place for a new table to start.",
         "difficulty": 1,
         "playable": true,
-        "official": true
+        "official": true,
+        "featuredCharacter": "imp",
+        "detailNotes": "A single Imp hunts the town while information roles like the Empath, Fortune Teller, and Washerwoman teach new players how claims and cross-referencing actually work. The Poisoner is the only real deception in play, which keeps a first game honest without making it easy.\n\nAt the table, this usually plays out as a straightforward race: good tries to correlate two or three solid claims before the Imp finds a second kill, while the only real static in the signal is a single poisoned night. It's the script every other one on this list assumes you already know how to play."
       },
       {
         "id": "bmr",
         "name": "Bad Moon Rising",
-        "description": "A harsher, more chaotic script — outsiders lie about who they are, and the demon comes in unpredictable, asymmetric shapes. Four very different demons — Zombuul, Pukka, Shabaloth, and Po — each kill on their own strange schedule, so 'who's the demon' rarely has one clean answer. The Godfather and Devil's Advocate protect evil's secrets while a Mastermind waits behind the scenes, ready to drag the game past its expected ending.",
+        "description": "A harsher, more chaotic script — outsiders lie about who they are, and the demon comes in unpredictable, asymmetric shapes.",
         "difficulty": 2,
         "playable": true,
-        "official": true
+        "official": true,
+        "featuredCharacter": "mastermind",
+        "detailNotes": "Four very different demons — Zombuul, Pukka, Shabaloth, and Po — each kill on their own strange schedule, so 'who's the demon' rarely has one clean answer. The Godfather and Devil's Advocate protect evil's secrets while a Mastermind waits behind the scenes, ready to drag the game past its expected ending.\n\nBecause no single kill pattern points reliably at the demon, good has to build its case from Outsider behavior as much as night deaths — a quiet Goon or a cagey Lunatic can look exactly like a nervous evil player. A Mastermind win means the day the town finally executes the demon isn't necessarily the day the game actually ends."
       },
       {
         "id": "sv",
         "name": "Sects & Violets",
-        "description": "A script of madness and misinformation, where players can't always trust their own alignment, let alone anyone else's. A Cerenovus can quietly convince a townsfolk they're someone else entirely, an Evil Twin ties two fates together from the first night, and a Vortox demon can turn every true piece of information in play into a lie. By the time a Pit-Hag or Witch has finished rearranging the grimoire, no claim is safe to trust at face value.",
+        "description": "A script of madness and misinformation, where players can't always trust their own alignment, let alone anyone else's.",
         "difficulty": 3,
         "playable": true,
-        "official": true
+        "official": true,
+        "featuredCharacter": "vortox",
+        "detailNotes": "A Cerenovus can quietly convince a townsfolk they're someone else entirely, an Evil Twin ties two fates together from the first night, and a Vortox demon can turn every true piece of information in play into a lie. By the time a Pit-Hag or Witch has finished rearranging the grimoire, no claim is safe to trust at face value.\n\nThe danger compounds rather than stays contained: once one player's claim is in doubt — mad, twinned, or just unlucky — the whole information network they were part of goes with them. And because Vortox can win without ever attacking, a good team playing a technically flawless information game can still lose the moment it forgets that."
       },
       {
         "id": "everyone-can-play",
         "name": "Everyone Can Play",
-        "description": "Designed for a mixed table of veterans and first-timers — almost entirely Trouble Brewing, with a Scarlet Woman's extra night-death and a Mayor/Saint's execution stakes layered on top. Newer players get the same gentle information game — Empath, Fortune Teller, Librarian — while a Scarlet Woman ready to inherit the Imp and a Mayor's win-without-execution keep the more experienced half of the table just as engaged.",
+        "description": "Designed for a mixed table of veterans and first-timers — almost entirely Trouble Brewing, with a Scarlet Woman's extra night-death and a Mayor/Saint's execution stakes layered on top.",
         "difficulty": 1,
-        "playable": true
+        "playable": true,
+        "featuredCharacter": "mayor",
+        "detailNotes": "Newer players get the same gentle information game — Empath, Fortune Teller, Librarian — while a Scarlet Woman ready to inherit the Imp and a Mayor's win-without-execution keep the more experienced half of the table just as engaged.\n\nIt changes almost nothing structurally from Trouble Brewing, which is the point — a first-timer can learn the same core loop of claims and cross-referencing, while the added stakes give returning players an actual reason to think twice before executing on a hunch."
       },
       {
         "id": "hide-and-seek",
         "name": "Hide & Seek",
-        "description": "Everyone is lying, or should be — a bluff-heavy script that rewards double-claims from both teams, good included. Four demons — Imp, Pukka, Vigormortis, Ojo — can all plausibly be hiding behind the same early claim, and a Witch's curse waits to punish whoever nominates carelessly. The Noble, Preacher, and Pixie still hand good just enough real information to make every bluff a genuine risk.",
+        "description": "Everyone is lying, or should be — a bluff-heavy script that rewards double-claims from both teams, good included.",
         "difficulty": 3,
-        "playable": true
+        "playable": true,
+        "featuredCharacter": "witch",
+        "detailNotes": "Four demons — Imp, Pukka, Vigormortis, Ojo — can all plausibly be hiding behind the same early claim, and a Witch's curse waits to punish whoever nominates carelessly. The Noble, Preacher, and Pixie still hand good just enough real information to make every bluff a genuine risk.\n\nThe usual shortcut — 'good tells the truth, evil lies' — doesn't hold here, since good is bluffing too, which means an execution decision that looks safe on paper rarely feels safe in the room. A wrongly-punished claim from the Witch or Cerenovus can cost the town a truthful player just as easily as a lying one."
       },
       {
         "id": "lunar-eclipse",
         "name": "Lunar Eclipse",
-        "description": "Can the Lunatic go an entire game without ever realizing what they are? Three demons who each kill differently — Zombuul's silence, Vigormortis's poisoned inheritance, No Dashii's spreading falsehood — share the night with a Marionette who quietly believes they're on the wrong team. The Lunatic is the heart of it, but far from the only one confused about themselves.",
+        "description": "Can the Lunatic go an entire game without ever realizing what they are?",
         "difficulty": 4,
-        "playable": true
+        "playable": true,
+        "featuredCharacter": "lunatic",
+        "detailNotes": "Three demons who each kill differently — Zombuul's silence, Vigormortis's poisoned inheritance, No Dashii's spreading falsehood — share the night with a Marionette who quietly believes they're on the wrong team. The Lunatic is the heart of it, but far from the only one confused about themselves.\n\nBecause the table can often piece together what the Lunatic actually is well before the Lunatic themselves does, this script carries a spectator tension the others don't — everyone watching a player confidently act on a belief that isn't true. Three demons with three different kill rhythms keep the rest of the town honestly unsure what's actually happening at night, Lunatic aside."
       },
       {
         "id": "trust",
         "name": "Trust",
-        "description": "Built around keeping the Mayor's alternate win condition alive and contested — safety nets and threats to it on both sides. A Politician can flip a losing game to good from beyond the grave, while a Marionette and a Witch make sure evil always has a way to unsettle the town's trust in exactly who deserves protecting. Every execution here carries the weight of the Mayor's win looming behind it.",
+        "description": "Built around keeping the Mayor's alternate win condition alive and contested — safety nets and threats to it on both sides.",
         "difficulty": 4,
-        "playable": true
+        "playable": true,
+        "featuredCharacter": "politician",
+        "detailNotes": "A Politician can flip a losing game to good from beyond the grave, while a Marionette and a Witch make sure evil always has a way to unsettle the town's trust in exactly who deserves protecting. Every execution here carries the weight of the Mayor's win looming behind it.\n\nGood has to weigh protecting the Mayor's win against actively hunting evil, since a quiet day that keeps the Mayor alive can also be exactly what a Marionette or Witch needs to keep operating unnoticed. Evil, in turn, has to decide whether disrupting that quiet is worth the exposure it risks."
       },
       {
         "id": "boozling",
         "name": "Boozling",
-        "description": "A high-tension chaos script built around Fang Gu and Baron threats, with Cerenovus madness thrown into the mix. A Golem can end the game with a single wrong nomination, a Cannibal inherits whatever the town just executed, and a High Priestess or Fisherman hand out just enough truth to make the chaos feel survivable. Fang Gu's jump and Baron's extra outsiders mean the setup itself is never quite what it first looks like.",
+        "description": "A high-tension chaos script built around Fang Gu and Baron threats, with Cerenovus madness thrown into the mix.",
         "difficulty": 3,
-        "playable": true
+        "playable": true,
+        "featuredCharacter": "golem",
+        "detailNotes": "A Golem can end the game with a single wrong nomination, a Cannibal inherits whatever the town just executed, and a High Priestess or Fisherman hand out just enough truth to make the chaos feel survivable. Fang Gu's jump and Baron's extra outsiders mean the setup itself is never quite what it first looks like.\n\nFew games here play out the same way twice — a Golem's nomination can end things in a single day one game and never come up the next, and a Cannibal picking up whatever ability the town just executed means the town's own choices keep reshaping what they're up against."
       },
       {
         "id": "minotaurs-labyrinth",
         "name": "The Minotaur's Labyrinth",
-        "description": "An information-forward script — plenty to learn, and a Cannibal ready to inherit whatever the town executes. Three roaming demons — Shabaloth, Po, Fang Gu — alongside the Imp keep the killer's identity shifting even as the Investigator, Fortune Teller, and Clockmaker pile up clues about it. A Politician and Recluse make sure good's information is never quite as safe as it looks.",
+        "description": "An information-forward script — plenty to learn, and a Cannibal ready to inherit whatever the town executes.",
         "difficulty": 2,
-        "playable": true
+        "playable": true,
+        "featuredCharacter": "cannibal",
+        "detailNotes": "Three roaming demons — Shabaloth, Po, Fang Gu — alongside the Imp keep the killer's identity shifting even as the Investigator, Fortune Teller, and Clockmaker pile up clues about it. A Politician and Recluse make sure good's information is never quite as safe as it looks.\n\nSolid information goes stale fast when the demon threatening the town could be any of three very different shapes on a given night, so a Fortune Teller or Clockmaker's read from two nights ago may already be worthless. A Politician or Recluse muddies even who's safe to trust with that information in the first place."
+      },
+      {
+        "id": "the-wrong-name",
+        "name": "The Wrong Name",
+        "description": "A demon that kills by character, not by face — and a town that has to work out which roles even still exist to protect them.",
+        "difficulty": 3,
+        "playable": true,
+        "featuredCharacter": "ojo",
+        "detailNotes": "Ojo doesn't choose a player — it chooses a character, and if that character isn't in the game, the Storyteller decides who actually dies. An Evil Twin ties two fates together from night one, and a Pit-Hag can turn a townsfolk into something else entirely, so the character list Ojo is aiming at keeps quietly changing underneath it.\n\nGood's usual shortcuts don't fully apply here: naming a character as safe doesn't mean naming a player as safe, and a Golem's single nomination or a drunk Puzzlemaster can end a game in one move if the town aims it wrong. Fang Gu's jump onto an Outsider only adds to how little the board resembles what it looked like at the start of the night."
+      },
+      {
+        "id": "overtime",
+        "name": "Overtime",
+        "description": "Built to outlast the moment good thinks it's won — a Mastermind who plays on past the Demon's execution, and Outsiders whose real cost lands only after they're already gone.",
+        "difficulty": 2,
+        "playable": true,
+        "featuredCharacter": "snakecharmer",
+        "detailNotes": "Mastermind's whole point is a day that keeps going after the town is sure it's over — a Snake Charmer or Lycanthrope give good real teeth to end things decisively, but a Scarlet Woman is still ready to inherit if they don't move fast enough. A Sweetheart or Moonchild's own death doesn't end their impact either; it just changes shape.\n\nThe table has to plan past the execution it's aiming for, not just toward it — a nomination that looks like a clean win can still leave a Mastermind's one extra day to punish a careless guess. Goon and Tinker round out an unusually large Outsider bench, which a Godfather is only too happy to pick off."
+      },
+      {
+        "id": "last-rites",
+        "name": "Last Rites",
+        "description": "Every script has stakes, but here a single nomination can end the game outright — a Saint, a Golem, or a Damsel each turn one specific moment into the whole ballgame.",
+        "difficulty": 4,
+        "playable": true,
+        "featuredCharacter": "damsel",
+        "detailNotes": "A Saint executed is an instant evil win, a Golem's one lifetime nomination kills outright if they're wrong, and a Damsel correctly guessed by a Minion ends it just as fast — three completely different players who can each single-handedly decide the game before the Demon ever gets a say. A Devil's Advocate is there specifically to protect the wrong one of them at the worst possible time.\n\nPo and Shabaloth keep the night threat itself unpredictable — one holds its kill and unloads three at once, the other might bring its last victim back with it — so the town rarely gets a clean read on when the real danger is even coming. Every nomination has to be weighed against what it could cost beyond just who dies."
+      },
+      {
+        "id": "first-blood",
+        "name": "First Blood",
+        "description": "A tight five-to-seven player table's first taste of the game — classic roles, one Demon, nothing to overthink.",
+        "difficulty": 1,
+        "playable": true,
+        "maxPlayers": 7,
+        "featuredCharacter": "slayer",
+        "detailNotes": "Built small on purpose — Washerwoman, Empath, and Chef teach the basic claim-and-cross-reference loop, a Slayer and Virgin give good a couple of real swings, and a single Imp keeps the night threat simple to track at a table this size.\n\nWith so few seats, every piece of information carries more weight than it would at a full table — a wrong claim or a rushed execution costs the town a much bigger share of what little it has to work with."
+      },
+      {
+        "id": "small-mercies",
+        "name": "Small Mercies",
+        "description": "A gentler five-to-seven player table, thick with protective Outsiders and a Demon who doesn't always strike when you expect.",
+        "difficulty": 2,
+        "playable": true,
+        "maxPlayers": 7,
+        "featuredCharacter": "pukka",
+        "detailNotes": "A Saint's life is worth protecting and a Drunk quietly wastes an ability without anyone knowing which one, while Fortune Teller, Investigator, and Librarian hand out real information early. Pukka's poison doesn't always show itself the night it's given, so a death can land a full day later than the town expects.\n\nA Spy or Assassin only needs one good read to turn a quiet game sharply — Grandmother's known Townsfolk becomes a real anchor to build the rest of the table's trust around, right up until Assassin removes them outright."
+      },
+      {
+        "id": "no-greater-joy",
+        "name": "No Greater Joy",
+        "description": "A simple 'next step' for new players who have played Trouble Brewing — official Teensyville by Steven Medway.",
+        "difficulty": 1,
+        "playable": true,
+        "maxPlayers": 7,
+        "featuredCharacter": "clockmaker",
+        "detailNotes": "Steven Medway's own recommended first Teensyville table: a Clockmaker, Investigator, and Empath keep the information game familiar to anyone who's played Trouble Brewing, while a Sage gives good one real answer even if the Demon gets them. A Scarlet Woman and Baron are the only real complication — small enough that a wrong guess doesn't spiral.\n\nWith just two Outsiders on the sheet, a Baron who'd normally claim two ends up taking whatever's actually left — the same real constraint the official script itself calls out, not a house rule invented here. At a table this size, that one Klutz or Drunk carries a lot more weight per player than it would in a full game."
+      },
+      {
+        "id": "over-the-river",
+        "name": "Over the River",
+        "description": "\"What big eyes you have!\" — official Teensyville by Andrew Nathenson.",
+        "difficulty": 2,
+        "playable": true,
+        "maxPlayers": 7,
+        "featuredCharacter": "recluse",
+        "detailNotes": "A Grandmother's known Townsfolk and a Snake Charmer willing to hunt directly give good real footing, while a Godfather decides on a whim whether the Outsider count grows or shrinks. A Recluse is there specifically to look like something it isn't — the whole table is one long game of not trusting the first thing you see.\n\nA Lunatic adds a second layer of the same misdirection from the good side, quietly acting on a false belief about themselves while everyone else tries to read the real threat. Innkeeper and Professor round out a small table that still has real texture to it, not just a shrunk-down Trouble Brewing."
       }
     ],
     "setupTable": {
@@ -167,7 +252,11 @@
     {
       "id": "washerwoman",
       "name": "Washerwoman",
-      "edition": "tb",
+      "edition": [
+        "tb",
+        "the-wrong-name",
+        "first-blood"
+      ],
       "team": "townsfolk",
       "ability": "You start knowing that 1 of 2 players is a particular Townsfolk.",
       "setup": false,
@@ -187,7 +276,8 @@
         "tb",
         "everyone-can-play",
         "hide-and-seek",
-        "trust"
+        "trust",
+        "small-mercies"
       ],
       "team": "townsfolk",
       "ability": "You start knowing that 1 of 2 players is a particular Outsider. (Or that zero are in play.)",
@@ -206,7 +296,10 @@
       "name": "Investigator",
       "edition": [
         "tb",
-        "minotaurs-labyrinth"
+        "minotaurs-labyrinth",
+        "the-wrong-name",
+        "small-mercies",
+        "no-greater-joy"
       ],
       "team": "townsfolk",
       "ability": "You start knowing that 1 of 2 players is a particular Minion.",
@@ -223,7 +316,11 @@
     {
       "id": "chef",
       "name": "Chef",
-      "edition": "tb",
+      "edition": [
+        "tb",
+        "the-wrong-name",
+        "first-blood"
+      ],
       "team": "townsfolk",
       "ability": "You start knowing how many pairs of evil players there are.",
       "setup": false,
@@ -238,7 +335,12 @@
       "name": "Empath",
       "edition": [
         "tb",
-        "everyone-can-play"
+        "everyone-can-play",
+        "the-wrong-name",
+        "overtime",
+        "last-rites",
+        "first-blood",
+        "no-greater-joy"
       ],
       "team": "townsfolk",
       "ability": "Each night, you learn how many of your 2 alive neighbours are evil.",
@@ -257,7 +359,9 @@
         "everyone-can-play",
         "trust",
         "boozling",
-        "minotaurs-labyrinth"
+        "minotaurs-labyrinth",
+        "overtime",
+        "small-mercies"
       ],
       "team": "townsfolk",
       "ability": "Each night, choose 2 players: you learn if either is a Demon. There is a good player that registers as a Demon to you.",
@@ -276,7 +380,9 @@
       "edition": [
         "tb",
         "everyone-can-play",
-        "hide-and-seek"
+        "hide-and-seek",
+        "overtime",
+        "small-mercies"
       ],
       "team": "townsfolk",
       "ability": "Each night*, you learn which character died by execution today.",
@@ -296,7 +402,9 @@
         "tb",
         "everyone-can-play",
         "trust",
-        "minotaurs-labyrinth"
+        "minotaurs-labyrinth",
+        "the-wrong-name",
+        "first-blood"
       ],
       "team": "townsfolk",
       "ability": "Each night*, choose a player (not yourself): they are safe from the Demon tonight.",
@@ -317,7 +425,10 @@
         "everyone-can-play",
         "hide-and-seek",
         "trust",
-        "minotaurs-labyrinth"
+        "minotaurs-labyrinth",
+        "the-wrong-name",
+        "overtime",
+        "small-mercies"
       ],
       "team": "townsfolk",
       "ability": "If you die at night, you are woken to choose a player: you learn their character.",
@@ -333,7 +444,9 @@
       "name": "Virgin",
       "edition": [
         "tb",
-        "hide-and-seek"
+        "hide-and-seek",
+        "the-wrong-name",
+        "first-blood"
       ],
       "team": "townsfolk",
       "ability": "The 1st time you are nominated, if the nominator is a Townsfolk, they are executed immediately.",
@@ -353,7 +466,12 @@
         "tb",
         "everyone-can-play",
         "boozling",
-        "minotaurs-labyrinth"
+        "minotaurs-labyrinth",
+        "the-wrong-name",
+        "overtime",
+        "last-rites",
+        "first-blood",
+        "over-the-river"
       ],
       "team": "townsfolk",
       "ability": "Once per game, during the day, publicly choose a player: if they are the Demon, they die.",
@@ -369,7 +487,12 @@
     {
       "id": "soldier",
       "name": "Soldier",
-      "edition": "tb",
+      "edition": [
+        "tb",
+        "the-wrong-name",
+        "overtime",
+        "first-blood"
+      ],
       "team": "townsfolk",
       "ability": "You are safe from the Demon.",
       "setup": false,
@@ -400,7 +523,11 @@
     {
       "id": "butler",
       "name": "Butler",
-      "edition": "tb",
+      "edition": [
+        "tb",
+        "the-wrong-name",
+        "first-blood"
+      ],
       "team": "outsider",
       "ability": "Each night, choose a player (not yourself): tomorrow, you may only vote if they are voting too.",
       "setup": false,
@@ -420,7 +547,10 @@
         "everyone-can-play",
         "hide-and-seek",
         "trust",
-        "boozling"
+        "boozling",
+        "the-wrong-name",
+        "small-mercies",
+        "no-greater-joy"
       ],
       "team": "outsider",
       "ability": "You do not know you are the Drunk. You think you are a Townsfolk character, but you are not.",
@@ -440,7 +570,10 @@
         "tb",
         "everyone-can-play",
         "trust",
-        "minotaurs-labyrinth"
+        "minotaurs-labyrinth",
+        "the-wrong-name",
+        "first-blood",
+        "over-the-river"
       ],
       "team": "outsider",
       "ability": "You might register as evil & as a Minion or Demon, even if dead.",
@@ -456,7 +589,9 @@
       "name": "Saint",
       "edition": [
         "tb",
-        "everyone-can-play"
+        "everyone-can-play",
+        "last-rites",
+        "small-mercies"
       ],
       "team": "outsider",
       "ability": "If you die by execution, your team loses.",
@@ -473,7 +608,8 @@
       "edition": [
         "tb",
         "everyone-can-play",
-        "hide-and-seek"
+        "hide-and-seek",
+        "first-blood"
       ],
       "team": "minion",
       "ability": "Each night, choose a player: they are poisoned tonight and tomorrow day.",
@@ -492,7 +628,9 @@
       "edition": [
         "tb",
         "everyone-can-play",
-        "lunar-eclipse"
+        "lunar-eclipse",
+        "small-mercies",
+        "over-the-river"
       ],
       "team": "minion",
       "ability": "Each night, you see the Grimoire. You might register as good & as a Townsfolk or Outsider, even if dead.",
@@ -510,7 +648,11 @@
         "tb",
         "everyone-can-play",
         "boozling",
-        "minotaurs-labyrinth"
+        "minotaurs-labyrinth",
+        "overtime",
+        "last-rites",
+        "first-blood",
+        "no-greater-joy"
       ],
       "team": "minion",
       "ability": "If there are 5 or more players alive & the Demon dies, you become the Demon. (Travellers don't count.)",
@@ -530,7 +672,11 @@
         "tb",
         "everyone-can-play",
         "trust",
-        "boozling"
+        "boozling",
+        "the-wrong-name",
+        "overtime",
+        "last-rites",
+        "no-greater-joy"
       ],
       "team": "minion",
       "ability": "There are extra Outsiders in play. [+2 Outsiders]",
@@ -550,7 +696,11 @@
         "hide-and-seek",
         "trust",
         "boozling",
-        "minotaurs-labyrinth"
+        "minotaurs-labyrinth",
+        "overtime",
+        "first-blood",
+        "no-greater-joy",
+        "over-the-river"
       ],
       "team": "demon",
       "ability": "Each night*, choose a player: they die. If you kill yourself this way, a Minion becomes the Imp.",
@@ -569,7 +719,9 @@
       "edition": [
         "bmr",
         "everyone-can-play",
-        "lunar-eclipse"
+        "lunar-eclipse",
+        "small-mercies",
+        "over-the-river"
       ],
       "team": "townsfolk",
       "ability": "You start knowing a good player & their character. If the Demon kills them, you die too.",
@@ -605,7 +757,9 @@
       "name": "Chambermaid",
       "edition": [
         "bmr",
-        "lunar-eclipse"
+        "lunar-eclipse",
+        "overtime",
+        "no-greater-joy"
       ],
       "team": "townsfolk",
       "ability": "Each night, choose 2 alive players (not yourself): you learn how many woke tonight due to their ability.",
@@ -619,7 +773,10 @@
     {
       "id": "exorcist",
       "name": "Exorcist",
-      "edition": "bmr",
+      "edition": [
+        "bmr",
+        "last-rites"
+      ],
       "team": "townsfolk",
       "ability": "Each night*, choose a player (different to last night): the Demon, if chosen, learns who you are then doesn't wake tonight.",
       "setup": false,
@@ -636,7 +793,9 @@
       "name": "Innkeeper",
       "edition": [
         "bmr",
-        "lunar-eclipse"
+        "lunar-eclipse",
+        "small-mercies",
+        "over-the-river"
       ],
       "team": "townsfolk",
       "ability": "Each night*, choose 2 players: they can't die tonight, but 1 is drunk until dusk.",
@@ -655,7 +814,8 @@
       "name": "Gambler",
       "edition": [
         "bmr",
-        "everyone-can-play"
+        "everyone-can-play",
+        "last-rites"
       ],
       "team": "townsfolk",
       "ability": "Each night*, choose a player & guess their character: if you guess wrong, you die.",
@@ -671,7 +831,10 @@
     {
       "id": "gossip",
       "name": "Gossip",
-      "edition": "bmr",
+      "edition": [
+        "bmr",
+        "overtime"
+      ],
       "team": "townsfolk",
       "ability": "Each day, you may make a public statement. Tonight, if it was true, a player dies.",
       "setup": false,
@@ -686,7 +849,11 @@
     {
       "id": "courtier",
       "name": "Courtier",
-      "edition": "bmr",
+      "edition": [
+        "bmr",
+        "overtime",
+        "last-rites"
+      ],
       "team": "townsfolk",
       "ability": "Once per game, at night, choose a character: they are drunk for 3 nights & 3 days.",
       "setup": false,
@@ -706,7 +873,9 @@
       "name": "Professor",
       "edition": [
         "bmr",
-        "minotaurs-labyrinth"
+        "minotaurs-labyrinth",
+        "last-rites",
+        "over-the-river"
       ],
       "team": "townsfolk",
       "ability": "Once per game, at night*, choose a dead player: if they are a Townsfolk, they are resurrected.",
@@ -723,7 +892,10 @@
     {
       "id": "minstrel",
       "name": "Minstrel",
-      "edition": "bmr",
+      "edition": [
+        "bmr",
+        "overtime"
+      ],
       "team": "townsfolk",
       "ability": "When a Minion dies by execution, all other players (except Travellers) are drunk until dusk tomorrow.",
       "setup": false,
@@ -756,7 +928,10 @@
     {
       "id": "pacifist",
       "name": "Pacifist",
-      "edition": "bmr",
+      "edition": [
+        "bmr",
+        "last-rites"
+      ],
       "team": "townsfolk",
       "ability": "Executed good players might not die.",
       "setup": false,
@@ -787,7 +962,10 @@
     {
       "id": "tinker",
       "name": "Tinker",
-      "edition": "bmr",
+      "edition": [
+        "bmr",
+        "overtime"
+      ],
       "team": "outsider",
       "ability": "You might die at any time.",
       "setup": false,
@@ -804,7 +982,8 @@
       "name": "Moonchild",
       "edition": [
         "bmr",
-        "everyone-can-play"
+        "everyone-can-play",
+        "overtime"
       ],
       "team": "outsider",
       "ability": "When you learn that you died, publicly choose 1 alive player. Tonight, if it was a good player, they die.",
@@ -823,7 +1002,8 @@
       "edition": [
         "bmr",
         "hide-and-seek",
-        "lunar-eclipse"
+        "lunar-eclipse",
+        "overtime"
       ],
       "team": "outsider",
       "ability": "Each night, the 1st player to choose you with their ability is drunk until dusk. You become their alignment.",
@@ -842,7 +1022,8 @@
       "edition": [
         "bmr",
         "lunar-eclipse",
-        "trust"
+        "trust",
+        "over-the-river"
       ],
       "team": "outsider",
       "ability": "You think you are a Demon, but you are not. The Demon knows who you are & who you choose at night.",
@@ -864,7 +1045,9 @@
         "bmr",
         "hide-and-seek",
         "lunar-eclipse",
-        "minotaurs-labyrinth"
+        "minotaurs-labyrinth",
+        "overtime",
+        "over-the-river"
       ],
       "team": "minion",
       "ability": "You start knowing which Outsiders are in play. If 1 died today, choose a player tonight: they die. [-1 or +1 Outsider]",
@@ -884,7 +1067,8 @@
       "edition": [
         "bmr",
         "everyone-can-play",
-        "lunar-eclipse"
+        "lunar-eclipse",
+        "last-rites"
       ],
       "team": "minion",
       "ability": "Each night, choose a living player (different to last night): if executed tomorrow, they don't die.",
@@ -903,7 +1087,8 @@
       "edition": [
         "bmr",
         "everyone-can-play",
-        "lunar-eclipse"
+        "lunar-eclipse",
+        "small-mercies"
       ],
       "team": "minion",
       "ability": "Once per game, at night*, choose a player: they die, even if for some reason they could not.",
@@ -920,7 +1105,10 @@
     {
       "id": "mastermind",
       "name": "Mastermind",
-      "edition": "bmr",
+      "edition": [
+        "bmr",
+        "overtime"
+      ],
       "team": "minion",
       "ability": "If the Demon dies by execution (ending the game), play for 1 more day. If a player is then executed, their team loses.",
       "setup": false,
@@ -954,7 +1142,8 @@
       "name": "Pukka",
       "edition": [
         "bmr",
-        "hide-and-seek"
+        "hide-and-seek",
+        "small-mercies"
       ],
       "team": "demon",
       "ability": "Each night, choose a player: they are poisoned. The previously poisoned player dies then becomes healthy.",
@@ -973,7 +1162,8 @@
       "name": "Shabaloth",
       "edition": [
         "bmr",
-        "minotaurs-labyrinth"
+        "minotaurs-labyrinth",
+        "last-rites"
       ],
       "team": "demon",
       "ability": "Each night*, choose 2 players: they die. A dead player you chose last night might be regurgitated.",
@@ -992,7 +1182,8 @@
       "name": "Po",
       "edition": [
         "bmr",
-        "minotaurs-labyrinth"
+        "minotaurs-labyrinth",
+        "last-rites"
       ],
       "team": "demon",
       "ability": "Each night*, you may choose a player: they die. If your last choice was no-one, choose 3 players tonight.",
@@ -1012,7 +1203,9 @@
       "edition": [
         "sv",
         "everyone-can-play",
-        "minotaurs-labyrinth"
+        "minotaurs-labyrinth",
+        "no-greater-joy",
+        "over-the-river"
       ],
       "team": "townsfolk",
       "ability": "You start knowing how many steps from the Demon to its nearest Minion.",
@@ -1028,7 +1221,8 @@
       "name": "Dreamer",
       "edition": [
         "sv",
-        "hide-and-seek"
+        "hide-and-seek",
+        "last-rites"
       ],
       "team": "townsfolk",
       "ability": "Each night, choose a player (not yourself or Travellers): you learn 1 good and 1 evil character, 1 of which is correct.",
@@ -1042,7 +1236,11 @@
     {
       "id": "snakecharmer",
       "name": "Snake Charmer",
-      "edition": "sv",
+      "edition": [
+        "sv",
+        "overtime",
+        "over-the-river"
+      ],
       "team": "townsfolk",
       "ability": "Each night, choose an alive player: a chosen Demon swaps characters & alignments with you & is then poisoned.",
       "setup": false,
@@ -1076,7 +1274,10 @@
     {
       "id": "flowergirl",
       "name": "Flowergirl",
-      "edition": "sv",
+      "edition": [
+        "sv",
+        "the-wrong-name"
+      ],
       "team": "townsfolk",
       "ability": "Each night*, you learn if a Demon voted today.",
       "setup": false,
@@ -1192,7 +1393,8 @@
         "sv",
         "everyone-can-play",
         "hide-and-seek",
-        "lunar-eclipse"
+        "lunar-eclipse",
+        "no-greater-joy"
       ],
       "team": "townsfolk",
       "ability": "Once per game, during the day, privately ask the Storyteller any yes/no question.",
@@ -1208,7 +1410,10 @@
     {
       "id": "juggler",
       "name": "Juggler",
-      "edition": "sv",
+      "edition": [
+        "sv",
+        "overtime"
+      ],
       "team": "townsfolk",
       "ability": "On your 1st day, publicly guess up to 5 players' characters. That night, you learn how many you got correct.",
       "setup": false,
@@ -1225,7 +1430,9 @@
       "name": "Sage",
       "edition": [
         "sv",
-        "boozling"
+        "boozling",
+        "last-rites",
+        "no-greater-joy"
       ],
       "team": "townsfolk",
       "ability": "If the Demon kills you, you learn that it is 1 of 2 players.",
@@ -1257,7 +1464,10 @@
     {
       "id": "sweetheart",
       "name": "Sweetheart",
-      "edition": "sv",
+      "edition": [
+        "sv",
+        "overtime"
+      ],
       "team": "outsider",
       "ability": "When you die, 1 player is drunk from now on.",
       "setup": false,
@@ -1274,7 +1484,8 @@
       "name": "Barber",
       "edition": [
         "sv",
-        "lunar-eclipse"
+        "lunar-eclipse",
+        "overtime"
       ],
       "team": "outsider",
       "ability": "If you died today or tonight, the Demon may choose 2 players (not another Demon) to swap characters.",
@@ -1293,7 +1504,8 @@
       "edition": [
         "sv",
         "boozling",
-        "minotaurs-labyrinth"
+        "minotaurs-labyrinth",
+        "no-greater-joy"
       ],
       "team": "outsider",
       "ability": "When you learn that you died, publicly choose 1 alive player: if they are evil, your team loses.",
@@ -1307,7 +1519,10 @@
     {
       "id": "eviltwin",
       "name": "Evil Twin",
-      "edition": "sv",
+      "edition": [
+        "sv",
+        "the-wrong-name"
+      ],
       "team": "minion",
       "ability": "You & an opposing player know each other. If the good player is executed, evil wins. Good can't win if you both live.",
       "setup": false,
@@ -1326,7 +1541,9 @@
         "sv",
         "minotaurs-labyrinth",
         "hide-and-seek",
-        "trust"
+        "trust",
+        "the-wrong-name",
+        "last-rites"
       ],
       "team": "minion",
       "ability": "Each night, choose a player: if they nominate tomorrow, they die. If just 3 players live, you lose this ability.",
@@ -1363,7 +1580,10 @@
     {
       "id": "pithag",
       "name": "Pit-Hag",
-      "edition": "sv",
+      "edition": [
+        "sv",
+        "the-wrong-name"
+      ],
       "team": "minion",
       "ability": "Each night*, choose a player & a character they become (if not-in-play). If a Demon is made, deaths tonight are arbitrary.",
       "setup": false,
@@ -1379,7 +1599,8 @@
       "edition": [
         "sv",
         "boozling",
-        "minotaurs-labyrinth"
+        "minotaurs-labyrinth",
+        "the-wrong-name"
       ],
       "team": "demon",
       "ability": "Each night*, choose a player: they die. The 1st Outsider this kills becomes an evil Fang Gu & you die instead. [+1 Outsider]",
@@ -1471,7 +1692,8 @@
       "id": "balloonist",
       "name": "Balloonist",
       "edition": [
-        "boozling"
+        "boozling",
+        "the-wrong-name"
       ],
       "team": "townsfolk",
       "ability": "Each night, you learn 1 player of each character type, until there are no more types to learn.",
@@ -1491,7 +1713,9 @@
       "id": "golem",
       "name": "Golem",
       "edition": [
-        "boozling"
+        "boozling",
+        "the-wrong-name",
+        "last-rites"
       ],
       "team": "outsider",
       "ability": "You may only nominate once per game. When you do, if the nominee is not the Demon, they die.",
@@ -1509,7 +1733,8 @@
       "name": "Magician",
       "edition": [
         "lunar-eclipse",
-        "trust"
+        "trust",
+        "last-rites"
       ],
       "team": "townsfolk",
       "ability": "The Demon thinks you are a Minion. Minions think you are a Demon.",
@@ -1524,7 +1749,9 @@
       "id": "puzzlemaster",
       "name": "Puzzlemaster",
       "edition": [
-        "lunar-eclipse"
+        "lunar-eclipse",
+        "the-wrong-name",
+        "last-rites"
       ],
       "team": "outsider",
       "ability": "1 player is drunk, even if you die. If you guess (once) who it is, learn the Demon player, but guess wrong & get false info.",
@@ -1542,7 +1769,8 @@
       "id": "preacher",
       "name": "Preacher",
       "edition": [
-        "hide-and-seek"
+        "hide-and-seek",
+        "the-wrong-name"
       ],
       "team": "townsfolk",
       "ability": "Each night, choose a player: a Minion, if chosen, learns this. All chosen Minions have no ability.",
@@ -1579,7 +1807,8 @@
       "id": "ojo",
       "name": "Ojo",
       "edition": [
-        "hide-and-seek"
+        "hide-and-seek",
+        "the-wrong-name"
       ],
       "team": "demon",
       "ability": "Each night*, choose a character: they die. If they are not in play, the Storyteller chooses who dies.",
@@ -1597,7 +1826,8 @@
       "name": "Damsel",
       "edition": [
         "hide-and-seek",
-        "boozling"
+        "boozling",
+        "last-rites"
       ],
       "team": "outsider",
       "ability": "All Minions know you are in play. If a Minion publicly guesses you (once), your team loses.",
@@ -1615,7 +1845,8 @@
       "name": "Huntsman",
       "edition": [
         "hide-and-seek",
-        "boozling"
+        "boozling",
+        "last-rites"
       ],
       "team": "townsfolk",
       "ability": "Once per game, at night, choose a living player: the Damsel, if chosen, becomes a not-in-play Townsfolk.",
@@ -1632,7 +1863,8 @@
       "id": "lycanthrope",
       "name": "Lycanthrope",
       "edition": [
-        "lunar-eclipse"
+        "lunar-eclipse",
+        "overtime"
       ],
       "team": "townsfolk",
       "ability": "Each night*, choose a living player: if good, they die, but they are the only player that can die tonight.",
@@ -1686,7 +1918,8 @@
       "id": "general",
       "name": "General",
       "edition": [
-        "trust"
+        "trust",
+        "the-wrong-name"
       ],
       "team": "townsfolk",
       "ability": "Each night, you learn which alignment the Storyteller believes is winning: good, evil, or neither.",
@@ -1702,7 +1935,8 @@
       "name": "Politician",
       "edition": [
         "trust",
-        "minotaurs-labyrinth"
+        "minotaurs-labyrinth",
+        "last-rites"
       ],
       "team": "outsider",
       "ability": "If you were the player most responsible for your team losing, you change alignment & win, even if dead.",
@@ -1717,7 +1951,8 @@
       "id": "highpriestess",
       "name": "High Priestess",
       "edition": [
-        "boozling"
+        "boozling",
+        "last-rites"
       ],
       "team": "townsfolk",
       "ability": "Each night, learn which player the Storyteller believes you should talk to most.",
@@ -1733,7 +1968,8 @@
       "name": "Fisherman",
       "edition": [
         "boozling",
-        "minotaurs-labyrinth"
+        "minotaurs-labyrinth",
+        "last-rites"
       ],
       "team": "townsfolk",
       "ability": "Once per game, during the day, visit the Storyteller for some advice to help you win.",

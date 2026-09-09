@@ -106,31 +106,31 @@ function dealRoles(g) {
   const demons = take(of('demon'), counts.demon);
   const minions = take(of('minion'), counts.minion);
 
+  // Every Outsider-count modifier below shares one clamp: never past what
+  // this script's own Outsider pool can actually supply, and never below
+  // zero. A small-pool script (a Teensyville with only 2 Outsiders on the
+  // sheet, say) hitting Baron's usual +2 is exactly the real rule too —
+  // the printed sheet for one of TPI's own recommended Teensyville scripts
+  // spells this out explicitly: Baron only adds as many as the script
+  // actually has. Whatever the pool can't cover just doesn't move, rather
+  // than dealRoles() coming up short of players later.
+  const outsiderPoolSize = of('outsider').length;
+  const adjustOutsiders = wanted => {
+    const clampedTotal = Math.max(0, Math.min(outsiderPoolSize, counts.outsider + wanted));
+    const delta = clampedTotal - counts.outsider;
+    counts.outsider += delta;
+    counts.townsfolk -= delta;
+  };
+
   // Baron: [+2 Outsiders]
-  if (minions.some(c => c.id === 'baron')) {
-    counts.outsider += 2;
-    counts.townsfolk -= 2;
-  }
+  if (minions.some(c => c.id === 'baron')) adjustOutsiders(2);
   // Godfather: [-1 or +1 Outsider] — no Storyteller here to choose, so it's
-  // a coin flip, clamped so the outsider count can't go negative.
-  if (minions.some(c => c.id === 'godfather')) {
-    const delta = Math.random() < 0.5 ? 1 : -1;
-    const newOutsiders = Math.max(0, counts.outsider + delta);
-    const actualDelta = newOutsiders - counts.outsider;
-    counts.outsider = newOutsiders;
-    counts.townsfolk -= actualDelta;
-  }
+  // a coin flip.
+  if (minions.some(c => c.id === 'godfather')) adjustOutsiders(Math.random() < 0.5 ? 1 : -1);
   // Fang Gu: [+1 Outsider] — flat and deterministic, no coin flip needed.
-  if (demons.some(c => c.id === 'fanggu')) {
-    counts.outsider += 1;
-    counts.townsfolk -= 1;
-  }
-  // Vigormortis: [-1 Outsider], clamped the same way Godfather's delta is.
-  if (demons.some(c => c.id === 'vigormortis')) {
-    const newOutsiders = Math.max(0, counts.outsider - 1);
-    counts.townsfolk += (counts.outsider - newOutsiders);
-    counts.outsider = newOutsiders;
-  }
+  if (demons.some(c => c.id === 'fanggu')) adjustOutsiders(1);
+  // Vigormortis: [-1 Outsider]
+  if (demons.some(c => c.id === 'vigormortis')) adjustOutsiders(-1);
 
   const outsiders = take(of('outsider'), counts.outsider);
   const townsfolk = take(of('townsfolk'), counts.townsfolk);
@@ -1115,6 +1115,19 @@ function privateState(g, playerId) {
     prompt: g.phase === 'night' ? promptFor(g, p) : null,
     submitted: !!g.pending[p.id],
     result: g.results[p.id] || null,
+    // Every living player's own action, not a character ability — no
+    // x.id !== p.id exclusion the way slayerShot/jugglerGuess have below,
+    // since nominating yourself is legal. Rarer per-day limits (already
+    // nominated, already been nominated, the Golem's once-per-game cap)
+    // aren't re-checked here — same as those checks already work for
+    // every other prompt in this file, the real gate is /api/table/
+    // nominate itself; this only covers the common case (alive, day,
+    // nothing already open) so the button doesn't show at an obviously
+    // wrong moment.
+    canNominate: (g.phase === 'day' && publiclyAlive(p) &&
+        !g.nominations.some(n => n.day === g.nightNumber && !n.closed))
+      ? { targets: g.players.filter(x => publiclyAlive(x)).map(x => ({ id: x.id, name: x.name, color: x.color || null, alive: true })) }
+      : null,
     // Shown based on *believed* character, same as everything else — a
     // Drunk who thinks they're the Slayer gets the button too, and simply
     // finds out (or rather, never finds out) that it does nothing.

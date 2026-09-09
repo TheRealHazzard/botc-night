@@ -2,7 +2,9 @@
 
 Drop a logo image here named after the script id, as `.png`:
 `tb.png`, `bmr.png`, `sv.png`, `everyone-can-play.png`, `hide-and-seek.png`,
-`lunar-eclipse.png`, `trust.png`, `boozling.png`, `minotaurs-labyrinth.png`.
+`lunar-eclipse.png`, `trust.png`, `boozling.png`, `minotaurs-labyrinth.png`,
+`the-wrong-name.png`, `overtime.png`, `last-rites.png`, `first-blood.png`,
+`small-mercies.png`, `no-greater-joy.png`, `over-the-river.png`.
 
 The id is what's in `characters.json`'s `meta.editions`, not the script's
 display name — "Hide & Seek" is `hide-and-seek.png`, not

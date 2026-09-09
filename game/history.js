@@ -215,13 +215,21 @@ function statsForAll() {
     played on it — for the lobby's script selector, not any one player's
     career. Good's win rate is the one number worth surfacing per script;
     which side "should" win more is exactly what a table picking a script
-    wants a read on. */
+    wants a read on. decidedGames/goodWins/evilWins are the raw counts
+    behind that rate (a game with no winner yet — abandoned, in progress —
+    counts toward gamesPlayed but not toward these), so the picker can
+    show real win tallies rather than re-deriving them by rounding a
+    percentage back apart. */
 function statsForEdition(edition) {
   const games = readAllGames().filter(g => g.edition === edition);
   const decided = games.filter(g => g.winner);
   const goodWins = decided.filter(g => g.winner === 'good').length;
+  const evilWins = decided.length - goodWins;
   return {
     gamesPlayed: games.length,
+    decidedGames: decided.length,
+    goodWins,
+    evilWins,
     goodWinRate: decided.length ? goodWins / decided.length : null,
   };
 }

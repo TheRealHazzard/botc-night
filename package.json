@@ -6,11 +6,29 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
+    "host:public": "node tools/host-public.js",
     "sim": "node tools/simulate.js",
-    "test:dom-shim": "node test/dom-shim/host.js && node test/dom-shim/player.js && node test/dom-shim/games.js && node test/dom-shim/simulate.js",
-    "test:llm": "node test/llmStoryteller.js"
+    "test:dom-shim": "node test/dom-shim/games.js && node test/dom-shim/simulate.js",
+    "test:llm": "node test/llmStoryteller.js",
+    "dev:player": "vite",
+    "build:player": "vite build",
+    "build:host": "vite build --mode host",
+    "test:player": "vitest run"
   },
   "engines": {
     "node": ">=18"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.5.0",
+    "@testing-library/react": "^16.0.1",
+    "@testing-library/user-event": "^14.5.2",
+    "@vitejs/plugin-react": "^4.3.2",
+    "jsdom": "^25.0.1",
+    "vite": "^5.4.8",
+    "vitest": "^2.1.2"
   }
 }

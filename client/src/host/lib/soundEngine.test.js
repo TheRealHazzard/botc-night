@@ -1,0 +1,49 @@
+import { describe, it, expect, beforeEach } from 'vitest';
+import { installFakeAudioContext, resetAudioCalls, toneCalls, noiseCalls } from '../../../test/fakeAudioContext.js';
+import { playNightFalls, playDayBreaks, playImpactSting, playVictory } from './soundEngine.js';
+
+describe('soundEngine', () => {
+  beforeEach(() => {
+    installFakeAudioContext();
+    resetAudioCalls();
+  });
+
+  it('playNightFalls: layered tones + a noise texture, all in a low dread register', () => {
+    playNightFalls(false);
+    expect(toneCalls.length).toBeGreaterThanOrEqual(2);
+    expect(noiseCalls.length).toBeGreaterThanOrEqual(1);
+    expect(toneCalls.every(c => c.freq < 150)).toBe(true);
+  });
+
+  it('playDayBreaks: warmer/higher register than night', () => {
+    playDayBreaks(false);
+    expect(toneCalls.length).toBeGreaterThanOrEqual(2);
+    expect(toneCalls.every(c => c.freq > 150)).toBe(true);
+  });
+
+  it('playImpactSting: sub-bass thud + noise crack + rumble', () => {
+    playImpactSting(false);
+    expect(toneCalls.length).toBeGreaterThanOrEqual(1);
+    expect(noiseCalls.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('playVictory(good): a full triad, no dissonant growl underneath', () => {
+    playVictory('good', false);
+    expect(toneCalls.length).toBeGreaterThanOrEqual(4);
+    expect(noiseCalls.length).toBe(0);
+  });
+
+  it("playVictory(evil): low dissonant cluster + a rumble the good ending doesn't have", () => {
+    playVictory('evil', false);
+    expect(toneCalls.length).toBeGreaterThanOrEqual(3);
+    expect(noiseCalls.length).toBeGreaterThanOrEqual(1);
+    expect(toneCalls.every(c => c.freq < 100)).toBe(true);
+  });
+
+  it('muted: nothing plays at all, for any cue', () => {
+    playNightFalls(true);
+    playVictory('evil', true);
+    expect(toneCalls.length).toBe(0);
+    expect(noiseCalls.length).toBe(0);
+  });
+});

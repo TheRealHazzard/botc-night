@@ -21,25 +21,22 @@ Gossip pickers' enable/disable and submitted-body logic.
 Each file is a plain Node script, no test runner or dependency needed:
 
 ```
-node test/dom-shim/host.js
-node test/dom-shim/player.js
 node test/dom-shim/games.js
 node test/dom-shim/simulate.js
 ```
 
-Or all four via `npm run test:dom-shim`. Exit code is non-zero if anything
-crashed or an explicit check failed. `host.js` mixes structural dumps (print
-a fixture's rendered tree so a human can eyeball it) with explicit `ok`/`FAIL`
-assertions — a print without a paired assertion is there for inspection, not
-because nothing is verified about that state.
+Or both via `npm run test:dom-shim`. Exit code is non-zero if anything
+crashed or an explicit check failed.
 
-There's no equivalent shim for `stats.html` yet.
+`host.html` and `player.html` were both retired once their React rebuilds
+(see `client/src/host/` and `client/src/`) were cut over — `host.js` and
+`player.js`, this suite's shims for them, went with them. Vitest
+(`npm run test:player`) covers that code now. There's no equivalent shim
+for `stats.html` yet.
 
 ## Adding a scenario or a new page
 
-Follow whichever of the four existing files is closest to what you're adding
-(`player.js`'s `scenarios` map is the clearest template for "one state object
-per screen, render, assert"). Extract the target page's script the same way
-these do — `fs.readFileSync(path.join(__dirname, '..', '..', 'public', 'X.html'), 'utf8').match(/<script>([\s\S]*)<\/script>/)[1]` —
+Follow whichever of the remaining files is closest to what you're adding.
+Extract the target page's script the same way these do — `fs.readFileSync(path.join(__dirname, '..', '..', 'public', 'X.html'), 'utf8').match(/<script>([\s\S]*)<\/script>/)[1]` —
 rather than hand-copying it into the test file, so the test always exercises
 the page's real, current code.

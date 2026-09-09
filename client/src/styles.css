@@ -1,0 +1,193 @@
+:root{
+  --void:#0a0806; --ash:#151009; --smoke:#241b12;
+  --bone:#e8dcc4; --bone-dim:#93866c;
+  --oxblood:#8e2226; --ember:#c4553a; --brass:#b8863f;
+  --good:#4c6d8f; --evil:#8e2226;
+  /* A player's chosen color re-brands their own wordmark and primary
+     actions only — never the good/evil semantic colors above, so a purple
+     accent pick can never be mistaken for a team indicator. */
+  --personal-accent: var(--oxblood);
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+body{
+  margin:0; min-height:100vh; background:var(--void); color:var(--bone);
+  font-family:'Spectral',Georgia,serif; font-size:17px; line-height:1.5;
+  /* viewport-fit=cover (needed for a full-screen home-screen app) lets
+     content run under the Dynamic Island / notch / home indicator — these
+     env() values are how iOS reports how much to pad back. They're 0 on
+     anything without a cutout, so this is a no-op everywhere else. */
+  padding-top: calc(22px + env(safe-area-inset-top));
+  padding-left: calc(18px + env(safe-area-inset-left));
+  padding-right: calc(18px + env(safe-area-inset-right));
+  padding-bottom: calc(40px + env(safe-area-inset-bottom));
+  background-image:radial-gradient(ellipse at 50% -10%, #1b1209 0%, #0a0806 60%);
+}
+.topbar{display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:22px}
+h1{font-family:'Cinzel Decorative',Georgia,serif; font-size:1.15rem; color:var(--personal-accent); margin:0; letter-spacing:.05em}
+.scriptbtn{
+  width:auto; margin:0; padding:8px 14px; font-size:.82rem;
+  background:#191009; border:1px solid #3d2c1c; color:var(--bone-dim);
+}
+.scriptbtn:active{border-color:var(--brass); color:var(--brass)}
+
+.overlay{
+  position:fixed; inset:0; background:rgba(5,3,2,.86); z-index:20;
+  display:flex; align-items:flex-end; justify-content:center;
+}
+.overlay-card{
+  width:100%; max-width:520px; max-height:82vh;
+  background:var(--void); border:1px solid #3a2a1c; border-top-left-radius:14px; border-top-right-radius:14px;
+  box-shadow:0 -8px 30px rgba(0,0,0,.5);
+  /* A real flex column instead of a sticky header inside a padded scroll
+     box — Safari doesn't reliably respect a scroll container's own top
+     padding for position:sticky children, which is what pushed the header
+     down. This way the header simply isn't part of the scrolling area. */
+  display:flex; flex-direction:column; overflow:hidden;
+}
+.overlay-head{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:18px 18px 12px; flex-shrink:0; border-bottom:1px solid #241b12;
+}
+.overlay-head h2{margin:0}
+.overlay-scroll{
+  flex:1; min-height:0; overflow-y:auto;
+  -webkit-overflow-scrolling:touch;
+  /* Stops the scroll gesture "chaining" to the page behind the modal once
+     you hit the top or bottom of this list — the likely cause of scrolling
+     going dead, since iOS was handing the gesture off to the body. */
+  overscroll-behavior:contain;
+  padding:14px 18px calc(24px + env(safe-area-inset-bottom));
+}
+.scriptgroup{margin-bottom:16px}
+.scriptgroup-title{font-size:.7rem; text-transform:uppercase; letter-spacing:.18em; color:var(--bone-dim); margin-bottom:8px}
+.scriptchar{border:1px solid #2e2117; border-radius:4px; padding:10px 12px; margin-bottom:8px}
+.scriptchar .row{display:flex; align-items:center; justify-content:space-between; gap:8px}
+.scriptchar .cname{font-family:'Cormorant Garamond',Georgia,serif; font-weight:700; font-size:1.05rem}
+.scriptchar .ability{font-size:.88rem; margin-top:4px; color:var(--bone-dim)}
+h2{font-family:'Cormorant Garamond',Georgia,serif; font-size:1.5rem; margin:0 0 8px; text-wrap:balance}
+.dim{color:var(--bone-dim)}
+.small{font-size:.85rem}
+.card{border:1px solid #2e2117; background:#120d08; border-radius:4px; padding:18px; margin-bottom:14px}
+
+input,button{font-family:inherit; font-size:1.05rem}
+input[type=text]{
+  width:100%; padding:14px; background:#0d0906; color:var(--bone);
+  border:1px solid #3a2a1c; border-radius:3px;
+}
+textarea.freetext{
+  width:100%; padding:14px; background:#0d0906; color:var(--bone);
+  border:1px solid #3a2a1c; border-radius:3px; font-family:inherit; font-size:1rem;
+  resize:vertical; min-height:5.5em; margin-top:10px;
+}
+button{
+  width:100%; padding:15px; margin-top:10px; cursor:pointer;
+  background:#191009; color:var(--bone); border:1px solid #3d2c1c; border-radius:3px;
+  font-family:'Cormorant Garamond',Georgia,serif; font-weight:600; letter-spacing:.03em;
+}
+button.primary{background:var(--personal-accent); border-color:var(--personal-accent); color:#fff2e8}
+button:disabled{opacity:.35}
+button.linklike{
+  width:auto; background:none; border:none; padding:6px 2px; margin-top:14px;
+  color:var(--bone-dim); font-size:.85rem; text-decoration:underline; text-underline-offset:3px;
+}
+a.linklike-a{
+  display:block; width:fit-content; margin-top:10px;
+  color:var(--bone-dim); font-size:.82rem; text-decoration:underline; text-underline-offset:3px;
+}
+
+.pickergrid{display:grid; grid-template-columns:repeat(auto-fill,minmax(128px,1fr)); gap:10px; margin:14px 0}
+.playercard{
+  border:1px solid #2e2117; background:#120d08; border-radius:6px; padding:14px 10px;
+  text-align:center; cursor:pointer; transition:border-color .15s, transform .1s;
+}
+.playercard:hover{border-color:var(--brass)}
+.playercard:active{transform:scale(.97)}
+.avatar{
+  width:50px; height:50px; border-radius:50%; margin:0 auto 8px;
+  display:flex; align-items:center; justify-content:center;
+  font-family:'Cinzel Decorative',Georgia,serif; font-size:1.2rem; color:var(--bone);
+  border:2px solid rgba(184,134,63,.45);
+}
+.playercard .pname{font-family:'Cormorant Garamond',Georgia,serif; font-weight:700; font-size:1.05rem; line-height:1.2; overflow-wrap:break-word}
+.playercard .pgames{font-size:.68rem; color:var(--bone-dim); margin:2px 0 8px}
+.playercard .prates{display:flex; gap:5px}
+.playercard .rate{flex:1; border-radius:10px; padding:3px 0; font-size:.72rem; font-weight:700; font-family:'Space Mono',monospace}
+.playercard .rate.good{background:#1c2c3c; color:#9dbdd9}
+.playercard .rate.evil{background:#361316; color:#e0a09c}
+
+.colorgrid{display:grid; grid-template-columns:repeat(auto-fill,minmax(92px,1fr)); gap:8px; margin:14px 0}
+.swatch{
+  border-radius:6px; padding:16px 6px; min-height:44px; text-align:center; cursor:pointer;
+  border:2px solid rgba(255,255,255,.14); display:flex; align-items:center; justify-content:center;
+}
+.swatch-name{font-size:.68rem; font-weight:700; color:#fff; text-shadow:0 1px 3px rgba(0,0,0,.7); line-height:1.25}
+.swatch.taken{opacity:.3; cursor:not-allowed; filter:grayscale(.7)}
+:focus-visible{outline:2px solid var(--brass); outline-offset:2px}
+
+.hold{
+  border:1px dashed #4a3722; background:#0d0906; border-radius:4px; padding:34px 18px;
+  text-align:center; color:var(--bone-dim); user-select:none; cursor:pointer;
+}
+.role{text-align:center; padding:22px 16px}
+.token{
+  width:150px; height:150px; border-radius:50%; object-fit:cover; display:block;
+  margin:0 auto 12px; border:2px solid #3d2c1c; background:#0d0906;
+}
+.role .name{font-family:'Cormorant Garamond',Georgia,serif; font-size:2rem; font-weight:700}
+.role .team{display:inline-block; font-size:.72rem; text-transform:uppercase; letter-spacing:.16em; padding:4px 12px; border-radius:20px; margin:8px 0}
+.team.good{background:#1c2c3c; color:#9dbdd9}
+.team.evil{background:#361316; color:#e0a09c}
+.role .ability{margin-top:10px; font-style:italic}
+
+.targets{display:flex; flex-direction:column; gap:8px; margin-top:14px}
+.target{
+  padding:14px 16px; border:2px solid #3a2a1c; border-radius:3px; background:#0d0906;
+  text-align:left; margin:0; width:100%;
+  display:flex; align-items:center; justify-content:space-between; gap:10px;
+}
+/* Border color is set inline per-button from that player's own assigned
+   color (falling back to the default above when they don't have one) — so
+   choosing someone matches how they already look everywhere else: their
+   ring dot, their avatar. Selecting just thickens it and fills the
+   background, rather than overwriting the identity color with a generic
+   "selected" one at exactly the moment it's most useful to still see. */
+.target.on{background:#22100f; color:#fff; border-width:3px}
+.target .icon{width:16px; height:16px; flex-shrink:0; opacity:.7}
+
+.clock{
+  font-family:'Cinzel Decorative',Georgia,serif; font-size:2.6rem; text-align:center;
+  color:var(--oxblood); font-variant-numeric:tabular-nums;
+}
+.clock.urgent{color:var(--ember)}
+.result{border-left:2px solid var(--brass); padding:14px 18px; background:#110c07}
+.result .title{font-family:'Cormorant Garamond',Georgia,serif; font-weight:700; font-size:1.25rem; color:var(--brass)}
+.result ul{margin:8px 0 0; padding-left:20px}
+.dead-banner{border:1px solid var(--brass); color:var(--brass); padding:12px; text-align:center; border-radius:3px; margin-bottom:14px}
+.dead-banner.spent{border-color:#3a2a1c; color:var(--bone-dim)}
+
+.ghosttoggle{
+  display:flex; align-items:center; gap:10px; padding:13px 14px; margin:14px 0 0;
+  border:1px solid #3a2a1c; border-radius:4px; background:#0d0906; cursor:pointer; color:var(--bone-dim);
+}
+.ghosttoggle.on{border-color:var(--brass); background:#1a1206; color:var(--brass)}
+.ghosttoggle svg{width:22px; height:22px; flex-shrink:0}
+.votebtns{display:flex; gap:10px; margin-top:14px}
+.votebtn{flex:1; padding:18px; font-size:1.1rem; margin-top:0}
+.votebtn.yes.on{border-color:var(--oxblood); background:#2a1210; color:#fff}
+.votebtn.no.on{border-color:#3d6b4a; background:#122016; color:#bfe3c9}
+.votelocked{text-align:center; padding:8px 4px}
+
+.reveal-overlay{
+  position:fixed; inset:0; z-index:40;
+  display:flex; align-items:center; justify-content:center; flex-direction:column; gap:16px;
+  color:#fff; text-align:center; padding:24px;
+}
+.reveal-overlay.yes{background:var(--oxblood)}
+.reveal-overlay.no{background:#1e6b45}
+.reveal-overlay.none{background:#050403}
+.reveal-overlay .revealword{font-family:'Cinzel Decorative',Georgia,serif; font-size:2.6rem; letter-spacing:.06em}
+.reveal-overlay .revealsub{font-size:.95rem; opacity:.8}
+.watch-banner{
+  border:1px dashed #4a3722; color:var(--bone-dim); padding:10px 14px;
+  text-align:center; border-radius:3px; margin-bottom:14px; font-size:.85rem;
+}

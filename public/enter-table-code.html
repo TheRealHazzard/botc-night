@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+  <title>Enter the table code</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link
+    rel="stylesheet"
+    href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700&family=Spectral:wght@400;600&display=swap"
+  />
+  <style>
+    :root {
+      --void: #0a0806;
+      --bone: #e8dcc4;
+      --bone-dim: #95886e;
+      --oxblood: #8e2226;
+      --oxblood-hi: #a92c2f;
+      --brass: #b8863f;
+      --surface: #130e08;
+      --surface-2: #1b130a;
+      --line: #2a1e14;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--void);
+      color: var(--bone);
+      font-family: "Spectral", Georgia, serif;
+      padding: 24px;
+    }
+    .card {
+      width: 100%;
+      max-width: 360px;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 32px 28px;
+      text-align: center;
+    }
+    h1 {
+      font-family: "Cinzel Decorative", Georgia, serif;
+      font-size: 1.3rem;
+      color: var(--brass);
+      margin: 0 0 8px;
+    }
+    p {
+      color: var(--bone-dim);
+      font-size: 0.95rem;
+      margin: 0 0 24px;
+      line-height: 1.5;
+    }
+    input {
+      width: 100%;
+      background: var(--surface-2);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      color: var(--bone);
+      font-size: 1.1rem;
+      padding: 12px 14px;
+      text-align: center;
+      letter-spacing: 0.05em;
+      font-family: "Spectral", Georgia, serif;
+    }
+    input:focus { outline: 2px solid var(--brass); outline-offset: 1px; }
+    button {
+      width: 100%;
+      margin-top: 14px;
+      background: var(--oxblood);
+      border: 1px solid var(--oxblood-hi);
+      border-radius: 8px;
+      color: var(--bone);
+      font-size: 1rem;
+      font-family: "Spectral", Georgia, serif;
+      font-weight: 600;
+      padding: 12px;
+      cursor: pointer;
+    }
+    button:hover { background: var(--oxblood-hi); }
+    button:disabled { opacity: 0.6; cursor: default; }
+    .error {
+      color: var(--brass);
+      font-size: 0.88rem;
+      margin-top: 14px;
+      min-height: 1.2em;
+    }
+  </style>
+</head>
+<body>
+  <form class="card" id="gate">
+    <h1>The town awaits</h1>
+    <p>Enter the table code to join.</p>
+    <input type="text" id="code" name="code" autocomplete="off" autocapitalize="off" inputmode="text" autofocus />
+    <button type="submit">Enter</button>
+    <div class="error" id="err"></div>
+  </form>
+  <script>
+    document.getElementById('gate').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const button = e.target.querySelector('button');
+      const err = document.getElementById('err');
+      const code = document.getElementById('code').value.trim();
+      err.textContent = '';
+      button.disabled = true;
+      try {
+        const r = await fetch('/api/enter-table-code', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code }),
+        });
+        const data = await r.json();
+        if (data.ok) { location.reload(); return; }
+        err.textContent = data.error || 'Wrong code.';
+      } catch (e) {
+        err.textContent = 'Could not reach the table — try again.';
+      }
+      button.disabled = false;
+    });
+  </script>
+</body>
+</html>

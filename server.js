@@ -20,6 +20,17 @@ const PUBLIC = path.join(__dirname, 'public');
 // file's two allowlists by hand.
 const PLAYABLE_SCRIPTS = E.DATA.meta.editions.filter(ed => ed.playable !== false).map(ed => ed.id);
 
+// Teensyville scripts carry a deliberately small character pool (built for
+// a tight 5-7 player table, not scaled up to 15 the way every other script
+// is) — maxPlayers, when an edition sets it, is the one thing standing
+// between that and dealRoles() running out of pool to draw from at a
+// bigger table. Checked wherever a script is chosen or a deal actually
+// happens, not just one or the other — a table can grow past the cap
+// between those two moments.
+const SCRIPT_MAX_PLAYERS = Object.fromEntries(
+  E.DATA.meta.editions.filter(ed => ed.maxPlayers).map(ed => [ed.id, ed.maxPlayers])
+);
+
 let game = E.newGame();
 let windowTimer = null;
 let voteTimer = null;
@@ -555,7 +566,7 @@ function startSimulation({ players = 9, speed = 5, script = 'tb', config } = {})
       id: 'sim' + i, name: BOT_NAMES[i], characterId: null, believedId: null,
       alive: true, statuses: {}, connected: true, bot: true,
       color: colors[i % colors.length],
-      // Lets a real phone watch this seat's real player.html rendering.
+      // Lets a real phone watch this seat's real player rendering.
       // Safe to hand out freely — there's no real secret behind a bot.
       token: crypto.randomBytes(16).toString('hex'),
     });
@@ -690,14 +701,132 @@ function openStream(req, res, onClose) {
   req.on('close', () => { clearInterval(keepAlive); onClose(); });
 }
 
+// ---------------------------------------------------------- access gate
+// Off by default — TABLE_CODE/HOST_CODE only come from the environment, so
+// a plain `npm start` with neither set behaves exactly as it always has
+// (LAN-only, no prompt). They start mattering once the table is actually
+// reachable from the open internet (see tools/host-public.js) — that's
+// the moment "whoever's on the same Wi-Fi" stops being a real boundary.
+const TABLE_CODE = process.env.TABLE_CODE || null;
+const HOST_CODE = process.env.HOST_CODE || null;
+const GATE_COOKIE_MAX_AGE = 12 * 60 * 60; // one game night, in seconds
+
+function codeHash(code) {
+  return crypto.createHash('sha256').update(String(code)).digest('hex');
+}
+const TABLE_HASH = TABLE_CODE ? codeHash(TABLE_CODE) : null;
+const HOST_HASH = HOST_CODE ? codeHash(HOST_CODE) : null;
+
+function parseCookies(req) {
+  const header = req.headers.cookie;
+  const out = {};
+  if (!header) return out;
+  header.split(';').forEach(part => {
+    const i = part.indexOf('=');
+    if (i === -1) return;
+    out[part.slice(0, i).trim()] = decodeURIComponent(part.slice(i + 1).trim());
+  });
+  return out;
+}
+
+function hashMatches(candidate, expected) {
+  if (!candidate || candidate.length !== expected.length) return false;
+  try { return crypto.timingSafeEqual(Buffer.from(candidate), Buffer.from(expected)); }
+  catch (e) { return false; }
+}
+
+function setGateCookie(res, name, hash) {
+  res.setHeader('Set-Cookie', `${name}=${hash}; HttpOnly; SameSite=Lax; Max-Age=${GATE_COOKIE_MAX_AGE}; Path=/`);
+}
+
+// A tunnel (or any reverse proxy) forwards from a local TCP connection —
+// req.socket.remoteAddress is just the proxy itself (127.0.0.1), not the
+// actual visitor, so the brute-force guard below would otherwise lock out
+// every visitor at once instead of the one guessing wrong. Cloudflare (and
+// most other proxies) hand the real address through in a header instead.
+function clientIp(req) {
+  return req.headers['cf-connecting-ip']
+    || (req.headers['x-forwarded-for'] || '').split(',')[0].trim()
+    || req.socket.remoteAddress
+    || 'unknown';
+}
+
+// A handful of wrong guesses per IP locks that IP out for a few minutes —
+// the codes are short enough to type on a phone, so this (not code length)
+// is the actual defense against brute-forcing one.
+const codeAttempts = new Map(); // ip -> { count, resetAt }
+const MAX_CODE_ATTEMPTS = 8;
+const LOCKOUT_MS = 5 * 60 * 1000;
+
+function tooManyAttempts(ip) {
+  const rec = codeAttempts.get(ip);
+  if (!rec) return false;
+  if (Date.now() > rec.resetAt) { codeAttempts.delete(ip); return false; }
+  return rec.count >= MAX_CODE_ATTEMPTS;
+}
+function recordFailedAttempt(ip) {
+  const rec = codeAttempts.get(ip);
+  if (!rec || Date.now() > rec.resetAt) codeAttempts.set(ip, { count: 1, resetAt: Date.now() + LOCKOUT_MS });
+  else rec.count++;
+}
+
+// Everything under /api/table/ is a Storyteller action except the one
+// players trigger themselves (casting a vote) — built as a rule rather
+// than a hand-maintained list, so a *future* /api/table/ route defaults to
+// gated instead of accidentally shipping open.
+function isHostRoute(route) {
+  if (route === '/api/table/vote') return false;
+  if (route.startsWith('/api/table/')) return true;
+  if (route.startsWith('/api/sim/')) return true;
+  return ['/host', '/host-events', '/simulate', '/sim-events',
+    '/api/host-state', '/api/sim-state'].includes(route);
+}
+
+const GATE_EXEMPT = new Set([
+  '/enter-table-code.html', '/enter-host-code.html',
+  '/api/enter-table-code', '/api/enter-host-code',
+]);
+
+// Returns true if this request was fully handled here — the caller must
+// stop and not fall through to the real routes.
+function blockedByGate(req, res, route) {
+  if (GATE_EXEMPT.has(route)) return false;
+  const cookies = parseCookies(req);
+
+  if (TABLE_HASH && !hashMatches(cookies.table_code, TABLE_HASH)) {
+    if (req.method === 'GET') serveFile(res, 'enter-table-code.html');
+    else json(res, 401, { error: 'Enter the table code first.' });
+    return true;
+  }
+  if (HOST_HASH && isHostRoute(route) && !hashMatches(cookies.host_code, HOST_HASH)) {
+    if (req.method === 'GET') serveFile(res, 'enter-host-code.html');
+    else json(res, 401, { error: 'Enter the host code first.' });
+    return true;
+  }
+  return false;
+}
+
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
   const route = url.pathname;
 
+  if (blockedByGate(req, res, route)) return;
+
   try {
     if (req.method === 'GET') {
-      if (route === '/') return serveFile(res, 'player.html');
-      if (route === '/host') return serveFile(res, 'host.html');
+      // The React player app (see client/) — walked through live and
+      // confirmed at parity with the old vanilla player.html, which is
+      // retired. `npm run build:player` must be run first; there's no
+      // dev-mode wiring here, that's what `vite dev` + its own proxy (see
+      // vite.config.js) is for.
+      if (route === '/') return serveFile(res, 'dist/player/index.html');
+      // The React rebuild of host.html (see client/src/host/) — driven
+      // through a full live session (script library work, settings
+      // redesign, lobby polish, the hosting/connectivity work) before
+      // this cutover, the same bar player.html was held to. `npm run
+      // build:host` must be run first; the vanilla host.html + its
+      // test/dom-shim/host.js suite are retired, not kept side by side.
+      if (route === '/host') return serveFile(res, 'dist/host/host.html');
       if (route === '/simulate') return serveFile(res, 'simulate.html');
       if (route === '/stats') return serveFile(res, 'stats.html');
       if (route === '/games') return serveFile(res, 'games.html');
@@ -715,17 +844,27 @@ const server = http.createServer(async (req, res) => {
       }
 
       if (route === '/api/scripts') {
-        // The lobby's script selector: each script's own blurb, its full
-        // roster (id/name/team only — the picker's cast grid reads this,
-        // nothing here is secret at this level of detail), and how it's
-        // actually played out at this table so far — never per-player,
-        // this is the script's own track record.
+        // The lobby's script selector: each script's own blurb, its
+        // character roster (grouped client-side by team, same as the
+        // in-game roster reference), and how it's actually played out at
+        // this table so far — never per-player, this is the script's own
+        // track record. Ability text stays off the roster itself (that's
+        // only useful once a script is actually dealt, see /api/script
+        // below, and would needlessly bloat a payload covering every
+        // script at once) — the one exception is each script's own
+        // curated featuredCharacter (characters.json), which gets its
+        // full ability text so the browse preview can give a real taste
+        // of the script, not just a name and a team badge.
         return json(res, 200, E.DATA.meta.editions.map(ed => {
           const pool = E.scriptPool(ed.id);
+          const featured = ed.featuredCharacter && E.char(ed.featuredCharacter);
           return {
             ...ed,
             characterCount: pool.length,
             characters: pool.map(c => ({ id: c.id, name: c.name, team: c.team })),
+            featuredCharacter: featured
+              ? { id: featured.id, name: featured.name, team: featured.team, ability: featured.ability }
+              : null,
             ...H.statsForEdition(ed.id),
           };
         }));
@@ -894,6 +1033,21 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'POST') {
       const body = await readBody(req);
 
+      if (route === '/api/enter-table-code' || route === '/api/enter-host-code') {
+        const wantsHost = route === '/api/enter-host-code';
+        const hash = wantsHost ? HOST_HASH : TABLE_HASH;
+        const cookieName = wantsHost ? 'host_code' : 'table_code';
+        if (!hash) return json(res, 200, { ok: true }); // this gate isn't even turned on
+        const ip = clientIp(req);
+        if (tooManyAttempts(ip)) return json(res, 429, { error: 'Too many attempts — try again in a few minutes.' });
+        if (hashMatches(codeHash(String(body.code || '')), hash)) {
+          setGateCookie(res, cookieName, hash);
+          return json(res, 200, { ok: true });
+        }
+        recordFailedAttempt(ip);
+        return json(res, 401, { error: 'Wrong code.' });
+      }
+
       if (route === '/api/join') {
         if (game.phase !== 'lobby') return json(res, 409, { error: 'Game already started.' });
         const name = String(body.name || '').trim().slice(0, 24);
@@ -901,7 +1055,7 @@ const server = http.createServer(async (req, res) => {
         if (game.players.length >= 15) return json(res, 409, { error: 'Table is full.' });
         // Typing your name back in at a later game is the whole login — no
         // password, same trust the reclaim system already runs on. The
-        // player.html client already looked up /api/profile before calling
+        // The player client already looked up /api/profile before calling
         // this, so by the time a seat is actually created here, they've
         // confirmed it's them.
         const profile = H.findOrCreateProfile(name);
@@ -1394,13 +1548,16 @@ const server = http.createServer(async (req, res) => {
       /* ---- table controls: hold no secrets, so anyone at the table may use them ---- */
 
       if (route === '/api/table/nominate') {
-        // The host still declares who nominated whom (that part hasn't
-        // changed) — but voting itself now happens live on each player's
-        // own phone over a timed window, not as a checklist typed in after
-        // the fact. This just opens that window.
+        // Players nominate themselves now (a token identifies them, same
+        // as every other player action route) — the host's own two-
+        // dropdown fallback in NominationPanel is kept for a dead phone/no
+        // signal, still posting nominatorId directly, so both paths land
+        // here unchanged below. Voting itself happens live on each
+        // player's own phone over a timed window; this just opens that
+        // window.
         if (game.phase !== 'day') return json(res, 409, { error: 'Not day.' });
-        const nominator = E.byId(game, body.nominatorId);
-        const nominee = E.byId(game, body.nomineeId);
+        const nominator = body.token ? E.byToken(game, body.token) : E.byId(game, body.nominatorId);
+        const nominee = E.byId(game, body.nomineeId || body.targetId);
         if (!nominator || !nominee) return json(res, 404, { error: 'Unknown player.' });
         if (!E.publiclyAlive(nominator)) return json(res, 400, { error: 'Only living players may nominate.' });
         if (!E.publiclyAlive(nominee)) return json(res, 400, { error: 'Cannot nominate a dead player.' });
@@ -1547,6 +1704,11 @@ const server = http.createServer(async (req, res) => {
       if (route === '/api/table/script') {
         if (game.phase !== 'lobby') return json(res, 409, { error: 'Roles are already dealt.' });
         if (!PLAYABLE_SCRIPTS.includes(body.script)) return json(res, 400, { error: 'That script isn\'t playable yet.' });
+        const cap = SCRIPT_MAX_PLAYERS[body.script];
+        if (cap && game.players.length > cap) {
+          const name = E.DATA.meta.editions.find(ed => ed.id === body.script).name;
+          return json(res, 400, { error: `${name} only supports up to ${cap} players — ${game.players.length} are seated.` });
+        }
         game.script = body.script;
         E.logEvent(game, `Script set to ${body.script.toUpperCase()}.`);
         pushHost();
@@ -1567,6 +1729,11 @@ const server = http.createServer(async (req, res) => {
 
       if (route === '/api/table/deal') {
         if (game.players.length < 5) return json(res, 400, { error: 'Need at least 5 players.' });
+        const dealCap = SCRIPT_MAX_PLAYERS[game.script];
+        if (dealCap && game.players.length > dealCap) {
+          const name = E.DATA.meta.editions.find(ed => ed.id === game.script).name;
+          return json(res, 400, { error: `${name} only supports up to ${dealCap} players — ${game.players.length} are seated.` });
+        }
         try { E.dealRoles(game); } catch (e) { return json(res, 400, { error: e.message }); }
         pushAll();
         return json(res, 200, { ok: true });
@@ -1633,21 +1800,49 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-function lanAddress() {
-  for (const list of Object.values(os.networkInterfaces())) {
+// Virtual/tunnel adapters (Hyper-V's default switch, WSL, Docker, VMware,
+// VPN clients, ...) show up in os.networkInterfaces() right alongside the
+// real Wi-Fi/Ethernet one, and the OS gives no ordering guarantee between
+// them — picking "whichever came first" is exactly how a table can end up
+// silently advertising an address no phone on the LAN can actually reach,
+// with no error on either end. Name-pattern filtering isn't perfect, but
+// it's the same signal ipconfig/ifconfig output relies on for a human to
+// tell them apart, and it fails safe: if every candidate looks virtual,
+// still return the first one rather than nothing.
+const VIRTUAL_ADAPTER = /vethernet|virtual|vmware|hyper-v|docker|wsl|tailscale|zerotier|tap-|tun\d|utun|npcap|ppp|loopback/i;
+
+function lanCandidates() {
+  const candidates = [];
+  for (const [name, list] of Object.entries(os.networkInterfaces())) {
     for (const net of list || []) {
-      if (net.family === 'IPv4' && !net.internal) return net.address;
+      if (net.family === 'IPv4' && !net.internal) candidates.push({ name, address: net.address });
     }
   }
-  return 'localhost';
+  return candidates;
+}
+
+function lanAddress() {
+  const candidates = lanCandidates();
+  if (!candidates.length) return 'localhost';
+  const real = candidates.find(c => !VIRTUAL_ADAPTER.test(c.name));
+  return (real || candidates[0]).address;
 }
 
 server.listen(PORT, () => {
+  const candidates = lanCandidates();
   const ip = lanAddress();
   console.log('');
   console.log('  The town is waiting.');
   console.log('');
   console.log(`  Table screen :  http://localhost:${PORT}/host`);
   console.log(`  Players join :  http://${ip}:${PORT}`);
+  if (candidates.length > 1) {
+    // More than one network adapter — surfaced so a wrong pick (a VPN, a
+    // Hyper-V switch, ...) is visible here instead of silently discovered
+    // by a phone failing to connect.
+    console.log('');
+    console.log('  Other network adapters found on this machine:');
+    candidates.forEach(c => console.log(`    ${c.address}  (${c.name})${c.address === ip ? '  <- chosen' : ''}`));
+  }
   console.log('');
 });
