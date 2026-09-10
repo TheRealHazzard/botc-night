@@ -93,6 +93,26 @@ describe('NightPromptCard', () => {
     });
   });
 
+  it('a manual lock-in right at the deadline is not overwritten by a stray auto-submit tick before P.submitted catches up', async () => {
+    // The real-world race: the manual POST resolves (clearing local
+    // picked/guessedCharacter state) before the next server push has had a
+    // chance to flip P.submitted back to true — P here deliberately stays
+    // submitted:false the whole test, simulating exactly that lag window.
+    const fetchMock = mockFetch({ '/api/action': {} });
+    render(<NightPromptCard P={{ prompt: basePrompt, submitted: false, watching: false, windowEndsAt: Date.now() + 1000 }} token="tok-1" />);
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    await user.click(screen.getByText('Bo'));
+    await user.click(screen.getByText('Lock in Bo'));
+    await waitFor(() => expect(lastBody(fetchMock, '/api/action')).toEqual({ token: 'tok-1', targets: ['p1'], characterGuess: null }));
+
+    // The window has now closed, and local state was cleared by the
+    // successful submit above — without the fix, the next interval tick
+    // would see an empty `picked` and fire a random second submission.
+    await vi.advanceTimersByTimeAsync(1500);
+    const calls = fetchMock.calls.filter(c => c.url.includes('/api/action'));
+    expect(calls).toHaveLength(1);
+  });
+
   it('does not auto-submit twice even if the interval keeps ticking after the window closes', async () => {
     const fetchMock = mockFetch({ '/api/action': {} });
     render(<NightPromptCard P={{ prompt: basePrompt, submitted: false, watching: false, windowEndsAt: Date.now() + 1000 }} token="tok-1" />);

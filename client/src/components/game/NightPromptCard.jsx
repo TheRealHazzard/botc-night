@@ -55,7 +55,11 @@ export default function NightPromptCard({ P, token }) {
         guess = prompt.characterOptions[Math.floor(Math.random() * prompt.characterOptions.length)].id;
         setGuessedCharacter(guess);
       }
-      submitTargets(finalPicked, guess);
+      // If this fails (a stray network blip — the deadline itself was
+      // already checked above), un-flag so the next tick gets another
+      // shot at it instead of leaving the player permanently stuck with
+      // no submission and no feedback.
+      submitTargets(finalPicked, guess).then(r => { if (r.error) autoSubmittedRef.current = false; });
     }, 1000);
     return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -78,16 +82,28 @@ export default function NightPromptCard({ P, token }) {
     ? `Lock in ${[chosenNames.join(' & '), guessName].filter(Boolean).join(' — ')}`
     : 'Lock in';
 
+  // The auto-submit interval (above) only ever checked its OWN flag before
+  // firing — a manual lockIn()/pass() never set it, so the interval had no
+  // way to know a real submission was already in flight. If that manual
+  // request resolved (clearing picked/guessedCharacter back to empty) before
+  // the next SSE push confirms P.submitted back to this component, the
+  // interval's very next tick would see an empty `picked`, conclude nothing
+  // had been chosen, and fire a second, random submission that silently
+  // overwrote the player's real one. Flagging here closes that window;
+  // unflagging only on failure keeps the auto-submit fallback available if
+  // the manual attempt didn't actually land.
   const lockIn = () => {
+    autoSubmittedRef.current = true;
     setBusy(true);
     submitTargets(picked, guessedCharacter).then(r => {
-      if (r.error) { alert(r.error); setBusy(false); }
+      if (r.error) { alert(r.error); setBusy(false); autoSubmittedRef.current = false; }
     });
   };
   const pass = () => {
+    autoSubmittedRef.current = true;
     setBusy(true);
     submitTargets([], null).then(r => {
-      if (r.error) { alert(r.error); setBusy(false); }
+      if (r.error) { alert(r.error); setBusy(false); autoSubmittedRef.current = false; }
     });
   };
 
