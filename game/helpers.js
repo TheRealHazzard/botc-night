@@ -203,14 +203,24 @@ function wouldBlockKill(g, target, { demonAttack = false, executionAttack = fals
  * redirect must never land back on the attacker itself. The redirect's own
  * alternate pool is built fresh from `alive(g)`, so this has to be threaded
  * through explicitly; it can't be baked into the original `pool` alone.
+ *
+ * `opts` is what the redirect's own alt-pool filter passes to
+ * wouldBlockKill — defaults to `{ demonAttack: true }` since 12 of this
+ * function's 14 call sites are genuine demon kills (Imp, Pukka, Shabaloth,
+ * Po, Zombuul, Fang Gu, Vigormortis, Vortox, Ojo, NoDashii), where that's
+ * exactly right and no call site needs to change. Gossip and Godfather are
+ * the two non-Demon kills that also redirect through here — they pass
+ * `{ nightKill: true }` explicitly so a redirect landing on a Soldier
+ * doesn't wrongly grant Soldier's Demon-only immunity (same distinction
+ * `wouldBlockKill`'s own `nightKill` parameter exists to make elsewhere).
  */
-function randomKiller(g, pool, excludeId) {
+function randomKiller(g, pool, excludeId, opts = { demonAttack: true }) {
   const candidates = (pool || []).filter(x => x && x.id !== excludeId);
   if (!candidates.length) return null;
   const picked = candidates.length === 1 ? candidates[0] : pick(candidates);
   if (picked.characterId === 'mayor' && !impaired(picked) && Math.random() < g.config.mayorRedirectChance) {
-    const alt = alive(g).filter(x => x.id !== picked.id && x.id !== excludeId && !wouldBlockKill(g, x, { demonAttack: true }));
-    if (alt.length) return randomKiller(g, alt, excludeId);
+    const alt = alive(g).filter(x => x.id !== picked.id && x.id !== excludeId && !wouldBlockKill(g, x, opts));
+    if (alt.length) return randomKiller(g, alt, excludeId, opts);
   }
   return picked;
 }

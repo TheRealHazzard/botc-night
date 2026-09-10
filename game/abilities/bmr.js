@@ -143,7 +143,7 @@ module.exports = (h) => [
       // Assassin/Godfather cases below were fixed for.
       const claimTrue = p.statuses.gossipClaimDay === g.nightNumber - 1 && p.statuses.gossipClaimTrue;
       if (claimTrue && !broken) {
-        const victim = h.randomKiller(g, h.alive(g).filter(x => x.id !== p.id), p.id);
+        const victim = h.randomKiller(g, h.alive(g).filter(x => x.id !== p.id), p.id, { nightKill: true });
         if (victim) {
           // nightKill, not demonAttack — the Gossip is Townsfolk, and
           // demonAttack would also (incorrectly) grant Soldier immunity
@@ -254,7 +254,11 @@ module.exports = (h) => [
     resolve(g, p, action, { broken, target, deaths }) {
       const [t] = target(action && action.targets);
       if (t && !broken) {
-        const finalTarget = h.randomKiller(g, [t], p.id); // Mayor redirect, same as every other kill
+        // Mayor redirect, same as every other kill — nightKill, not
+        // demonAttack, threaded through to the redirect's own alt-pool
+        // check too (randomKiller's 4th arg), or a redirect landing on a
+        // Soldier would wrongly grant Soldier's Demon-only immunity.
+        const finalTarget = h.randomKiller(g, [t], p.id, { nightKill: true });
         // nightKill, not demonAttack — the Godfather is a Minion, and
         // demonAttack would also (incorrectly) grant Soldier immunity
         // against a kill that isn't the Demon's.

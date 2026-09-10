@@ -45,17 +45,18 @@ describe('NominationPanel', () => {
   });
 
   it('an open vote below threshold: correct label, no "met" class, proportional width', () => {
-    const openNom = { day: 1, nominatorName: 'Ada', nomineeName: 'Bo', closed: false, windowEndsAt: Date.now() + 20000, votes: [{ vote: 'yes' }, { vote: 'yes' }] };
+    const openNom = { day: 1, nominatorName: 'Ada', nomineeName: 'Bo', closed: false, windowEndsAt: Date.now() + 20000, votes: [{ vote: 'yes' }] };
     const { container } = render(<NominationPanel nominations={[openNom]} nightNumber={1} players={players5} voteWindowSeconds={20} />);
-    // 4 alive -> threshold floor(4/2)+1 = 3
-    expect(screen.getByText('2 / 3 needed to execute')).toBeInTheDocument();
+    // 4 alive -> threshold ceil(4/2) = 2 (at least half, rounded up — not
+    // "strictly more than half", which only agrees for an odd count)
+    expect(screen.getByText('1 / 2 needed to execute')).toBeInTheDocument();
     expect(container.querySelector('.votebar-fill')).not.toHaveClass('met');
   });
 
   it('an open vote at threshold: gains "met", width caps at 100%', () => {
-    const openNom = { day: 1, nominatorName: 'Ada', nomineeName: 'Bo', closed: false, windowEndsAt: Date.now() + 20000, votes: [{ vote: 'yes' }, { vote: 'yes' }, { vote: 'yes' }] };
+    const openNom = { day: 1, nominatorName: 'Ada', nomineeName: 'Bo', closed: false, windowEndsAt: Date.now() + 20000, votes: [{ vote: 'yes' }, { vote: 'yes' }] };
     const { container } = render(<NominationPanel nominations={[openNom]} nightNumber={1} players={players5} voteWindowSeconds={20} />);
-    expect(screen.getByText('3 / 3 needed to execute')).toBeInTheDocument();
+    expect(screen.getByText('2 / 2 needed to execute')).toBeInTheDocument();
     expect(container.querySelector('.votebar-fill')).toHaveClass('met');
     expect(container.querySelector('.votebar-fill').style.width).toBe('100%');
   });

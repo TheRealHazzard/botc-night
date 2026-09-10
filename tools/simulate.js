@@ -1296,7 +1296,7 @@ console.log('\nVoting: resolveDayVote');
   const base = () => {
     const g = E.newGame();
     g.nightNumber = 2;
-    // 7 living players -> majority threshold is floor(7/2)+1 = 4.
+    // 7 living players -> majority threshold is ceil(7/2) = 4.
     g.players = Array.from({ length: 7 }, (_, i) => mk('p' + i, 'chef'));
     g.nominations = [];
     return g;
@@ -1347,6 +1347,22 @@ console.log('\nVoting: resolveDayVote');
     g.players = g.players.slice(0, 3);
     g.nominations = [nomOf('p0', 2)];
     check('the threshold scales down with fewer living players', E.resolveDayVote(g) === 'p0');
+  }
+  {
+    // An EVEN living count is the case that actually distinguishes the real
+    // rule (at least half, rounded up — ceil(n/2)) from the bug this once
+    // was ("strictly more than half" — floor(n/2)+1). The two formulas only
+    // agree for an odd count, which every check above uses; 10 living needs
+    // exactly 5 yes votes, not 6.
+    const g = base();
+    g.players = Array.from({ length: 10 }, (_, i) => mk('p' + i, 'chef'));
+    g.nominations = [nomOf('p0', 5)];
+    check('an even living count uses ceil(n/2), not floor(n/2)+1 — 10 living needs exactly 5, not 6',
+      E.resolveDayVote(g) === 'p0');
+    const g2 = base();
+    g2.players = Array.from({ length: 10 }, (_, i) => mk('p' + i, 'chef'));
+    g2.nominations = [nomOf('p0', 4)];
+    check('...and one vote short of that (4 of 10) still fails', E.resolveDayVote(g2) === null);
   }
 }
 

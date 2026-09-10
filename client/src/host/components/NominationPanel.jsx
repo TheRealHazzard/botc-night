@@ -98,7 +98,7 @@ function OpenVote({ nomination, players, voteWindowSeconds }) {
   const eligible = players.filter(p => p.alive || !p.ghostVoteUsed).length;
   const yes = nomination.votes.filter(v => v.vote === 'yes').length;
   const no = nomination.votes.length - yes;
-  const threshold = Math.max(1, Math.floor(players.filter(p => p.alive).length / 2) + 1);
+  const threshold = Math.max(1, Math.ceil(players.filter(p => p.alive).length / 2));
 
   return (
     <>

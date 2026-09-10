@@ -44,7 +44,7 @@ export default function DayView({ players, nightNumber, deaths, mastermindExtraD
       <ControlPanelRow />
       <NominationPanel nominations={nominations} nightNumber={nightNumber} players={players} voteWindowSeconds={config.voteWindowSeconds} />
       <DayReport deaths={deaths} players={players} nightNumber={nightNumber} />
-      <DayActions players={players} nominations={nominations} nightNumber={nightNumber} anyOpen={anyOpen} />
+      <DayActions players={players} nominations={nominations} nightNumber={nightNumber} anyOpen={anyOpen} mastermindExtraDay={mastermindExtraDay} />
     </div>
   );
 
@@ -59,7 +59,7 @@ export default function DayView({ players, nightNumber, deaths, mastermindExtraD
 // run here too so the dropdown can show it before anyone taps a button.
 function leadingNominee(nominations, nightNumber, aliveCount) {
   const today = nominations.filter(n => n.day === nightNumber && n.closed);
-  const threshold = Math.max(1, Math.floor(aliveCount / 2) + 1);
+  const threshold = Math.max(1, Math.ceil(aliveCount / 2));
   const qualifying = today.filter(n => (n.yesCount || 0) >= threshold);
   if (!qualifying.length) return null;
   const max = Math.max(...qualifying.map(n => n.yesCount));
@@ -83,7 +83,7 @@ function useLeaderChanged(winnerId) {
   return changed;
 }
 
-function DayActions({ players, nominations, nightNumber, anyOpen }) {
+function DayActions({ players, nominations, nightNumber, anyOpen, mastermindExtraDay }) {
   const alive = players.filter(p => p.alive);
   // null = "follow the computed leader" — the moment the host actually
   // touches the dropdown, their choice sticks instead, same as any other
@@ -115,7 +115,7 @@ function DayActions({ players, nominations, nightNumber, anyOpen }) {
       >
         <Icon name="skull" size={15} /> Kick Player
       </button>
-      <button type="button" disabled={anyOpen} onClick={nightFalls}>
+      <button type="button" disabled={anyOpen || mastermindExtraDay} onClick={nightFalls}>
         <Icon name="moon" size={15} /> Night falls
       </button>
     </div>

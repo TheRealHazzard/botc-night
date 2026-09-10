@@ -199,6 +199,11 @@ function pushAll() {
 /* -------------------------------------------------------------- phases */
 
 function startNight() {
+  // The Mastermind's bonus day isn't over until its own execution (or an
+  // explicit no-execution) actually happens — recordExecution() is the only
+  // thing allowed to end it. Refuse to skip straight to night out from
+  // under it (a stray /api/table/night call, or the sim loop below).
+  if (game.mastermindExtraDay) return;
   clearTimeout(windowTimer);
   clearTimeout(voteTimer);
   // Sects & Violets' "madness" (Mutant/Cerenovus): checked at dusk, right as
@@ -249,6 +254,7 @@ function endNight() {
   game.windowEndsAt = null;
   game.executedToday = null;
   game.noExecutionToday = false; // cleared fresh each dawn, set for real once today's day resolves
+  game.executionAttemptedToday = false;
   game.hint = E.generateHint(game);
   if (game.hint) E.logEvent(game, `The dead speak: "${game.hint}"`);
   if (finishIfOver()) return;
@@ -303,7 +309,7 @@ function recordExecution(playerId) {
       } else {
         game.executedToday = p.id;
         p.alive = false;
-        game.deaths.push({ night: game.nightNumber, name: p.name, cause: 'execution', killedByDemon: false });
+        game.deaths.push({ night: game.nightNumber, name: p.name, cause: 'execution', killedByDemon: false, phase: 'day' });
         E.logEvent(game, `${p.name} was executed.`);
         executedPlayer = p;
         E.triggerDeathHooks(game, p, { killedByDemon: false });
@@ -312,8 +318,9 @@ function recordExecution(playerId) {
     } else {
       E.logEvent(game, 'No execution today.');
     }
-    const result = E.resolveMastermindDay(game, executedPlayer);
+    const result = E.applyPoliticianFlip(game, E.resolveMastermindDay(game, executedPlayer));
     clearTimeout(windowTimer);
+    clearTimeout(voteTimer);
     clearTimeout(simTimer);
     game.victory = result;
     game.phase = 'over';
@@ -322,8 +329,17 @@ function recordExecution(playerId) {
     E.logEvent(game, `${result.winner === 'good' ? 'Good' : 'Evil'} wins. ${result.reason}`);
     recordGameHistory();
     pushAll();
-    return;
+    return true;
   }
+
+  // At most one execution per day — including a "no execution" decision,
+  // and including an attempt that was blocked/survived (that was still
+  // today's one shot). Guards both callers below (/api/table/execute and
+  // /api/table/tally); reset at dawn in endNight(). Deliberately checked
+  // after the mastermindExtraDay branch above, since the bonus day's own
+  // execution is a second, intentional same-day attempt, not a repeat.
+  if (game.executionAttemptedToday) return false;
+  game.executionAttemptedToday = true;
 
   if (p) {
     // Pacifist: Storyteller-discretion "might" save a good player from
@@ -358,7 +374,7 @@ function recordExecution(playerId) {
       // qualifier of its own; that qualifier belongs to the separate
       // "good can't win" rule (see evilTwinBlocksGood in engine.js).
       if (p.statuses.evilTwinId) game.evilTwinGoodExecuted = true;
-      game.deaths.push({ night: game.nightNumber, name: p.name, cause: 'execution', killedByDemon: false });
+      game.deaths.push({ night: game.nightNumber, name: p.name, cause: 'execution', killedByDemon: false, phase: 'day' });
       E.logEvent(game, `${p.name} was executed.`);
       E.triggerDeathHooks(game, p, { killedByDemon: false });
       E.applyCannibalTransform(game, p);
@@ -396,7 +412,7 @@ function recordExecution(playerId) {
             game.mastermindExtraDay = true;
             E.logEvent(game, "The Mastermind's power lingers — play continues for one more day.");
             pushAll();
-            return;
+            return true;
           }
         }
       }
@@ -406,12 +422,14 @@ function recordExecution(playerId) {
     E.logEvent(game, `No execution today.`);
   }
   if (!finishIfOver()) pushAll();
+  return true;
 }
 
 function finishIfOver() {
   const result = E.checkVictory(game);
   if (!result) return false;
   clearTimeout(windowTimer);
+  clearTimeout(voteTimer);
   clearTimeout(simTimer);
   game.victory = result;
   game.phase = 'over';
@@ -447,7 +465,14 @@ function recordGameHistory() {
         characterName: c ? c.name : null,
         team: c ? c.team : null,
         alive: p.alive,
-        diedPhase: death ? (death.cause === 'execution' ? 'execution' : 'night') : null,
+        // 'execution' stays its own label (the most common death, worth
+        // distinguishing on its own); every other cause now reads its
+        // actual recorded phase instead of assuming 'night' — Slayer,
+        // Virgin, Witch, Golem, and a day-time Moonchild choice were all
+        // being mislabeled as night deaths before `phase` was recorded at
+        // each push site. `|| 'night'` only matters for history recorded
+        // before this field existed.
+        diedPhase: death ? (death.cause === 'execution' ? 'execution' : (death.phase || 'night')) : null,
         diedNight: death ? death.night : null,
         won: game.victory ? (game.victory.winner === 'good') === isGood : null,
       };
@@ -578,7 +603,13 @@ function startSimulation({ players = 9, speed = 5, script = 'tb', config } = {})
     [colors[i], colors[j]] = [colors[j], colors[i]];
   }
 
-  const count = Math.min(15, Math.max(5, players));
+  // Same cap /api/table/deal enforces for a real table — a Teensyville
+  // script (max 7) dealt to 15 bots throws inside E.dealRoles (the pool
+  // runs out of characters), and unlike a real table's already-seated
+  // players, a simulated table has no roster to reject: just seat fewer
+  // bots instead.
+  const cap = SCRIPT_MAX_PLAYERS[game.script] || 15;
+  const count = Math.min(cap, Math.max(5, players));
   for (let i = 0; i < count; i++) {
     game.players.push({
       id: 'sim' + i, name: BOT_NAMES[i], characterId: null, believedId: null,
@@ -589,7 +620,17 @@ function startSimulation({ players = 9, speed = 5, script = 'tb', config } = {})
       token: crypto.randomBytes(16).toString('hex'),
     });
   }
-  E.dealRoles(game);
+  try {
+    E.dealRoles(game);
+  } catch (e) {
+    // A bad player/script combination here is our own bug to prevent (the
+    // cap above should already rule it out), not a host mistake to leave
+    // recoverable — never leave the live singleton half-dealt.
+    game = E.newGame();
+    E.logEvent(game, `Simulation failed to start: ${e.message}`);
+    pushAll();
+    return;
+  }
   pushAll();
   scheduleSim(1200);
 }
@@ -621,8 +662,12 @@ function runSimStep() {
       // Most days end in an execution; some do not.
       const target = Math.random() < 0.78 ? chooseExecution() : null;
       recordExecution(target ? target.id : null);
-      game.dayDone = true;
       if (game.phase === 'over') return;
+      // The Mastermind's bonus day: recordExecution() just bought one more
+      // same-day execution attempt rather than ending the game — don't mark
+      // the day done (which would fall through to beginSimNight() below and
+      // skip the bonus day outright), just run another day-phase tick.
+      if (!game.mastermindExtraDay) game.dayDone = true;
       scheduleSim(game.simSpeed * 600);
     } else {
       beginSimNight();
@@ -1227,6 +1272,7 @@ async function requestHandler(req, res) {
         const p = E.byToken(game, body.token);
         if (!p) return json(res, 404, { error: 'Unknown player.' });
         if (p.bot) return json(res, 409, { error: 'This seat is bot-controlled.' });
+        if (!E.publiclyAlive(p)) return json(res, 409, { error: 'Only living players may do this.' });
         if (game.phase !== 'day') return json(res, 409, { error: 'Only during the day.' });
         const believed = E.char(p.believedId);
         if (!believed || believed.id !== 'slayer') return json(res, 409, { error: 'Nothing to fire.' });
@@ -1247,7 +1293,7 @@ async function requestHandler(req, res) {
             E.logEvent(game, `${p.name} fired their shot at ${target.name} — somehow, the Demon survives.`);
           } else {
             target.alive = false;
-            game.deaths.push({ night: game.nightNumber, name: target.name, cause: 'slayer', killedByDemon: false });
+            game.deaths.push({ night: game.nightNumber, name: target.name, cause: 'slayer', killedByDemon: false, phase: 'day' });
             E.logEvent(game, `${p.name} fired their shot at ${target.name} — the Demon falls.`);
             E.triggerDeathHooks(game, target, { killedByDemon: false });
             E.succeedDemon(game, target);
@@ -1268,6 +1314,7 @@ async function requestHandler(req, res) {
         const p = E.byToken(game, body.token);
         if (!p) return json(res, 404, { error: 'Unknown player.' });
         if (p.bot) return json(res, 409, { error: 'This seat is bot-controlled.' });
+        if (!E.publiclyAlive(p)) return json(res, 409, { error: 'Only living players may do this.' });
         if (game.phase !== 'day') return json(res, 409, { error: 'Only during the day.' });
         const believed = E.char(p.believedId);
         if (!believed || believed.id !== 'gossip') return json(res, 409, { error: 'Nothing to claim.' });
@@ -1315,15 +1362,16 @@ async function requestHandler(req, res) {
         const p = E.byToken(game, body.token);
         if (!p) return json(res, 404, { error: 'Unknown player.' });
         if (p.bot) return json(res, 409, { error: 'This seat is bot-controlled.' });
+        if (!E.publiclyAlive(p)) return json(res, 409, { error: 'Only living players may do this.' });
         if (game.phase !== 'day') return json(res, 409, { error: 'Only during the day.' });
         const believed = E.char(p.believedId);
         if (!believed || believed.id !== 'savant') return json(res, 409, { error: 'Nothing to visit for.' });
         if (p.statuses.savantVisitDay === game.nightNumber) return json(res, 409, { error: 'Already visited today.' });
 
-        // Ground truth, unconditionally — the LLM (if on) only ever gets to
-        // rephrase these two strings, never assert a new one. If it fails or
-        // is off, these are exactly what's shown.
-        let statements = E.buildSavantStatements(game, p);
+        // Ground truth (adjusted for impairment below) — the LLM (if on)
+        // only ever gets to rephrase these two strings, never assert a new
+        // one. If it fails or is off, these are exactly what's shown.
+        let statements = E.buildSavantStatements(game, p, { broken: E.impaired(p) });
         if (game.config.llmStorytellerEnabled) {
           const rephrased = await rephraseSavantStatements(statements);
           if (rephrased) statements = rephrased;
@@ -1354,6 +1402,7 @@ async function requestHandler(req, res) {
         const p = E.byToken(game, body.token);
         if (!p) return json(res, 404, { error: 'Unknown player.' });
         if (p.bot) return json(res, 409, { error: 'This seat is bot-controlled.' });
+        if (!E.publiclyAlive(p)) return json(res, 409, { error: 'Only living players may do this.' });
         if (game.phase !== 'day') return json(res, 409, { error: 'Only during the day.' });
         const believed = E.char(p.believedId);
         if (!believed || believed.id !== 'fisherman') return json(res, 409, { error: 'Nothing to visit for.' });
@@ -1366,7 +1415,8 @@ async function requestHandler(req, res) {
           adviceBody = 'There is no one left to tell you about.';
         } else {
           const subject = others[Math.floor(Math.random() * others.length)];
-          const evil = E.isEvil(game, subject, { forRegistration: true });
+          const trueEvil = E.isEvil(game, subject, { forRegistration: true });
+          const evil = E.impairedFlip(E.impaired(p), trueEvil);
           adviceBody = `${subject.name} is on the ${evil ? 'evil' : 'good'} team.`;
         }
         game.results[p.id] = { title: 'Fisherman', body: adviceBody };
@@ -1384,6 +1434,7 @@ async function requestHandler(req, res) {
         const p = E.byToken(game, body.token);
         if (!p) return json(res, 404, { error: 'Unknown player.' });
         if (p.bot) return json(res, 409, { error: 'This seat is bot-controlled.' });
+        if (!E.publiclyAlive(p)) return json(res, 409, { error: 'Only living players may do this.' });
         if (game.phase !== 'day') return json(res, 409, { error: 'Only during the day.' });
         const believed = E.char(p.believedId);
         if (!believed || believed.id !== 'artist') return json(res, 409, { error: 'Nothing to ask.' });
@@ -1465,7 +1516,7 @@ async function requestHandler(req, res) {
             E.logEvent(game, `${p.name}'s Moonchild choice falls on ${target.name}, who survives.`);
           } else {
             target.alive = false;
-            game.deaths.push({ night: game.nightNumber, name: target.name, cause: 'moonchild', killedByDemon: false });
+            game.deaths.push({ night: game.nightNumber, name: target.name, cause: 'moonchild', killedByDemon: false, phase: game.phase });
             E.logEvent(game, `${p.name}'s Moonchild choice kills ${target.name}.`);
             E.triggerDeathHooks(game, target, { killedByDemon: false });
             E.succeedDemon(game, target);
@@ -1497,8 +1548,9 @@ async function requestHandler(req, res) {
         if (E.isEvil(game, target)) {
           E.logEvent(game, `${p.name} (the Klutz) chooses ${target.name}, who is evil — evil wins.`);
           clearTimeout(windowTimer);
+          clearTimeout(voteTimer);
           clearTimeout(simTimer);
-          game.victory = { winner: 'evil', reason: `The Klutz chose ${target.name}, who is evil.` };
+          game.victory = E.applyPoliticianFlip(game, { winner: 'evil', reason: `The Klutz chose ${target.name}, who is evil.` });
           game.phase = 'over';
           game.revealed = true;
           game.windowEndsAt = null;
@@ -1533,12 +1585,19 @@ async function requestHandler(req, res) {
           playerId: guesser.id, playerName: guesser.name, characterId: 'damsel-guess', characterName: 'Damsel guess',
           targets: [guessed.name],
         });
-        const correct = !E.impaired(guesser) && E.trueChar(guessed).id === 'damsel';
+        // Impairment here has to check the Damsel's own, not the guessing
+        // Minion's — the ability ("if a Minion publicly guesses you, your
+        // team loses") is written on the Damsel's card, so it's the
+        // Damsel's poison/drunk that silences it, same as the Virgin's
+        // trigger above checks the nominated Virgin's impairment, not the
+        // nominator's.
+        const correct = E.trueChar(guessed).id === 'damsel' && !E.impaired(guessed);
         if (correct) {
           E.logEvent(game, `${guesser.name} publicly names ${guessed.name} as the Damsel — correct. Evil wins.`);
           clearTimeout(windowTimer);
+          clearTimeout(voteTimer);
           clearTimeout(simTimer);
-          game.victory = { winner: 'evil', reason: `${guesser.name} correctly named the Damsel.` };
+          game.victory = E.applyPoliticianFlip(game, { winner: 'evil', reason: `${guesser.name} correctly named the Damsel.` });
           game.phase = 'over';
           game.revealed = true;
           game.windowEndsAt = null;
@@ -1560,6 +1619,7 @@ async function requestHandler(req, res) {
         const p = E.byToken(game, body.token);
         if (!p) return json(res, 404, { error: 'Unknown player.' });
         if (p.bot) return json(res, 409, { error: 'This seat is bot-controlled.' });
+        if (!E.publiclyAlive(p)) return json(res, 409, { error: 'Only living players may do this.' });
         if (game.phase !== 'day') return json(res, 409, { error: 'Only during the day.' });
         const believed = E.char(p.believedId);
         if (!believed || believed.id !== 'juggler') return json(res, 409, { error: 'Nothing to guess.' });
@@ -1629,7 +1689,7 @@ async function requestHandler(req, res) {
               E.logEvent(game, `${nominator.name} nominated the Virgin and should have been executed immediately, but survives.`);
             } else {
               nominator.alive = false;
-              game.deaths.push({ night: game.nightNumber, name: nominator.name, cause: 'virgin', killedByDemon: false });
+              game.deaths.push({ night: game.nightNumber, name: nominator.name, cause: 'virgin', killedByDemon: false, phase: 'day' });
               E.logEvent(game, `${nominator.name} nominated the Virgin and was executed immediately.`);
               E.triggerDeathHooks(game, nominator, { killedByDemon: false });
               E.succeedDemon(game, nominator);
@@ -1649,7 +1709,7 @@ async function requestHandler(req, res) {
             E.logEvent(game, `${nominator.name} nominates despite the Witch's curse, and somehow survives.`);
           } else {
             nominator.alive = false;
-            game.deaths.push({ night: game.nightNumber, name: nominator.name, cause: 'witch', killedByDemon: false });
+            game.deaths.push({ night: game.nightNumber, name: nominator.name, cause: 'witch', killedByDemon: false, phase: 'day' });
             E.logEvent(game, `${nominator.name} nominates despite the Witch's curse, and dies for it.`);
             E.triggerDeathHooks(game, nominator, { killedByDemon: false });
             E.succeedDemon(game, nominator);
@@ -1673,7 +1733,7 @@ async function requestHandler(req, res) {
             } else {
               nominee.alive = false;
               golemKilled = true;
-              game.deaths.push({ night: game.nightNumber, name: nominee.name, cause: 'golem', killedByDemon: false });
+              game.deaths.push({ night: game.nightNumber, name: nominee.name, cause: 'golem', killedByDemon: false, phase: 'day' });
               E.logEvent(game, `${nominator.name} (the Golem) nominated ${nominee.name} — not the Demon, and they die.`);
               E.triggerDeathHooks(game, nominee, { killedByDemon: false });
               E.succeedDemon(game, nominee);
@@ -1742,7 +1802,7 @@ async function requestHandler(req, res) {
         const today = game.nominations.filter(n => n.day === game.nightNumber);
         if (today.some(n => !n.closed)) return json(res, 409, { error: 'A nomination is still being voted on.' });
         const winnerId = E.resolveDayVote(game);
-        recordExecution(winnerId || null);
+        if (!recordExecution(winnerId || null)) return json(res, 409, { error: 'Already executed (or decided not to) today.' });
         return json(res, 200, { ok: true, executedId: winnerId || null });
       }
 
@@ -1794,7 +1854,7 @@ async function requestHandler(req, res) {
 
       if (route === '/api/table/execute') {
         if (game.phase !== 'day') return json(res, 409, { error: 'Not day.' });
-        recordExecution(body.playerId || null);
+        if (!recordExecution(body.playerId || null)) return json(res, 409, { error: 'Already executed (or decided not to) today.' });
         return json(res, 200, { ok: true });
       }
 

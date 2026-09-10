@@ -6,8 +6,8 @@ const { buildRegistry } = require('./abilities');
 
 const {
   DATA, CHARACTERS, SETUP_TABLE, char, scriptPool, BUCKET4_IDS, activeScriptPool,
-  shuffle, pick, take,
-  byId, byToken, alive, actingChar, trueChar, impaired, publiclyAlive,
+  shuffle, pick, take, excludingPick,
+  byId, byToken, alive, actingChar, trueChar, impaired, impairedFlip, publiclyAlive,
   wouldBlockKill, randomKiller, checkKill, isEvil, triggerMoonchildIfNeeded, flagAbnormal,
   triggerPixieIfNeeded, applyCannibalTransform,
   logEvent, outsiderDiedToday, minionDiedToday, somebodyDiedYesterday,
@@ -72,6 +72,7 @@ function newGame() {
     deaths: [],
     executedToday: null,
     noExecutionToday: false,
+    executionAttemptedToday: false, // at most one execution per day, including a blocked/survived one
     nominations: [],
     hint: null,
     log: [],
@@ -381,7 +382,11 @@ function deliverOpeningInfo(g, results) {
     let subject = g.players.find(x => x.id === grandmother.statuses.grandchildId);
     let shown = subject && trueChar(subject);
     if (impaired(grandmother) || !subject) {
-      subject = pick(g.players.filter(x => x.id !== grandmother.id));
+      // Wrong, not silent — and the fabricated subject has to exclude the
+      // real grandchild specifically, or an impaired reveal can coincide
+      // with the truth by chance (this predates excludingPick/impairedFlip
+      // and was never retrofitted when those were added).
+      subject = excludingPick(g.players, [grandmother.id, grandmother.statuses.grandchildId], 1)[0];
       shown = pick(activeScriptPool(g));
     }
     results[grandmother.id] = { title: 'Grandmother', body: `${subject.name} is your grandchild — the ${shown.name}.` };
@@ -389,8 +394,19 @@ function deliverOpeningInfo(g, results) {
 
   const godfather = g.players.find(p => p.characterId === 'godfather' && p.alive);
   if (godfather) {
-    let outsiders = g.players.filter(x => trueChar(x) && trueChar(x).team === 'outsider').map(x => x.name);
-    if (impaired(godfather)) outsiders = take(g.players, outsiders.length).map(x => x.name);
+    const trueOutsiders = g.players.filter(x => trueChar(x) && trueChar(x).team === 'outsider');
+    let outsiders = trueOutsiders.map(x => x.name);
+    if (impaired(godfather)) {
+      // Wrong, not silent — the old version reused the TRUE count via
+      // take(g.players, outsiders.length), which meant a table with 0
+      // real Outsiders (a common SETUP_TABLE case) always fell through to
+      // the same "No Outsiders are in play" the truth is, 100% of the
+      // time, exactly when poisoning the Godfather should matter most.
+      // Draw the fake set from non-Outsiders only, with a nonzero count
+      // even when the truth is 0, so the reveal can never coincide with it.
+      const fakeCount = trueOutsiders.length || (1 + Math.floor(Math.random() * 2));
+      outsiders = excludingPick(g.players, [...trueOutsiders.map(x => x.id), godfather.id], fakeCount).map(x => x.name);
+    }
     results[godfather.id] = {
       title: 'Godfather',
       body: outsiders.length ? `In play: ${outsiders.join(', ')}.` : 'No Outsiders are in play.',
@@ -546,21 +562,20 @@ function resolveNight(g, wave = 1) {
 
     // The Goon: the first character (by night order, hence checked freshly
     // on every acting player) to actually target them tonight makes them
-    // drunk until dusk, and — if that chooser is evil — flips them evil for
-    // the rest of the game. Reactive to *any* other character's action, so
-    // it stays here rather than needing its own turn (Goon never acts).
+    // drunk until dusk, and they become that chooser's alignment. "Each
+    // night" — this re-evaluates every night, not a one-way ratchet, so a
+    // later night's good chooser has to flip a previously-evil Goon back to
+    // good, not just leave goonEvil stuck true forever. Reactive to *any*
+    // other character's action, so it stays here rather than needing its
+    // own turn (Goon never acts).
     if (action && !g.goonFlippedTonight) {
       const goon = alive(g).find(x => x.characterId === 'goon' && x.id !== p.id);
       if (goon && target(action.targets).some(x => x.id === goon.id)) {
         g.goonFlippedTonight = true;
         goon.statuses.drunk = true;
         goon.statuses.drunkUntilNight = g.nightNumber;
-        if (isEvil(g, p)) {
-          goon.statuses.goonEvil = true;
-          logEvent(g, `${goon.name} (the Goon) is drunk until dusk, and turns evil.`, true);
-        } else {
-          logEvent(g, `${goon.name} (the Goon) is drunk until dusk.`, true);
-        }
+        goon.statuses.goonEvil = isEvil(g, p);
+        logEvent(g, `${goon.name} (the Goon) is drunk until dusk, and turns ${goon.statuses.goonEvil ? 'evil' : 'good'}.`, true);
       }
     }
 
@@ -632,7 +647,14 @@ function resolveNight(g, wave = 1) {
     d.player.alive = false;
     d.player.statuses.diedTonight = true;
     delete d.player.statuses.appearsDead; // no longer just appearing dead — this one's real
-    g.deaths.push({ night: g.nightNumber, name: d.player.name, cause: d.cause, killedByDemon: !!d.killedByDemon });
+    // phase: every death recorded here comes from resolveNight itself, so
+    // it's always a real night death — server.js's day-phase death sites
+    // (execution, Slayer, Moonchild, ...) stamp their own phase directly,
+    // since server.js's recordGameHistory() reads this back to label a
+    // player's outcome and used to infer it from `cause` alone, which
+    // mislabeled every non-execution day death (Slayer, Virgin, Witch,
+    // Golem) as a night death.
+    g.deaths.push({ night: g.nightNumber, name: d.player.name, cause: d.cause, killedByDemon: !!d.killedByDemon, phase: 'night' });
     logEvent(g, `${d.player.name} died in the night (${d.cause}).`, true);
     triggerDeathHooks(g, d.player, { killedByDemon: !!d.killedByDemon, results });
     if (!d.skipSuccession) succeedDemon(g, d.player);
@@ -684,10 +706,15 @@ function succeedDemon(g, deadPlayer) {
   if (alive(g).length < 4) return;
   const sw = alive(g).find(x => x.characterId === 'scarletwoman');
   if (!sw) return;
-  sw.characterId = 'imp';
-  sw.believedId = 'imp';
-  g.results[sw.id] = { title: 'You are the Imp', body: 'The Demon has fallen. You take its place.' };
-  logEvent(g, 'Scarlet Woman became the Imp.', true);
+  // "You become the Demon" — not specifically the Imp, which used to be
+  // hardcoded here on the assumption the only Demon around was ever the
+  // Imp. Several playable scripts (last-rites, minotaurs-labyrinth,
+  // boozling, ...) pair Scarlet Woman with Shabaloth/Po/Fang Gu instead —
+  // last-rites doesn't even include the Imp on its sheet.
+  sw.characterId = deadChar.id;
+  sw.believedId = deadChar.id;
+  g.results[sw.id] = { title: `You are the ${deadChar.name}`, body: 'The Demon has fallen. You take its place.' };
+  logEvent(g, `Scarlet Woman became the ${deadChar.name}.`, true);
 }
 
 /** The Mastermind's bonus day has just ended (an execution happened, or
@@ -725,10 +752,19 @@ function resolveMadness(g) {
       if (blocked) {
         logEvent(g, `${p.name} didn't act mad enough and should have been executed, but survives (${blocked}).`);
       } else {
+        // A real execution in every sense but who called for it — everything
+        // server.js's own execution branch does once a kill actually lands
+        // has to happen here too, or Vortox/Mayor (keyed on noExecutionToday),
+        // Saint, Evil Twin, and the Cannibal all silently miss it.
+        const tc = trueChar(p);
         p.alive = false;
-        g.deaths.push({ night: g.nightNumber, name: p.name, cause: 'madness', killedByDemon: false });
+        g.noExecutionToday = false;
+        if (tc && tc.id === 'saint') g.saintExecuted = true;
+        if (p.statuses.evilTwinId) g.evilTwinGoodExecuted = true;
+        g.deaths.push({ night: g.nightNumber, name: p.name, cause: 'madness', killedByDemon: false, phase: 'day' });
         logEvent(g, `${p.name} didn't act mad enough and is executed for it.`);
         triggerDeathHooks(g, p, { killedByDemon: false });
+        applyCannibalTransform(g, p);
         succeedDemon(g, p);
       }
     }
@@ -744,15 +780,22 @@ function resolveMadness(g) {
     character" fact every reveal in this game already uses, not anything
     open-ended — two statements about two players, exactly one true, shown
     in random order so which is which isn't given away by position. */
-function buildSavantStatements(g, p) {
+function buildSavantStatements(g, p, { broken = false } = {}) {
   const others = g.players.filter(x => x.id !== p.id);
-  const subject = pick(others);
-  const trueText = `${subject.name} is the ${trueChar(subject).name}.`;
-  const otherSubjects = others.filter(x => x.id !== subject.id);
-  const falseSubject = otherSubjects.length ? pick(otherSubjects) : subject;
-  const wrongPool = activeScriptPool(g).filter(c => c.id !== trueChar(falseSubject).id);
-  const falseText = `${falseSubject.name} is the ${pick(wrongPool).name}.`;
-  return shuffle([trueText, falseText]);
+  const [a, b] = others.length >= 2 ? take(others, 2) : [pick(others), pick(others)];
+  const statementFor = (subject, tellTruth) => {
+    if (tellTruth) return `${subject.name} is the ${trueChar(subject).name}.`;
+    const wrongPool = activeScriptPool(g).filter(c => c.id !== trueChar(subject).id);
+    return `${subject.name} is the ${pick(wrongPool).name}.`;
+  };
+  // Sober: the card's own guarantee, exactly one true and one false.
+  if (!broken) return shuffle([statementFor(a, true), statementFor(b, false)]);
+  // Poisoned/drunk: the one-true-one-false guarantee is itself real
+  // information, so it can't hold — each statement is independently a coin
+  // flip instead, same "wrong, not silent" doctrine every other impaired
+  // info role follows (the Savant still visits and still gets two
+  // statements, just not ones that reliably split true/false).
+  return [statementFor(a, Math.random() < 0.5), statementFor(b, Math.random() < 0.5)];
 }
 
 /**
@@ -874,13 +917,15 @@ function applyConfigPatch(g, patch) {
  * Which nominee (if any) the town actually executes today, from every
  * *closed* nomination's already-final `yesCount` (the Butler exclusion is
  * baked in there at close time — this just applies the real majority rule:
- * strictly more than half of the living, and a tie at the qualifying top
- * means no execution, same as an in-person vote would).
+ * at least half of the living, rounded up — and a tie at the qualifying top
+ * means no execution, same as an in-person vote would). Math.ceil(n/2), not
+ * floor(n/2)+1 — the two only agree when the living count is odd; for an
+ * even count (e.g. 10 alive) the real threshold is 5, not 6.
  */
 function resolveDayVote(g) {
   const today = g.nominations.filter(n => n.day === g.nightNumber && n.closed);
   if (!today.length) return null;
-  const threshold = Math.floor(alive(g).length / 2) + 1;
+  const threshold = Math.ceil(alive(g).length / 2);
   const qualifying = today.filter(n => (n.yesCount || 0) >= threshold);
   if (!qualifying.length) return null;
   const max = Math.max(...qualifying.map(n => n.yesCount));
@@ -955,22 +1000,35 @@ function evilTwinBlocksGood(g) {
 
 /* ------------------------------------------------------------ victory */
 
-/** Returns null while the game is still alive, else {winner, reason}. */
-function checkVictory(g) {
-  const result = checkVictoryRaw(g);
-  // Politician: the real rule is a PERSONAL win-while-your-team-still-loses
-  // exception for "whoever was most responsible for the loss" — this
-  // engine's victory model is team-wide only, so this is simplified to
-  // flipping the whole team's fate instead, and "most responsible" is
-  // dropped entirely (merely being in the game is enough — "even if dead"
-  // is in the card text, so no alive/impaired check either, unlike almost
-  // everything else here). A deliberate reduction, not a full translation,
-  // same spirit as Sailor/Innkeeper's coin-flip standing in for a
-  // Storyteller's judgment call.
+/**
+ * Politician: the real rule is a PERSONAL win-while-your-team-still-loses
+ * exception for "whoever was most responsible for the loss" — this engine's
+ * victory model is team-wide only, so this is simplified to flipping the
+ * whole team's fate instead, and "most responsible" is dropped entirely
+ * (merely being in the game is enough — "even if dead" is in the card
+ * text, so no alive/impaired check either, unlike almost everything else
+ * here). A deliberate reduction, not a full translation, same spirit as
+ * Sailor/Innkeeper's coin-flip standing in for a Storyteller's judgment
+ * call.
+ *
+ * Pulled out to its own function, not inlined into checkVictory, because
+ * checkVictory isn't the only place a raw win/loss result gets decided —
+ * the Mastermind's bonus day and the Klutz's/Damsel's instant-evil-win
+ * routes (all in server.js) each build their own {winner, reason} outside
+ * checkVictoryRaw entirely and need the same flip applied before it
+ * becomes game.victory, or a Politician in one of those games silently
+ * never gets their turn.
+ */
+function applyPoliticianFlip(g, result) {
   if (result && result.winner === 'evil' && g.players.some(p => p.characterId === 'politician')) {
     return { winner: 'good', reason: `${result.reason} But the Politician turns it around.` };
   }
   return result;
+}
+
+/** Returns null while the game is still alive, else {winner, reason}. */
+function checkVictory(g) {
+  return applyPoliticianFlip(g, checkVictoryRaw(g));
 }
 
 function checkVictoryRaw(g) {
@@ -1000,22 +1058,28 @@ function checkVictoryRaw(g) {
     return { winner: 'evil', reason: "The Evil Twin's twin was executed." };
   }
   // Vortox: "each day, if no-one is executed, evil wins" — like the Mayor's
-  // rule below, only while Vortox is actually alive to claim it (no card
-  // here says "even if dead"). Checked before the Mayor's own no-execution
-  // rule: the rare case where both could apply at once (3 living, Vortox
-  // AND a Mayor both alive, no execution) has no official tie-break I know
-  // of, and favoring the Demon's own win condition over the Mayor's
-  // corner-case rule felt like the safer default.
-  if (g.noExecutionToday && living.some(x => x.characterId === 'vortox')) {
+  // rule below, only while Vortox is actually alive AND unimpaired to claim
+  // it (poisoned/drunk means the ability doesn't function at all, same as
+  // any other character's — a passive/automatic win condition is no
+  // exception, matching randomKiller's own Mayor-redirect check elsewhere
+  // in this codebase, which already gates on !impaired for the same
+  // reason). Checked before the Mayor's own no-execution rule: the rare
+  // case where both could apply at once (3 living, Vortox AND a Mayor both
+  // alive, no execution) has no official tie-break I know of, and favoring
+  // the Demon's own win condition over the Mayor's corner-case rule felt
+  // like the safer default.
+  if (g.noExecutionToday && living.some(x => x.characterId === 'vortox' && !impaired(x))) {
     return { winner: 'evil', reason: 'No one was executed, and the Vortox lives.' };
   }
   // "If only 3 players live & no execution occurs, your team wins" — reads
   // as conditional on the Mayor still being alive to claim it, matching the
   // general rule that a dead character's passive text stops applying unless
   // it explicitly says otherwise (Recluse, Spy, and Saint all say "even if
-  // dead"; Mayor doesn't).
+  // dead"; Mayor doesn't) — and, same as Vortox above, conditional on not
+  // being impaired, since a poisoned/drunk Mayor's ability doesn't function
+  // either.
   const mayor = living.find(x => x.characterId === 'mayor');
-  if (mayor && living.length === 3 && g.noExecutionToday && !evilTwinBlocksGood(g)) {
+  if (mayor && !impaired(mayor) && living.length === 3 && g.noExecutionToday && !evilTwinBlocksGood(g)) {
     return { winner: 'good', reason: 'Only 3 remain, no one was executed, and the Mayor still lives.' };
   }
   return null;
@@ -1148,13 +1212,13 @@ function privateState(g, playerId) {
     // Shown based on *believed* character, same as everything else — a
     // Drunk who thinks they're the Slayer gets the button too, and simply
     // finds out (or rather, never finds out) that it does nothing.
-    slayerShot: (g.phase === 'day' && c && c.id === 'slayer' && !p.statuses.slayerUsed)
+    slayerShot: (g.phase === 'day' && publiclyAlive(p) && c && c.id === 'slayer' && !p.statuses.slayerUsed)
       ? { targets: g.players.filter(x => x.id !== p.id && publiclyAlive(x)).map(x => ({ id: x.id, name: x.name, color: x.color || null, alive: true })) }
       : null,
     // Sects & Violets' Juggler: "on your 1st day" — day one only, once ever,
     // via /api/juggler-guess. That night's reveal of how many were correct
     // is a normal registry entry, not part of this.
-    jugglerGuess: (g.phase === 'day' && c && c.id === 'juggler' && g.nightNumber === 1 && !p.statuses.jugglerUsed)
+    jugglerGuess: (g.phase === 'day' && publiclyAlive(p) && c && c.id === 'juggler' && g.nightNumber === 1 && !p.statuses.jugglerUsed)
       ? {
           targets: g.players.filter(x => x.id !== p.id && publiclyAlive(x)).map(x => ({ id: x.id, name: x.name, color: x.color || null, alive: true })),
           characterOptions: activeScriptPool(g).map(x => ({ id: x.id, name: x.name })),
@@ -1165,7 +1229,7 @@ function privateState(g, playerId) {
     // prompt existing at all, same indirect leak Godfather's conditional
     // prompt already has). Any player, living or dead, is a fair claim
     // target — a claim about someone already dead is still a real read.
-    gossipClaim: (g.phase === 'day' && c && c.id === 'gossip' && p.statuses.gossipClaimDay !== g.nightNumber)
+    gossipClaim: (g.phase === 'day' && publiclyAlive(p) && c && c.id === 'gossip' && p.statuses.gossipClaimDay !== g.nightNumber)
       ? {
           targets: g.players.map(x => ({ id: x.id, name: x.name, color: x.color || null, alive: x.alive })),
           characterOptions: activeScriptPool(g).map(x => ({ id: x.id, name: x.name })),
@@ -1174,13 +1238,13 @@ function privateState(g, playerId) {
     // Sects & Violets' Savant: "each day, you may" — a plain once-a-day
     // tap, no target of any kind; the two statements land in `result` like
     // any other reveal, via /api/savant-visit.
-    savantVisit: (g.phase === 'day' && c && c.id === 'savant' && p.statuses.savantVisitDay !== g.nightNumber)
+    savantVisit: (g.phase === 'day' && publiclyAlive(p) && c && c.id === 'savant' && p.statuses.savantVisitDay !== g.nightNumber)
       ? true : null,
     // Sects & Violets' Artist: once per game, the same structured-claim menu
     // Gossip's claim uses (see evaluateClaim in engine.js) — but answered
     // immediately and privately via /api/artist-question, with no public
     // claim and no waiting to see if it comes true.
-    artistQuestion: (g.phase === 'day' && c && c.id === 'artist' && !p.statuses.artistUsed)
+    artistQuestion: (g.phase === 'day' && publiclyAlive(p) && c && c.id === 'artist' && !p.statuses.artistUsed)
       ? {
           targets: g.players.map(x => ({ id: x.id, name: x.name, color: x.color || null, alive: x.alive })),
           characterOptions: activeScriptPool(g).map(x => ({ id: x.id, name: x.name })),
@@ -1236,7 +1300,7 @@ module.exports = {
   newGame, byId, byToken, alive, dealRoles,
   actingTonight, promptFor, resolveNight, needsWaveTwo,
   generateHint, logEvent, publicState, privateState,
-  checkVictory, succeedDemon, trueChar, impaired,
+  checkVictory, applyPoliticianFlip, succeedDemon, trueChar, impaired, impairedFlip,
   checkKill, wouldBlockKill, publiclyAlive, randomKiller,
   isEvil, minionDiedToday, triggerMoonchildIfNeeded, triggerDeathHooks, resolveMastermindDay,
   resolveDayVote, gameSummary, resolveMadness, buildSavantStatements, evaluateClaim,
