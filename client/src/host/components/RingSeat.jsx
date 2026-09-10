@@ -46,7 +46,10 @@ export default function RingSeat({ player: p, index, total, revealed, entering }
         {showToken && p.team && !badgeFailed && (
           <img className="team-badge" src={`/team-icons/${p.team}.png`} alt="" onError={() => setBadgeFailed(true)} />
         )}
-        {!p.alive && !p.ghostVoteUsed && (
+        {/* Ghost vote availability stops mattering the moment the game is
+            over — the final reveal shows each player's real character,
+            not their remaining table-talk status. */}
+        {!revealed && !p.alive && !p.ghostVoteUsed && (
           <img className="ghost-layer" src="/icons/ghost_vote_token.png" alt="" title="Ghost vote available" />
         )}
       </div>

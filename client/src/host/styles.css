@@ -1335,9 +1335,24 @@
         align-items: flex-start;
         gap: 2px;
       }
+      /* Seated/Alive only ever hold a short digit or two — a smaller,
+         narrower box for those leaves more real room in the row for
+         Executed today's player name, which needs it. */
+      .stat.stat-compact {
+        flex: 0.6;
+        min-width: 64px;
+      }
       .stat-n {
         font-size: 1.35rem;
         color: var(--brass);
+      }
+      /* A player's name can run much wider than a stat digit ever does —
+         a smaller size plus wrapping keeps it inside the box instead of
+         overflowing past its edge. */
+      .stat.stat-name .stat-n {
+        font-size: 1rem;
+        line-height: 1.25;
+        word-break: break-word;
       }
       .stat-lbl {
         font-size: 0.66rem;

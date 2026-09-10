@@ -97,6 +97,12 @@ describe('RingSeats', () => {
     expect(seats[2].querySelector('.ghost-layer')).toBeTruthy(); // dead, still has it
   });
 
+  it('the final reveal hides the ghost layer even for a dead player who never spent their vote', () => {
+    const unspent = { ...dead, characterId: 'imp', ghostVoteUsed: false };
+    const { container } = render(<RingSeats players={[unspent]} revealed />);
+    expect(container.querySelector('.ghost-layer')).toBeFalsy();
+  });
+
   it('a missing team-badge image is silently dropped, not shown broken', () => {
     const revealed = { ...alive, characterId: 'imp', team: 'demon' };
     const { container } = render(<RingSeats players={[revealed]} revealed />);
