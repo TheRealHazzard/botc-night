@@ -78,10 +78,18 @@ function playerState(playerId) {
   return { ...state, llmEnabled: !!(game.config.llmStorytellerEnabled && llmConfigured()) };
 }
 
+// additionalProperties: false is a hard requirement for every object in a
+// structured-output schema, per Anthropic's docs — omit it and the API
+// rejects the whole request with a 400. Both schemas here were missing it,
+// which meant askStoryteller() always got `{ok:false, reason:'http-400'}`
+// and both callers' fallback path (structured menu / original statements)
+// fired every single time, on every table that ever enabled Bucket 4 — the
+// LLM path itself never actually ran.
 const VERDICT_SCHEMA = {
   type: 'object',
   properties: { verdict: { type: 'string', enum: ['true', 'false', 'ambiguous'] } },
   required: ['verdict'],
+  additionalProperties: false,
 };
 
 /** Sects & Violets' Gossip/Artist free-text path: judge a player's own words
@@ -128,6 +136,7 @@ async function rephraseSavantStatements(statements) {
       type: 'object',
       properties: { statements: { type: 'array', items: { type: 'string' } } },
       required: ['statements'],
+      additionalProperties: false,
     },
     maxTokens: 200,
   });

@@ -6,6 +6,8 @@
    every response shape (good, truncated, refused, malformed, network
    failure, timeout) can be exercised deterministically. */
 
+const fs = require('fs');
+const path = require('path');
 const { askStoryteller } = require('../game/llmStoryteller');
 
 let failures = 0;
@@ -119,6 +121,31 @@ function jsonResponse(status, body) {
 
   restoreFetch();
   if (realKey === undefined) delete process.env.ANTHROPIC_API_KEY; else process.env.ANTHROPIC_API_KEY = realKey;
+
+  // additionalProperties: false is a hard requirement for every object in a
+  // structured-output schema (Anthropic rejects the whole request with a
+  // 400 without it) — this bit both schemas server.js actually sends
+  // (judgeFreeformClaim's VERDICT_SCHEMA, rephraseSavantStatements' own)
+  // before, silently: askStoryteller() correctly fails closed on a 400, so
+  // every caller's documented fallback fired every time, meaning the LLM
+  // path itself never actually ran on any table that enabled it. No test
+  // above catches this — every schema passed is a trivial `{}` — because
+  // it's a request-validity problem, not something a mocked fetch
+  // response can surface. A source-text check is blunt but direct: it's
+  // guarding the actual schema literals in server.js, not a fetch mock.
+  const serverSrc = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
+  const verdictSchema = serverSrc.match(/const VERDICT_SCHEMA = \{[\s\S]*?\n\};/);
+  const savantSchema = serverSrc.match(/schema:\s*\{[\s\S]*?\n\s*\},\n\s*maxTokens: 200,/);
+  check('VERDICT_SCHEMA literal was found in server.js (regex sanity check)', !!verdictSchema);
+  check('rephraseSavantStatements\' inline schema literal was found in server.js (regex sanity check)', !!savantSchema);
+  if (verdictSchema) {
+    check('VERDICT_SCHEMA sets additionalProperties: false (required by Anthropic\'s structured-output API)',
+      /additionalProperties:\s*false/.test(verdictSchema[0]));
+  }
+  if (savantSchema) {
+    check('rephraseSavantStatements\' schema sets additionalProperties: false (required by Anthropic\'s structured-output API)',
+      /additionalProperties:\s*false/.test(savantSchema[0]));
+  }
 
   console.log(`\n${failures ? failures + ' FAILURES' : 'All checks passed'}\n`);
   process.exit(failures ? 1 : 0);
