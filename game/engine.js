@@ -1220,6 +1220,15 @@ function privateState(g, playerId) {
     slayerShot: (g.phase === 'day' && publiclyAlive(p) && c && c.id === 'slayer' && !p.statuses.slayerUsed)
       ? { targets: g.players.filter(x => x.id !== p.id && publiclyAlive(x)).map(x => ({ id: x.id, name: x.name, color: x.color || null, alive: true })) }
       : null,
+    // The Damsel: "if a Minion publicly guesses you (once), your team
+    // loses" — gated on the player's true team, not a believed-character
+    // check like the others here, since a real Minion always knows they're
+    // a Minion (there's no Drunk/Lunatic-style mixup to model). Once per
+    // game across the whole evil team, not once per Minion — see
+    // game.damselGuessUsed and /api/damsel-guess in server.js.
+    damselGuess: (g.phase === 'day' && publiclyAlive(p) && trueChar(p) && trueChar(p).team === 'minion' && !g.damselGuessUsed)
+      ? { targets: g.players.filter(x => publiclyAlive(x)).map(x => ({ id: x.id, name: x.name, color: x.color || null, alive: true })) }
+      : null,
     // Sects & Violets' Juggler: "on your 1st day" — day one only, once ever,
     // via /api/juggler-guess. That night's reveal of how many were correct
     // is a normal registry entry, not part of this.

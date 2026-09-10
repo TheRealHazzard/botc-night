@@ -10,7 +10,11 @@ export default function RoleCard({ character }) {
           const evil = character.team === 'minion' || character.team === 'demon';
           return (
             <div className="role">
-              <TokenImage characterId={character.id} />
+              {/* Keyed on characterId so a true character change mid-game
+                  (a Barber swap, Scarlet Woman's promotion, ...) remounts
+                  this instead of reusing a stale "failed" state left over
+                  from the PREVIOUS character's art, if that one 404'd. */}
+              <TokenImage key={character.id} characterId={character.id} />
               <div className="name">{character.name}</div>
               <div className={'team ' + (evil ? 'evil' : 'good')}>{character.team}</div>
               <div className="ability">{character.ability}</div>

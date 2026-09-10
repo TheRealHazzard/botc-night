@@ -819,8 +819,15 @@ function hashMatches(candidate, expected) {
   catch (e) { return false; }
 }
 
-function setGateCookie(res, name, hash) {
-  res.setHeader('Set-Cookie', `${name}=${hash}; HttpOnly; SameSite=Lax; Max-Age=${GATE_COOKIE_MAX_AGE}; Path=/`);
+function setGateCookie(req, res, name, hash) {
+  // Secure only when THIS request actually arrived over TLS — the app runs
+  // both a plain-HTTP LAN listener and an HTTPS one side by side (see
+  // certs/lan-*.pem), and a blanket Secure flag would stop the cookie ever
+  // being sent back over the still-supported HTTP path entirely. A request
+  // that came in via https.createServer has a TLSSocket, which sets
+  // req.socket.encrypted; a plain http.createServer connection never does.
+  const secure = req.socket.encrypted ? ' Secure;' : '';
+  res.setHeader('Set-Cookie', `${name}=${hash}; HttpOnly;${secure} SameSite=Lax; Max-Age=${GATE_COOKIE_MAX_AGE}; Path=/`);
 }
 
 // A tunnel (or any reverse proxy) forwards from a local TCP connection —
@@ -850,22 +857,36 @@ function clientIp(req) {
 
 // A handful of wrong guesses per IP locks that IP out for a few minutes —
 // the codes are short enough to type on a phone, so this (not code length)
-// is the actual defense against brute-forcing one.
-const codeAttempts = new Map(); // ip -> { count, resetAt }
-const MAX_CODE_ATTEMPTS = 8;
-const LOCKOUT_MS = 5 * 60 * 1000;
+// is the actual defense against brute-forcing one. Factored out so a
+// second, independent limiter (reclaim requests, below) doesn't have to
+// share one counter with this — spamming one shouldn't also lock an IP out
+// of the other, unrelated action.
+function makeRateLimiter(max, windowMs) {
+  const attempts = new Map(); // ip -> { count, resetAt }
+  return {
+    tooMany(ip) {
+      const rec = attempts.get(ip);
+      if (!rec) return false;
+      if (Date.now() > rec.resetAt) { attempts.delete(ip); return false; }
+      return rec.count >= max;
+    },
+    record(ip) {
+      const rec = attempts.get(ip);
+      if (!rec || Date.now() > rec.resetAt) attempts.set(ip, { count: 1, resetAt: Date.now() + windowMs });
+      else rec.count++;
+    },
+  };
+}
 
-function tooManyAttempts(ip) {
-  const rec = codeAttempts.get(ip);
-  if (!rec) return false;
-  if (Date.now() > rec.resetAt) { codeAttempts.delete(ip); return false; }
-  return rec.count >= MAX_CODE_ATTEMPTS;
-}
-function recordFailedAttempt(ip) {
-  const rec = codeAttempts.get(ip);
-  if (!rec || Date.now() > rec.resetAt) codeAttempts.set(ip, { count: 1, resetAt: Date.now() + LOCKOUT_MS });
-  else rec.count++;
-}
+const codeAttemptLimiter = makeRateLimiter(8, 5 * 60 * 1000);
+const tooManyAttempts = ip => codeAttemptLimiter.tooMany(ip);
+const recordFailedAttempt = ip => codeAttemptLimiter.record(ip);
+
+// A handful of legitimate reconnects (a lost phone, a misclick on the
+// wrong name) is normal; unbounded requests flooding the host's pending-
+// approval banner every game is not — same shape as the code-gate limiter
+// above, just more generous, since this isn't guarding a secret.
+const reclaimRequestLimiter = makeRateLimiter(10, 5 * 60 * 1000);
 
 // Everything under /api/table/ is a Storyteller action except the one
 // players trigger themselves (casting a vote) — built as a rule rather
@@ -1165,7 +1186,7 @@ async function requestHandler(req, res) {
         const ip = clientIp(req);
         if (tooManyAttempts(ip)) return json(res, 429, { error: 'Too many attempts — try again in a few minutes.' });
         if (hashMatches(codeHash(String(body.code || '')), hash)) {
-          setGateCookie(res, cookieName, hash);
+          setGateCookie(req, res, cookieName, hash);
           return json(res, 200, { ok: true });
         }
         recordFailedAttempt(ip);
@@ -1221,6 +1242,11 @@ async function requestHandler(req, res) {
       }
 
       if (route === '/api/reclaim/request') {
+        const ip = clientIp(req);
+        if (reclaimRequestLimiter.tooMany(ip)) {
+          return json(res, 429, { error: 'Too many reclaim requests — try again in a few minutes.' });
+        }
+        reclaimRequestLimiter.record(ip);
         const target = E.byId(game, body.targetId);
         if (!target) return json(res, 404, { error: 'That seat no longer exists.' });
         // Stale requests (approved, denied, or just forgotten) don't linger forever.
@@ -1618,7 +1644,11 @@ async function requestHandler(req, res) {
           return json(res, 400, { error: 'Only a living Minion may guess.' });
         }
         if (game.damselGuessUsed) return json(res, 409, { error: 'That guess has already been used.' });
-        const guessed = E.byId(game, body.guessedId);
+        // targetId, not guessedId — matches the {token, targetId} body
+        // shape client/src/components/game/SingleTargetChoice.jsx already
+        // sends for Moonchild/Klutz/Slayer's identical single-target-choice
+        // shape, so this route can reuse that same component.
+        const guessed = E.byId(game, body.targetId);
         if (!guessed) return json(res, 404, { error: 'Unknown player.' });
 
         game.damselGuessUsed = true;

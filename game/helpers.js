@@ -336,7 +336,14 @@ function applyCannibalTransform(g, executedPlayer) {
 }
 
 function logEvent(g, text, secret = false) {
-  g.log.push({ night: g.nightNumber, text, secret, at: Date.now() });
+  // g.phase at call time is the real phase this line happened in — nothing
+  // here ever logs a line describing a phase transition before actually
+  // making it (startNight() sets phase:'night' before its own "Night N
+  // begins" log call; resolveMadness's logEvent calls run from inside
+  // startNight() before that flip, so they correctly still read 'day').
+  // Lets the client tell a night death apart from a same-round day/lobby
+  // event instead of labeling every log line "Night N" regardless.
+  g.log.push({ night: g.nightNumber, phase: g.phase, text, secret, at: Date.now() });
 }
 
 /** Did an Outsider die by execution the day just past — Godfather's trigger. */

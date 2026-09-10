@@ -34,4 +34,20 @@ describe('TokenImage', () => {
     fireEvent.error(container.querySelector('img'));
     expect(container).toBeEmptyDOMElement();
   });
+
+  it('a caller keying on characterId (RoleCard) gets a fresh "failed" state for the new character, not the old one\'s', () => {
+    // TokenImage's own `failed` flag has no way to know the character
+    // changed — it's the caller's `key` that forces the remount. This
+    // proves the mechanism RoleCard.jsx relies on: without a key change
+    // (or with the same key), a failed image would stay hidden forever
+    // even for a character whose art is perfectly fine.
+    tokens.current = { imp: '/tokens/imp.png', washerwoman: '/tokens/washerwoman.png' };
+    const { container, rerender } = render(<TokenImage key="imp" characterId="imp" />);
+    fireEvent.error(container.querySelector('img'));
+    expect(container).toBeEmptyDOMElement();
+
+    rerender(<TokenImage key="washerwoman" characterId="washerwoman" />);
+    const img = container.querySelector('img');
+    expect(img).toHaveAttribute('src', '/tokens/washerwoman.png');
+  });
 });

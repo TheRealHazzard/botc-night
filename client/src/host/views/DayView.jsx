@@ -57,10 +57,15 @@ export default function DayView({ players, nightNumber, deaths, mastermindExtraD
 // yesCount field the server sends, not raw votes. This can't drift from
 // what the server would actually execute: same numbers, same math, just
 // run here too so the dropdown can show it before anyone taps a button.
-function leadingNominee(nominations, nightNumber, aliveCount) {
+function leadingNominee(nominations, nightNumber, alivePlayers) {
   const today = nominations.filter(n => n.day === nightNumber && n.closed);
-  const threshold = Math.max(1, Math.ceil(aliveCount / 2));
-  const qualifying = today.filter(n => (n.yesCount || 0) >= threshold);
+  const threshold = Math.max(1, Math.ceil(alivePlayers.length / 2));
+  // A day commonly has more than one nomination — a qualifying nominee from
+  // earlier today can die from an unrelated cause (Virgin, Witch, Golem, a
+  // Slayer shot) before the host ever acts on this, so "closed and met
+  // threshold" alone isn't enough; they also have to still be alive now.
+  const aliveIds = new Set(alivePlayers.map(p => p.id));
+  const qualifying = today.filter(n => (n.yesCount || 0) >= threshold && aliveIds.has(n.nomineeId));
   if (!qualifying.length) return null;
   const max = Math.max(...qualifying.map(n => n.yesCount));
   const top = qualifying.filter(n => n.yesCount === max);
@@ -90,7 +95,19 @@ function DayActions({ players, nominations, nightNumber, anyOpen, mastermindExtr
   // auto-filled-but-overridable form field.
   const [overrideId, setOverrideId] = useState(null);
 
-  const autoWinner = leadingNominee(nominations, nightNumber, alive.length);
+  // Same staleness risk as NominationPanel's dropdowns: the host picks an
+  // override, then an unrelated day-kill (Virgin, Witch, Golem, a Slayer
+  // shot) removes that player before "Kick Player" is clicked — snap back
+  // to "follow the computed leader" rather than silently keep pointing at
+  // a corpse (a weaker, un-named confirm dialog was the only visible sign
+  // something was wrong). An explicit "No execution" choice (empty string,
+  // distinct from null/"untouched") is left alone either way.
+  useEffect(() => {
+    const aliveIds = new Set(players.filter(p => p.alive).map(p => p.id));
+    setOverrideId(id => (id && !aliveIds.has(id)) ? null : id);
+  }, [players]);
+
+  const autoWinner = leadingNominee(nominations, nightNumber, alive);
   const leaderChanged = useLeaderChanged(autoWinner);
   const effectiveId = overrideId !== null ? overrideId : (autoWinner || '');
   const effectivePlayer = alive.find(p => p.id === effectiveId);

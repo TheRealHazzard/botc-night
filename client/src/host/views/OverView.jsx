@@ -8,6 +8,18 @@ import SessionStatsCard from '../components/SessionStatsCard.jsx';
 import PowerLogOverlay from '../components/PowerLogOverlay.jsx';
 import Icon from '../components/Icon.jsx';
 
+// A day commonly has execution/nomination log lines mixed in with the
+// night's own — every entry used to render "Night N" regardless, including
+// day-time events (executions never happen at night) and lobby events
+// (before "Night N" is even a real thing — nightNumber is still 0 there).
+// `phase`, recorded on each entry as of the log line's own real phase (see
+// logEvent in game/helpers.js), lets this tell them apart.
+function logLabel(l) {
+  if (l.phase === 'night') return `Night ${l.night}: `;
+  if (l.phase === 'day') return `Day ${l.night}: `;
+  return ''; // lobby/reveal/over, or older data with no recorded phase
+}
+
 export default function OverView({ players, victory, gameSummary, log, actionLog, nightNumber }) {
   const [showPowerLog, setShowPowerLog] = useState(false);
 
@@ -34,7 +46,7 @@ export default function OverView({ players, victory, gameSummary, log, actionLog
       {gameSummary && <GameSummaryCard gs={gameSummary} />}
       <SidepanelCard icon="scroll" title="What actually happened">
         <div className="log">
-          {log.map((l, i) => <p key={i}>Night {l.night}: {l.text}</p>)}
+          {log.map((l, i) => <p key={i}>{logLabel(l)}{l.text}</p>)}
         </div>
       </SidepanelCard>
     </div>

@@ -48,6 +48,20 @@ describe('PowerLogOverlay', () => {
     expect(day1Cell).toHaveClass('empty');
   });
 
+  it('a target name shared by two seats (older data, pre-dating /api/join\'s uniqueness check) falls back to no token rather than picking either one', () => {
+    const dupPlayers = [
+      { id: 'p1', name: 'Ada', characterId: 'soldier', character: 'Soldier' },
+      { id: 'p2', name: 'Sam', characterId: 'imp', character: 'Imp' },
+      { id: 'p3', name: 'Sam', characterId: 'poisoner', character: 'Poisoner' },
+    ];
+    const dupLog = [{ night: 1, phase: 'night', playerId: 'p1', targets: ['Sam'] }];
+    render(<PowerLogOverlay players={dupPlayers} actionLog={dupLog} nightNumber={1} onClose={() => {}} />);
+    const chip = document.querySelector('.powerlog-target');
+    expect(within(chip).getByText('Sam')).toBeInTheDocument();
+    expect(chip.querySelector('img')).toBeNull();
+    expect(chip.querySelector('.powerlog-target-token-fallback')).toBeTruthy();
+  });
+
   it('Close calls onClose', async () => {
     const onClose = vi.fn();
     render(<PowerLogOverlay players={players} actionLog={actionLog} nightNumber={1} onClose={onClose} />);

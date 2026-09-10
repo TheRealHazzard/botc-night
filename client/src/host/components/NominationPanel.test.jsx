@@ -26,6 +26,17 @@ describe('NominationPanel', () => {
     expect(lastBody(fetchMock, '/api/table/nominate')).toEqual({ nominatorId: 'p1', nomineeId: 'p1' });
   });
 
+  it('the nominee dropdown snaps back to a living player if the selected one dies mid-day (between nominations)', async () => {
+    const { container, rerender } = render(<NominationPanel nominations={[]} nightNumber={1} players={players5} voteWindowSeconds={20} />);
+    const nomineeSelect = () => container.querySelectorAll('select')[1];
+    await userEvent.selectOptions(nomineeSelect(), 'p2'); // Bo
+    expect(nomineeSelect().value).toBe('p2');
+
+    const boDead = players5.map(p => (p.id === 'p2' ? { ...p, alive: false } : p));
+    rerender(<NominationPanel nominations={[]} nightNumber={1} players={boDead} voteWindowSeconds={20} />);
+    expect(nomineeSelect().value).toBe('p1');
+  });
+
   it('alerts on a Virgin-fires response', async () => {
     mockFetch({ '/api/table/nominate': { virginFired: true } });
     const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});

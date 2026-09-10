@@ -11,8 +11,16 @@ import TokenOrFallback from './TokenOrFallback.jsx';
     text alone was hard to scan at a glance. */
 export default function PowerLogOverlay({ players, actionLog, nightNumber, onClose }) {
   const nights = Array.from({ length: nightNumber }, (_, i) => i + 1);
+  // actionLog's targets are recorded by name, not id (see game/engine.js) —
+  // /api/join now rejects a duplicate name at the source, but this stays
+  // defensive against older data from before that existed: a name shared
+  // by two seats can't be resolved to either one's token art, so it maps
+  // to null (a safe "unknown" fallback) rather than silently picking
+  // whichever player happened to be seen last.
+  const nameCounts = {};
+  players.forEach(p => { nameCounts[p.name] = (nameCounts[p.name] || 0) + 1; });
   const playersByName = {};
-  players.forEach(p => { playersByName[p.name] = p; });
+  players.forEach(p => { playersByName[p.name] = nameCounts[p.name] === 1 ? p : null; });
 
   return (
     <div className="powerlog-overlay">

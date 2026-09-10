@@ -37,7 +37,7 @@ export default function PlayerApp({ P, token, onChangeUser }) {
   const choosingTarget =
     (P.phase === 'night' && P.prompt && !P.submitted) ||
     !!P.moonchildChoice || !!P.klutzChoice || !!P.madClaim ||
-    (P.phase === 'day' && (nominating || !!P.slayerShot || !!P.gossipClaim || !!P.jugglerGuess || !!P.savantVisit || !!P.artistQuestion));
+    (P.phase === 'day' && (nominating || !!P.slayerShot || !!P.damselGuess || !!P.gossipClaim || !!P.jugglerGuess || !!P.savantVisit || !!P.artistQuestion));
 
   return (
     <>
@@ -128,6 +128,16 @@ export default function PlayerApp({ P, token, onChangeUser }) {
           targets={P.slayerShot.targets}
           buttonLabel="Fire"
           endpoint="/api/slayer-shot"
+          token={token}
+          onDone={() => {}}
+        />
+      ) : P.phase === 'day' && P.damselGuess ? (
+        <SingleTargetChoice
+          title="Guess the Damsel"
+          description="Once per game, for the whole team. Publicly choose a player — if they are the Damsel, evil wins. Announce it out loud before you tap Guess."
+          targets={P.damselGuess.targets}
+          buttonLabel="Guess"
+          endpoint="/api/damsel-guess"
           token={token}
           onDone={() => {}}
         />

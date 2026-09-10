@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Icon from './Icon.jsx';
 import Countdown from './Countdown.jsx';
 import VoteBar from './VoteBar.jsx';
@@ -29,6 +29,21 @@ export default function NominationPanel({ nominations, nightNumber, players, vot
   const [nominatorId, setNominatorId] = useState(() => living[0]?.id || '');
   const [nomineeId, setNomineeId] = useState(() => living[0]?.id || '');
   const [submitting, setSubmitting] = useState(false);
+
+  // A day commonly has more than one nomination, and several characters
+  // (Virgin, Witch, Golem, a Slayer shot) can kill a player mid-day,
+  // between them, without the host ever touching these dropdowns — left
+  // alone, the still-selected dead player's name would keep showing while
+  // silently no longer being a valid nominator/nominee, so a submit would
+  // fail with a generic "only living players" alert and no obvious reason
+  // why. Snap back to the first living player the moment that happens;
+  // setState's identical-value bail-out keeps this a no-op otherwise.
+  useEffect(() => {
+    const aliveIds = new Set(players.filter(p => p.alive).map(p => p.id));
+    const fallback = players.find(p => p.alive)?.id || '';
+    setNominatorId(id => (id && aliveIds.has(id)) ? id : fallback);
+    setNomineeId(id => (id && aliveIds.has(id)) ? id : fallback);
+  }, [players]);
 
   const submit = () => {
     setSubmitting(true);

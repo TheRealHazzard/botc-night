@@ -110,4 +110,48 @@ describe('DayView', () => {
     );
     expect(screen.getByText(/kick player/i).closest('button')).not.toHaveClass('leader-changed');
   });
+
+  it('a manual execute override snaps back to the auto-computed leader if that player dies from an unrelated cause first', async () => {
+    const nomP1 = { day: 1, nominatorName: 'Cy', nomineeName: 'Ada', nomineeId: 'p1', closed: true, yesCount: 2, votes: [] };
+    const { rerender } = render(
+      <DayView players={threeAlive} nightNumber={1} deaths={[]} mastermindExtraDay={false} nominations={[nomP1]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
+    );
+    const select = () => screen.getByText('No execution').closest('select');
+    await userEvent.selectOptions(select(), 'p2'); // manually override to Cy
+    expect(select().value).toBe('p2');
+
+    // Cy dies from an unrelated day-time cause (Virgin/Witch/Golem/Slayer) —
+    // the stale override should fall back to following the leader again.
+    const cyDead = threeAlive.map(p => (p.id === 'p2' ? { ...p, alive: false } : p));
+    rerender(
+      <DayView players={cyDead} nightNumber={1} deaths={[]} mastermindExtraDay={false} nominations={[nomP1]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
+    );
+    expect(select().value).toBe('p1');
+  });
+
+  it('an explicit "No execution" choice is not disturbed by an unrelated player dying', async () => {
+    const nomP1 = { day: 1, nominatorName: 'Cy', nomineeName: 'Ada', nomineeId: 'p1', closed: true, yesCount: 2, votes: [] };
+    const { rerender } = render(
+      <DayView players={threeAlive} nightNumber={1} deaths={[]} mastermindExtraDay={false} nominations={[nomP1]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
+    );
+    const select = () => screen.getByText('No execution').closest('select');
+    await userEvent.selectOptions(select(), '');
+    expect(select().value).toBe('');
+
+    const evyDead = threeAlive.map(p => (p.id === 'p3' ? { ...p, alive: false } : p));
+    rerender(
+      <DayView players={evyDead} nightNumber={1} deaths={[]} mastermindExtraDay={false} nominations={[nomP1]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
+    );
+    expect(select().value).toBe('');
+  });
+
+  it('the auto-computed leader ignores a qualifying nominee who has since died', () => {
+    const nomP1 = { day: 1, nominatorName: 'Cy', nomineeName: 'Ada', nomineeId: 'p1', closed: true, yesCount: 2, votes: [] };
+    const adaDead = threeAlive.map(p => (p.id === 'p1' ? { ...p, alive: false } : p));
+    render(
+      <DayView players={adaDead} nightNumber={1} deaths={[]} mastermindExtraDay={false} nominations={[nomP1]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
+    );
+    const select = screen.getByText('No execution').closest('select');
+    expect(select.value).toBe('');
+  });
 });

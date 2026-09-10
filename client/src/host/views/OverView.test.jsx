@@ -9,7 +9,7 @@ const players = [
   { id: 'p2', name: 'Bo', alive: false, connected: true, character: 'Imp', color: null },
 ];
 const gameSummary = { nominations: 3, voteAccuracy: 0.8, ghostVotesUsed: 1, ghostVotesEligible: 1, longestSurvivingEvil: { name: 'Bo', survived: false, night: 2 } };
-const log = [{ night: 1, text: 'Ada learned two neighbors.' }];
+const log = [{ night: 1, phase: 'night', text: 'Ada learned two neighbors.' }];
 
 function baseMocks(overrides = {}) {
   return mockFetch({
@@ -40,6 +40,21 @@ describe('OverView', () => {
     expect(screen.getByText('What actually happened')).toBeInTheDocument();
     expect(screen.getByText('Night 1: Ada learned two neighbors.')).toBeInTheDocument();
     expect(screen.getByText('This game')).toBeInTheDocument();
+  });
+
+  it('labels a day-phase log line "Day N", not "Night N" — executions never happen at night', () => {
+    baseMocks();
+    const dayLog = [{ night: 1, phase: 'day', text: 'Bo was executed.' }];
+    render(<OverView players={players} victory={null} gameSummary={null} log={dayLog} actionLog={[]} nightNumber={1} />);
+    expect(screen.getByText('Day 1: Bo was executed.')).toBeInTheDocument();
+  });
+
+  it('a lobby-phase log line (or older data with no recorded phase) has no misleading Night/Day prefix', () => {
+    baseMocks();
+    const lobbyLog = [{ night: 0, phase: 'lobby', text: 'Ada took a seat.' }, { night: 1, text: 'Undated older entry.' }];
+    render(<OverView players={players} victory={null} gameSummary={null} log={lobbyLog} actionLog={[]} nightNumber={0} />);
+    expect(screen.getByText('Ada took a seat.')).toBeInTheDocument();
+    expect(screen.getByText('Undated older entry.')).toBeInTheDocument();
   });
 
   it('the Power log button only appears with a non-empty actionLog, and opens the overlay', async () => {

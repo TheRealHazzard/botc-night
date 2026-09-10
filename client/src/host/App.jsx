@@ -228,7 +228,13 @@ export default function App() {
       {settingsOpen && displayS.config && (
         <SettingsOverlay
           config={displayS.config}
-          phase={displayS.phase}
+          // The live phase, not displayS's — displayS is deliberately held
+          // back for ~300ms during a phase-change fade (see usePhaseFade),
+          // and RosterSection's lobby-only gate is a real safety check (a
+          // PATCH is server-side no-op'd once phase !== 'lobby'), not a
+          // cosmetic label — it shouldn't lag behind the actual game state
+          // even briefly.
+          phase={S?.phase}
           llmConfigured={displayS.llmConfigured}
           patchConfig={patchConfig}
           onClose={() => setSettingsOpen(false)}

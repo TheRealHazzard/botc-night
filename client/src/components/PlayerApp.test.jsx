@@ -18,6 +18,7 @@ function baseP(overrides = {}) {
     madClaim: null,
     canNominate: null,
     slayerShot: null,
+    damselGuess: null,
     gossipClaim: null,
     jugglerGuess: null,
     savantVisit: null,
@@ -51,7 +52,7 @@ describe('PlayerApp', () => {
   });
 
   it('hides the role card during any of the day-phase single-choice prompts', () => {
-    for (const key of ['slayerShot', 'moonchildChoice', 'klutzChoice', 'madClaim']) {
+    for (const key of ['slayerShot', 'damselGuess', 'moonchildChoice', 'klutzChoice', 'madClaim']) {
       const P = baseP({ [key]: key === 'madClaim' ? { label: 'the Drunk' } : { targets: [] } });
       const { unmount } = render(<PlayerApp P={P} token="tok" />);
       expect(screen.queryByText(/hold to see who you are/i)).not.toBeInTheDocument();
@@ -133,6 +134,19 @@ describe('PlayerApp', () => {
     await userEvent.click(screen.getByText('Cy'));
     await userEvent.click(screen.getByText('Nominate', { selector: 'button' }));
     expect(lastBody(fetchMock, '/api/table/nominate')).toEqual({ token: 'tok', targetId: 'p2' });
+  });
+
+  it('a living Minion\'s damselGuess prompt renders and posts {token, targetId} on confirm', async () => {
+    const fetchMock = mockFetch({ '/api/tokens': {}, '/api/damsel-guess': { correct: false } });
+    const P = baseP({ damselGuess: { targets: [{ id: 'p2', name: 'Cy', color: null, alive: true }] } });
+    render(<PlayerApp P={P} token="tok" />);
+
+    expect(screen.getByText('Guess the Damsel')).toBeInTheDocument();
+    expect(screen.queryByText(/hold to see who you are/i)).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByText('Cy'));
+    await userEvent.click(screen.getByText('Guess'));
+    expect(lastBody(fetchMock, '/api/damsel-guess')).toEqual({ token: 'tok', targetId: 'p2' });
   });
 
   it('canNominate disappearing (someone else\'s nomination opened) resets the in-progress picker', () => {
