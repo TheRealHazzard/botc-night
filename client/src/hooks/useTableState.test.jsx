@@ -11,8 +11,15 @@ class FakeEventSource {
     this.onmessage = null;
     this.onerror = null;
     this.closed = false;
+    this.listeners = {};
+  }
+  addEventListener(type, fn) { (this.listeners[type] ||= []).push(fn); }
+  removeEventListener(type, fn) {
+    if (!this.listeners[type]) return;
+    this.listeners[type] = this.listeners[type].filter(f => f !== fn);
   }
   emit(data) { this.onmessage && this.onmessage({ data: JSON.stringify(data) }); }
+  emitPing() { (this.listeners.ping || []).forEach(fn => fn({ data: '1' })); }
   error() { this.onerror && this.onerror(); }
   close() { this.closed = true; }
 }
@@ -77,5 +84,39 @@ describe('useTableState', () => {
     act(() => FakeEventSource.instances[0].error());
     await waitFor(() => expect(result.current.token).toBeNull());
     expect(localStorage.getItem(TOKEN_KEY)).toBeNull();
+  });
+
+  it('a genuine connection error (token still valid) falls back to polling instead of forgetting the token', async () => {
+    global.fetch = vi.fn(url => {
+      if (String(url).includes('/events')) return Promise.resolve({ status: 200, json: () => Promise.resolve({}) });
+      return Promise.resolve({ status: 200, json: () => Promise.resolve({ phase: 'day', you: { name: 'Bo' } }) });
+    });
+    const { result } = renderHook(() => useTableState());
+    act(() => result.current.setToken('tok'));
+    act(() => FakeEventSource.instances[0].emit({ phase: 'lobby', you: { name: 'Bo' } }));
+
+    act(() => FakeEventSource.instances[0].error());
+    await waitFor(() => expect(FakeEventSource.instances[0].closed).toBe(true));
+    await waitFor(() => expect(result.current.P).toEqual({ phase: 'day', you: { name: 'Bo' } }));
+    expect(result.current.token).toBe('tok');
+  });
+
+  it('falls back to polling if the server keep-alive pings stop arriving mid-game', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    global.fetch = vi.fn(() => Promise.resolve({ status: 200, json: () => Promise.resolve({ phase: 'day', you: { name: 'Bo' } }) }));
+    const { result } = renderHook(() => useTableState());
+    act(() => result.current.setToken('tok'));
+    act(() => FakeEventSource.instances[0].emit({ phase: 'lobby', you: { name: 'Bo' } }));
+
+    // A ping just before 65s of total silence keeps the connection trusted.
+    await act(async () => { await vi.advanceTimersByTimeAsync(60000); });
+    act(() => FakeEventSource.instances[0].emitPing());
+    expect(FakeEventSource.instances[0].closed).toBe(false);
+
+    // But 65s of total silence (no message, no ping) after that is stale.
+    await act(async () => { await vi.advanceTimersByTimeAsync(70000); });
+    expect(FakeEventSource.instances[0].closed).toBe(true);
+    await waitFor(() => expect(result.current.P).toEqual({ phase: 'day', you: { name: 'Bo' } }));
+    vi.useRealTimers();
   });
 });

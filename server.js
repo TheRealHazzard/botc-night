@@ -715,7 +715,12 @@ function tokenManifest() {
 
 function serveFile(res, file) {
   const full = path.join(PUBLIC, file);
-  if (!full.startsWith(PUBLIC)) { res.writeHead(403).end('Forbidden'); return; }
+  // PUBLIC has no trailing separator, so a bare startsWith(PUBLIC) also
+  // passes for any sibling directory whose name happens to start with
+  // "public" (e.g. a hypothetical public-secret/) — not exploitable by
+  // anything in this repo today, but the trailing separator is what
+  // actually confines this to PUBLIC's own contents.
+  if (!full.startsWith(PUBLIC + path.sep)) { res.writeHead(403).end('Forbidden'); return; }
   fs.readFile(full, (err, buf) => {
     if (err) { res.writeHead(404).end('Not found'); return; }
     res.writeHead(200, { 'Content-Type': MIME[path.extname(full)] || 'application/octet-stream' });
@@ -760,7 +765,14 @@ function openStream(req, res, onClose) {
   // with ':' is a comment) forces an immediate flush past that threshold.
   try { res.write(':' + ' '.repeat(4096) + '\n\n'); } catch (e) {}
   try { res.write(': connected\n\n'); } catch (e) {}
-  const keepAlive = setInterval(() => { try { res.write(': ping\n\n'); } catch (e) {} }, 20000);
+  // A named event (not a ':'-prefixed comment) specifically so it's visible
+  // to EventSource's JS API — client/src/hooks/useTableState.js and
+  // client/src/host/hooks/useHostState.js both listen for it to tell a
+  // healthy-but-quiet connection (nothing has changed, so no real state
+  // push) apart from a proxy silently stalling the byte stream without ever
+  // closing it (which a comment-only ping could never help detect, since
+  // comments never reach application code at all).
+  const keepAlive = setInterval(() => { try { res.write('event: ping\ndata: 1\n\n'); } catch (e) {} }, 20000);
   req.on('close', () => { clearInterval(keepAlive); onClose(); });
 }
 
@@ -807,11 +819,24 @@ function setGateCookie(res, name, hash) {
 // actual visitor, so the brute-force guard below would otherwise lock out
 // every visitor at once instead of the one guessing wrong. Cloudflare (and
 // most other proxies) hand the real address through in a header instead.
+//
+// Those forwarded headers are only trustworthy when we can confirm the
+// request actually arrived through that local proxy — cloudflared always
+// dials `http://localhost:${PORT}` (see tools/host-public.js), so a
+// genuinely tunneled request's TCP peer is loopback. The server is also
+// directly reachable on the LAN by default, with no proxy in front of it
+// at all; trusting a forwarded header there would let anyone on the same
+// Wi-Fi set a fresh spoofed IP on every request and walk straight through
+// the lockout below, since neither header is a browser-forbidden one.
 function clientIp(req) {
-  return req.headers['cf-connecting-ip']
-    || (req.headers['x-forwarded-for'] || '').split(',')[0].trim()
-    || req.socket.remoteAddress
-    || 'unknown';
+  const peer = req.socket.remoteAddress;
+  const isLoopback = peer === '127.0.0.1' || peer === '::1' || peer === '::ffff:127.0.0.1';
+  if (isLoopback) {
+    return req.headers['cf-connecting-ip']
+      || (req.headers['x-forwarded-for'] || '').split(',')[0].trim()
+      || peer;
+  }
+  return peer || 'unknown';
 }
 
 // A handful of wrong guesses per IP locks that IP out for a few minutes —
@@ -1143,6 +1168,14 @@ async function requestHandler(req, res) {
         const name = String(body.name || '').trim().slice(0, 24);
         if (!name) return json(res, 400, { error: 'Name required.' });
         if (game.players.length >= 15) return json(res, 409, { error: 'Table is full.' });
+        // Every death/vote/power-log record downstream tracks a player by
+        // this name, not by seat id (recordGameHistory, votingLeaderboard,
+        // the host's Power Log) — two seats sharing one name silently mixes
+        // up whose death/vote is whose for the rest of the game. Case-
+        // insensitive so "Sam" can't dodge this by capitalizing differently.
+        if (game.players.some(p => p.name.toLowerCase() === name.toLowerCase())) {
+          return json(res, 409, { error: 'That name is already seated — pick a different one.' });
+        }
         // Typing your name back in at a later game is the whole login — no
         // password, same trust the reclaim system already runs on. The
         // The player client already looked up /api/profile before calling

@@ -6,8 +6,8 @@ const EDITION_NAMES = { tb: 'Trouble Brewing', bmr: 'Bad Moon Rising', sv: 'Sect
 const TEAM_ORDER = ['townsfolk', 'outsider', 'minion', 'demon'];
 const TEAM_LABEL = { townsfolk: 'Townsfolk', outsider: 'Outsiders', minion: 'Minions', demon: 'Demons' };
 
-export default function ScriptOverlay({ open, onClose }) {
-  const data = useScript(open);
+export default function ScriptOverlay({ open, onClose, script }) {
+  const data = useScript(open, script);
 
   // iOS can still let a scroll gesture reach the page behind a fixed
   // overlay — locking the body while it's open is the standard guard, on

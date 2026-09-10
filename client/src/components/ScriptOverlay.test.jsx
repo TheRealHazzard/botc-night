@@ -77,4 +77,19 @@ describe('ScriptOverlay', () => {
     await userEvent.click(container.querySelector('.overlay'));
     expect(onClose).toHaveBeenCalledTimes(2);
   });
+
+  it('refetches when the current script differs from what was cached — a second game on a new script', async () => {
+    let scriptData = { edition: 'tb', characters: [{ id: 'imp', name: 'Imp', team: 'demon', ability: 'Kill.' }] };
+    const fetchMock = mockFetch({ '/api/script': () => scriptData });
+    const { rerender } = render(<ScriptOverlay open onClose={() => {}} script="tb" />);
+    await screen.findByText('Trouble Brewing');
+    expect(fetchMock.calls.filter(c => c.url.includes('/api/script')).length).toBe(1);
+
+    scriptData = { edition: 'sv', characters: [{ id: 'vortox', name: 'Vortox', team: 'demon', ability: 'Lie.' }] };
+    rerender(<ScriptOverlay open onClose={() => {}} script="sv" />);
+    await screen.findByText('Sects & Violets');
+    expect(fetchMock.calls.filter(c => c.url.includes('/api/script')).length).toBe(2);
+    expect(screen.queryByTestId('token-imp')).not.toBeInTheDocument();
+    expect(screen.getByTestId('token-vortox')).toBeInTheDocument();
+  });
 });

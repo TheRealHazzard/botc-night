@@ -170,4 +170,25 @@ describe('JoinFlow', () => {
     expect(await screen.findByText(/that request was denied/i)).toBeInTheDocument();
     vi.useRealTimers();
   });
+
+  it('an expired reclaim request (table reset mid-wait) returns to name entry with a message, instead of polling forever', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    mockFetch({
+      '/api/sim/seats': [],
+      '/api/profiles': [],
+      '/api/roster': [{ id: 'p1', name: 'Bo', alive: true, connected: false }],
+      '/api/reclaim/request': { requestId: 'req1' },
+      '/api/reclaim/status': { error: 'Request not found or expired.' },
+    });
+    render(<JoinFlow onJoined={() => {}} />);
+    await screen.findByText(/who.s playing/i);
+    await userEvent.setup({ delay: null }).click(screen.getByText(/reclaim your seat/i));
+    const bo = await screen.findByText(/Bo/);
+    await userEvent.setup({ delay: null }).click(bo);
+    await screen.findByText(/waiting/i);
+
+    await vi.advanceTimersByTimeAsync(1600);
+    expect(await screen.findByText(/that request expired/i)).toBeInTheDocument();
+    vi.useRealTimers();
+  });
 });

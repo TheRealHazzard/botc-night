@@ -127,6 +127,7 @@ export default function JoinFlow({ onJoined }) {
           name={screen.name}
           onApproved={onJoined}
           onDenied={() => setScreen({ kind: 'realJoin', message: 'That request was denied. You can try again.' })}
+          onExpired={() => setScreen({ kind: 'realJoin', message: 'That request expired — the table may have reset. You can try again.' })}
           onCancel={() => setScreen({ kind: 'reclaimPicker' })}
         />
       );

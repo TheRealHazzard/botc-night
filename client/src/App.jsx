@@ -32,7 +32,7 @@ export default function App() {
       <div id="app">
         {P ? <PlayerApp P={P} token={token} onChangeUser={changeUser} /> : <JoinFlow onJoined={setToken} />}
       </div>
-      <ScriptOverlay open={scriptOpen} onClose={() => setScriptOpen(false)} />
+      <ScriptOverlay open={scriptOpen} onClose={() => setScriptOpen(false)} script={P?.script} />
     </>
   );
 }

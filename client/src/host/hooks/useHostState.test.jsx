@@ -8,9 +8,18 @@ class FakeEventSource {
     FakeEventSource.instances.push(this);
     this.url = url;
     this.onmessage = null;
+    this.onerror = null;
     this.closed = false;
+    this.listeners = {};
+  }
+  addEventListener(type, fn) { (this.listeners[type] ||= []).push(fn); }
+  removeEventListener(type, fn) {
+    if (!this.listeners[type]) return;
+    this.listeners[type] = this.listeners[type].filter(f => f !== fn);
   }
   emit(data) { this.onmessage && this.onmessage({ data: JSON.stringify(data) }); }
+  emitPing() { (this.listeners.ping || []).forEach(fn => fn({ data: '1' })); }
+  emitError() { this.onerror && this.onerror(new Event('error')); }
   close() { this.closed = true; }
 }
 FakeEventSource.instances = [];
@@ -62,6 +71,37 @@ describe('useHostState', () => {
     await act(async () => { await vi.advanceTimersByTimeAsync(4100); });
     expect(FakeEventSource.instances[0].closed).toBe(false);
     expect(fetchMock.calls.some(c => c.url.includes('/api/host-state'))).toBe(false);
+    vi.useRealTimers();
+  });
+
+  it('falls back to polling immediately on a genuine connection error', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    mockFetch({ '/api/host-state': { phase: 'day', players: [] } });
+    const { result } = renderHook(() => useHostState());
+    act(() => FakeEventSource.instances[0].emit({ phase: 'lobby', players: [] }));
+
+    act(() => FakeEventSource.instances[0].emitError());
+    expect(FakeEventSource.instances[0].closed).toBe(true);
+    await act(async () => { await vi.advanceTimersByTimeAsync(1600); });
+    await waitFor(() => expect(result.current.S).toEqual({ phase: 'day', players: [] }));
+    vi.useRealTimers();
+  });
+
+  it('falls back to polling if the server keep-alive pings stop arriving mid-game', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    mockFetch({ '/api/host-state': { phase: 'day', players: [] } });
+    const { result } = renderHook(() => useHostState());
+    act(() => FakeEventSource.instances[0].emit({ phase: 'lobby', players: [] }));
+
+    // A ping just before 65s of total silence keeps the connection trusted.
+    await act(async () => { await vi.advanceTimersByTimeAsync(60000); });
+    act(() => FakeEventSource.instances[0].emitPing());
+    expect(FakeEventSource.instances[0].closed).toBe(false);
+
+    // But 65s of total silence (no message, no ping) after that is stale.
+    await act(async () => { await vi.advanceTimersByTimeAsync(70000); });
+    expect(FakeEventSource.instances[0].closed).toBe(true);
+    await waitFor(() => expect(result.current.S).toEqual({ phase: 'day', players: [] }));
     vi.useRealTimers();
   });
 

@@ -1190,6 +1190,11 @@ function privateState(g, playerId) {
     simulation: !!g.simulation,
     watching: !!p.bot,
     phase: g.phase,
+    // Not sensitive (the same value is already fetchable, unauthenticated,
+    // via /api/script) — exposed here specifically so the client's script
+    // overlay can tell a stale cached roster (from a previous game on a
+    // different script, same browser session) apart from a fresh one.
+    script: g.script,
     nightNumber: g.nightNumber,
     wave: g.wave,
     windowEndsAt: g.windowEndsAt,

@@ -3,23 +3,29 @@ import { useEffect, useState } from 'react';
 // The script overlay's roster doesn't change mid-game — fetched once,
 // lazily (only once the overlay is actually opened, matching the vanilla
 // version's openScript()), and cached at module scope so reopening it
-// never re-fetches.
+// never re-fetches. It DOES change across games in the same browser
+// session (the SPA is designed to persist across a table's second game
+// without a reload — see useTableState.js) — cached.edition is compared
+// against the game's current script so a script switch invalidates the
+// stale cache instead of silently showing the previous game's roster.
 let cached = null;
 let inflight = null;
 
-export function useScript(enabled) {
+export function useScript(enabled, currentScript) {
   const [data, setData] = useState(cached);
 
   useEffect(() => {
-    if (!enabled || cached) return;
+    if (!enabled) return;
+    if (cached && (!currentScript || cached.edition === currentScript)) return;
     if (!inflight) inflight = fetch('/api/script').then(r => r.json());
     let cancelled = false;
     inflight.then(d => {
       cached = d;
+      inflight = null;
       if (!cancelled) setData(d);
     });
     return () => { cancelled = true; };
-  }, [enabled]);
+  }, [enabled, currentScript]);
 
   return data;
 }
