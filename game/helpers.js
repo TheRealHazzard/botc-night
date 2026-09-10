@@ -52,6 +52,16 @@ function shuffle(input) {
 }
 const pick = arr => arr[Math.floor(Math.random() * arr.length)];
 const take = (arr, n) => shuffle(arr).slice(0, n);
+/** take(), but the excluded ids can never come back out — for "N random
+    players, but never X" where forgetting the exclusion is exactly the bug
+    (Sage's fallback used to hand-roll `pool.filter(x => !exclude...)` and
+    forgot to exclude the real Demon from the decoy pool). Making the
+    exclusion a required parameter means the next caller can't skip it the
+    way that one did. */
+function excludingPick(pool, excludeIds, n) {
+  const exclude = new Set(excludeIds);
+  return take(pool.filter(x => !exclude.has(x.id)), n);
+}
 
 const byId = (g, id) => g.players.find(p => p.id === id);
 const byToken = (g, token) => g.players.find(p => p.token === token);
@@ -67,6 +77,15 @@ const trueChar = p => char(p.characterId);
     themselves: their ability does not work and they don't know. */
 function impaired(p) {
   return !!p.statuses.poisoned || !!p.statuses.drunk || p.characterId === 'drunk';
+}
+
+/** The doctrine every impaired yes/no info role follows: wrong, never
+    silent — going quiet on a valid choice is itself a tell that something's
+    off, so a broken read still answers, just with a coin flip instead of
+    the truth (Fortune Teller's and Seamstress's identical inline
+    expression, pulled out once both had it right). */
+function impairedFlip(broken, trueBoolean) {
+  return broken ? Math.random() < 0.5 : trueBoolean;
 }
 
 /** Whether the table sees this player as alive — false for a Zombuul who
@@ -395,6 +414,22 @@ function evilPairCount(g) {
   return pairs;
 }
 
+/** Shared by pairInfo's two "no real subject to show" branches below (an
+    empty true/registrant pool, or a deliberately wrong answer): name a real
+    character of the right team and point at two players, guaranteed to
+    exclude everyone in excludeIds — built on excludingPick so neither call
+    site can forget to exclude the one player who'd make "wrong" true by
+    accident. */
+function fabricateWrongPair(g, team, excludeIds) {
+  const shownChar = pick(activeScriptPool(g).filter(c => c.team === team));
+  const shown = excludingPick(g.players, excludeIds, 2);
+  return {
+    text: `One of these two players is the ${shownChar.name}.`,
+    characterId: shownChar.id,
+    players: shown.map(x => x.name),
+  };
+}
+
 /** "1 of these 2 players is the X" — true version, or a deliberately wrong one. */
 function pairInfo(g, p, team, wrong) {
   const trueMembers = g.players.filter(x => x.id !== p.id && trueChar(x) && trueChar(x).team === team);
@@ -416,16 +451,8 @@ function pairInfo(g, p, team, wrong) {
       return { text: `You learn that no ${team} is in play.`, characterId: null, players: [] };
     }
     // Poisoned/drunk: "none in play" is still real information, so it
-    // can't be told truthfully either — fabricate a false positive
-    // instead, the same "name a character, point at two players, neither
-    // of whom is it" shape the normal wrong branch below uses.
-    const shownChar = pick(activeScriptPool(g).filter(c => c.team === team));
-    const shown = take(g.players.filter(x => x.id !== p.id), 2);
-    return {
-      text: `One of these two players is the ${shownChar.name}.`,
-      characterId: shownChar.id,
-      players: shown.map(x => x.name),
-    };
+    // can't be told truthfully either — fabricate a false positive instead.
+    return fabricateWrongPair(g, team, [p.id]);
   }
   const subject = pick(pool);
   // A registrant isn't really that role, so a real member of the category
@@ -433,9 +460,8 @@ function pairInfo(g, p, team, wrong) {
   const shownChar = registrants.includes(subject)
     ? pick(activeScriptPool(g).filter(c => c.team === team))
     : trueChar(subject);
-  const decoyPool = g.players.filter(x => x.id !== p.id && x.id !== subject.id);
   if (!wrong) {
-    const decoy = pick(decoyPool);
+    const decoy = excludingPick(g.players, [p.id, subject.id], 1)[0];
     const shown = shuffle([subject, decoy]);
     return {
       text: `One of these two players is the ${shownChar.name}.`,
@@ -444,19 +470,13 @@ function pairInfo(g, p, team, wrong) {
     };
   }
   // Wrong: name a character, point at two players, neither of whom is it.
-  const notThem = g.players.filter(x => x.id !== p.id && x.id !== subject.id);
-  const shown = take(notThem.length >= 2 ? notThem : decoyPool, 2);
-  return {
-    text: `One of these two players is the ${shownChar.name}.`,
-    characterId: shownChar.id,
-    players: shown.map(x => x.name),
-  };
+  return fabricateWrongPair(g, team, [p.id, subject.id]);
 }
 
 module.exports = {
   DATA, CHARACTERS, SETUP_TABLE, char, scriptPool, BUCKET4_IDS, activeScriptPool,
-  shuffle, pick, take,
-  byId, byToken, alive, seatIndex, actingChar, trueChar, impaired, publiclyAlive,
+  shuffle, pick, take, excludingPick,
+  byId, byToken, alive, seatIndex, actingChar, trueChar, impaired, impairedFlip, publiclyAlive,
   livingNeighbors, tealadyProtects, wouldBlockKill, randomKiller, checkKill, isEvil, triggerMoonchildIfNeeded,
   triggerPixieIfNeeded, applyCannibalTransform,
   reassignCharacter, flagAbnormal,

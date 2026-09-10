@@ -175,3 +175,22 @@ if something genuinely doesn't fit (a new kind of cross-cutting interaction,
 say), extend `resolveNight`'s main loop the same deliberate, commented way
 the Lunatic/Exorcist-block/Goon-flip cases already do, rather than bending
 every entry's shape to accommodate one outlier.
+
+Two shared helpers in `game/helpers.js` exist specifically because a
+character forgot them once:
+- **`excludingPick(pool, excludeIds, n)`** — "pick `n` from `pool`, never
+  including any id in `excludeIds`." Use this, not a hand-rolled
+  `pool.filter(x => !exclude...)`, any time a character shows N random
+  players but must never show a specific one (a decoy pool, a false pair,
+  a "someone other than the real answer") — Sage's fallback once picked its
+  decoy pair from a pool that still included the real Demon.
+- **`impairedFlip(broken, trueBoolean)`** — the impairment doctrine for any
+  yes/no info reveal: wrong, never silent. A broken (poisoned/drunk)
+  character still answers, just with a coin flip instead of the truth;
+  going quiet on a valid choice is itself a tell. Use this instead of
+  `broken ? Math.random() < 0.5 : trueBoolean` inline — Seamstress once
+  returned no result at all when broken, which was the tell.
+
+Both exist because a real character got them wrong before either helper
+did — reach for them by name on any new yes/no or "N random players
+excluding X" reveal rather than re-deriving the pattern by hand.

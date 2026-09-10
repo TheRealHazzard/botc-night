@@ -137,7 +137,7 @@ module.exports = (h) => [
         if (tc.id === 'recluse') return Math.random() < g.config.recluseRegistersEvil;
         return false;
       });
-      if (broken) answer = Math.random() < 0.5;
+      answer = h.impairedFlip(broken, answer);
       results[p.id] = {
         title: 'Fortune Teller',
         body: answer ? 'Yes — one of them is the Demon.' : 'No — neither is the Demon.',

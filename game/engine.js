@@ -1242,4 +1242,9 @@ module.exports = {
   resolveDayVote, gameSummary, resolveMadness, buildSavantStatements, evaluateClaim,
   activeScriptPool, applyConfigPatch, buildStorytellerContext, BUCKET4_IDS,
   applyCannibalTransform,
+  // Exposed for tools/audit-abilities.js's generic per-character invariant
+  // checks, which need to iterate every entry rather than dispatch by id —
+  // nothing inside game/ itself needs this, since engine.js's own functions
+  // already close over REGISTRY directly.
+  REGISTRY,
 };

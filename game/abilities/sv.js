@@ -137,7 +137,7 @@ module.exports = (h) => [
       // charge; only the answer itself is corrupted, exactly like Vortox
       // already did here. Showing nothing at all on a valid choice — the
       // previous behavior — is itself a tell that something's wrong.
-      const same = (broken || h.vortoxActive(g)) ? Math.random() < 0.5 : trueSame;
+      const same = h.impairedFlip(broken || h.vortoxActive(g), trueSame);
       results[p.id] = {
         title: 'Seamstress',
         body: same ? 'Yes — they are the same alignment.' : 'No — they are not the same alignment.',
@@ -170,8 +170,7 @@ module.exports = (h) => [
         // actual Demon by chance. This is Sage's only branch when a Vortox
         // is what killed them, which is unconditional (no poison needed),
         // so this was the likeliest way anyone would ever notice.
-        const pool = demon ? others.filter(x => x.id !== demon.id) : others;
-        shown = h.take(pool, 2);
+        shown = h.excludingPick(others, demon ? [demon.id] : [], 2);
       }
       results[p.id] = { title: 'Sage', body: 'The Demon is one of these two players.', names: shown.map(x => x.name) };
     },
