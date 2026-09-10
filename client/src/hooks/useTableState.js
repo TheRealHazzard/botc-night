@@ -90,5 +90,5 @@ export function useTableState() {
     }
   }, [P?.you?.color?.hex]);
 
-  return { P, token, setToken };
+  return { P, token, setToken, forgetToken };
 }

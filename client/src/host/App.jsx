@@ -262,10 +262,7 @@ function Header({
   return (
     <header>
       <span className="brand">
-        <span id="brandIcon">
-          <Icon name="brandmark" size={22} />
-        </span>
-        <span className="mark">Blood On The Clocktower</span>
+        <img className="mark" src="/icons/botc-logo.png" alt="Blood On The Clocktower" />
       </span>
       <span className="header-right">
         <button

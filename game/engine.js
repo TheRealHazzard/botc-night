@@ -62,7 +62,7 @@ function newGame() {
       pacifistSaveChance: 0.5, // "might" save an executed good player
       tinkerDeathChance: 0.1, // "might die at any time" — rolled once per night
       madExecutionChance: 0.3, // Mutant/Cerenovus: "might be executed" for not acting mad enough
-      voteWindowSeconds: 20, // how long a nomination stays open for votes
+      voteWindowSeconds: 30, // how long a nomination stays open for votes
       disabledCharacterIds: [], // Bucket 4 toggle — see BUCKET4_IDS in helpers.js
       llmStorytellerEnabled: false, // see game/llmStoryteller.js
     },
@@ -680,7 +680,10 @@ function succeedDemon(g, deadPlayer) {
     didn't) — this decides the game, replacing the normal "no living Demon"
     win condition for this one day only. */
 function resolveMastermindDay(g, executedPlayer) {
-  if (!executedPlayer) return { winner: 'evil', reason: "The Mastermind's bonus day passed with no execution." };
+  // The ability only reverses the outcome "if a player is THEN executed" —
+  // no execution (or one that's blocked and kills no one) never triggers
+  // that, so good's win from killing the Demon simply stands.
+  if (!executedPlayer) return { winner: 'good', reason: "The Mastermind's bonus day passed with no execution." };
   const c = trueChar(executedPlayer);
   const good = c && (c.team === 'townsfolk' || c.team === 'outsider');
   return good

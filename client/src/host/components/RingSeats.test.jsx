@@ -15,29 +15,33 @@ describe('RingSeats', () => {
   // it once, up front, with everything any test in this file needs.
   beforeEach(() => mockFetch({ '/api/tokens': { imp: '/tokens/imp.png' } }));
 
-  it('renders a fallback initial for a plain alive/connected seat', () => {
-    render(<RingSeats players={[alive]} />);
-    expect(screen.getByText('B')).toBeInTheDocument();
+  it('renders a plain alive/connected seat with no initial letter — the token art and name below carry it', () => {
+    const { container } = render(<RingSeats players={[alive]} />);
+    expect(container.querySelector('.rseat-avatar').textContent).toBe('');
     expect(screen.getByText('Bo')).toBeInTheDocument();
   });
 
-  it('a dead, unrevealed seat shows a skull instead of an initial', () => {
+  it('a dead, unrevealed seat shows the dead-token art alone, no initial or icon on top of it', () => {
     const { container } = render(<RingSeats players={[dead]} />);
-    expect(container.querySelector('.rseat.dead svg.icon')).toBeTruthy();
+    expect(container.querySelector('.rseat.dead svg.icon')).toBeFalsy();
     expect(screen.queryByText('C')).not.toBeInTheDocument();
+    const avatar = container.querySelector('.rseat.dead .rseat-avatar');
+    expect(avatar).toBeTruthy();
+    expect(avatar.textContent).toBe('');
   });
 
-  it('marks offline seats with the offline class, still showing their initial', () => {
+  it('marks offline seats with the offline class', () => {
     const { container } = render(<RingSeats players={[offline]} />);
     expect(container.querySelector('.rseat.offline')).toBeTruthy();
-    expect(screen.getByText('D')).toBeInTheDocument();
+    expect(screen.getByText('Di')).toBeInTheDocument();
   });
 
-  it('a colored, connected seat tints its fallback avatar from that color', () => {
+  it('a colored, connected seat borders its avatar in that color — the fill itself stays the plain alive/dead read', () => {
     const { container } = render(<RingSeats players={[colored]} />);
     const avatar = container.querySelector('.rseat-avatar');
     expect(avatar.style.borderColor).toBe('rgb(142, 34, 38)');
-    expect(avatar.style.color).toBe('rgb(142, 34, 38)');
+    expect(avatar.style.background).toBe('');
+    expect(avatar.style.color).toBe('');
   });
 
   it('a color does not tint the avatar when the player is disconnected', () => {
@@ -68,19 +72,29 @@ describe('RingSeats', () => {
     expect(container.querySelector('.rseat-avatar').style.borderColor).toBe('rgb(17, 17, 17)');
   });
 
-  it('revealed mode falls back to the initial if the token image 404s', () => {
+  it('revealed mode falls back to the plain token art (no initial) if the token image 404s', () => {
     const revealed = { ...alive, characterId: 'imp' };
     const { container } = render(<RingSeats players={[revealed]} revealed />);
     const img = container.querySelector('img.rseat-token');
     fireEvent.error(img);
     expect(container.querySelector('img.rseat-token')).not.toBeInTheDocument();
-    expect(screen.getByText('B')).toBeInTheDocument();
+    expect(container.querySelector('.rseat-avatar').textContent).toBe('');
   });
 
-  it('revealed mode with no art at all for that character shows the fallback initial directly', () => {
+  it('revealed mode with no art at all for that character falls back to the plain token art too', () => {
     const revealed = { ...alive, characterId: 'unknown-char' };
-    render(<RingSeats players={[revealed]} revealed />);
-    expect(screen.getByText('B')).toBeInTheDocument();
+    const { container } = render(<RingSeats players={[revealed]} revealed />);
+    expect(container.querySelector('.rseat-avatar').textContent).toBe('');
+  });
+
+  it('a dead player who has not spent their ghost vote gets the ghost layer; a living or spent player does not', () => {
+    const spent = { ...dead, id: 'p5', ghostVoteUsed: true };
+    const unspent = { ...dead, id: 'p6', ghostVoteUsed: false };
+    const { container } = render(<RingSeats players={[alive, spent, unspent]} />);
+    const seats = container.querySelectorAll('.rseat');
+    expect(seats[0].querySelector('.ghost-layer')).toBeFalsy(); // alive
+    expect(seats[1].querySelector('.ghost-layer')).toBeFalsy(); // dead, already spent
+    expect(seats[2].querySelector('.ghost-layer')).toBeTruthy(); // dead, still has it
   });
 
   it('a missing team-badge image is silently dropped, not shown broken', () => {

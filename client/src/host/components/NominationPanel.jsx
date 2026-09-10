@@ -3,11 +3,20 @@ import Icon from './Icon.jsx';
 import Countdown from './Countdown.jsx';
 import VoteBar from './VoteBar.jsx';
 import { post } from '../../lib/api.js';
+import { useEnteringSeatIds } from '../hooks/useEnteringSeatIds.js';
 
 export default function NominationPanel({ nominations, nightNumber, players, voteWindowSeconds }) {
   const todays = nominations.filter(n => n.day === nightNumber);
   const openNom = todays.find(n => !n.closed);
   const living = players.filter(p => p.alive);
+
+  // Same "new since last commit" tracking LobbyView uses for a seat that
+  // just joined — a nomination that just appeared gets one brief slide+
+  // flash, everything already on screen when this table first mounted
+  // does not. The hook is generic over whatever ids it's handed; there's
+  // nothing seat-specific in it despite the name.
+  const nomKey = n => n.nominationId || `${n.nominatorName}-${n.nomineeName}-${n.day}`;
+  const enteringKeys = useEnteringSeatIds(todays.map(nomKey));
 
   // The vanilla rebuilt these <select>s from scratch on every SSE push
   // with no explicit .value, so the browser silently defaulted back to
@@ -44,8 +53,9 @@ export default function NominationPanel({ nominations, nightNumber, players, vot
           {todays.map(n => {
             const yesCount = n.closed ? n.yesCount : n.votes.filter(v => v.vote === 'yes').length;
             const status = n.closed ? `${yesCount} yes` : 'voting…';
+            const key = nomKey(n);
             return (
-              <div className="nomline" key={n.nominationId || `${n.nominatorName}-${n.nomineeName}-${n.day}`}>
+              <div className={'nomline' + (enteringKeys.has(key) ? ' entering' : '')} key={key}>
                 {n.virginFired && <Icon name="bolt" size={13} />}
                 <span>
                   {n.nominatorName} → {n.nomineeName} — {status}

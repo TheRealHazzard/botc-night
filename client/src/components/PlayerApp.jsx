@@ -19,7 +19,7 @@ import { useActiveVote } from '../hooks/useActiveVote.js';
     (nominate/slayer/gossip/juggler/savant/artist/plain-daylight) are
     mutually exclusive in the data itself — the server only ever sets one
     at a time — so they're written as a plain if/else-if chain here too. */
-export default function PlayerApp({ P, token }) {
+export default function PlayerApp({ P, token, onChangeUser }) {
   const { activeVote, castVote, revealVote, ghostVoteEnabled, setGhostVoteEnabled } = useActiveVote(P, token);
 
   // Nominating is the one day-phase prompt that isn't server-pushed — a
@@ -57,7 +57,7 @@ export default function PlayerApp({ P, token }) {
 
       {!choosingTarget && <RoleCard character={P.you.character} />}
 
-      {P.phase === 'lobby' && <LobbyCard name={P.you.name} />}
+      {P.phase === 'lobby' && <LobbyCard name={P.you.name} onChangeUser={onChangeUser} />}
       {P.phase === 'reveal' && <RevealCard />}
 
       {P.phase === 'night' && P.prompt && (

@@ -1074,8 +1074,8 @@ console.log('\nBMR: Mastermind bonus-day resolution (pure function)');
 {
   const mk = (id, characterId) => ({ id, name: id, characterId, believedId: characterId, alive: true, statuses: {} });
   const g = E.newGame();
-  check('no execution on the bonus day -> evil wins',
-    E.resolveMastermindDay(g, null).winner === 'evil');
+  check('no execution on the bonus day -> good wins (the reversal only fires "if a player is THEN executed")',
+    E.resolveMastermindDay(g, null).winner === 'good');
   check('a good player executed on the bonus day -> evil wins',
     E.resolveMastermindDay(g, mk('t1', 'chef')).winner === 'evil');
   check('an evil player executed on the bonus day -> good wins',

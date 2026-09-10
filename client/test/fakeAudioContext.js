@@ -5,10 +5,12 @@
 // and later anything exercising phase-change sound cues end to end).
 export const toneCalls = [];
 export const noiseCalls = [];
+export const lifecycleCalls = []; // 'suspend' | 'resume', in call order
 
 export function resetAudioCalls() {
   toneCalls.length = 0;
   noiseCalls.length = 0;
+  lifecycleCalls.length = 0;
 }
 
 class FakeAudioParam {
@@ -57,7 +59,8 @@ export class FakeAudioContext {
   createBufferSource() { return new FakeBufferSource(); }
   createConvolver() { return new FakeConvolver(); }
   createDynamicsCompressor() { return new FakeCompressor(); }
-  resume() { return Promise.resolve(); }
+  resume() { lifecycleCalls.push('resume'); return Promise.resolve(); }
+  suspend() { lifecycleCalls.push('suspend'); return Promise.resolve(); }
 }
 
 export function installFakeAudioContext() {

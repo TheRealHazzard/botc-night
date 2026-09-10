@@ -75,4 +75,39 @@ describe('DayView', () => {
     await userEvent.selectOptions(select, '');
     expect(select.value).toBe('');
   });
+
+  const threeAlive = [
+    { id: 'p1', name: 'Ada', alive: true, connected: true, ghostVoteUsed: false, color: null },
+    { id: 'p2', name: 'Cy', alive: true, connected: true, ghostVoteUsed: false, color: null },
+    { id: 'p3', name: 'Evy', alive: true, connected: true, ghostVoteUsed: false, color: null },
+  ];
+
+  it('Kick Player flashes when the auto-populated leader changes to someone new', () => {
+    const { rerender } = render(
+      <DayView players={threeAlive} nightNumber={1} deaths={[]} mastermindExtraDay={false} nominations={[]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
+    );
+    const kickButton = () => screen.getByText(/kick player/i).closest('button');
+    expect(kickButton()).not.toHaveClass('leader-changed');
+
+    const nomP1 = { day: 1, nominatorName: 'Cy', nomineeName: 'Ada', nomineeId: 'p1', closed: true, yesCount: 2, votes: [] };
+    rerender(
+      <DayView players={threeAlive} nightNumber={1} deaths={[]} mastermindExtraDay={false} nominations={[nomP1]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
+    );
+    expect(kickButton()).toHaveClass('leader-changed');
+  });
+
+  it('does not flash a leader change once the host has manually overridden the pick', async () => {
+    const nomP1 = { day: 1, nominatorName: 'Cy', nomineeName: 'Ada', nomineeId: 'p1', closed: true, yesCount: 2, votes: [] };
+    const { rerender } = render(
+      <DayView players={threeAlive} nightNumber={1} deaths={[]} mastermindExtraDay={false} nominations={[nomP1]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
+    );
+    const select = screen.getByText('No execution').closest('select');
+    await userEvent.selectOptions(select, 'p2');
+
+    const nomP3 = { day: 1, nominatorName: 'Ada', nomineeName: 'Evy', nomineeId: 'p3', closed: true, yesCount: 3, votes: [] };
+    rerender(
+      <DayView players={threeAlive} nightNumber={1} deaths={[]} mastermindExtraDay={false} nominations={[nomP1, nomP3]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
+    );
+    expect(screen.getByText(/kick player/i).closest('button')).not.toHaveClass('leader-changed');
+  });
 });

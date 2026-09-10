@@ -6,6 +6,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
+    "cert:lan": "node tools/gen-lan-cert.js",
     "host:public": "node tools/host-public.js",
     "sim": "node tools/simulate.js",
     "test:dom-shim": "node test/dom-shim/games.js && node test/dom-shim/simulate.js",

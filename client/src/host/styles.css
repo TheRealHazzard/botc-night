@@ -1,7 +1,11 @@
       :root {
-        --void: #0a0806;
-        --ash: #151009;
-        --smoke: #241b12;
+        /* The whole dark palette leans purple, not brown-black — matching
+     Blood on the Clocktower's own site (deep purple + near-black + gold/
+     metallic accents), not a color this project invented. Same lightness
+     steps as before, hue rotated from warm brown toward violet. */
+        --void: #0d0811;
+        --ash: #180f1c;
+        --smoke: #28192e;
         --bone: #e8dcc4;
         --bone-dim: #95886e;
         --bone-faint: #5f5645;
@@ -11,10 +15,14 @@
         --brass: #b8863f;
         --good: #5c86ab;
         --good-hi: #7aa0c2;
-        --surface: #130e08;
-        --surface-2: #1b130a;
-        --line: #2a1e14;
-        --line-soft: #20170e;
+        --surface: #160e1a;
+        --surface-2: #1e1322;
+        --line: #2e1d34;
+        --line-soft: #231628;
+        /* The satyr mark's own color — sampled from botc_head.png — reused
+     for the ring's dead tokens, a brighter step up from the background
+     violet above rather than an unrelated hue. */
+        --violet: #5b3f80;
         /* The brand/accent color, everywhere except semantic uses (danger,
      death, urgency) that must stay oxblood regardless of who's winning.
      Set inline once a game ends, so the room's own color read shifts with
@@ -79,16 +87,10 @@
         align-items: center;
         gap: 11px;
       }
-      .brand .icon {
-        width: 24px;
-        height: 24px;
-        color: var(--primary);
-      }
       .mark {
-        font-family: "Cinzel Decorative", Georgia, serif;
-        font-size: 1.2rem;
-        color: var(--primary);
-        letter-spacing: 0.05em;
+        height: 48px;
+        width: auto;
+        display: block;
       }
       .phase {
         display: flex;
@@ -292,6 +294,27 @@
         border: 1px dashed var(--line);
         border-radius: 50%;
       }
+      /* No solid fill of its own — the page's own background (now purple-
+   toned everywhere, not just here) already shows through. A one-off
+   colored disc floating in the middle of the ring read as a stray patch
+   rather than part of the room. */
+      .ring::after {
+        content: "";
+        position: absolute;
+        inset: 9%;
+        border-radius: 50%;
+        pointer-events: none;
+        /* Not a focal point — the seats and narration still have to win
+   every time. Luminosity blend keeps only the art's own brightness
+   pattern, so it reads as an etched texture rather than a second,
+   competing picture. */
+        background-image: url(/icons/botc_head.png);
+        background-size: 55%;
+        background-position: center;
+        background-repeat: no-repeat;
+        opacity: 0.24;
+        mix-blend-mode: luminosity;
+      }
       .rseat {
         position: absolute;
         transform: translate(-50%, -50%);
@@ -328,16 +351,8 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        font-family: "Cinzel Decorative", Georgia, serif;
-        font-size: 1.9rem;
-        font-weight: 700;
-        color: var(--bone);
-        background: var(--surface-2);
+        background: url(/icons/alive_token.png) center / cover no-repeat;
         border: 3px solid var(--line);
-      }
-      .rseat-avatar .icon {
-        width: 36px;
-        height: 36px;
       }
       /* Rounded on the image itself, not via overflow:hidden on the parent — the
    parent has to stay unclipped so the team badge below can sit half outside
@@ -360,6 +375,36 @@
         border: 2px solid var(--surface);
         background: var(--surface-2);
       }
+      /* A dead player's still-unspent vote — the ghost token laid directly
+   over the dead token underneath, like one coin stacked on another, not
+   a small corner badge. Fixed pixel size, not a percentage of the parent
+   — the dead avatar below is a tall portrait box (see .rseat.dead
+   .rseat-avatar), and a percentage size would stretch this into an oval
+   instead of staying a circle.
+
+   Centered on the watch FACE, not on the middle of the whole box: the
+   source art (measured directly) is a narrow chain loop up top from
+   about 2%-21% of its own height, then the actual circular watch body
+   from ~21%-97%. background-size:contain letterboxes that whole square
+   canvas centered in this taller box, which puts the watch face's own
+   visual center at ~57% down the box, not 50%. That offset is specific
+   to the tall watch box though — a revealed+shrouded seat (real
+   character art, see .shrouded below) is back to the normal square
+   avatar, where plain 50/50 centering is correct again. */
+      .rseat-avatar .ghost-layer {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        width: 68px;
+        height: 68px;
+        border-radius: 50%;
+        object-fit: cover;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.6);
+      }
+      .rseat-avatar:not(.shrouded) .ghost-layer {
+        top: 57%;
+      }
       /* The real table's shroud: a dark cloth laid over a dead player's token,
    not swapped for a different picture — same idea here, a dimming veil
    over their own true likeness rather than replacing it with an icon. */
@@ -375,12 +420,31 @@
         font-size: clamp(0.92rem, 1.6vw, 1.12rem);
         color: var(--bone);
       }
-      /* Dead reads as an unmistakably different shape at a glance from across a
-   room — a skull in place of the initial, not just a smaller/greyer dot. */
-      .rseat.dead .rseat-avatar {
-        background: var(--surface) !important;
+      /* Dead reads as an unmistakably different token at a glance from across
+   a room — its own "for the dead" pocket watch, not just a smaller/
+   greyer dot. :not(.shrouded) matters here, not just belt-and-braces —
+   a revealed dead seat with real character art (.shrouded, see below)
+   keeps the normal circular box so that portrait still renders as a
+   circle; widening *that* box to the watch's own portrait shape too
+   would turn rseat-token's border-radius:50% into an ellipse instead,
+   since it sizes itself to 100%/100% of this same container.
+
+   dead_token.png isn't a plain filled disc like the alive token — it's a
+   full pocket watch, chain loop included, measured at ~75%/95% of its own
+   square canvas (width/height). Cropping that into the same circle the
+   alive token uses cut the loop off entirely, so this drops the circular
+   clip and resizes the box itself to the watch's own ~0.79:1 aspect ratio
+   instead — background-size:contain then shows the whole shape with
+   nothing cropped, rather than trying to zoom-and-crop it into a circle. */
+      .rseat.dead .rseat-avatar:not(.shrouded) {
+        width: 106px;
+        height: 135px;
+        border-radius: 0;
+        border: none;
+        background: url(/icons/dead_token.png) center / contain no-repeat !important;
+      }
+      .rseat.dead .rseat-avatar.shrouded {
         border-color: var(--line-soft) !important;
-        color: var(--bone-faint) !important;
       }
       .rseat.dead .rseat-name {
         color: var(--bone-faint);
@@ -394,17 +458,20 @@
       .ring.dense .rseat-avatar {
         width: 64px;
         height: 64px;
-        font-size: 1.3rem;
         border-width: 2px;
       }
-      .ring.dense .rseat-avatar .icon {
-        width: 26px;
-        height: 26px;
+      .ring.dense .rseat.dead .rseat-avatar:not(.shrouded) {
+        width: 77px;
+        height: 98px;
       }
       .ring.dense .rseat-avatar .team-badge {
         width: 20px;
         height: 20px;
         border-width: 1.5px;
+      }
+      .ring.dense .rseat-avatar .ghost-layer {
+        width: 48px;
+        height: 48px;
       }
       .ring.dense .rseat-name {
         font-size: 0.88rem;
@@ -1136,6 +1203,26 @@
         width: 100%;
         margin: 0;
       }
+      /* A quick nudge on Kick Player the moment the room's leading
+   candidate actually flips to someone new — nothing while it just holds
+   steady as more nominations close. */
+      .sidepanel-actions button.leader-changed {
+        animation: leader-pulse 0.5s ease-out;
+      }
+      @keyframes leader-pulse {
+        0%,
+        100% {
+          transform: scale(1);
+        }
+        40% {
+          transform: scale(1.05);
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .sidepanel-actions button.leader-changed {
+          animation: none;
+        }
+      }
       /* Two secondary actions sharing a row, rather than each stacking as
    its own full-width row — for the lobby's Clear the lobby / Game
    history pair specifically, which read as a matched set, not a
@@ -1301,6 +1388,24 @@
       .nomline:last-child {
         border-bottom: none;
       }
+      /* A nomination that just landed gets one brief slide-and-flash so it
+   reads as new, not just present — same "entering" convention a seat
+   joining the ring already uses. */
+      .nomline.entering {
+        animation: nomline-enter 0.5s ease-out;
+      }
+      @keyframes nomline-enter {
+        from {
+          opacity: 0;
+          transform: translateX(-8px);
+          background: rgba(184, 134, 63, 0.28);
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .nomline.entering {
+          animation: none;
+        }
+      }
       .nomrow {
         display: flex;
         align-items: center;
@@ -1346,6 +1451,23 @@
       }
       .votebar-fill.met {
         background: var(--oxblood);
+        animation: votebar-pop 0.5s ease-out;
+      }
+      /* The width/background transition above already carries the fill
+   smoothly toward the threshold; this is the one extra beat for the
+   instant it actually gets there — a brief brightness flash on the
+   fill itself, the same filter-based trick the phase-fade transitions
+   use, rather than a transform (which .votebar-track's overflow:hidden
+   would just clip into invisibility). */
+      @keyframes votebar-pop {
+        from {
+          filter: brightness(1.8);
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .votebar-fill.met {
+          animation: none;
+        }
       }
       .votebar-label {
         font-size: 0.8rem;

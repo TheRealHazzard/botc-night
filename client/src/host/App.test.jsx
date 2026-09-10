@@ -123,7 +123,7 @@ describe("App", () => {
 
   it("shows the header even before any state has loaded", () => {
     render(<App />);
-    expect(screen.getByText("Blood On The Clocktower")).toBeInTheDocument();
+    expect(screen.getByAltText("Blood On The Clocktower")).toBeInTheDocument();
   });
 
   it("dispatches to the lobby view once state loads, showing the phase pill", () => {

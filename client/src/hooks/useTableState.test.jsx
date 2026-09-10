@@ -58,6 +58,18 @@ describe('useTableState', () => {
     expect(document.documentElement.style.getPropertyValue('--personal-accent')).toBe('#123456');
   });
 
+  it('forgetToken clears both the stored token and P, for a caller-initiated "change user"', () => {
+    const { result } = renderHook(() => useTableState());
+    act(() => result.current.setToken('tok'));
+    act(() => FakeEventSource.instances[0].emit({ phase: 'lobby', you: { name: 'Bo' } }));
+    expect(result.current.token).toBe('tok');
+
+    act(() => result.current.forgetToken());
+    expect(result.current.token).toBeNull();
+    expect(result.current.P).toBeNull();
+    expect(localStorage.getItem(TOKEN_KEY)).toBeNull();
+  });
+
   it('a dead token (404 on /events) forgets the token instead of reloading the page', async () => {
     global.fetch = vi.fn(() => Promise.resolve({ status: 404, json: () => Promise.resolve({}) }));
     const { result } = renderHook(() => useTableState());

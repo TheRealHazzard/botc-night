@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import PlayerApp from './PlayerApp.jsx';
@@ -70,6 +70,13 @@ describe('PlayerApp', () => {
     const P = baseP({ you: { ...baseP().you, alive: false, ghostVoteUsed: false } });
     render(<PlayerApp P={P} token="tok" />);
     expect(screen.getByText(/one vote left/i)).toBeInTheDocument();
+  });
+
+  it('threads onChangeUser down to the lobby card\'s Change button', async () => {
+    const onChangeUser = vi.fn();
+    render(<PlayerApp P={baseP({ phase: 'lobby' })} token="tok" onChangeUser={onChangeUser} />);
+    await userEvent.click(screen.getByText('Change'));
+    expect(onChangeUser).toHaveBeenCalledTimes(1);
   });
 
   it('lobby/reveal/night-waiting/daylight phases render their matching plain card', () => {

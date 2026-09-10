@@ -23,3 +23,12 @@ export function useScript(enabled) {
 
   return data;
 }
+
+// Test-only: without this, whichever test in a file happens to render
+// first with the overlay open permanently wins the module-level cache for
+// every other test in that file, regardless of what each one mocks
+// /api/script to return.
+export function __resetScriptCacheForTests() {
+  cached = null;
+  inflight = null;
+}

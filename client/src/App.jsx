@@ -7,8 +7,12 @@ import JoinFlow from './components/join/JoinFlow.jsx';
 import PlayerApp from './components/PlayerApp.jsx';
 
 export default function App() {
-  const { P, token, setToken } = useTableState();
+  const { P, token, setToken, forgetToken } = useTableState();
   const [scriptOpen, setScriptOpen] = useState(false);
+
+  const changeUser = () => {
+    if (confirm('Leave this seat? You can rejoin or reclaim it from the join screen.')) forgetToken();
+  };
 
   useWakeLock(P?.phase === 'night');
 
@@ -26,7 +30,7 @@ export default function App() {
     <>
       <TopBar onOpenScript={() => setScriptOpen(true)} />
       <div id="app">
-        {P ? <PlayerApp P={P} token={token} /> : <JoinFlow onJoined={setToken} />}
+        {P ? <PlayerApp P={P} token={token} onChangeUser={changeUser} /> : <JoinFlow onJoined={setToken} />}
       </div>
       <ScriptOverlay open={scriptOpen} onClose={() => setScriptOpen(false)} />
     </>

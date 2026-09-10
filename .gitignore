@@ -21,3 +21,7 @@ public/BOTC Assets/
 
 # Player profiles and game history are this table's own data, not the app's
 data/
+
+# Locally-generated LAN HTTPS cert (mkcert) — private key + machine/IP
+# specific, never committed. Run `npm run cert:lan` to (re)generate.
+certs/

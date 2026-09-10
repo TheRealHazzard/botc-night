@@ -4,9 +4,12 @@ import userEvent from '@testing-library/user-event';
 import { LobbyCard, RevealCard, NightWaitingCard, DaylightCard } from './SimpleCards.jsx';
 
 describe('SimpleCards', () => {
-  it('LobbyCard greets the seated player by name', () => {
-    render(<LobbyCard name="Bo" />);
-    expect(screen.getByText('Seated as Bo')).toBeInTheDocument();
+  it('LobbyCard greets the seated player by name, with a Change button that calls onChangeUser', async () => {
+    const onChangeUser = vi.fn();
+    render(<LobbyCard name="Bo" onChangeUser={onChangeUser} />);
+    expect(screen.getByText(/seated as bo/i)).toBeInTheDocument();
+    await userEvent.click(screen.getByText('Change'));
+    expect(onChangeUser).toHaveBeenCalledTimes(1);
   });
 
   it('RevealCard, NightWaitingCard, and DaylightCard render their static copy', () => {

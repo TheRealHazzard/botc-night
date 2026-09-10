@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import ActiveVoteCard from './ActiveVoteCard.jsx';
@@ -8,6 +8,28 @@ function baseVote(overrides = {}) {
 }
 
 describe('ActiveVoteCard', () => {
+  afterEach(() => vi.useRealTimers());
+
+  it('counts down on its own once mounted, without a prop change', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    render(<ActiveVoteCard activeVote={baseVote({ windowEndsAt: Date.now() + 5000 })} castVote={() => {}} revealVote={() => {}} ghostVoteEnabled={false} setGhostVoteEnabled={() => {}} />);
+    expect(screen.getByText('5')).toBeInTheDocument();
+    await vi.advanceTimersByTimeAsync(2100);
+    expect(screen.getByText('3')).toBeInTheDocument();
+  });
+
+  it('keeps counting down after the player casts their own vote, instead of freezing on the number shown at click time', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const windowEndsAt = Date.now() + 5000;
+    const { rerender } = render(<ActiveVoteCard activeVote={baseVote({ windowEndsAt })} castVote={() => {}} revealVote={() => {}} ghostVoteEnabled={false} setGhostVoteEnabled={() => {}} />);
+    expect(screen.getByText('5')).toBeInTheDocument();
+    // Simulate the one re-render castVote's local setActiveVote causes —
+    // same object shape, just myChoice filled in, no further prop changes
+    // after this (mirrors nobody else's vote pushing a fresh SSE update).
+    rerender(<ActiveVoteCard activeVote={baseVote({ windowEndsAt, myChoice: 'yes' })} castVote={() => {}} revealVote={() => {}} ghostVoteEnabled={false} setGhostVoteEnabled={() => {}} />);
+    await vi.advanceTimersByTimeAsync(2100);
+    expect(screen.getByText('3')).toBeInTheDocument();
+  });
   it('the locked stage shows a Reveal button that calls revealVote', async () => {
     const revealVote = vi.fn();
     render(<ActiveVoteCard activeVote={baseVote({ stage: 'locked' })} castVote={() => {}} revealVote={revealVote} ghostVoteEnabled={false} setGhostVoteEnabled={() => {}} />);

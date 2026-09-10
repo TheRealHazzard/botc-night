@@ -160,6 +160,19 @@ export function resumeAudioContext() {
   getAudioCtx().resume();
 }
 
+// tone()/noiseBurst() only guard against *starting* new sound while
+// muted — once an oscillator or buffer source has actually start()ed,
+// nothing in this file stops it early, so a cue already mid-play (the
+// night-falls chime, a victory fanfare, ...) would otherwise keep
+// playing out to the end even after the mute button is tapped.
+// Suspending the whole context is the one Web Audio call that silences
+// everything currently in flight in one shot, with no need to track
+// every individual node — see useSoundEngine.js's setMuted. A no-op if
+// no cue has ever played yet (nothing to suspend).
+export function suspendAudioContext() {
+  if (audioCtx) audioCtx.suspend();
+}
+
 export function playVictory(winner, muted) {
   if (winner === 'good') {
     // A warm, resolved triad in a low-mid register — relief, not a jingle.

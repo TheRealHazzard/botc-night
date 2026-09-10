@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { installFakeAudioContext, resetAudioCalls, toneCalls, noiseCalls } from '../../../test/fakeAudioContext.js';
-import { playNightFalls, playDayBreaks, playImpactSting, playVictory } from './soundEngine.js';
+import { installFakeAudioContext, resetAudioCalls, toneCalls, noiseCalls, lifecycleCalls } from '../../../test/fakeAudioContext.js';
+import { playNightFalls, playDayBreaks, playImpactSting, playVictory, suspendAudioContext } from './soundEngine.js';
 
 describe('soundEngine', () => {
   beforeEach(() => {
@@ -45,5 +45,11 @@ describe('soundEngine', () => {
     playVictory('evil', true);
     expect(toneCalls.length).toBe(0);
     expect(noiseCalls.length).toBe(0);
+  });
+
+  it('suspendAudioContext: silences whatever a prior cue already started', () => {
+    playNightFalls(false); // ensures the context exists
+    suspendAudioContext();
+    expect(lifecycleCalls).toContain('suspend');
   });
 });

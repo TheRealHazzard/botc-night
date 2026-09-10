@@ -3,10 +3,13 @@
 // nominate trigger below. Grouped in one file since each is a couple of
 // lines; split out again if any of them grows real logic of its own.
 
-export function LobbyCard({ name }) {
+export function LobbyCard({ name, onChangeUser }) {
   return (
     <div className="card">
-      <h2>Seated as {name}</h2>
+      <h2 className="seated-head">
+        Seated as {name}
+        <button type="button" className="changebtn" onClick={onChangeUser}>Change</button>
+      </h2>
       <p className="dim">Waiting for the table to fill.</p>
     </div>
   );

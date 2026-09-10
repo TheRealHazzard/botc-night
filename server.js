@@ -1,6 +1,7 @@
 'use strict';
 
 const http = require('http');
+const https = require('https');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -12,6 +13,13 @@ const { COLOR_PALETTE } = require('./game/colors');
 const { askStoryteller } = require('./game/llmStoryteller');
 
 const PORT = process.env.PORT || 3000;
+// A second, HTTPS listener alongside the plain one above — installability
+// (the service worker, the "Add to Home Screen" prompt) needs a secure
+// context, which a bare LAN IP over http:// never counts as. Entirely
+// opt-in: `npm run cert:lan` (tools/gen-lan-cert.js) generates the files
+// this loads below; until that's been run, this whole block is a no-op
+// and the app behaves exactly as it did before HTTPS existed at all.
+const HTTPS_PORT = process.env.HTTPS_PORT || 3443;
 const PUBLIC = path.join(__dirname, 'public');
 
 // Derived from characters.json's own edition list rather than hand-copied
@@ -478,12 +486,17 @@ function botChoice(p, prompt) {
       const good = living.filter(t => !evilIds.has(t.id));
       return [(good.length ? pickOne(good) : pickOne(living)).id];
     }
-    case 'fortuneteller': {
+    default: {
+      // Covers every other count — 1 for most prompts, but also
+      // Fortune Teller/Chambermaid/Innkeeper/Seamstress's 2 and Po's 3
+      // once charged up. A fixed [pickOne(living).id] here used to always
+      // return exactly one target regardless of prompt.count, so any
+      // bot-controlled 2+-target ability could never reach the matching
+      // count in botsAnswer() below — its action just silently never got
+      // recorded, night after night.
       const shuffled = [...living].sort(() => Math.random() - 0.5);
-      return shuffled.slice(0, 2).map(t => t.id);
+      return shuffled.slice(0, prompt.count).map(t => t.id);
     }
-    default:
-      return [pickOne(living).id];
   }
 }
 
@@ -785,6 +798,7 @@ function isHostRoute(route) {
 const GATE_EXEMPT = new Set([
   '/enter-table-code.html', '/enter-host-code.html',
   '/api/enter-table-code', '/api/enter-host-code',
+  '/ca.pem',
 ]);
 
 // Returns true if this request was fully handled here — the caller must
@@ -806,7 +820,7 @@ function blockedByGate(req, res, route) {
   return false;
 }
 
-const server = http.createServer(async (req, res) => {
+async function requestHandler(req, res) {
   const url = new URL(req.url, `http://${req.headers.host}`);
   const route = url.pathname;
 
@@ -830,6 +844,32 @@ const server = http.createServer(async (req, res) => {
       if (route === '/simulate') return serveFile(res, 'simulate.html');
       if (route === '/stats') return serveFile(res, 'stats.html');
       if (route === '/games') return serveFile(res, 'games.html');
+
+      // Explicit route (rather than falling through to the generic static
+      // fallback below) so this always carries Cache-Control: no-cache —
+      // a service worker stuck serving a stale cached version of itself is
+      // a nasty, invisible-to-the-user failure mode, and this app's
+      // frontend changes often enough during development that leaving it
+      // to the browser's own default SW-revalidation timing isn't enough.
+      if (route === '/sw.js') {
+        res.writeHead(200, { 'Content-Type': 'text/javascript', 'Cache-Control': 'no-cache' });
+        return fs.createReadStream(path.join(PUBLIC, 'sw.js')).pipe(res);
+      }
+
+      // The mkcert root CA (see tools/gen-lan-cert.js) — served directly so
+      // a phone can grab and trust it in one tap instead of needing the
+      // file emailed or AirDropped over. Fetched over plain http:// before
+      // the phone has any reason to trust the LAN HTTPS listener yet, so
+      // this deliberately isn't behind the table/host code gate either
+      // (see GATE_EXEMPT below) — trusting the transport is bootstrapping,
+      // not game content.
+      if (route === '/ca.pem') {
+        return fs.readFile(path.join(__dirname, 'certs', 'rootCA.pem'), (err, buf) => {
+          if (err) return res.writeHead(404).end('No local HTTPS cert set up yet — run `npm run cert:lan` on the host machine.');
+          res.writeHead(200, { 'Content-Type': 'application/x-x509-ca-cert', 'Content-Disposition': 'attachment; filename="botc-lan-ca.pem"' });
+          res.end(buf);
+        });
+      }
 
       if (route === '/host-events') {
         hostStreams.add(res);
@@ -1798,7 +1838,19 @@ const server = http.createServer(async (req, res) => {
   } catch (err) {
     json(res, 500, { error: err.message });
   }
-});
+}
+
+const server = http.createServer(requestHandler);
+
+// Only actually offered once `npm run cert:lan` has generated these — see
+// tools/gen-lan-cert.js. Missing files just mean HTTPS isn't started;
+// nothing else about the app changes.
+let httpsServer = null;
+try {
+  const key = fs.readFileSync(path.join(__dirname, 'certs', 'lan-key.pem'));
+  const cert = fs.readFileSync(path.join(__dirname, 'certs', 'lan-cert.pem'));
+  httpsServer = https.createServer({ key, cert }, requestHandler);
+} catch { /* no local cert generated yet */ }
 
 // Virtual/tunnel adapters (Hyper-V's default switch, WSL, Docker, VMware,
 // VPN clients, ...) show up in os.networkInterfaces() right alongside the
@@ -1836,6 +1888,12 @@ server.listen(PORT, () => {
   console.log('');
   console.log(`  Table screen :  http://localhost:${PORT}/host`);
   console.log(`  Players join :  http://${ip}:${PORT}`);
+  if (httpsServer) {
+    console.log(`  Players join (installable): https://${ip}:${HTTPS_PORT}`);
+    console.log(`  New phone? Visit http://${ip}:${PORT}/ca.pem first and trust it once.`);
+  } else {
+    console.log('  No local HTTPS cert yet — install prompts need one. Run: npm run cert:lan');
+  }
   if (candidates.length > 1) {
     // More than one network adapter — surfaced so a wrong pick (a VPN, a
     // Hyper-V switch, ...) is visible here instead of silently discovered
@@ -1846,3 +1904,8 @@ server.listen(PORT, () => {
   }
   console.log('');
 });
+
+if (httpsServer) {
+  httpsServer.on('error', err => console.error('HTTPS server failed to start:', err.message));
+  httpsServer.listen(HTTPS_PORT);
+}

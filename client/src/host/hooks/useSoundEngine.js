@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { resumeAudioContext } from '../lib/soundEngine.js';
+import { resumeAudioContext, suspendAudioContext } from '../lib/soundEngine.js';
 
 const STORAGE_KEY = 'botc-host-muted';
 
@@ -13,7 +13,17 @@ export function useSoundEngine() {
   const setMuted = useCallback(next => {
     setMutedState(next);
     localStorage.setItem(STORAGE_KEY, next ? '1' : '0');
-    if (next && 'speechSynthesis' in window) window.speechSynthesis.cancel();
+    if (next) {
+      // Stops both categories of audio the moment mute is tapped, not
+      // just future ones: an already-speaking narration line, and any
+      // Web Audio cue already mid-play (tone()/noiseBurst() only guard
+      // against *starting* new sound while muted, nothing stops one
+      // already in flight on its own).
+      if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+      suspendAudioContext();
+    } else {
+      resumeAudioContext();
+    }
   }, []);
 
   useEffect(() => {

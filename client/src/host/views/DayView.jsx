@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import DashboardLayout from '../components/DashboardLayout.jsx';
 import DayCounterLabel from '../components/DayCounterLabel.jsx';
 import RingSeats from '../components/RingSeats.jsx';
@@ -67,6 +67,22 @@ function leadingNominee(nominations, nightNumber, aliveCount) {
   return top.length === 1 ? top[0].nomineeId : null;
 }
 
+// Same "compare during render, only ever write the ref from an effect"
+// discipline useEnteringSeatIds uses — flips true for exactly the render
+// right after the computed leader actually changes to someone new, so the
+// Kick Player button can call attention to itself the moment the room's
+// decision flips, not on every re-render while it stays the same.
+function useLeaderChanged(winnerId) {
+  const knownRef = useRef(winnerId);
+  const changed = !!winnerId && knownRef.current !== winnerId;
+
+  useEffect(() => {
+    knownRef.current = winnerId;
+  });
+
+  return changed;
+}
+
 function DayActions({ players, nominations, nightNumber, anyOpen }) {
   const alive = players.filter(p => p.alive);
   // null = "follow the computed leader" — the moment the host actually
@@ -75,6 +91,7 @@ function DayActions({ players, nominations, nightNumber, anyOpen }) {
   const [overrideId, setOverrideId] = useState(null);
 
   const autoWinner = leadingNominee(nominations, nightNumber, alive.length);
+  const leaderChanged = useLeaderChanged(autoWinner);
   const effectiveId = overrideId !== null ? overrideId : (autoWinner || '');
   const effectivePlayer = alive.find(p => p.id === effectiveId);
 
@@ -90,7 +107,12 @@ function DayActions({ players, nominations, nightNumber, anyOpen }) {
         <option value="">No execution</option>
         {alive.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
       </select>
-      <button type="button" className="primary" disabled={anyOpen} onClick={kick}>
+      <button
+        type="button"
+        className={'primary' + (leaderChanged && overrideId === null ? ' leader-changed' : '')}
+        disabled={anyOpen}
+        onClick={kick}
+      >
         <Icon name="skull" size={15} /> Kick Player
       </button>
       <button type="button" disabled={anyOpen} onClick={nightFalls}>

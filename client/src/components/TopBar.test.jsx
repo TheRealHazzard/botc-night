@@ -10,4 +10,10 @@ describe('TopBar', () => {
     await userEvent.click(screen.getByText('The script'));
     expect(onOpenScript).toHaveBeenCalledTimes(1);
   });
+
+  it('shows only the wordmark and the Script button — no player name/Change here (that lives in the Seated-as card now)', () => {
+    render(<TopBar onOpenScript={() => {}} />);
+    expect(screen.getByAltText('Blood On The Clocktower')).toBeInTheDocument();
+    expect(screen.queryByText('Change')).not.toBeInTheDocument();
+  });
 });

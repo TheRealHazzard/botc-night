@@ -46,7 +46,7 @@ function baseP(overrides = {}) {
 
 describe("App", () => {
   beforeEach(() => {
-    tableState.current = { P: null, token: null, setToken: vi.fn() };
+    tableState.current = { P: null, token: null, setToken: vi.fn(), forgetToken: vi.fn() };
     wakeLockCalls.length = 0;
     mockFetch({ "/api/sim/seats": [], "/api/profiles": [], "/api/tokens": {} });
   });
@@ -56,11 +56,27 @@ describe("App", () => {
     expect(await screen.findByText(/who.s playing/i)).toBeInTheDocument();
   });
 
-  it("renders the player app once P exists, with the topbar always present", () => {
-    tableState.current = { P: baseP(), token: "tok", setToken: vi.fn() };
+  it("renders the player app once P exists, with the topbar (just the wordmark + Script) always present", () => {
+    tableState.current = { P: baseP(), token: "tok", setToken: vi.fn(), forgetToken: vi.fn() };
     render(<App />);
-    expect(screen.getByText("Blood On The Clocktower")).toBeInTheDocument();
+    expect(screen.getByAltText("Blood On The Clocktower")).toBeInTheDocument();
     expect(screen.getByText(/daylight/i)).toBeInTheDocument();
+  });
+
+  it('Change (in the "Seated as" lobby card), once confirmed, forgets the token; declining the confirm leaves it alone', async () => {
+    const userEvent = (await import("@testing-library/user-event")).default;
+    const forgetToken = vi.fn();
+    tableState.current = { P: baseP({ phase: "lobby" }), token: "tok", setToken: vi.fn(), forgetToken };
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValueOnce(false).mockReturnValueOnce(true);
+    render(<App />);
+
+    await userEvent.click(screen.getByText("Change"));
+    expect(forgetToken).not.toHaveBeenCalled();
+
+    await userEvent.click(screen.getByText("Change"));
+    expect(forgetToken).toHaveBeenCalledTimes(1);
+
+    confirmSpy.mockRestore();
   });
 
   it("wires useWakeLock to whether the phase is night", () => {

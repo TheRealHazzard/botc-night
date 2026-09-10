@@ -1,9 +1,27 @@
+import { useEffect, useReducer } from 'react';
 import GhostIcon from '../GhostIcon.jsx';
 
 /** Renders whenever useActiveVote has a live vote (voting/locked stages —
     'revealed' is handled by the full-screen VoteRevealOverlay instead, so
     this component just stops rendering once revealVote() flips the stage). */
 export default function ActiveVoteCard({ activeVote, castVote, revealVote, ghostVoteEnabled, setGhostVoteEnabled }) {
+  // The clock below is read straight off Date.now() at render time, so it
+  // only actually moves when something re-renders this component. Before
+  // useActiveVote's own window-close check fires, its interval keeps
+  // returning the same activeVote object while time remains (a deliberate
+  // no-op re-render skip) — so without an own tick here, the number only
+  // ever happened to update when some unrelated SSE push re-rendered the
+  // tree, which reads as "it counts down until I vote, then freezes" once
+  // a player's own vote stops being the reason for those pushes. Same
+  // fix as the host Countdown component: an unconditional 1s force-tick
+  // scoped to exactly the window this is shown and counting.
+  const [, tick] = useReducer(n => n + 1, 0);
+  useEffect(() => {
+    if (activeVote.stage !== 'voting') return;
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [activeVote.stage]);
+
   if (activeVote.stage === 'locked') {
     return (
       <div className="card">

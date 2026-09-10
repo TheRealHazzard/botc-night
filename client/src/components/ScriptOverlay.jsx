@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useScript } from '../hooks/useScript.js';
+import TokenImage from './TokenImage.jsx';
 
 const EDITION_NAMES = { tb: 'Trouble Brewing', bmr: 'Bad Moon Rising', sv: 'Sects & Violets', custom: 'Custom script' };
 const TEAM_ORDER = ['townsfolk', 'outsider', 'minion', 'demon'];
@@ -38,13 +39,11 @@ export default function ScriptOverlay({ open, onClose }) {
               <div className="scriptgroup-title">{TEAM_LABEL[team]} ({list.length})</div>
               {list.map(c => (
                 <div className="scriptchar" key={c.id}>
-                  <div className="row">
-                    <span className="cname">{c.name}</span>
-                    <span className={'team ' + (team === 'townsfolk' || team === 'outsider' ? 'good' : 'evil')}>
-                      {team}
-                    </span>
+                  <TokenImage characterId={c.id} className="scriptchar-token" />
+                  <div className="scriptchar-body">
+                    <div className="cname">{c.name}</div>
+                    <div className="ability">{c.ability}</div>
                   </div>
-                  <div className="ability">{c.ability}</div>
                 </div>
               ))}
             </div>
