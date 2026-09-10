@@ -297,11 +297,11 @@ function recordExecution(playerId) {
     game.mastermindExtraDay = false;
     let executedPlayer = null;
     if (p) {
-      game.executedToday = p.id;
       const blocked = E.checkKill(game, p, { executionAttack: true });
       if (blocked) {
         E.logEvent(game, `${p.name} was executed, but survives.`);
       } else {
+        game.executedToday = p.id;
         p.alive = false;
         game.deaths.push({ night: game.nightNumber, name: p.name, cause: 'execution', killedByDemon: false });
         E.logEvent(game, `${p.name} was executed.`);
@@ -326,8 +326,6 @@ function recordExecution(playerId) {
   }
 
   if (p) {
-    game.executedToday = p.id;
-    game.noExecutionToday = false;
     // Pacifist: Storyteller-discretion "might" save a good player from
     // execution — modeled as a pre-roll, same pattern as Recluse
     // registration and the Mayor's redirect, set before checkKill runs so
@@ -346,6 +344,13 @@ function recordExecution(playerId) {
     if (blocked) {
       E.logEvent(game, `${p.name} was executed, but survives.`);
     } else {
+      // Both of these only mean anything once the execution actually
+      // lands — a blocked one is functionally "no execution today" for
+      // the Undertaker (who'd otherwise be told about a survivor) and for
+      // Vortox's/the Mayor's win conditions (both keyed on noExecutionToday,
+      // which used to flip false the instant anyone was merely targeted).
+      game.executedToday = p.id;
+      game.noExecutionToday = false;
       p.alive = false;
       if (tc && tc.id === 'saint') game.saintExecuted = true;
       // Evil Twin: unconditional on the Evil Twin's own survival — "if the

@@ -60,6 +60,15 @@ module.exports = (h) => [
       const [t] = target(action && action.targets);
       if (!t || broken) return;
       if (t.id === p.id) {
+        // A self-targeted kill is still a kill — Monk protection (or any
+        // other block) has to apply here exactly like it does to a normal
+        // target below, or a protected Imp gets a "free" star pass their
+        // protection should have prevented entirely.
+        const blocked = h.checkKill(g, t, { demonAttack: true });
+        if (blocked) {
+          h.logEvent(g, `The Imp turns on itself, but survives (${blocked}).`, true);
+          return;
+        }
         // Star pass: a Minion becomes the Imp. Marked skipSuccession
         // because this already names its own heir explicitly — the
         // generic succession check below must not also fire and hand a
@@ -96,17 +105,25 @@ module.exports = (h) => [
     choiceCount: () => 1,
     targets: (g, p) => h.alive(g).filter(x => x.id !== p.id),
     text: () => 'Choose your master. Tomorrow you may only vote if they do.',
-    resolve(g, p, action, { target }) {
+    resolve(g, p, action, { target, broken }) {
       const [t] = target(action && action.targets);
       for (const x of g.players) delete x.statuses.master;
-      if (t) t.statuses.master = true;
+      // Poisoned/drunk: the ability just doesn't work, same as any other
+      // action-only role — no restriction gets set, so tomorrow's vote is
+      // unrestricted rather than silently enforced against a choice that
+      // was never real.
+      if (t && !broken) t.statuses.master = true;
     },
   },
 
   {
     id: 'fortuneteller',
     choiceCount: () => 2,
-    targets: (g, p) => g.players.filter(x => x.id !== p.id),
+    // Unlike most "choose a player" abilities, the Fortune Teller is
+    // explicitly allowed to name themselves — official ruling: since you
+    // know you're not the Demon, pairing yourself with one suspect gets a
+    // clean single-player read. No self-exclusion here on purpose.
+    targets: (g) => g.players,
     text: () => 'Choose two players. You will learn if either is the Demon.',
     resolve(g, p, action, { broken, target, results }) {
       const chosen = target(action && action.targets);

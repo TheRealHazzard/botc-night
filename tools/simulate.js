@@ -249,6 +249,29 @@ console.log('\nScarlet Woman succession');
     'saw counts: ' + [...newImpCounts].join(', '));
 }
 
+console.log('\nImp self-target respects protection, same as any other target');
+{
+  const mk = (id, characterId) => ({ id, name: id, characterId, believedId: characterId, alive: true, statuses: {} });
+
+  // A self-targeted kill is still a kill — a Monk-protected Imp targeting
+  // themselves should survive with no star-pass at all, not die and hand
+  // the Imp to a Minion anyway. This branch used to skip checkKill
+  // entirely, unlike the normal-target branch right next to it. A real
+  // Monk action in the same night's pending (Monk acts before the Imp in
+  // night order) is what actually sets .protected — pre-setting the
+  // status directly wouldn't survive resolveNight's own per-night reset
+  // of it right at the start of wave 1.
+  const g = E.newGame();
+  g.nightNumber = 2; g.phase = 'night'; g.wave = 1; g.results = {};
+  g.players = [mk('imp1', 'imp'), mk('min1', 'poisoner'), mk('mo1', 'monk'), mk('t1', 'chef')];
+  g.pending = { mo1: { targets: ['imp1'], decoy: false }, imp1: { targets: ['imp1'], decoy: false } };
+  E.resolveNight(g, 1);
+  check('a Monk-protected Imp survives targeting themselves',
+    g.players.find(p => p.id === 'imp1').alive);
+  check('...and no star-pass happens — the Minion stays a Minion',
+    g.players.find(p => p.id === 'min1').characterId === 'poisoner');
+}
+
 console.log('\nPoison timing');
 {
   const mk = (id, characterId) => ({ id, name: id, characterId, believedId: characterId, alive: true, statuses: {} });
@@ -275,6 +298,8 @@ console.log('\nFortune Teller');
   const prompt = E.promptFor(gd, gd.players[0]);
   check('can target a dead player (re-testing a dead red herring is a real, common play)',
     prompt.targets.some(t => t.id === 't1'));
+  check('can also target themselves — official ruling explicitly allows this',
+    prompt.targets.some(t => t.id === 'ft1'));
 
   let yes = 0;
   const trials = 200;
@@ -289,6 +314,32 @@ console.log('\nFortune Teller');
   }
   check('pings on a Recluse roughly half the time (registration roll was being skipped entirely)',
     yes > trials * 0.3 && yes < trials * 0.7, `saw ${yes}/${trials} yes`);
+}
+
+console.log('\nButler');
+{
+  const mk = (id, characterId) => ({ id, name: id, characterId, believedId: characterId, alive: true, statuses: {} });
+
+  const g = E.newGame();
+  g.nightNumber = 2; g.phase = 'night'; g.wave = 1; g.results = {};
+  g.players = [mk('bu1', 'butler'), mk('t1', 'chef')];
+  g.pending = { bu1: { targets: ['t1'], decoy: false } };
+  E.resolveNight(g, 1);
+  check('an unpoisoned Butler\'s choice sets the next-day master restriction',
+    g.players.find(p => p.id === 't1').statuses.master === true);
+
+  // Poisoned/drunk: the ability just doesn't work, same as any other
+  // action-only role — no restriction should get set at all, or server.js's
+  // vote enforcement would silently discard a vote the Butler should have
+  // been free to cast however they liked.
+  const g2 = E.newGame();
+  g2.nightNumber = 2; g2.phase = 'night'; g2.wave = 1; g2.results = {};
+  g2.players = [mk('bu1', 'butler'), mk('t1', 'chef')];
+  g2.players.find(p => p.id === 'bu1').statuses.poisoned = true;
+  g2.pending = { bu1: { targets: ['t1'], decoy: false } };
+  E.resolveNight(g2, 1);
+  check('a poisoned Butler\'s choice sets no restriction at all',
+    !g2.players.find(p => p.id === 't1').statuses.master);
 }
 
 console.log('\nSpy grimoire under impairment');
@@ -365,6 +416,32 @@ console.log('\nSpy/Recluse as a registered subject for Washerwoman-type reveals'
   }
   check('with registration forced on, the Spy can be shown as Washerwoman\'s subject (60 attempts)', sawSpyAsSubject);
   check('...and the named character is a real Townsfolk role, never "Spy" itself', namedRealTownsfolk);
+}
+
+console.log('\nLibrarian: "no Outsider in play", under impairment');
+{
+  const mk = (id, characterId) => ({ id, name: id, characterId, believedId: characterId, alive: true, statuses: {} });
+
+  // "You learn that no Outsider is in play" is itself real information —
+  // a poisoned/drunk Librarian must be lied to here too, same as any other
+  // answer. This branch used to return the true "none in play" text before
+  // ever checking the impairment flag.
+  const g = E.newGame();
+  g.nightNumber = 1; g.phase = 'night'; g.wave = 1; g.results = {};
+  g.players = [mk('li1', 'librarian'), mk('imp1', 'imp'), mk('t1', 'soldier'), mk('t2', 'slayer')]; // no Outsider dealt
+  E.resolveNight(g, 1);
+  check('an unpoisoned Librarian is truthfully told no Outsider is in play (sanity check)',
+    g.results.li1.body.includes('no outsider is in play'));
+
+  const g2 = E.newGame();
+  g2.nightNumber = 1; g2.phase = 'night'; g2.wave = 1; g2.results = {};
+  g2.players = [mk('li1', 'librarian'), mk('imp1', 'imp'), mk('t1', 'soldier'), mk('t2', 'slayer')];
+  g2.players.find(p => p.id === 'li1').statuses.poisoned = true;
+  E.resolveNight(g2, 1);
+  check('a poisoned Librarian is NOT told the true "no Outsider in play" fact',
+    !g2.results.li1.body.includes('no outsider is in play'));
+  check('...gets a fabricated false-positive pair instead',
+    g2.results.li1.names.length === 2);
 }
 
 console.log('\nMayor win condition');
@@ -503,6 +580,18 @@ console.log('\nBMR: Chambermaid');
   E.resolveNight(g3, 1);
   check('...but a character with no night ability at all is never counted',
     g3.results.cm1.body.includes('0'), g3.results.cm1.body);
+
+  // A night-order slot isn't the same as actually waking — Godfather only
+  // acts once an Outsider's been executed. actingTonight() used to count
+  // purely from the static order number and never checked this, so a
+  // Godfather sitting out a quiet night was still counted as having woken.
+  const g4 = E.newGame();
+  g4.script = 'bmr'; g4.nightNumber = 2; g4.phase = 'night'; g4.wave = 1; g4.results = {};
+  g4.players = [mk('cm1', 'chambermaid'), mk('gf1', 'godfather'), mk('t1', 'soldier')];
+  g4.pending = { cm1: { targets: ['gf1', 't1'], decoy: false } };
+  E.resolveNight(g4, 1);
+  check('a Godfather with no qualifying Outsider execution today does not count as woken',
+    g4.results.cm1.body.includes('0'), g4.results.cm1.body);
 }
 
 console.log('\nBMR: Exorcist blocks the Demon');
@@ -515,8 +604,8 @@ console.log('\nBMR: Exorcist blocks the Demon');
   E.resolveNight(g, 1);
   check('a Demon targeted by the Exorcist does not act — their target survives',
     g.players.find(p => p.id === 't1').alive);
-  check('the Exorcist is told who the Demon is',
-    !!g.results.imp1 && /Exorcist/.test(g.results.imp1.body));
+  check('the Demon is told the Exorcist\'s actual name, not just flavor text saying "the Exorcist"',
+    !!g.results.imp1 && g.results.imp1.body.includes('ex1'));
 
   const g2 = E.newGame();
   g2.script = 'bmr'; g2.nightNumber = 3; g2.phase = 'night'; g2.wave = 1; g2.results = {};
@@ -582,6 +671,21 @@ console.log('\nBMR: Gambler');
   E.resolveNight(g4, 1);
   check('a wrong guess still respects the Fool\'s one-time survival',
     g4.players.find(p => p.id === 'ga1').alive && g4.players.find(p => p.id === 'ga1').statuses.foolUsed);
+
+  // Innkeeper's "can't die tonight" is absolute — not Demon-specific — so
+  // it has to block the Gambler's own self-inflicted death too. This used
+  // to call checkKill with no flags at all, skipping every protection
+  // check including this one.
+  const g5 = E.newGame();
+  g5.script = 'bmr'; g5.nightNumber = 2; g5.phase = 'night'; g5.wave = 1; g5.results = {};
+  g5.players = [mk('ga1', 'gambler'), mk('ik1', 'innkeeper'), mk('t1', 'chef')];
+  g5.pending = {
+    ik1: { targets: ['ga1', 't1'], decoy: false },
+    ga1: { targets: ['t1'], decoy: false, characterGuess: 'empath' },
+  };
+  E.resolveNight(g5, 1);
+  check('an Innkeeper-protected Gambler survives a wrong guess',
+    g5.players.find(p => p.id === 'ga1').alive);
 }
 
 console.log('\nBMR: Gossip');
@@ -853,6 +957,20 @@ console.log('\nBMR: Godfather');
   g2.pending = { gf1: { targets: ['t1'], decoy: false } };
   E.resolveNight(g2, 1);
   check('...and then actually kills', !g2.players.find(p => p.id === 't1').alive);
+
+  // Soldier's card is explicitly "safe from the Demon" — not from a
+  // Minion. Godfather used to pass demonAttack: true purely to get
+  // Innkeeper protection recognized, which incorrectly granted Soldier
+  // immunity as a side effect too.
+  const g3 = E.newGame();
+  g3.script = 'bmr'; g3.nightNumber = 3; g3.phase = 'night'; g3.wave = 1; g3.results = {};
+  g3.players = [mk('gf1', 'godfather'), mk('so1', 'soldier')];
+  g3.deaths = [{ night: 2, name: 'o1', cause: 'execution' }]; // outsiderDiedToday checks night === nightNumber - 1
+  g3.players.push({ id: 'o1', name: 'o1', characterId: 'tinker', believedId: 'tinker', alive: false, statuses: {} });
+  g3.pending = { gf1: { targets: ['so1'], decoy: false } };
+  E.resolveNight(g3, 1);
+  check('a Godfather kill is NOT blocked by Soldier immunity — that\'s Demon-only',
+    !g3.players.find(p => p.id === 'so1').alive);
 }
 
 console.log('\nBMR: Pukka');
@@ -1332,8 +1450,8 @@ console.log('\nSV: Seamstress');
   g3.players.find(p => p.id === 'se').statuses.poisoned = true;
   g3.pending = { se: { targets: ['a', 'b'], decoy: false } };
   E.resolveNight(g3, 1);
-  check('a poisoned Seamstress gets no result...', !g3.results.se);
-  check('...and keeps the once-per-game charge for later', !g3.players.find(p => p.id === 'se').statuses.seamstressUsed);
+  check('a poisoned Seamstress still gets a result (wrong, not silent — silence is itself a tell)', !!g3.results.se);
+  check('...and the once-per-game charge is spent anyway', g3.players.find(p => p.id === 'se').statuses.seamstressUsed === true);
 }
 
 console.log('\nSV: Sage');
@@ -1355,6 +1473,24 @@ console.log('\nSV: Sage');
   g2.pending = { as1: { targets: ['sg'], decoy: false } };
   E.resolveNight(g2, 1);
   check("a Minion kill does not trigger the Sage's reveal", !g2.results.sg);
+
+  // Poisoned (or Vortox-killed): the pair shown is supposed to be false,
+  // so it has to exclude the real Demon just as deliberately as the true
+  // branch does — the fallback used to grab 2 random players with no such
+  // exclusion, so a "wrong" answer could still name the real Demon by
+  // chance. Many trials since this is a probabilistic bug.
+  let sawRealDemon = false;
+  const trials = 200;
+  for (let i = 0; i < trials; i++) {
+    const g3 = E.newGame();
+    g3.script = 'sv'; g3.nightNumber = 2; g3.phase = 'night'; g3.wave = 1; g3.results = {};
+    g3.players = [mk('sg', 'sage'), mk('imp1', 'imp'), mk('t1', 'oracle'), mk('t2', 'witch'), mk('t3', 'snakecharmer')];
+    g3.players.find(p => p.id === 'sg').statuses.poisoned = true;
+    g3.pending = { imp1: { targets: ['sg'], decoy: false } };
+    E.resolveNight(g3, 1);
+    if (g3.results.sg.names.includes('imp1')) sawRealDemon = true;
+  }
+  check(`a poisoned Sage's false pair never actually includes the real Demon (${trials} trials)`, !sawRealDemon);
 }
 
 console.log('\nSV: Snake Charmer');
@@ -2210,6 +2346,20 @@ console.log('\nCarousel: Ojo');
   g3.players = [mk('t1', 'oracle'), mk('oj', 'ojo')];
   const promptN1 = E.promptFor(g3, g3.players.find(p => p.id === 'oj'));
   check('Ojo does not act on night 1', !promptN1 || !promptN1.characterId);
+
+  // "Not in play" means never dealt to anyone — a character whose holder
+  // already died is still in play, just already dead. Naming it should be
+  // a no-op ("they die" on someone already dead), not fall through to the
+  // Storyteller-chooses-a-random-victim clause meant for a character
+  // genuinely never dealt this game.
+  const g4 = E.newGame();
+  g4.script = 'hide-and-seek'; g4.nightNumber = 2; g4.phase = 'night'; g4.wave = 1; g4.results = {};
+  g4.players = [mk('t1', 'oracle'), mk('t2', 'sage'), mk('m1', 'baron'), mk('oj', 'ojo')];
+  g4.players.find(p => p.id === 't1').alive = false; // oracle's holder already dead before tonight
+  g4.pending = { oj: { targets: [], decoy: false, characterGuess: 'oracle' } };
+  E.resolveNight(g4, 1);
+  const newlyDead = g4.players.filter(p => !p.alive && p.id !== 't1');
+  check('naming a character whose holder already died kills nobody new', newlyDead.length === 0);
 }
 
 console.log('\nCarousel: Lycanthrope');

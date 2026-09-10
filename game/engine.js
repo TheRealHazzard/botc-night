@@ -243,6 +243,16 @@ function actingTonight(g) {
     if (!c) continue;
     const order = first ? c.firstNightOrder : c.otherNightOrder;
     if (!order) continue;
+    // Having a night-order slot at all isn't the same as actually waking
+    // tonight — Godfather (needs an Outsider executed today), Zombuul
+    // (needs nobody to have died yesterday), and any other conditionally-
+    // triggered character all keep their order number on nights they sit
+    // out, same as promptFor's own `acts` check already accounts for
+    // (search REGISTRY[c.id].acts there) — Chambermaid's "how many woke"
+    // count has to respect the same gate, or it overcounts a character on
+    // exactly the nights they didn't actually act.
+    const entry = REGISTRY[c.id];
+    if (entry && entry.acts && !entry.acts(g, p, H)) continue;
     entries.push({ player: p, character: c, order });
   }
 
@@ -598,7 +608,11 @@ function resolveNight(g, wave = 1) {
   if (wave === 1) {
     for (const tinker of alive(g).filter(x => x.characterId === 'tinker')) {
       if (!impaired(tinker) && Math.random() < g.config.tinkerDeathChance) {
-        const blocked = checkKill(g, tinker, {});
+        // A real death happening tonight — Innkeeper's protection is
+        // attacker-agnostic and has to apply here too (nightKill, not
+        // demonAttack, since this isn't the Demon and shouldn't also
+        // grant Soldier's Demon-only immunity).
+        const blocked = checkKill(g, tinker, { nightKill: true });
         if (!blocked) deaths.push({ player: tinker, cause: 'tinker', killedByDemon: false });
       }
     }

@@ -136,10 +136,22 @@ function flagAbnormal(g, player) {
  * because merely *checking* whether the Fool or Zombuul would survive an
  * attack must never itself spend their once-ever protection.
  */
-function wouldBlockKill(g, target, { demonAttack = false, executionAttack = false } = {}) {
+function wouldBlockKill(g, target, { demonAttack = false, executionAttack = false, nightKill = demonAttack } = {}) {
   if (!target || !target.alive) return 'already-dead';
   const tc = trueChar(target);
-  if (demonAttack && target.statuses.protected) return 'protected';
+  // Innkeeper's "can't die tonight" is attacker-agnostic — it has to block
+  // any overnight kill (Demon, Godfather, Gossip, a self-inflicted Gambler
+  // guess, Tinker, Lycanthrope, ...), not just a demonAttack specifically.
+  // Soldier's is the opposite: explicitly "safe from the Demon", nothing
+  // else. These used to share the one demonAttack flag, which meant any
+  // non-Demon night-kill that needed Innkeeper protection recognized also
+  // picked up Soldier immunity it was never entitled to. `nightKill`
+  // defaults to `demonAttack` so every existing demon-kill call site keeps
+  // exactly its current behavior (both checks) with no call-site changes
+  // required there — only the non-Demon night-kill sites need to pass
+  // `nightKill: true` explicitly (see game/abilities/bmr.js's Gossip,
+  // Godfather, and Gambler).
+  if (nightKill && target.statuses.protected) return 'protected';
   if (demonAttack && tc.id === 'soldier' && !impaired(target)) return 'soldier';
   if (executionAttack && target.statuses.executionImmune) return 'devils-advocate';
   if (executionAttack && target.statuses.pacifistSaved) return 'pacifist';
@@ -400,7 +412,20 @@ function pairInfo(g, p, team, wrong) {
   });
   const pool = [...trueMembers, ...registrants];
   if (!pool.length) {
-    return { text: `You learn that no ${team} is in play.`, characterId: null, players: [] };
+    if (!wrong) {
+      return { text: `You learn that no ${team} is in play.`, characterId: null, players: [] };
+    }
+    // Poisoned/drunk: "none in play" is still real information, so it
+    // can't be told truthfully either — fabricate a false positive
+    // instead, the same "name a character, point at two players, neither
+    // of whom is it" shape the normal wrong branch below uses.
+    const shownChar = pick(activeScriptPool(g).filter(c => c.team === team));
+    const shown = take(g.players.filter(x => x.id !== p.id), 2);
+    return {
+      text: `One of these two players is the ${shownChar.name}.`,
+      characterId: shownChar.id,
+      players: shown.map(x => x.name),
+    };
   }
   const subject = pick(pool);
   // A registrant isn't really that role, so a real member of the category

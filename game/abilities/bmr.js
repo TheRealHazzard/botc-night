@@ -65,7 +65,11 @@ module.exports = (h) => [
           if (tc.team === 'demon') {
             g.exorcistBlockedId = t.id;
             results[t.id] = results[t.id] || { title: 'Exorcist', body: '' };
-            results[t.id].body += `${results[t.id].body ? ' ' : ''}The Exorcist points at you tonight — you learn who they are, and you do not act.`;
+            // The card's whole point is delivering the Exorcist's real
+            // identity to the Demon — this was flavor text with no name in
+            // it at all, telling the Demon they "learn who they are"
+            // without actually saying who.
+            results[t.id].body += `${results[t.id].body ? ' ' : ''}${p.name} is the Exorcist — they point at you tonight, and you do not act.`;
             h.logEvent(g, `Exorcist targeted the Demon (${t.name}), who is blocked tonight.`, true);
           } else {
             h.logEvent(g, `Exorcist targeted ${t.name} — nothing happens.`, true);
@@ -108,7 +112,11 @@ module.exports = (h) => [
       if (t && !broken) {
         const guess = action.characterGuess;
         if (guess !== t.characterId) {
-          const blocked = h.checkKill(g, p, {});
+          // This is still a real death happening tonight — Innkeeper's
+          // absolute "can't die tonight" protection has to apply to it the
+          // same as any other night kill, just without Soldier's
+          // Demon-only immunity (nightKill, not demonAttack).
+          const blocked = h.checkKill(g, p, { nightKill: true });
           if (!blocked) deaths.push({ player: p, cause: 'gambler', killedByDemon: false });
           h.logEvent(g, `Gambler guessed ${t.name} was wrong and dies${blocked ? ` (${blocked})` : ''}.`, true);
         } else {
@@ -137,7 +145,10 @@ module.exports = (h) => [
       if (claimTrue && !broken) {
         const victim = h.randomKiller(g, h.alive(g).filter(x => x.id !== p.id), p.id);
         if (victim) {
-          const blocked = h.checkKill(g, victim, { demonAttack: true });
+          // nightKill, not demonAttack — the Gossip is Townsfolk, and
+          // demonAttack would also (incorrectly) grant Soldier immunity
+          // against a kill that isn't the Demon's.
+          const blocked = h.checkKill(g, victim, { nightKill: true });
           if (blocked) {
             h.logEvent(g, `Gossip's claim comes true — ${victim.name} should have died, but survives (${blocked}).`, true);
           } else {
@@ -244,7 +255,10 @@ module.exports = (h) => [
       const [t] = target(action && action.targets);
       if (t && !broken) {
         const finalTarget = h.randomKiller(g, [t], p.id); // Mayor redirect, same as every other kill
-        const blocked = h.checkKill(g, finalTarget, { demonAttack: true });
+        // nightKill, not demonAttack — the Godfather is a Minion, and
+        // demonAttack would also (incorrectly) grant Soldier immunity
+        // against a kill that isn't the Demon's.
+        const blocked = h.checkKill(g, finalTarget, { nightKill: true });
         if (blocked) {
           h.logEvent(g, `Godfather attacked ${finalTarget.name}, who survives (${blocked}).`, true);
         } else {

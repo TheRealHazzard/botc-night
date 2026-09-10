@@ -127,15 +127,17 @@ module.exports = (h) => [
     text: () => 'Choose two players (not yourself), or pass. You learn if they are the same alignment. Once per game.',
     resolve(g, p, action, { broken, target, results }) {
       const chosen = target(action && action.targets);
-      if (chosen.length < 2 || broken) return;
+      if (chosen.length < 2) return;
       p.statuses.seamstressUsed = true;
       const [a, b] = chosen;
       const trueSame = h.isEvil(g, a, { forRegistration: true }) === h.isEvil(g, b, { forRegistration: true });
-      // Vortox corrupts the shown answer, same as broken would — but unlike
-      // broken (checked above, which skips the whole turn and keeps the
-      // once-per-game charge), Vortox doesn't stop the ability from firing;
-      // it only makes the info it delivers wrong.
-      const same = h.vortoxActive(g) ? Math.random() < 0.5 : trueSame;
+      // Wrong, not silent — the same doctrine every other impaired info
+      // role here follows (see Balloonist). A poisoned/drunk Seamstress
+      // still submits a real choice and still spends her once-per-game
+      // charge; only the answer itself is corrupted, exactly like Vortox
+      // already did here. Showing nothing at all on a valid choice — the
+      // previous behavior — is itself a tell that something's wrong.
+      const same = (broken || h.vortoxActive(g)) ? Math.random() < 0.5 : trueSame;
       results[p.id] = {
         title: 'Seamstress',
         body: same ? 'Yes — they are the same alignment.' : 'No — they are not the same alignment.',
@@ -163,7 +165,13 @@ module.exports = (h) => [
         const decoy = h.pick(others.filter(x => x.id !== demon.id));
         shown = h.shuffle([demon, decoy]);
       } else {
-        shown = h.take(others, 2);
+        // The whole point of this branch is a *false* pair — it has to
+        // exclude the real Demon too, or "false" info can still name the
+        // actual Demon by chance. This is Sage's only branch when a Vortox
+        // is what killed them, which is unconditional (no poison needed),
+        // so this was the likeliest way anyone would ever notice.
+        const pool = demon ? others.filter(x => x.id !== demon.id) : others;
+        shown = h.take(pool, 2);
       }
       results[p.id] = { title: 'Sage', body: 'The Demon is one of these two players.', names: shown.map(x => x.name) };
     },

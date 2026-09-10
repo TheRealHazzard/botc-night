@@ -178,8 +178,14 @@ module.exports = (h) => [
     resolve(g, p, action, { broken, deaths }) {
       const guess = action && action.characterGuess;
       if (!guess || broken) return;
-      const holder = h.alive(g).find(x => x.id !== p.id && h.trueChar(x) && h.trueChar(x).id === guess);
-      const pool = holder ? [holder] : h.alive(g).filter(x => x.id !== p.id);
+      // "In play" means the character was dealt to someone, whether or not
+      // that seat is still alive — search every player, not just the
+      // living, or a character whose holder already died reads as "nobody
+      // ever had this" and wrongly falls through to the "someone dies
+      // anyway" clause, which is only for a character truly never dealt.
+      const everHolder = g.players.find(x => x.id !== p.id && h.trueChar(x) && h.trueChar(x).id === guess);
+      if (everHolder && !everHolder.alive) return; // already dead — nothing left for "they die" to do
+      const pool = everHolder ? [everHolder] : h.alive(g).filter(x => x.id !== p.id);
       const finalTarget = h.randomKiller(g, pool, p.id);
       if (!finalTarget) return;
       const blockedReason = h.checkKill(g, finalTarget, { demonAttack: true });
@@ -246,7 +252,11 @@ module.exports = (h) => [
         h.logEvent(g, `Lycanthrope targeted ${t.name} — not good, nothing happens.`, true);
         return;
       }
-      const blocked = h.checkKill(g, t, {});
+      // A real death happening tonight — Innkeeper's protection is
+      // attacker-agnostic and has to apply here too (nightKill, not
+      // demonAttack, since this isn't the Demon and shouldn't also grant
+      // Soldier's Demon-only immunity).
+      const blocked = h.checkKill(g, t, { nightKill: true });
       if (blocked) {
         h.logEvent(g, `Lycanthrope's target ${t.name} should have died, but survives (${blocked}).`, true);
         return;
