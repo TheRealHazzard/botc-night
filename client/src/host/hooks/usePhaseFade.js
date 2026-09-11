@@ -51,7 +51,16 @@ export function usePhaseFade(S, { muted = false } = {}) {
 
     if (!changed) { setDisplayS(S); return; }
 
-    const willFlash = S.phase === 'over' && !reduceMotion && !!pickFatalBlow(S);
+    // Only holds displayS back for the flash when something is actually
+    // on screen to cut away FROM. On a cold mount (opening or reloading
+    // the host straight into an already-finished game — the very thing
+    // "New game" or a fresh /host load after a simulation produces)
+    // there's no prior content, hasRenderedRef is still false, and
+    // nothing else will ever push a *different* phase-key for an idle
+    // finished game — so skipping this would leave displayS stuck at
+    // its initial null forever (App.jsx's `if (!displayS)` renders just
+    // the bare header, permanently, with no way back into the lobby).
+    const willFlash = hasRenderedRef.current && S.phase === 'over' && !reduceMotion && !!pickFatalBlow(S);
     if (willFlash) return; // the fatal-blow sequencer owns this transition instead
 
     if (S.phase === 'night') playNightFalls(muted);

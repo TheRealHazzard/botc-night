@@ -18,13 +18,20 @@ import { playImpactSting } from '../lib/soundEngine.js';
 export function useFatalBlowSequencer(S, { muted = false, reduceMotion = false } = {}) {
   const [state, setState] = useState({ stage: 'idle', blow: null });
   const lastKeyRef = useRef('');
+  const hasSeenRef = useRef(false);
 
   useEffect(() => {
     if (!S) return;
     const key = `${S.phase}:${S.nightNumber}:${S.wave}`;
     const changed = key !== lastKeyRef.current;
+    const coldStart = !hasSeenRef.current;
     lastKeyRef.current = key;
-    if (!changed || S.phase !== 'over' || reduceMotion) return;
+    hasSeenRef.current = true;
+    // A cold start (opening/reloading straight into an already-finished
+    // game) skips the flash too — it's a re-enactment of a moment that
+    // already happened, not something worth spotlighting, and usePhaseFade
+    // already shows the ending immediately rather than holding for it.
+    if (!changed || coldStart || S.phase !== 'over' || reduceMotion) return;
 
     const blow = pickFatalBlow(S);
     if (blow) {

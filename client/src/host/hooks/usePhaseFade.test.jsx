@@ -53,6 +53,31 @@ describe('usePhaseFade', () => {
     expect(result.current.displayS).toEqual(night);
   });
 
+  it('a cold mount straight into an already-finished game with a fatal blow shows it immediately — no stuck-null blank screen', () => {
+    // Regression: opening/reloading the host page after a game (or
+    // simulation) already ended on an execution/slayer-shot finds
+    // usePhaseFade with nothing ever previously rendered. The willFlash
+    // branch used to skip setDisplayS(S) in that case exactly like the
+    // warm fatal-blow path (holding the "previous" phase on screen for
+    // the flash to cut away from) — but on a cold mount there IS no
+    // previous phase on screen, hasRenderedRef never flips true, and no
+    // later SSE push (same phase/night/wave forever, on a finished idle
+    // game) ever arrives to unstick it. App.jsx's `if (!displayS) return
+    // <Header/>` then renders a bare header forever — a permanently
+    // blank main content area with no way back into a real lobby.
+    // Matches useHostState's real shape: S starts null (before the first
+    // fetch/SSE message resolves) and only becomes real data on a LATER
+    // render of the same hook instance — useState(S)'s initializer only
+    // ever sees that first null, so displayS starts null and stays null
+    // unless setDisplayS is actually called once real data arrives.
+    stubReducedMotion(false);
+    installFakeAudioContext();
+    const { result, rerender } = renderHook(({ S }) => usePhaseFade(S), { initialProps: { S: null } });
+    rerender({ S: overSlayer });
+    expect(result.current.displayS).toEqual(overSlayer);
+    expect(result.current.fatalFlashing).toBe(false);
+  });
+
   it('reduceMotion skips the fade — displayS updates immediately, sound cue still fires', () => {
     stubReducedMotion(true);
     installFakeAudioContext();
