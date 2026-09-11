@@ -575,6 +575,11 @@
       <select id="focus" hidden></select>
       <label
         >Script
+        <!-- Populated from /api/scripts on load (see the bottom of the page
+             script) — every playable script, same source the real host
+             screen's own picker uses, not a hand-maintained subset. These
+             three are left in as a fallback so the control isn't empty if
+             that fetch hasn't resolved yet, or fails. -->
         <select id="simScript">
           <option value="tb">Trouble Brewing</option>
           <option value="bmr">Bad Moon Rising</option>
@@ -1139,6 +1144,28 @@
         .then(t => {
           TOKENS = t;
           render();
+        })
+        .catch(() => {});
+
+      // Same data source the real host screen's script picker uses — all
+      // 16 playable scripts, not just the 3 this select shipped with
+      // hardcoded. Left the fallback markup in place above in case this
+      // never resolves; a failed fetch just leaves those 3 as-is.
+      fetch("/api/scripts")
+        .then(r => r.json())
+        .then(scripts => {
+          if (!Array.isArray(scripts) || !scripts.length) return; // leave the fallback options in place
+          const sel = document.getElementById("simScript");
+          const prev = sel.value;
+          sel.innerHTML = "";
+          scripts
+            .filter(s => s.playable !== false)
+            .forEach(s => {
+              const opt = el("option", null, s.name);
+              opt.value = s.id;
+              sel.appendChild(opt);
+            });
+          if ([...sel.options].some(o => o.value === prev)) sel.value = prev;
         })
         .catch(() => {});
 
