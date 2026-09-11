@@ -167,41 +167,79 @@
    each destination phase tunes duration/filter to its own mood — dawn
    quick and warm, dusk a little slower and dipping dark, the game's end
    heavier still, a fresh reveal a bright quick flash. Plain opacity-only
-   for anything else (e.g. into the lobby). */
-      #stage,
-      #controls {
+   for anything else (e.g. into the lobby).
+   This targeted #stage/#controls until now — leftover ids from the
+   pre-React vanilla version that never existed on this element (it's
+   always been .view, the React rebuild's own single wrapper for both
+   halves of the old two-region layout). The class toggling in
+   usePhaseFade.js was always correct; this selector just never matched
+   anything, so every phase change has been a hard cut with no fade at
+   all since the rebuild — dead CSS, not a deliberate no-op. */
+      .view {
         transition-property: opacity, filter;
         transition-duration: 0.38s;
         transition-timing-function: ease;
       }
-      #stage.fading,
-      #controls.fading {
+      .view.fading {
         opacity: 0;
       }
-      #stage.trans-dawn.fading,
-      #controls.trans-dawn.fading {
+      .view.trans-dawn.fading {
         transition-duration: 0.28s;
         filter: brightness(1.18) saturate(1.08);
       }
-      #stage.trans-dusk.fading,
-      #controls.trans-dusk.fading {
+      .view.trans-dusk.fading {
         transition-duration: 0.46s;
         filter: brightness(0.5);
       }
-      #stage.trans-over.fading,
-      #controls.trans-over.fading {
+      .view.trans-over.fading {
         transition-duration: 0.56s;
         filter: brightness(0.32) saturate(0.75);
       }
-      #stage.trans-reveal.fading,
-      #controls.trans-reveal.fading {
+      .view.trans-reveal.fading {
         transition-duration: 0.3s;
         filter: brightness(1.3);
       }
       @media (prefers-reduced-motion: reduce) {
-        #stage,
-        #controls {
+        .view {
           transition: none;
+        }
+      }
+
+      /* Dusk/dawn get a second, ring-local layer on top of the stage-wide
+   dim/brighten above: each seat catches the transition in turn, sweeping
+   around the table, instead of every seat changing in lockstep. Purely
+   additive CSS — RingSeat.jsx sets --seat-i once per seat (its own
+   position index), so this needs no new React state of its own, the same
+   "usePhaseFade already toggles the class, CSS reacts to it" split the
+   stage-wide fade above already uses. usePhaseFade.js's TRANS_MS.dusk/
+   dawn were widened specifically to give this room to actually play out
+   before displayS swaps to the new phase's content — see that file. */
+      .view.trans-dusk.fading .rseat {
+        animation: seat-dusk 420ms ease-in both;
+        animation-delay: calc(var(--seat-i, 0) * 35ms);
+      }
+      @keyframes seat-dusk {
+        0% { filter: brightness(1) saturate(1); }
+        /* A brief flare before it goes, like a candle catching a draft
+           right before it gutters out — not just a linear dim. */
+        30% { filter: brightness(1.2) saturate(1.1); }
+        100% { filter: brightness(0.4) saturate(0.55); }
+      }
+      .view.trans-dawn.fading .rseat {
+        animation: seat-dawn 300ms ease-out both;
+        animation-delay: calc(var(--seat-i, 0) * 22ms);
+      }
+      @keyframes seat-dawn {
+        0% { filter: brightness(0.4) saturate(0.55); }
+        /* Catches the light on the way up, then settles — the mirror of
+           dusk's own flare, not a symmetric reverse of the same keyframe. */
+        65% { filter: brightness(1.3) saturate(1.15); }
+        100% { filter: brightness(1) saturate(1); }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .view.trans-dusk.fading .rseat,
+        .view.trans-dawn.fading .rseat {
+          animation: none;
         }
       }
 

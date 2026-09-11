@@ -39,7 +39,11 @@ export default function RingSeat({ player: p, index, total, revealed, entering }
   return (
     <div
       className={'rseat' + (p.alive ? '' : ' dead') + (p.connected ? '' : ' offline') + (entering ? ' entering' : '')}
-      style={{ left: left + '%', top: top + '%' }}
+      // --seat-i drives the dusk/dawn seat-by-seat sweep in styles.css
+      // (.view.trans-dusk/dawn.fading .rseat) — this component's only
+      // involvement in that ceremony, everything else is pure CSS reacting
+      // to usePhaseFade's existing class toggle.
+      style={{ left: left + '%', top: top + '%', '--seat-i': index }}
     >
       <div className={'rseat-avatar' + (showToken && !p.alive ? ' shrouded' : '')} style={avatarStyle}>
         {avatarContent}

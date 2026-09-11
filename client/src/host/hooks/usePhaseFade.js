@@ -4,7 +4,14 @@ import { playNightFalls, playDayBreaks, playVictory } from '../lib/soundEngine.j
 import { useFatalBlowSequencer } from './useFatalBlowSequencer.js';
 import { usePrefersReducedMotion } from './usePrefersReducedMotion.js';
 
-const TRANS_MS = { dusk: 460, dawn: 280, over: 560, reveal: 300, plain: 380 };
+// dusk/dawn are wider than the stage-wide fade alone needs — styles.css
+// layers a per-seat sweep on top of it (each .rseat catches the transition
+// in turn, up to 35ms/22ms apart), and displayS must not swap to the new
+// phase's content until that sweep has actually finished playing, or it'd
+// get cut off mid-seat on a full 15-player table. 15 seats * 35ms delay +
+// a 420ms dusk animation ≈ 910ms; 15 * 22ms + 300ms dawn ≈ 630ms — both
+// numbers below have a little slack above that worst case.
+const TRANS_MS = { dusk: 950, dawn: 660, over: 560, reveal: 300, plain: 380 };
 const TRANS_KIND = { night: 'dusk', day: 'dawn', over: 'over', reveal: 'reveal' };
 
 /** Reproduces render()'s own changed/lastPhaseKey detection, phase-entry

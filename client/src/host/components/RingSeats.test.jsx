@@ -30,6 +30,15 @@ describe('RingSeats', () => {
     expect(avatar.textContent).toBe('');
   });
 
+  it('sets --seat-i to each seat\'s own position index, for the dusk/dawn sweep in styles.css to key off', () => {
+    const three = [alive, dead, offline];
+    const { container } = render(<RingSeats players={three} />);
+    const seats = container.querySelectorAll('.rseat');
+    expect(seats[0].style.getPropertyValue('--seat-i')).toBe('0');
+    expect(seats[1].style.getPropertyValue('--seat-i')).toBe('1');
+    expect(seats[2].style.getPropertyValue('--seat-i')).toBe('2');
+  });
+
   it('marks offline seats with the offline class', () => {
     const { container } = render(<RingSeats players={[offline]} />);
     expect(container.querySelector('.rseat.offline')).toBeTruthy();

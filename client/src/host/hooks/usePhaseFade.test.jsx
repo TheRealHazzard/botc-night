@@ -48,7 +48,7 @@ describe('usePhaseFade', () => {
     expect(result.current.transClass).toBe('dusk');
     expect(result.current.displayS).toEqual(day); // still showing the OLD phase
 
-    await act(async () => { await vi.advanceTimersByTimeAsync(470); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(960); });
     expect(result.current.fading).toBe(false);
     expect(result.current.displayS).toEqual(night);
   });
