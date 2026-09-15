@@ -493,4 +493,36 @@ describe("App", () => {
       expect(screen.queryByTitle("Game history")).not.toBeInTheDocument();
     });
   });
+
+  describe("the Game/Toolkit header switch", () => {
+    it("is absent before any state has loaded — the toolkit only appears once the header's real controls do", () => {
+      render(<App />);
+      expect(screen.queryByRole("button", { name: "Toolkit" })).not.toBeInTheDocument();
+    });
+
+    it("switching to Toolkit hides the BOTC stage and lobby header actions, without touching the underlying phase", async () => {
+      const players = Array.from({ length: 5 }, (_, i) => ({
+        id: `p${i}`, name: `P${i}`, alive: true, connected: true, color: null,
+      }));
+      hostState.current.S = baseS({ players });
+      render(<App />);
+      expect(screen.getByTitle("Start Game")).toBeInTheDocument();
+
+      await userEvent.click(screen.getByRole("button", { name: "Toolkit" }));
+      expect(screen.getByRole("button", { name: "Toolkit" })).toHaveClass("active");
+      expect(screen.queryByText("The town is still empty.")).not.toBeInTheDocument();
+      expect(screen.queryByTitle("Start Game")).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /start/i })).toBeInTheDocument(); // TimerTool's own Start button
+      expect(screen.getByText("lobby")).toBeInTheDocument(); // phase pill still reflects the real game underneath
+    });
+
+    it("switching back to Game restores the lobby view exactly as it was", async () => {
+      hostState.current.S = baseS();
+      render(<App />);
+      await userEvent.click(screen.getByRole("button", { name: "Toolkit" }));
+      await userEvent.click(screen.getByRole("button", { name: "Game" }));
+      expect(screen.getByRole("button", { name: "Game" })).toHaveClass("active");
+      expect(screen.getByText("The town is still empty.")).toBeInTheDocument();
+    });
+  });
 });

@@ -16,6 +16,7 @@ import RevealView from "./views/RevealView.jsx";
 import NightView from "./views/NightView.jsx";
 import DayView from "./views/DayView.jsx";
 import OverView from "./views/OverView.jsx";
+import ToolkitView from "./views/ToolkitView.jsx";
 
 const PHASE_ICON = { night: "moon", day: "sun" };
 
@@ -34,6 +35,11 @@ export default function App() {
   const scripts = useScripts();
   const scriptChars = useScriptRoster(displayS?.script);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // Independent of the BOTC phase machine below — switching tabs never
+  // touches `game` state, so an in-progress night is never at risk from a
+  // peek at the toolkit, and the underlying phase/SSE stream keeps running
+  // in the background regardless of which tab is showing.
+  const [section, setSection] = useState("game");
 
   // Script browsing lives here, not in LobbyView, because its commit/back-
   // out actions now sit in the header — the one common ancestor of both
@@ -145,12 +151,14 @@ export default function App() {
         onOpenSettings={() => setSettingsOpen(true)}
         phaseLabel={phaseLabel}
         phaseIcon={PHASE_ICON[displayS.phase] || "clock"}
-        browsing={displayS.phase === "lobby" && browsing}
+        section={section}
+        onSection={setSection}
+        browsing={section === "game" && displayS.phase === "lobby" && browsing}
         browsedMeta={browsedMeta}
         confirming={confirming}
         onConfirmScript={confirmScript}
         onCancelBrowse={exitBrowse}
-        lobbyIdle={displayS.phase === "lobby" && !browsing}
+        lobbyIdle={section === "game" && displayS.phase === "lobby" && !browsing}
         playerCount={displayS.players.length}
         onStartGame={startGame}
         onClearLobby={clearLobby}
@@ -160,65 +168,69 @@ export default function App() {
       <ReclaimBanner pendingReclaims={S?.pendingReclaims} />
 
       <main>
-        <div className={stageClass}>
-          {displayS.phase === "lobby" && (
-            <LobbyView
-              players={displayS.players}
-              script={displayS.script}
-              scripts={scripts}
-              browsing={browsing}
-              browseIndex={browseIndex}
-              browsedMeta={browsedMeta}
-              onBrowse={setBrowseIndex}
-              onEnterBrowse={enterBrowse}
-            />
-          )}
-          {displayS.phase === "reveal" && (
-            <RevealView
-              players={displayS.players}
-              scriptChars={scriptChars}
-              activeScriptMeta={activeScriptMeta}
-              muted={muted}
-            />
-          )}
-          {displayS.phase === "night" && (
-            <NightView
-              players={displayS.players}
-              nightNumber={displayS.nightNumber}
-              wave={displayS.wave}
-              windowEndsAt={displayS.windowEndsAt}
-              config={displayS.config}
-              script={displayS.script}
-              scriptChars={scriptChars}
-              activeScriptMeta={activeScriptMeta}
-              muted={muted}
-            />
-          )}
-          {displayS.phase === "day" && (
-            <DayView
-              players={displayS.players}
-              nightNumber={displayS.nightNumber}
-              deaths={displayS.deaths}
-              mastermindExtraDay={displayS.mastermindExtraDay}
-              nominations={displayS.nominations}
-              config={displayS.config}
-              script={displayS.script}
-              scriptChars={scriptChars}
-              activeScriptMeta={activeScriptMeta}
-              muted={muted}
-            />
-          )}
-          {(displayS.phase === "over" || displayS.revealed) && (
-            <OverView
-              players={displayS.players}
-              victory={displayS.victory}
-              gameSummary={displayS.gameSummary}
-              log={displayS.log}
-              actionLog={displayS.actionLog}
-              nightNumber={displayS.nightNumber}
-            />
-          )}
-        </div>
+        {section === "toolkit" ? (
+          <ToolkitView />
+        ) : (
+          <div className={stageClass}>
+            {displayS.phase === "lobby" && (
+              <LobbyView
+                players={displayS.players}
+                script={displayS.script}
+                scripts={scripts}
+                browsing={browsing}
+                browseIndex={browseIndex}
+                browsedMeta={browsedMeta}
+                onBrowse={setBrowseIndex}
+                onEnterBrowse={enterBrowse}
+              />
+            )}
+            {displayS.phase === "reveal" && (
+              <RevealView
+                players={displayS.players}
+                scriptChars={scriptChars}
+                activeScriptMeta={activeScriptMeta}
+                muted={muted}
+              />
+            )}
+            {displayS.phase === "night" && (
+              <NightView
+                players={displayS.players}
+                nightNumber={displayS.nightNumber}
+                wave={displayS.wave}
+                windowEndsAt={displayS.windowEndsAt}
+                config={displayS.config}
+                script={displayS.script}
+                scriptChars={scriptChars}
+                activeScriptMeta={activeScriptMeta}
+                muted={muted}
+              />
+            )}
+            {displayS.phase === "day" && (
+              <DayView
+                players={displayS.players}
+                nightNumber={displayS.nightNumber}
+                deaths={displayS.deaths}
+                mastermindExtraDay={displayS.mastermindExtraDay}
+                nominations={displayS.nominations}
+                config={displayS.config}
+                script={displayS.script}
+                scriptChars={scriptChars}
+                activeScriptMeta={activeScriptMeta}
+                muted={muted}
+              />
+            )}
+            {(displayS.phase === "over" || displayS.revealed) && (
+              <OverView
+                players={displayS.players}
+                victory={displayS.victory}
+                gameSummary={displayS.gameSummary}
+                log={displayS.log}
+                actionLog={displayS.actionLog}
+                nightNumber={displayS.nightNumber}
+              />
+            )}
+          </div>
+        )}
       </main>
 
       {fatalFlashing && (
@@ -251,6 +263,8 @@ function Header({
   onOpenSettings,
   phaseLabel,
   phaseIcon,
+  section,
+  onSection,
   browsing,
   browsedMeta,
   confirming,
@@ -271,6 +285,24 @@ function Header({
         <img className="mark" src="/icons/botc-logo.png" alt="Blood On The Clocktower" />
       </span>
       <span className="header-right">
+        {onSection && (
+          <span className="section-toggle">
+            <button
+              type="button"
+              className={section === "game" ? "active" : ""}
+              onClick={() => onSection("game")}
+            >
+              Game
+            </button>
+            <button
+              type="button"
+              className={section === "toolkit" ? "active" : ""}
+              onClick={() => onSection("toolkit")}
+            >
+              Toolkit
+            </button>
+          </span>
+        )}
         <button
           type="button"
           className="mutebtn"
