@@ -422,6 +422,16 @@ function deliverOpeningInfo(g, results) {
       `and will point at players tonight with no real effect.`;
   }
 
+  // King: "The Demon knows you are the King" — a passive reveal, same
+  // shape and same ungated-by-small-game-exception treatment as the
+  // Lunatic's own line just above (this isn't "evil learns each other,"
+  // it's "the Demon is told about one specific other character").
+  const king = g.players.find(p => p.characterId === 'king');
+  if (demon && king) {
+    results[demon.id] = results[demon.id] || { title: 'Your Minions', body: '' };
+    results[demon.id].body += `${results[demon.id].body ? ' ' : ''}${king.name} is the King.`;
+  }
+
   if (g.players.length < 7) return; // with 6 or fewer, evil stays in the dark
   if (!demon) return;
 
@@ -442,18 +452,26 @@ function deliverOpeningInfo(g, results) {
   const marionette = g.players.find(p => p.characterId === 'marionette');
 
   const minions = g.players.filter(p => trueChar(p) && trueChar(p).team === 'minion');
+  const inPlay = new Set(g.players.map(p => p.characterId));
+  const bluffPool = activeScriptPool(g).filter(
+    c => !inPlay.has(c.id) && (c.team === 'townsfolk' || c.team === 'outsider')
+  );
+  // Snitch: "Each Minion gets 3 bluffs" — the same not-in-play-character
+  // briefing the Demon gets below, rolled independently per Minion (each
+  // one genuinely doesn't know the others').
+  const snitch = g.players.find(p => p.characterId === 'snitch');
   for (const m of minions) {
     results[m.id] = {
       title: 'Your allies',
       body: `${magician ? magician.name : demon.name} is the Demon.` + (damsel ? ` ${damsel.name} is the Damsel.` : ''),
       names: minions.filter(x => x.id !== m.id).map(x => `${x.name} — fellow Minion`),
     };
+    if (snitch) {
+      const ownBluffs = take(bluffPool, 3).map(c => c.name);
+      results[m.id].names.push(...ownBluffs.map(b => `${b} — not in play`));
+    }
   }
 
-  const inPlay = new Set(g.players.map(p => p.characterId));
-  const bluffPool = activeScriptPool(g).filter(
-    c => !inPlay.has(c.id) && (c.team === 'townsfolk' || c.team === 'outsider')
-  );
   const bluffs = take(bluffPool, 3).map(c => c.name);
 
   results[demon.id] = {

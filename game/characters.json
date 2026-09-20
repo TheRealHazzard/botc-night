@@ -1672,6 +1672,75 @@
       "otherNightReminder": "The Vortox points to a player. That player dies."
     },
     {
+      "id": "king",
+      "name": "King",
+      "edition": [],
+      "team": "townsfolk",
+      "ability": "Each night, if the dead equal or outnumber the living, you learn 1 alive character. The Demon knows you are the King.",
+      "setup": false,
+      "reminders": [],
+      "firstNightOrder": 0,
+      "firstNightReminder": "",
+      "otherNightOrder": 60,
+      "otherNightReminder": "If the dead equal or outnumber the living, show the King a character in play."
+    },
+    {
+      "id": "choirboy",
+      "name": "Choirboy",
+      "edition": [],
+      "team": "townsfolk",
+      "ability": "If the Demon kills the King, you learn which player is the Demon.",
+      "setup": false,
+      "reminders": [],
+      "firstNightOrder": 0,
+      "firstNightReminder": "",
+      "otherNightOrder": 0,
+      "otherNightReminder": ""
+    },
+    {
+      "id": "acrobat",
+      "name": "Acrobat",
+      "edition": [],
+      "team": "townsfolk",
+      "ability": "Each night*, choose a player: if they are or become drunk or poisoned tonight, you die.",
+      "setup": false,
+      "reminders": [
+        "Dead"
+      ],
+      "firstNightOrder": 0,
+      "firstNightReminder": "",
+      "otherNightOrder": 65,
+      "otherNightReminder": "Show the Acrobat player selection. If chosen player is drunk or poisoned, the Acrobat dies."
+    },
+    {
+      "id": "nightwatchman",
+      "name": "Nightwatchman",
+      "edition": [],
+      "team": "townsfolk",
+      "ability": "Once per game, at night, choose a player: they learn you are the Nightwatchman.",
+      "setup": false,
+      "reminders": [
+        "No Ability"
+      ],
+      "firstNightOrder": 90,
+      "firstNightReminder": "If the Nightwatchman chooses a player, show them the Nightwatchman token.",
+      "otherNightOrder": 90,
+      "otherNightReminder": "If the Nightwatchman chooses a player, show them the Nightwatchman token."
+    },
+    {
+      "id": "snitch",
+      "name": "Snitch",
+      "edition": [],
+      "team": "outsider",
+      "ability": "Each Minion gets 3 bluffs.",
+      "setup": false,
+      "reminders": [],
+      "firstNightOrder": 0,
+      "firstNightReminder": "",
+      "otherNightOrder": 0,
+      "otherNightReminder": ""
+    },
+    {
       "id": "steward",
       "name": "Steward",
       "edition": [],

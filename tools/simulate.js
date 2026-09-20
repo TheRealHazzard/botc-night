@@ -440,6 +440,157 @@ console.log('\nExperimental: Bounty Hunter');
     g.results.bh && g.results.bh.body === `${otherEvilId} is an evil player.`, g.results.bh);
 }
 
+console.log('\nExperimental: King');
+{
+  const mk = (id, characterId) => ({ id, name: id, characterId, believedId: characterId, alive: true, statuses: {} });
+
+  // Not yet at the dead >= living threshold: 1 dead of 4 — no action.
+  const g = E.newGame();
+  g.script = 'tb'; g.nightNumber = 2; g.phase = 'night'; g.wave = 1; g.results = {};
+  g.players = [mk('kg', 'king'), mk('t1', 'chef'), mk('t2', 'butler'), mk('d', 'imp')];
+  g.players[1].alive = false;
+  E.resolveNight(g, 1);
+  check('does not act while the living still outnumber the dead', !g.results.kg, g.results.kg);
+
+  // 2 dead of 4 — threshold met (dead equals living).
+  const g2 = E.newGame();
+  g2.script = 'tb'; g2.nightNumber = 3; g2.phase = 'night'; g2.wave = 1; g2.results = {};
+  g2.players = [mk('kg', 'king'), mk('t1', 'chef'), mk('t2', 'butler'), mk('d', 'imp')];
+  g2.players[1].alive = false; g2.players[2].alive = false;
+  E.resolveNight(g2, 1);
+  check('acts once the dead equal the living', !!g2.results.kg, g2.results.kg);
+  const namedId = g2.results.kg.body.split(' is the ')[0];
+  const namedPlayer = g2.players.find(p => p.id === namedId);
+  const namedChar = g2.results.kg.body.split(' is the ')[1].replace('.', '');
+  check('unbroken: names a real character actually held by the named player',
+    E.trueChar(namedPlayer).name === namedChar, g2.results.kg.body);
+
+  // Demon told "X is the King" — a passive reveal, checked at 7+ players
+  // (deliverOpeningInfo's own minion/demon section is gated there, and
+  // this line sits just above that gate so it's independent of it, but
+  // testing at a size where the rest of the demon's briefing also fires
+  // keeps this realistic).
+  const g3 = E.newGame();
+  g3.script = 'tb'; g3.nightNumber = 1; g3.phase = 'night'; g3.wave = 1; g3.results = {};
+  g3.players = [mk('kg', 'king'), mk('t1', 'chef'), mk('t2', 'butler'), mk('t3', 'soldier'), mk('m1', 'poisoner'), mk('m2', 'baron'), mk('d', 'imp')];
+  E.resolveNight(g3, 1);
+  check('the Demon is told "X is the King"', g3.results.d && g3.results.d.body.includes('kg is the King.'), g3.results.d && g3.results.d.body);
+}
+
+console.log('\nExperimental: Choirboy');
+{
+  const mk = (id, characterId) => ({ id, name: id, characterId, believedId: characterId, alive: true, statuses: {} });
+
+  // The Demon kills the King — Choirboy should learn the Demon's identity.
+  const g = E.newGame();
+  g.script = 'tb'; g.nightNumber = 2; g.phase = 'night'; g.wave = 1; g.results = {};
+  g.players = [mk('kg', 'king'), mk('cb', 'choirboy'), mk('t1', 'chef'), mk('d', 'imp')];
+  g.pending = { d: { targets: ['kg'], decoy: false } };
+  E.resolveNight(g, 1);
+  check('fires when the Demon kills the King, naming the real Demon',
+    g.results.cb && g.results.cb.body === 'd is the Demon.', g.results.cb);
+
+  // Killed by a Minion instead — same distinction Sage's own test already
+  // covers for its "killedByDemon specifically" gate.
+  const g2 = E.newGame();
+  g2.script = 'bmr'; g2.nightNumber = 2; g2.phase = 'night'; g2.wave = 1; g2.results = {};
+  g2.players = [mk('kg', 'king'), mk('cb', 'choirboy'), mk('as1', 'assassin'), mk('d', 'fanggu')];
+  g2.players.find(p => p.id === 'as1').statuses.assassinUsed = false;
+  g2.pending = { as1: { targets: ['kg'], decoy: false } };
+  E.resolveNight(g2, 1);
+  check("a Minion kill does not trigger Choirboy's reveal", !g2.results.cb, g2.results.cb);
+
+  // No Choirboy in the game at all — the King's onDeath hook must not
+  // throw or write anywhere just because there's no one to inform.
+  const g3 = E.newGame();
+  g3.script = 'tb'; g3.nightNumber = 2; g3.phase = 'night'; g3.wave = 1; g3.results = {};
+  g3.players = [mk('kg', 'king'), mk('t1', 'chef'), mk('d', 'imp')];
+  g3.pending = { d: { targets: ['kg'], decoy: false } };
+  E.resolveNight(g3, 1);
+  check('no Choirboy in play: King still dies cleanly, nothing else happens', !g3.players.find(p => p.id === 'kg').alive);
+}
+
+console.log('\nExperimental: Acrobat');
+{
+  const mk = (id, characterId) => ({ id, name: id, characterId, believedId: characterId, alive: true, statuses: {} });
+
+  const g = E.newGame();
+  g.nightNumber = 2; g.phase = 'night'; g.wave = 1; g.results = {};
+  g.players = [mk('ac', 'acrobat'), mk('t1', 'chef'), mk('t2', 'butler')];
+  g.players.find(p => p.id === 't1').statuses.poisoned = true;
+  g.pending = { ac: { targets: ['t1'], decoy: false } };
+  E.resolveNight(g, 1);
+  check('choosing a poisoned player kills the Acrobat', !g.players.find(p => p.id === 'ac').alive);
+
+  const g2 = E.newGame();
+  g2.nightNumber = 2; g2.phase = 'night'; g2.wave = 1; g2.results = {};
+  g2.players = [mk('ac', 'acrobat'), mk('t1', 'chef'), mk('t2', 'butler')];
+  g2.pending = { ac: { targets: ['t1'], decoy: false } };
+  E.resolveNight(g2, 1);
+  check('choosing a clean player does nothing', g2.players.find(p => p.id === 'ac').alive);
+
+  // Poisoned/drunk Acrobat: the check itself simply doesn't run, even
+  // though the chosen player really is poisoned — an impaired active
+  // effect does nothing, it doesn't misfire.
+  const g3 = E.newGame();
+  g3.nightNumber = 2; g3.phase = 'night'; g3.wave = 1; g3.results = {};
+  g3.players = [mk('ac', 'acrobat'), mk('t1', 'chef'), mk('t2', 'butler')];
+  g3.players.find(p => p.id === 'ac').statuses.poisoned = true;
+  g3.players.find(p => p.id === 't1').statuses.poisoned = true;
+  g3.pending = { ac: { targets: ['t1'], decoy: false } };
+  E.resolveNight(g3, 1);
+  check('an impaired Acrobat never dies from the check, even on a true match',
+    g3.players.find(p => p.id === 'ac').alive);
+}
+
+console.log('\nExperimental: Nightwatchman');
+{
+  const mk = (id, characterId) => ({ id, name: id, characterId, believedId: characterId, alive: true, statuses: {} });
+
+  // Paired with a Chef (also acts night 1, order 36) specifically to
+  // exercise the real bug this test caught: Chef's own resolve() does a
+  // blind results[p.id] = {...} overwrite, so if Nightwatchman ran
+  // *before* Chef in the order, Chef would clobber the reveal entirely.
+  // Nightwatchman's order-90 placement plus the merge-not-overwrite fix
+  // is what keeps both intact together.
+  const g = E.newGame();
+  g.nightNumber = 1; g.phase = 'night'; g.wave = 1; g.results = {};
+  g.players = [mk('nw', 'nightwatchman'), mk('t1', 'chef')];
+  g.pending = { nw: { targets: ['t1'], decoy: false } };
+  E.resolveNight(g, 1);
+  check('the chosen player — not the Nightwatchman — receives the reveal, merged alongside their own info',
+    g.results.t1 && g.results.t1.body === 'Pairs of neighbouring evil players: 0 nw is the Nightwatchman.' && !g.results.nw, g.results);
+  check('the once-per-game flag is spent on a real choice', g.players.find(p => p.id === 'nw').statuses.nightwatchmanUsed === true);
+
+  // A pass never spends the once-ever charge.
+  const g2 = E.newGame();
+  g2.nightNumber = 1; g2.phase = 'night'; g2.wave = 1; g2.results = {};
+  g2.players = [mk('nw', 'nightwatchman'), mk('t1', 'chef')];
+  g2.pending = { nw: { targets: [], decoy: false } };
+  E.resolveNight(g2, 1);
+  check('passing does not spend the once-per-game charge', !g2.players.find(p => p.id === 'nw').statuses.nightwatchmanUsed);
+}
+
+console.log('\nExperimental: Snitch');
+{
+  const mk = (id, characterId) => ({ id, name: id, characterId, believedId: characterId, alive: true, statuses: {} });
+
+  const g = E.newGame();
+  g.script = 'tb'; g.nightNumber = 1; g.phase = 'night'; g.wave = 1; g.results = {};
+  g.players = [mk('sn', 'snitch'), mk('t1', 'chef'), mk('t2', 'butler'), mk('t3', 'soldier'), mk('t4', 'slayer'), mk('m1', 'poisoner'), mk('d', 'imp')];
+  E.resolveNight(g, 1);
+  const minionNames = g.results.m1.names;
+  check('the Minion gets fellow-Minion info plus 3 bluffs', minionNames.filter(n => n.includes('not in play')).length === 3, minionNames);
+
+  // Fewer than 7 players: the whole evil-briefing section (bluffs
+  // included) is gated off, same as it already is without a Snitch.
+  const g2 = E.newGame();
+  g2.script = 'tb'; g2.nightNumber = 1; g2.phase = 'night'; g2.wave = 1; g2.results = {};
+  g2.players = [mk('sn', 'snitch'), mk('t1', 'chef'), mk('m1', 'poisoner'), mk('d', 'imp')];
+  E.resolveNight(g2, 1);
+  check('under 7 players, evil still stays in the dark — no bluffs handed out', !g2.results.m1);
+}
+
 console.log('\nButler');
 {
   const mk = (id, characterId) => ({ id, name: id, characterId, believedId: characterId, alive: true, statuses: {} });

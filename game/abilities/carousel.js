@@ -25,6 +25,15 @@
 //     server.js's execution sites.
 //   - Politician: a win-condition modifier only, engine.js's checkVictory.
 //   - Fisherman: a day-only visit, server.js's /api/fisherman-advice.
+//   - Snitch: "Each Minion gets 3 bluffs," a passive setup-time effect,
+//     engine.js's deliverOpeningInfo (same place the Demon's own bluffs
+//     are rolled).
+//   - Choirboy: "If the Demon kills the King, you learn which player is
+//     the Demon" — entirely reactive to the King's death specifically, so
+//     it lives as the King's own onDeath hook below, not a turn of the
+//     Choirboy's own. Structurally inert in any script without a King
+//     also in play — same "these two are a pair" relationship as
+//     Huntsman/Damsel.
 //
 // Mezepheles ("say a secret word aloud") has no honest bounded
 // implementation — nothing here can observe real-world speech, and letting
@@ -136,6 +145,104 @@ module.exports = (h) => [
       // still-living evil player it should have named instead.
       if (!broken) p.statuses.bountyHunterTargetId = shown.id;
       results[p.id] = { title: 'Bounty Hunter', body: `${shown.name} is an evil player.` };
+    },
+  },
+
+  {
+    id: 'king',
+    choiceCount: () => 0,
+    targets: () => [],
+    text: () => '',
+    // "Each night, if the dead equal or outnumber the living" — can never
+    // be true night 1 (nobody's died yet), so this only ever has an
+    // otherNightOrder, never a firstNightOrder, same shape as any
+    // other-nights-only character.
+    acts: g => {
+      const dead = g.players.filter(x => !x.alive).length;
+      const living = g.players.length - dead;
+      return dead >= living;
+    },
+    resolve(g, p, action, { broken, results }) {
+      const others = g.players.filter(x => x.id !== p.id);
+      const shown = h.pick(others);
+      const trueC = h.trueChar(shown);
+      // Broken: guaranteed wrong, same "never coincidentally true" standard
+      // as every other impaired info role — exclude the real character
+      // from the fabricated-name pool rather than picking any random one.
+      const shownChar = broken ? h.pick(h.activeScriptPool(g).filter(c => c.id !== trueC.id)) : trueC;
+      results[p.id] = { title: 'King', body: `${shown.name} is the ${shownChar.name}.` };
+    },
+    // "The Demon knows you are the King" is a passive reveal delivered in
+    // engine.js's deliverOpeningInfo, same as the Lunatic's own line to
+    // the Demon — not repeated here.
+    //
+    // Choirboy's entire ability lives here, not in a registry entry of
+    // its own: "if the Demon kills the King, the Choirboy learns which
+    // player is the Demon." onDeath fires only once the kill is actually
+    // applied (see resolveNight's "Apply deaths" pass), so this can't
+    // suffer the same-night staleness class of bug fixed earlier this
+    // session — by the time this runs, the King is genuinely dead.
+    onDeath(g, player, { killedByDemon, results }) {
+      if (!killedByDemon) return;
+      const choirboy = g.players.find(x => x.alive && x.believedId === 'choirboy');
+      if (!choirboy) return;
+      const demon = g.players.find(x => h.trueChar(x) && h.trueChar(x).team === 'demon');
+      if (!demon) return;
+      const broken = h.impaired(choirboy);
+      const shown = broken ? h.excludingPick(g.players, [demon.id, choirboy.id], 1)[0] : demon;
+      if (!shown) return;
+      results[choirboy.id] = { title: 'Choirboy', body: `${shown.name} is the Demon.` };
+    },
+  },
+
+  {
+    id: 'acrobat',
+    choiceCount: () => 1,
+    targets: (g, p) => h.alive(g).filter(x => x.id !== p.id),
+    text: () => 'Choose a player. If they are drunk or poisoned tonight, you die.',
+    resolve(g, p, action, { broken, target, deaths }) {
+      // A poisoned/drunk Acrobat's own check simply doesn't work — this is
+      // an active effect (a death consequence), not an information reveal,
+      // so "wrong, not silent" doesn't apply the way it does for Empath or
+      // Sage; the real rule for an impaired active ability is just "it
+      // does nothing," same as a poisoned Monk failing to actually protect.
+      if (broken) return;
+      const [t] = target(action && action.targets);
+      if (!t || !(t.statuses.drunk || t.statuses.poisoned)) return;
+      // nightKill, not demonAttack — this isn't the Demon, so Innkeeper-
+      // style protection applies but Soldier's Demon-only immunity must
+      // not, same distinction Tinker's own self-death roll already draws.
+      const blocked = h.checkKill(g, p, { nightKill: true });
+      if (!blocked) deaths.push({ player: p, cause: 'acrobat', killedByDemon: false });
+    },
+  },
+
+  {
+    id: 'nightwatchman',
+    choiceCount: () => 1,
+    optional: () => true,
+    usesOnceFlag: true,
+    // Deliberately last in both night orders (90, above every other
+    // character in this registry) — this is the one character whose
+    // ability writes into a DIFFERENT player's results, and most info
+    // roles (Chef included) set results[p.id] = {...} as a blind
+    // overwrite, trusting they're the only thing that ever touches their
+    // own slot. Going last means the target's own info (if any) is
+    // already written by the time this runs, so merging in below is safe
+    // — going earlier would just get clobbered the instant the target
+    // resolves their own ability afterward.
+    targets: (g, p) => g.players.filter(x => x.id !== p.id),
+    text: () => 'Once per game, choose a player: they learn you are the Nightwatchman. Otherwise pass.',
+    resolve(g, p, action, { broken, target, results }) {
+      const [t] = target(action && action.targets);
+      if (!t) return; // a pass never spends the once-ever reveal
+      p.statuses.nightwatchmanUsed = true;
+      if (broken) return; // an impaired Nightwatchman's reveal simply doesn't reach them
+      // Merge, don't overwrite — the target may already have their own
+      // info this same night (same pattern deliverOpeningInfo's Lunatic/
+      // King lines already use for writing into someone else's slot).
+      results[t.id] = results[t.id] || { title: 'Nightwatchman', body: '' };
+      results[t.id].body += `${results[t.id].body ? ' ' : ''}${p.name} is the Nightwatchman.`;
     },
   },
 
