@@ -472,6 +472,13 @@ describe("App", () => {
       expect(openSpy).toHaveBeenCalledWith("/games", "_blank");
     });
 
+    it("Hall of Fame opens /hall-of-fame in a new tab", async () => {
+      const openSpy = vi.spyOn(window, "open").mockImplementation(() => {});
+      render(<App />);
+      await userEvent.click(screen.getByTitle("Hall of Fame"));
+      expect(openSpy).toHaveBeenCalledWith("/hall-of-fame", "_blank");
+    });
+
     it("Start/Clear/History are hidden while browsing scripts, and reappear on Close", async () => {
       render(<App />);
       await userEvent.click(screen.getByText(/change script/i));

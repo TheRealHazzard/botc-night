@@ -964,6 +964,7 @@ async function requestHandler(req, res) {
       if (route === '/simulate') return serveFile(res, 'simulate.html');
       if (route === '/stats') return serveFile(res, 'stats.html');
       if (route === '/games') return serveFile(res, 'games.html');
+      if (route === '/hall-of-fame') return serveFile(res, 'hall-of-fame.html');
 
       // Explicit route (rather than falling through to the generic static
       // fallback below) so this always carries Cache-Control: no-cache —

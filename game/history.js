@@ -148,6 +148,19 @@ function aggregate(mine) {
   }
   const favoriteCharacter = Object.entries(byCharacter).sort((a, b) => b[1].count - a[1].count)[0] || null;
 
+  // `mine` is already in chronological order — readAllGames() reads
+  // games.jsonl top to bottom, and a game is only ever appended once it
+  // finishes, never rewritten — so a single forward pass gives both the
+  // longest-ever streak and, whatever streakRun holds at the very end,
+  // the CURRENT one. An unresolved game (seat.won === null — abandoned,
+  // never reached a winner) is skipped rather than breaking a streak: it
+  // isn't a loss, so it shouldn't read as one.
+  let longestWinStreak = 0, streakRun = 0;
+  for (const { seat } of mine) {
+    if (seat.won === true) { streakRun++; if (streakRun > longestWinStreak) longestWinStreak = streakRun; }
+    else if (seat.won === false) streakRun = 0;
+  }
+
   return {
     gamesPlayed,
     wins,
@@ -157,6 +170,8 @@ function aggregate(mine) {
     evilWinRate: evilGames.length ? evilGames.filter(({ seat }) => seat.won).length / evilGames.length : null,
     favoriteCharacter: favoriteCharacter ? { id: favoriteCharacter[0], ...favoriteCharacter[1] } : null,
     byOutcome,
+    currentWinStreak: streakRun,
+    longestWinStreak,
     lastPlayedAt: lastPlayedAt || null,
     recentGames: mine.slice(-10).reverse().map(({ game, seat }) => ({
       endedAt: game.endedAt,
@@ -469,5 +484,5 @@ module.exports = {
   statsFor, statsForAll, statsForEdition, colorFor, listColors, setProfileColor,
   listGames, getGame, votingLeaderboard, characterWinRates, sessionStats,
   closestVote, biggestSwing, longestSurvivingEvil, recapNarration, recapFor,
-  normalizeName,
+  aggregate, normalizeName,
 };

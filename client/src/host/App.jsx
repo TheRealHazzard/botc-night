@@ -166,6 +166,7 @@ export default function App() {
         onStartGame={startGame}
         onClearLobby={clearLobby}
         onOpenHistory={() => window.open("/games", "_blank")}
+        onOpenHallOfFame={() => window.open("/hall-of-fame", "_blank")}
       />
 
       <ReclaimBanner pendingReclaims={S?.pendingReclaims} />
@@ -291,6 +292,7 @@ function Header({
   onStartGame,
   onClearLobby,
   onOpenHistory,
+  onOpenHallOfFame,
 }) {
   const locked = browsedMeta && browsedMeta.playable === false;
   const canStart = playerCount >= 5;
@@ -361,6 +363,14 @@ function Header({
               onClick={onOpenHistory}
             >
               <Icon name="scroll" size={17} />
+            </button>
+            <button
+              type="button"
+              className="mutebtn"
+              title="Hall of Fame"
+              onClick={onOpenHallOfFame}
+            >
+              <Icon name="trophy" size={17} />
             </button>
             <button
               type="button"

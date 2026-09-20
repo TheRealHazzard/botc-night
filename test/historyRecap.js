@@ -130,5 +130,31 @@ console.log('\nrecapNarration');
     H.recapNarration({ players: [], nominations: [] }).length === 0);
 }
 
+console.log('\naggregate: win streaks (Phase 12: Hall of Fame)');
+{
+  const seat = won => ({ game: { endedAt: 0 }, seat: { won, alive: true } });
+
+  const climbing = [seat(true), seat(false), seat(true), seat(true), seat(true)];
+  const a1 = H.aggregate(climbing);
+  check('longestWinStreak finds the best run anywhere in the history, not just the tail',
+    a1.longestWinStreak === 3, JSON.stringify(a1));
+  check('currentWinStreak is the trailing run specifically (ends on 3 wins)',
+    a1.currentWinStreak === 3);
+
+  const endedOnALoss = [seat(true), seat(true), seat(true), seat(false)];
+  const a2 = H.aggregate(endedOnALoss);
+  check('a streak snapped by the most recent game reads as currentWinStreak 0, longest still remembers 3',
+    a2.currentWinStreak === 0 && a2.longestWinStreak === 3, JSON.stringify(a2));
+
+  const withUnresolved = [seat(true), seat(true), seat(null), seat(true)];
+  const a3 = H.aggregate(withUnresolved);
+  check('an unresolved (abandoned) game is skipped, not treated as a loss that breaks the streak',
+    a3.currentWinStreak === 3 && a3.longestWinStreak === 3, JSON.stringify(a3));
+
+  const noWinsYet = [seat(false), seat(null), seat(false)];
+  const a4 = H.aggregate(noWinsYet);
+  check('never having won yet is streak 0, not an error', a4.currentWinStreak === 0 && a4.longestWinStreak === 0);
+}
+
 console.log(`\n${failures ? failures + ' FAILURES' : 'All checks passed'}\n`);
 process.exit(failures ? 1 : 0);
