@@ -229,10 +229,43 @@ function wouldBlockKill(g, target, { demonAttack = false, executionAttack = fals
  * doesn't wrongly grant Soldier's Demon-only immunity (same distinction
  * `wouldBlockKill`'s own `nightKill` parameter exists to make elsewhere).
  */
+/** dramaBias's one real hook (0 = coldly random, 1 = maximum tension, same
+    scale the config's own doc-comment describes) — every other setting on
+    the roadmap already had a real effect; this one had a slider, a
+    clamp, and nothing reading it. Scoped to a single, well-defined case
+    rather than reworking target selection everywhere: the genuinely
+    random night-kill picks that already flow through randomKiller() with
+    more than one live candidate (Ojo naming a character nobody holds,
+    Gossip's claim-come-true, and a Mayor redirect's own alternate pool) —
+    never a player's own deliberate target choice, which this function
+    never sees in the first place.
+
+    "Dramatic" here means one concrete, checkable thing: weighting toward
+    whoever the table's own conversation has already centered on today —
+    killing the player everyone's been nominating denies the town the
+    momentum it just built, which is a real Storyteller instinct, not
+    killing whoever's safest to remove. At bias 0 every candidate weighs
+    the same (pick()'s plain uniform draw); weight scales linearly with
+    today's own nomination count as bias rises to 1. */
+function dramaticPick(g, candidates) {
+  if (!g.config.dramaBias) return pick(candidates);
+  const weights = candidates.map(x => {
+    const nominatedCount = g.nominations.filter(n => n.nomineeId === x.id).length;
+    return 1 + g.config.dramaBias * nominatedCount;
+  });
+  const total = weights.reduce((sum, w) => sum + w, 0);
+  let roll = Math.random() * total;
+  for (let i = 0; i < candidates.length; i++) {
+    roll -= weights[i];
+    if (roll <= 0) return candidates[i];
+  }
+  return candidates[candidates.length - 1];
+}
+
 function randomKiller(g, pool, excludeId, opts = { demonAttack: true }) {
   const candidates = (pool || []).filter(x => x && x.id !== excludeId);
   if (!candidates.length) return null;
-  const picked = candidates.length === 1 ? candidates[0] : pick(candidates);
+  const picked = candidates.length === 1 ? candidates[0] : dramaticPick(g, candidates);
   if (picked.characterId === 'mayor' && !impaired(picked) && Math.random() < g.config.mayorRedirectChance) {
     const alt = alive(g).filter(x => x.id !== picked.id && x.id !== excludeId && !wouldBlockKill(g, x, opts));
     if (alt.length) {

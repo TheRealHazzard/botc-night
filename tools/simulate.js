@@ -1116,6 +1116,29 @@ console.log('\nBMR: randomKiller (shared Mayor-redirect resolver)');
   gp.players = [mk('a', 'chef'), mk('b', 'soldier'), mk('c', 'empath'), mk('d', 'fool')];
   for (let i = 0; i < 30; i++) seen.add(E.randomKiller(gp, gp.players).id);
   check('a multi-candidate pool is genuinely randomized, not always the same pick (30 trials)', seen.size > 1);
+
+  // dramaBias's one real hook: weighting toward whoever's already been
+  // nominated today. With nobody nominated at all, weights collapse to
+  // uniform regardless of bias (every existing randomKiller() test above
+  // relies on exactly this — none of them set up nominations).
+  const trials = 400;
+  const gBias0 = E.newGame();
+  gBias0.config.dramaBias = 0;
+  gBias0.players = [mk('a', 'chef'), mk('b', 'soldier'), mk('c', 'empath'), mk('d', 'fool')];
+  gBias0.nominations = [{ nomineeId: 'a' }, { nomineeId: 'a' }, { nomineeId: 'a' }];
+  let aCountBias0 = 0;
+  for (let i = 0; i < trials; i++) if (E.randomKiller(gBias0, gBias0.players).id === 'a') aCountBias0++;
+  check('dramaBias=0 ignores nomination history — roughly a flat 1-in-4, even with "a" nominated 3 times',
+    aCountBias0 > trials * 0.15 && aCountBias0 < trials * 0.35, `saw a picked ${aCountBias0}/${trials}`);
+
+  const gBias1 = E.newGame();
+  gBias1.config.dramaBias = 1;
+  gBias1.players = [mk('a', 'chef'), mk('b', 'soldier'), mk('c', 'empath'), mk('d', 'fool')];
+  gBias1.nominations = [{ nomineeId: 'a' }, { nomineeId: 'a' }, { nomineeId: 'a' }];
+  let aCountBias1 = 0;
+  for (let i = 0; i < trials; i++) if (E.randomKiller(gBias1, gBias1.players).id === 'a') aCountBias1++;
+  check('dramaBias=1 clearly favors the most-nominated candidate over the flat-bias rate',
+    aCountBias1 > aCountBias0 + trials * 0.15, `bias0 saw ${aCountBias0}/${trials}, bias1 saw ${aCountBias1}/${trials}`);
 }
 
 console.log('\nBMR: Courtier');
