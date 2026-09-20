@@ -236,6 +236,20 @@ function startNight() {
   windowTimer = setTimeout(closeWindow, game.config.windowSeconds * 1000);
 }
 
+// Every living player gets a real prompt or a decoy one every night (see
+// promptFor/decoyPrompt in engine.js) specifically so a silent player can
+// never be picked out as "the one with nothing real to do" — checking
+// "has everyone submitted SOMETHING" (real or decoy) preserves that: the
+// window closing early is a function of whoever happens to submit last,
+// never of who has a real action versus a decoy. A from-beyond prompt
+// (Ravenkeeper just-died in wave 2, a Vigormortis-kept Minion) also counts
+// itself in via the same promptFor check, no special-casing needed.
+function allSubmitted() {
+  if (game.phase !== 'night') return false;
+  const required = game.players.filter(p => E.promptFor(game, p));
+  return required.length > 0 && required.every(p => game.pending[p.id]);
+}
+
 function closeWindow() {
   clearTimeout(windowTimer);
   if (game.phase !== 'night') return;
@@ -581,6 +595,7 @@ function botsAnswer() {
     }
   }
   pushAll();
+  if (allSubmitted()) closeWindow();
 }
 
 function startSimulation({ players = 9, speed = 5, script = 'tb', config } = {}) {
@@ -1331,6 +1346,10 @@ async function requestHandler(req, res) {
         game.pending[p.id] = { targets, decoy: !!prompt.decoy, characterGuess };
         pushPlayer(p.id);
         pushHost();
+        // Nobody left waiting on the clock once every real-or-decoy prompt
+        // is in — same effect closeWindow's own timer would have, just not
+        // making everyone sit through the rest of a window nobody needs.
+        if (allSubmitted()) closeWindow();
         return json(res, 200, { ok: true });
       }
 
