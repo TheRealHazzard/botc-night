@@ -2778,6 +2778,45 @@ console.log('\nCarousel: Politician (checkVictory)');
   check('still flips it even dead — "even if dead" is in the card text', v3 && v3.winner === 'good', JSON.stringify(v3));
 }
 
+console.log('\nResult kind metadata (Phase 6: differentiated result cards)');
+{
+  const mk = (id, characterId, alive = true) => ({ id, name: id, characterId, believedId: characterId, alive, statuses: {} });
+
+  const gChef = E.newGame();
+  gChef.nightNumber = 1; gChef.phase = 'night'; gChef.wave = 1; gChef.results = {};
+  gChef.players = [mk('c1', 'chef'), mk('min1', 'poisoner'), mk('d1', 'imp')];
+  E.resolveNight(gChef, 1);
+  check('Chef result carries kind:count and the shown number', gChef.results.c1.kind === 'count' && typeof gChef.results.c1.count === 'number');
+
+  const gEmp = E.newGame();
+  gEmp.nightNumber = 1; gEmp.phase = 'night'; gEmp.wave = 1; gEmp.results = {};
+  gEmp.players = [mk('e1', 'empath'), mk('min1', 'poisoner'), mk('d1', 'imp')];
+  E.resolveNight(gEmp, 1);
+  check('Empath result carries kind:count', gEmp.results.e1.kind === 'count');
+
+  const gFt = E.newGame();
+  gFt.nightNumber = 2; gFt.phase = 'night'; gFt.wave = 1; gFt.results = {};
+  gFt.players = [mk('ft1', 'fortuneteller'), mk('d1', 'imp'), mk('t1', 'soldier')];
+  gFt.pending = { ft1: { targets: ['d1', 't1'], decoy: false } };
+  E.resolveNight(gFt, 1);
+  check('Fortune Teller result carries kind:yesno, yes:true, and still keeps names',
+    gFt.results.ft1.kind === 'yesno' && gFt.results.ft1.yes === true && Array.isArray(gFt.results.ft1.names) && gFt.results.ft1.names.length === 2);
+
+  const gWw = E.newGame();
+  gWw.nightNumber = 1; gWw.phase = 'night'; gWw.wave = 1; gWw.results = {};
+  gWw.players = [mk('ww1', 'washerwoman'), mk('t1', 'soldier'), mk('d1', 'imp')];
+  E.resolveNight(gWw, 1);
+  check('Washerwoman result carries kind:pointer and two named players',
+    gWw.results.ww1.kind === 'pointer' && Array.isArray(gWw.results.ww1.names) && gWw.results.ww1.names.length === 2);
+
+  const gSpy = E.newGame();
+  gSpy.nightNumber = 1; gSpy.phase = 'night'; gSpy.wave = 1; gSpy.results = {};
+  gSpy.players = [mk('sp1', 'spy'), mk('t1', 'soldier'), mk('d1', 'imp')];
+  E.resolveNight(gSpy, 1);
+  check('Spy result carries kind:grimoire alongside its existing grimoire array',
+    gSpy.results.sp1.kind === 'grimoire' && Array.isArray(gSpy.results.sp1.grimoire));
+}
+
 console.log('\nEnd');
 g.revealed = true;
 check('reveal exposes the full grimoire',

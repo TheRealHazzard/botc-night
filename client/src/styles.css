@@ -213,6 +213,46 @@ a.linklike-a{
 .result{border-left:2px solid var(--brass); padding:14px 18px; background:#110c07}
 .result .title{font-family:'Cormorant Garamond',Georgia,serif; font-weight:700; font-size:1.25rem; color:var(--brass)}
 .result ul{margin:8px 0 0; padding-left:20px}
+
+/* A number is the whole point of an Empath/Chef-style result — worth a big
+   tabular-nums badge of its own, not just a digit buried in a sentence. */
+.result-count{
+  font-family:'Cinzel Decorative',Georgia,serif; font-variant-numeric:tabular-nums;
+  font-size:2.6rem; color:var(--brass); line-height:1; margin:4px 0 8px;
+}
+/* Deliberately not the good/evil semantic colors — a yes/no answer isn't a
+   team, it's an answer, so this gets its own neutral pair: filled brass
+   for Yes, a quieter outline for No. */
+.result-yesno{
+  display:inline-block; font-weight:700; font-size:.85rem; text-transform:uppercase;
+  letter-spacing:.1em; padding:5px 16px; border-radius:20px; margin:4px 0 8px;
+}
+.result-yesno.yes{background:var(--brass); color:#1a1206}
+.result-yesno.no{background:transparent; border:1px solid var(--bone-dim); color:var(--bone-dim)}
+/* Named players in a pointer-style reveal (Washerwoman/Librarian/
+   Investigator) get their own pill each, instead of disappearing into a
+   plain bulleted list indistinguishable from any other info shape. */
+.result-pointer{display:flex; flex-wrap:wrap; gap:8px; margin-top:10px}
+.result-pointer-name{
+  font-weight:700; padding:6px 14px; border-radius:20px;
+  background:#1a1206; border:1px solid var(--brass); color:var(--bone);
+}
+/* A full Grimoire dump is denser and more data-heavy than any other result
+   shape — a compact row per player rather than the same loose bullet list
+   as a two-name pointer reveal. */
+.result-grimoire{list-style:none; margin:10px 0 0; padding:0; display:flex; flex-direction:column; gap:6px}
+.result-grimoire li{
+  display:flex; flex-wrap:wrap; align-items:baseline; gap:6px 10px;
+  padding:8px 10px; border-radius:4px; background:#1a1206; font-size:.88rem;
+}
+.result-grimoire li.dead{opacity:.6}
+.result-grimoire .g-name{font-weight:700; color:var(--bone)}
+.result-grimoire .g-char{color:var(--bone-dim)}
+.result-grimoire .g-tags{display:flex; gap:6px; margin-left:auto}
+.result-grimoire .g-tag{
+  font-size:.68rem; text-transform:uppercase; letter-spacing:.06em;
+  padding:2px 8px; border-radius:10px; background:#0d0906; color:var(--ember);
+}
 .dead-banner{border:1px solid var(--brass); color:var(--brass); padding:12px; text-align:center; border-radius:3px; margin-bottom:14px}
 .dead-banner.spent{border-color:#3a2a1c; color:var(--bone-dim)}
 

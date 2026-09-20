@@ -143,8 +143,7 @@ module.exports = (h) => [
       });
       answer = h.impairedFlip(broken, answer);
       results[p.id] = {
-        title: 'Fortune Teller',
-        body: answer ? 'Yes — one of them is the Demon.' : 'No — neither is the Demon.',
+        ...h.resultYesNo('Fortune Teller', answer, answer ? 'Yes — one of them is the Demon.' : 'No — neither is the Demon.'),
         names: chosen.map(x => x.name),
       };
     },
@@ -163,7 +162,7 @@ module.exports = (h) => [
       const team = { washerwoman: 'townsfolk', librarian: 'outsider', investigator: 'minion' }[id];
       const info = h.pairInfo(g, p, team, broken);
       const c = h.char(id);
-      results[p.id] = { title: c.name, body: info.text, names: info.players };
+      results[p.id] = h.resultPointer(c.name, info.players, info.text);
     },
   })),
 
@@ -175,7 +174,7 @@ module.exports = (h) => [
     resolve(g, p, action, { broken, results }) {
       const trueCount = h.evilPairCount(g);
       const shown = broken ? h.falseNumber(trueCount, Math.max(2, trueCount + 1)) : trueCount;
-      results[p.id] = { title: 'Chef', body: `Pairs of neighbouring evil players: ${h.numberSignal(shown)}` };
+      results[p.id] = h.resultCount('Chef', shown, `Pairs of neighbouring evil players: ${h.numberSignal(shown)}`);
     },
   },
 
@@ -187,7 +186,7 @@ module.exports = (h) => [
     resolve(g, p, action, { broken, results, deaths }) {
       const trueCount = h.evilNeighbourCount(g, p, deaths);
       const shown = broken ? h.falseNumber(trueCount, 2) : trueCount;
-      results[p.id] = { title: 'Empath', body: `Evil living neighbours: ${h.numberSignal(shown)}` };
+      results[p.id] = h.resultCount('Empath', shown, `Evil living neighbours: ${h.numberSignal(shown)}`);
     },
   },
 
@@ -257,6 +256,7 @@ module.exports = (h) => [
       const briefing = results[p.id];
       results[p.id] = {
         title: briefing ? briefing.title : 'Spy',
+        kind: 'grimoire',
         body: (briefing ? briefing.body + ' ' : '') + 'You see the Grimoire.',
         names: briefing && briefing.names,
         grimoire: g.players.map((x, i) => ({

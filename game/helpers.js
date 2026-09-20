@@ -430,6 +430,25 @@ function demonVotedToday(g, day) {
 
 const numberSignal = n => String(n);
 
+// Shared result-shape builders — the client (ResultCard.jsx) uses `kind`
+// to give each shape its own visual language (a number badge, a yes/no
+// chip, highlighted player names) instead of every info role rendering as
+// the same plain sentence-in-a-box. `body` is still the full sentence
+// underneath, unchanged — `kind` is purely additive metadata, so any
+// ability that doesn't call one of these still works exactly as it always
+// has (ResultCard falls back to its original plain-text treatment when
+// `kind` is absent). Deliberately not migrating all ~40 info roles at
+// once — this covers Trouble Brewing's core three shapes first.
+function resultCount(title, count, body) {
+  return { title, kind: 'count', count, body };
+}
+function resultYesNo(title, yes, body) {
+  return { title, kind: 'yesno', yes, body };
+}
+function resultPointer(title, names, body) {
+  return { title, kind: 'pointer', names, body };
+}
+
 function falseNumber(trueValue, max) {
   const options = [];
   for (let i = 0; i <= max; i++) if (i !== trueValue) options.push(i);
@@ -537,4 +556,5 @@ module.exports = {
   logEvent, logWhim, outsiderDiedToday, minionDiedToday, somebodyDiedYesterday,
   minionNominatedToday, demonVotedToday, vortoxActive,
   numberSignal, falseNumber, evilNeighbourCount, evilPairCount, pairInfo,
+  resultCount, resultYesNo, resultPointer,
 };
