@@ -49,6 +49,29 @@ describe('RoleReveal', () => {
     expect(screen.queryByText('Secret')).not.toBeInTheDocument();
   });
 
+  it('holding Space (a keyboard\'s own repeat, not a fresh keydown each time) reveals the content', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    render(<RoleReveal label="Hold me">{() => <p>Secret</p>}</RoleReveal>);
+
+    const holdEl = screen.getByText('Hold me').closest('.hold');
+    holdEl.focus();
+    fireEvent.keyDown(holdEl, { key: ' ' });
+    await vi.advanceTimersByTimeAsync(900);
+    expect(screen.getByText('Secret')).toBeInTheDocument();
+  });
+
+  it('releasing Space early cancels, same as releasing a pointer early', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    render(<RoleReveal label="Hold me">{() => <p>Secret</p>}</RoleReveal>);
+
+    const holdEl = screen.getByText('Hold me').closest('.hold');
+    fireEvent.keyDown(holdEl, { key: ' ' });
+    await vi.advanceTimersByTimeAsync(300);
+    fireEvent.keyUp(holdEl, { key: ' ' });
+    await vi.advanceTimersByTimeAsync(900);
+    expect(screen.queryByText('Secret')).not.toBeInTheDocument();
+  });
+
   it('Hide re-conceals — content leaves the DOM again, same privacy property', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });

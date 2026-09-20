@@ -11,6 +11,7 @@ import JugglerGuess from './game/JugglerGuess.jsx';
 import ActiveVoteCard from './game/ActiveVoteCard.jsx';
 import VoteRevealOverlay from './VoteRevealOverlay.jsx';
 import { useActiveVote } from '../hooks/useActiveVote.js';
+import { usePromptAnnouncement } from '../hooks/usePromptAnnouncement.js';
 
 /** Mirrors the vanilla render() function's composition exactly: several
     independent cards can be visible at once (a role hold-to-reveal, a
@@ -21,6 +22,7 @@ import { useActiveVote } from '../hooks/useActiveVote.js';
     at a time — so they're written as a plain if/else-if chain here too. */
 export default function PlayerApp({ P, token, onChangeUser }) {
   const { activeVote, castVote, revealVote, ghostVoteEnabled, setGhostVoteEnabled } = useActiveVote(P, token);
+  const announcement = usePromptAnnouncement(P);
 
   // Nominating is the one day-phase prompt that isn't server-pushed — a
   // player opts into it themselves from DaylightCard, so it needs its own
@@ -41,6 +43,8 @@ export default function PlayerApp({ P, token, onChangeUser }) {
 
   return (
     <>
+      <div className="sr-only" aria-live="polite">{announcement}</div>
+
       {P.watching && (
         <div className="watch-banner">
           Watching a simulation as {P.you.name}. Bots decide everything here — this phone can only look.

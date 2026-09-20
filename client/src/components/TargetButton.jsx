@@ -13,9 +13,15 @@ export default function TargetButton({ target, selected, onClick, disabled }) {
       style={target.color ? { borderColor: target.color.hex } : undefined}
       onClick={onClick}
       disabled={disabled}
+      aria-pressed={selected}
     >
       <span>{target.name}</span>
-      {target.alive === false && <GhostIcon className="icon" />}
+      {target.alive === false && (
+        <>
+          <GhostIcon className="icon" />
+          <span className="sr-only"> (dead)</span>
+        </>
+      )}
     </button>
   );
 }

@@ -23,4 +23,14 @@ describe('TargetButton', () => {
     render(<TargetButton target={{ id: 'p1', name: 'Bo' }} selected={false} onClick={onClick} disabled />);
     expect(screen.getByText('Bo').closest('button')).toBeDisabled();
   });
+
+  it('carries aria-pressed for the selected state, and a screen-reader-only "(dead)" tag', () => {
+    const { rerender } = render(<TargetButton target={{ id: 'p1', name: 'Bo' }} selected={false} onClick={() => {}} />);
+    expect(screen.getByText('Bo').closest('button')).toHaveAttribute('aria-pressed', 'false');
+
+    rerender(<TargetButton target={{ id: 'p1', name: 'Bo', alive: false }} selected onClick={() => {}} />);
+    const btn = screen.getByText('Bo').closest('button');
+    expect(btn).toHaveAttribute('aria-pressed', 'true');
+    expect(btn).toHaveTextContent('(dead)');
+  });
 });

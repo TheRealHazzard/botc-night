@@ -41,18 +41,36 @@ export default function RoleReveal({ label, children }) {
   // true there's nothing left running to cancel.
   useEffect(() => () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); }, []);
 
+  // A keyboard has no "hold" gesture of its own, so Enter/Space held down
+  // is the equivalent: the browser repeats keydown while a key stays
+  // pressed (event.repeat), which lines up with a pointer staying down —
+  // only the FIRST keydown starts the timer, same as pointerdown firing
+  // once. keyup cancels, same as pointerup.
+  const onKeyDown = (e) => {
+    if (e.repeat || (e.key !== 'Enter' && e.key !== ' ')) return;
+    e.preventDefault(); // Space shouldn't also scroll the page
+    start();
+  };
+  const onKeyUp = (e) => {
+    if (e.key === 'Enter' || e.key === ' ') cancel();
+  };
+
   if (!shown) {
     return (
-      <div
+      <button
+        type="button"
         className="hold role-hold"
+        aria-label={label}
         onPointerDown={start}
         onPointerUp={cancel}
         onPointerLeave={cancel}
         onPointerCancel={cancel}
+        onKeyDown={onKeyDown}
+        onKeyUp={onKeyUp}
       >
         <div className="hold-ring" style={{ '--hold-progress': progress }} />
         <span>{label}</span>
-      </div>
+      </button>
     );
   }
 

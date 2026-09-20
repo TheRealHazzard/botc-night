@@ -3,15 +3,40 @@
   --bone:#e8dcc4; --bone-dim:#93866c;
   --oxblood:#8e2226; --ember:#c4553a; --brass:#b8863f;
   --good:#4c6d8f; --evil:#8e2226;
+  /* The actual fill/text pair every good/evil badge uses (team pill, career
+     win-rate chip) — previously duplicated as literal hex in two separate
+     CSS rules instead of coming from --good/--evil above; centralized here
+     so both rules (and any future one) stay in sync and prefers-contrast
+     below only has one place to override. */
+  --good-bg:#1c2c3c; --good-fg:#9dbdd9;
+  --evil-bg:#361316; --evil-fg:#e0a09c;
   /* A player's chosen color re-brands their own wordmark and primary
      actions only — never the good/evil semantic colors above, so a purple
      accent pick can never be mistaken for a team indicator. */
   --personal-accent: var(--oxblood);
 }
+@media (prefers-contrast: more){
+  :root{
+    --bone-dim:#c2b596; --good:#7fa8d1; --evil:#e0666b;
+    --good-bg:#0f1e2c; --good-fg:#cfe3f5;
+    --evil-bg:#2c0f11; --evil-fg:#f5c9cb;
+  }
+  .hold, .target, .result, .ghosttoggle{ border-width:2px; }
+}
+/* Standard visually-hidden-but-announced pattern — present for assistive
+   tech, invisible and out of the way for everyone else. */
+.sr-only{
+  position:absolute; width:1px; height:1px; padding:0; margin:-1px;
+  overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0;
+}
 *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
 body{
   margin:0; min-height:100vh; background:var(--void); color:var(--bone);
-  font-family:'Spectral',Georgia,serif; font-size:17px; line-height:1.5;
+  font-family:'Spectral',Georgia,serif; line-height:1.5;
+  /* The one and only place text-size actually scales from — useTextScale.js
+     sets --text-scale on <html>, persisted per device, since nothing else
+     in this stylesheet used a rem-based scale to begin with. */
+  font-size: calc(17px * var(--text-scale, 1));
   /* viewport-fit=cover (needed for a full-screen home-screen app) lets
      content run under the Dynamic Island / notch / home indicator — these
      env() values are how iOS reports how much to pad back. They're 0 on
@@ -36,6 +61,11 @@ h1{margin:0; line-height:0; flex-shrink:0}
   background:#191009; border:1px solid #3d2c1c; color:var(--bone-dim);
 }
 .scriptbtn:active{border-color:var(--brass); color:var(--brass)}
+.textscalebtn{
+  width:auto; margin:0; padding:6px 12px; font-size:.9rem; font-weight:700; flex-shrink:0;
+  background:#191009; border:1px solid #3d2c1c; color:var(--bone-dim); border-radius:6px;
+}
+.textscalebtn:active{border-color:var(--brass); color:var(--brass)}
 
 .overlay{
   position:fixed; inset:0; background:rgba(5,3,2,.86); z-index:20;
@@ -123,8 +153,8 @@ a.linklike-a{
 .playercard .pgames{font-size:.68rem; color:var(--bone-dim); margin:2px 0 8px}
 .playercard .prates{display:flex; gap:5px}
 .playercard .rate{flex:1; border-radius:10px; padding:3px 0; font-size:.72rem; font-weight:700; font-family:'Space Mono',monospace}
-.playercard .rate.good{background:#1c2c3c; color:#9dbdd9}
-.playercard .rate.evil{background:#361316; color:#e0a09c}
+.playercard .rate.good{background:var(--good-bg); color:var(--good-fg)}
+.playercard .rate.evil{background:var(--evil-bg); color:var(--evil-fg)}
 
 .colorgrid{display:grid; grid-template-columns:repeat(auto-fill,minmax(92px,1fr)); gap:8px; margin:14px 0}
 .swatch{
@@ -136,6 +166,7 @@ a.linklike-a{
 :focus-visible{outline:2px solid var(--brass); outline-offset:2px}
 
 .hold{
+  display:block; width:100%; font:inherit;
   border:1px dashed #4a3722; background:#0d0906; border-radius:4px; padding:34px 18px;
   text-align:center; color:var(--bone-dim); user-select:none; cursor:pointer;
 }
@@ -186,8 +217,8 @@ a.linklike-a{
 }
 .role .name{font-family:'Cormorant Garamond',Georgia,serif; font-size:2rem; font-weight:700}
 .role .team{display:inline-block; font-size:.72rem; text-transform:uppercase; letter-spacing:.16em; padding:4px 12px; border-radius:20px; margin:8px 0}
-.team.good{background:#1c2c3c; color:#9dbdd9}
-.team.evil{background:#361316; color:#e0a09c}
+.team.good{background:var(--good-bg); color:var(--good-fg)}
+.team.evil{background:var(--evil-bg); color:var(--evil-fg)}
 .role .ability{margin-top:10px; font-style:italic}
 
 .targets{display:flex; flex-direction:column; gap:8px; margin-top:14px}

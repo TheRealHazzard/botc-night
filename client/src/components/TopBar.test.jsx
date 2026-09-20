@@ -1,9 +1,11 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import TopBar from './TopBar.jsx';
 
 describe('TopBar', () => {
+  beforeEach(() => localStorage.clear());
+
   it('calls onOpenScript when "The script" is tapped', async () => {
     const onOpenScript = vi.fn();
     render(<TopBar onOpenScript={onOpenScript} />);
@@ -15,5 +17,13 @@ describe('TopBar', () => {
     render(<TopBar onOpenScript={() => {}} />);
     expect(screen.getByAltText('Blood On The Clocktower')).toBeInTheDocument();
     expect(screen.queryByText('Change')).not.toBeInTheDocument();
+  });
+
+  it('tapping "Aa" cycles the text size, reflected in its own label', async () => {
+    render(<TopBar onOpenScript={() => {}} />);
+    const btn = screen.getByText('Aa');
+    expect(btn).toHaveAccessibleName(/100%/);
+    await userEvent.click(btn);
+    expect(btn).toHaveAccessibleName(/115%/);
   });
 });

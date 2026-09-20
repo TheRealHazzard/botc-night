@@ -12,9 +12,13 @@ export default function HoldToReveal({ label, children }) {
 
   if (!shown) {
     return (
-      <div className="hold" onPointerDown={() => setShown(true)}>
+      // A real button: onPointerDown keeps the original tap-immediate feel
+      // for touch/mouse (no need to wait out a full click cycle), onClick
+      // is what a keyboard's Enter/Space actually fires — calling
+      // setShown(true) twice on a real pointer tap is a harmless no-op.
+      <button type="button" className="hold" onPointerDown={() => setShown(true)} onClick={() => setShown(true)}>
         {label}
-      </div>
+      </button>
     );
   }
 
