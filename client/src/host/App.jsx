@@ -218,6 +218,7 @@ export default function App() {
                 scriptChars={scriptChars}
                 activeScriptMeta={activeScriptMeta}
                 muted={muted}
+                log={displayS.log}
               />
             )}
             {(displayS.phase === "over" || displayS.revealed) && (
@@ -228,6 +229,7 @@ export default function App() {
                 log={displayS.log}
                 actionLog={displayS.actionLog}
                 nightNumber={displayS.nightNumber}
+                muted={muted}
               />
             )}
           </div>

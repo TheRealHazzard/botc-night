@@ -18,6 +18,7 @@ class FakeAudioParam {
   setValueAtTime() {}
   linearRampToValueAtTime() {}
   exponentialRampToValueAtTime() {}
+  cancelScheduledValues() {}
 }
 class FakeAudioNode { connect() {} }
 class FakeOscillator extends FakeAudioNode {

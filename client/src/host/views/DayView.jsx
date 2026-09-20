@@ -11,10 +11,20 @@ import Icon from '../components/Icon.jsx';
 import { useSpeak } from '../hooks/useSpeak.js';
 import { post } from '../../lib/api.js';
 
-export default function DayView({ players, nightNumber, deaths, mastermindExtraDay, nominations, config, script, scriptChars, activeScriptMeta, muted }) {
+export default function DayView({ players, nightNumber, deaths, mastermindExtraDay, nominations, config, script, scriptChars, activeScriptMeta, muted, log = [] }) {
   const lastNight = deaths.filter(d => d.night === nightNumber && d.cause !== 'execution');
   const line = lastNight.length ? `${lastNight.map(d => d.name).join(' and ')} did not wake.` : 'Everyone wakes. That should worry you.';
   useSpeak(line, { dread: !!lastNight.length, muted });
+
+  // Empty until an execution actually happens today — useSpeak/speak() both
+  // no-op on an empty line, so this stays silent until then. A blocked
+  // execution (Pacifist/Devil's Advocate/Tea Lady) leaves no death entry at
+  // all, so that case is read straight off the same public, non-secret log
+  // line the server already produces for it, verbatim.
+  const executedToday = deaths.find(d => d.night === nightNumber && d.cause === 'execution');
+  const survivedLine = log.find(l => l.night === nightNumber && l.phase === 'day' && !l.secret && /executed, but survives/.test(l.text));
+  const executionLine = executedToday ? `${executedToday.name} is executed.` : (survivedLine ? survivedLine.text : '');
+  useSpeak(executionLine, { dread: !!executedToday, muted });
 
   const anyOpen = nominations.some(n => n.day === nightNumber && !n.closed);
 

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { pickFatalBlow } from '../lib/pickFatalBlow.js';
-import { playNightFalls, playDayBreaks, playVictory } from '../lib/soundEngine.js';
+import { playNightFalls, playDayBreaks, playVictory, startAmbience, stopAmbience } from '../lib/soundEngine.js';
 import { useFatalBlowSequencer } from './useFatalBlowSequencer.js';
 import { usePrefersReducedMotion } from './usePrefersReducedMotion.js';
 
@@ -63,9 +63,14 @@ export function usePhaseFade(S, { muted = false } = {}) {
     const willFlash = hasRenderedRef.current && S.phase === 'over' && !reduceMotion && !!pickFatalBlow(S);
     if (willFlash) return; // the fatal-blow sequencer owns this transition instead
 
-    if (S.phase === 'night') playNightFalls(muted);
-    else if (S.phase === 'day') playDayBreaks(muted);
-    else if (S.phase === 'over' && S.victory) playVictory(S.victory.winner, muted);
+    if (S.phase === 'night') { playNightFalls(muted); startAmbience('night', muted); }
+    else if (S.phase === 'day') { playDayBreaks(muted); startAmbience('day', muted); }
+    else {
+      // Lobby, reveal, and the reveal-of-the-truth over screen are all
+      // meant to sit in quiet, not carry night's or day's bed under them.
+      stopAmbience();
+      if (S.phase === 'over' && S.victory) playVictory(S.victory.winner, muted);
+    }
 
     if (!reduceMotion && hasRenderedRef.current) {
       const transKind = TRANS_KIND[S.phase] || 'plain';
@@ -92,6 +97,10 @@ export function usePhaseFade(S, { muted = false } = {}) {
     fatalBlow.finish();
     setDisplayS(S);
     hasRenderedRef.current = true;
+    // This path short-circuits the effect above entirely (see `willFlash`),
+    // so it's the only place left to stop whatever bed was playing before
+    // the game ended.
+    stopAmbience();
     if (S?.victory) playVictory(S.victory.winner, muted);
   }, [S, muted, fatalBlow.finish]);
 

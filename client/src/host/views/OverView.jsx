@@ -7,6 +7,7 @@ import ControlPanelRow from '../components/ControlPanelRow.jsx';
 import SessionStatsCard from '../components/SessionStatsCard.jsx';
 import PowerLogOverlay from '../components/PowerLogOverlay.jsx';
 import Icon from '../components/Icon.jsx';
+import { useSpeak } from '../hooks/useSpeak.js';
 
 // A day commonly has execution/nomination log lines mixed in with the
 // night's own — every entry used to render "Night N" regardless, including
@@ -20,8 +21,11 @@ function logLabel(l) {
   return ''; // lobby/reveal/over, or older data with no recorded phase
 }
 
-export default function OverView({ players, victory, gameSummary, log, actionLog, nightNumber }) {
+export default function OverView({ players, victory, gameSummary, log, actionLog, nightNumber, muted }) {
   const [showPowerLog, setShowPowerLog] = useState(false);
+
+  const victoryLine = victory ? `${victory.winner === 'good' ? 'Good wins.' : 'Evil wins.'} ${victory.reason}` : '';
+  useSpeak(victoryLine, { dread: !!victory && victory.winner !== 'good', muted });
 
   const main = (
     <div className="stage-main">

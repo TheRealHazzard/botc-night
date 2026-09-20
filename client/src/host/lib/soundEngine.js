@@ -173,6 +173,92 @@ export function suspendAudioContext() {
   if (audioCtx) audioCtx.suspend();
 }
 
+// A continuous low bed under a whole phase, not another one-shot cue — the
+// gap `playNightFalls`/`playDayBreaks` leave once their few seconds finish.
+// Two detuned sub-oscillators plus a looping filtered-noise layer, all
+// through one gain node so fading the bed in/out (and swapping night for
+// day) is a single ramp rather than juggling several node lifetimes.
+let ambience = null; // { osc1, osc2, noiseSrc, gainNode, kind } | null
+
+function teardownAmbience(fadeSec) {
+  if (!ambience) return;
+  const { osc1, osc2, noiseSrc, gainNode } = ambience;
+  ambience = null;
+  const ctx = getAudioCtx();
+  const t0 = ctx.currentTime;
+  gainNode.gain.cancelScheduledValues(t0);
+  gainNode.gain.setValueAtTime(gainNode.gain.value, t0);
+  gainNode.gain.linearRampToValueAtTime(0.0001, t0 + fadeSec);
+  // Sources can only be stop()ped once — scheduling it past the fade (rather
+  // than stopping immediately and cutting the ramp off audibly) lets the
+  // bed actually die away instead of clicking off.
+  setTimeout(() => {
+    [osc1, osc2, noiseSrc].forEach(n => { try { n.stop(); } catch (e) { /* already stopped */ } });
+  }, fadeSec * 1000 + 80);
+}
+
+/** Starts (or crossfades into) a night/day ambience bed. Call again with a
+   different `kind` to swap it, or `stopAmbience()` to fade it out with
+   nothing to replace it (reveal, lobby, game over — moments meant to sit in
+   quiet). Safe to call while `muted`: just leaves nothing running, same as
+   every other cue in this file. */
+export function startAmbience(kind, muted) {
+  teardownAmbience(0.8);
+  if (muted) return;
+  const ctx = getAudioCtx();
+  const night = kind === 'night';
+
+  const gainNode = ctx.createGain();
+  const wetSend = ctx.createGain();
+  wetSend.gain.value = night ? 0.4 : 0.2;
+  gainNode.connect(masterBus);
+  gainNode.connect(wetSend);
+  wetSend.connect(reverbSend);
+  gainNode.gain.setValueAtTime(0.0001, ctx.currentTime);
+  gainNode.gain.linearRampToValueAtTime(night ? 0.05 : 0.032, ctx.currentTime + 2.5);
+
+  const osc1 = ctx.createOscillator();
+  osc1.type = 'sine';
+  osc1.frequency.value = night ? 55.0 : 130.81;
+  osc1.detune.value = 3;
+  osc1.connect(gainNode);
+  osc1.start();
+
+  const osc2 = ctx.createOscillator();
+  osc2.type = 'sine';
+  osc2.frequency.value = night ? 82.41 : 196.0;
+  osc2.detune.value = -4;
+  const osc2Gain = ctx.createGain();
+  osc2Gain.gain.value = 0.45;
+  osc2.connect(osc2Gain);
+  osc2Gain.connect(gainNode);
+  osc2.start();
+
+  const noiseDuration = 4;
+  const length = Math.floor(ctx.sampleRate * noiseDuration);
+  const buffer = ctx.createBuffer(1, length, ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < length; i++) data[i] = Math.random() * 2 - 1;
+  const noiseSrc = ctx.createBufferSource();
+  noiseSrc.buffer = buffer;
+  noiseSrc.loop = true;
+  const noiseFilter = ctx.createBiquadFilter();
+  noiseFilter.type = 'lowpass';
+  noiseFilter.frequency.value = night ? 180 : 520;
+  const noiseGain = ctx.createGain();
+  noiseGain.gain.value = night ? 0.4 : 0.16;
+  noiseSrc.connect(noiseFilter);
+  noiseFilter.connect(noiseGain);
+  noiseGain.connect(gainNode);
+  noiseSrc.start();
+
+  ambience = { osc1, osc2, noiseSrc, gainNode, kind };
+}
+
+export function stopAmbience() {
+  teardownAmbience(1.2);
+}
+
 export function playVictory(winner, muted) {
   if (winner === 'good') {
     // A warm, resolved triad in a low-mid register — relief, not a jingle.
