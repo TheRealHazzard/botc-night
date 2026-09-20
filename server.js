@@ -1173,6 +1173,13 @@ async function requestHandler(req, res) {
         return json(res, 200, record);
       }
 
+      if (route === '/api/recap') {
+        const id = url.searchParams.get('id');
+        const recap = id ? H.recapFor(id) : null;
+        if (!recap) return json(res, 404, { error: 'No such game.' });
+        return json(res, 200, recap);
+      }
+
       if (route === '/api/leaderboard/voting') {
         return json(res, 200, H.votingLeaderboard({ minVotes: Math.max(1, Number(url.searchParams.get('minVotes')) || 5) }));
       }

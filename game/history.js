@@ -336,9 +336,138 @@ function sessionStats() {
   };
 }
 
+/** Alive-for-voting-purposes on day N: excludes anyone who died before that
+    day began (an earlier night or day, or the immediately preceding
+    night — diedNight/diedPhase are the only fields a persisted game
+    record has for this, neither the real per-day threshold nor a
+    same-day death's exact place in the day's nomination order is stored).
+    A same-day, non-execution death (Slayer, Virgin, Golem, a Moonchild
+    choice) can shift the *real* threshold partway through that day in
+    ways this can't perfectly reconstruct — nominations carry a day
+    number, never a per-nomination timestamp — so this is a close, not
+    exact, approximation on a day with more than one such death. */
+function aliveOnDay(record, day) {
+  return (record.players || []).filter(p => {
+    if (p.diedNight == null) return true;
+    if (p.diedNight < day) return false;
+    if (p.diedNight === day && p.diedPhase === 'night') return false;
+    return true;
+  });
+}
+
+/** The nomination that came closest to flipping either way this game —
+    falling just short of execution, or passing by the narrowest possible
+    margin. Both read as "closest" in the way a table actually remembers
+    a close vote; a mile-wide unanimous execution and a mile-wide "no one
+    was ever going to vote for that" are equally undramatic. */
+function closestVote(record) {
+  let best = null;
+  for (const n of record.nominations || []) {
+    if (!n.closed || typeof n.yesCount !== 'number') continue;
+    const alive = aliveOnDay(record, n.day);
+    const threshold = Math.max(1, Math.ceil(alive.length / 2));
+    const margin = Math.abs(n.yesCount - threshold);
+    if (!best || margin < best.margin) {
+      best = {
+        nominatorName: n.nominatorName, nomineeName: n.nomineeName, day: n.day,
+        yesCount: n.yesCount, threshold, margin, passed: n.yesCount >= threshold,
+      };
+    }
+  }
+  return best;
+}
+
+/** The largest jump in yes-votes between two consecutive nominations, in
+    the order they actually happened (nominations[] is append-only, so
+    array order already is chronological order) — a swing from a
+    near-miss to a landslide, or the reverse, reads as the day's real
+    turning point better than either raw vote count alone does. */
+function biggestSwing(record) {
+  const closed = (record.nominations || []).filter(n => n.closed && typeof n.yesCount === 'number');
+  let best = null;
+  for (let i = 1; i < closed.length; i++) {
+    const delta = Math.abs(closed[i].yesCount - closed[i - 1].yesCount);
+    if (!best || delta > best.delta) {
+      best = {
+        from: { nomineeName: closed[i - 1].nomineeName, yesCount: closed[i - 1].yesCount },
+        to: { nomineeName: closed[i].nomineeName, yesCount: closed[i].yesCount },
+        delta,
+      };
+    }
+  }
+  return best;
+}
+
+/** Whichever Minion or Demon lasted longest — a reveal-survivor
+    (diedNight null) beats anyone who died, and a later diedNight beats an
+    earlier one. Reads a seat's FINAL characterId/team, same caveat every
+    other history.js aggregate already carries: a mid-game reassignment
+    (Barber, Pit-Hag, Snake Charmer) means this is whoever they ended the
+    game as, not who they were the whole way through. */
+function longestSurvivingEvil(record) {
+  const evil = (record.players || []).filter(p => p.team === 'minion' || p.team === 'demon');
+  if (!evil.length) return null;
+  return evil.reduce((best, p) => {
+    if (!best) return p;
+    if (p.diedNight == null) return best.diedNight == null ? best : p;
+    if (best.diedNight == null) return best;
+    return p.diedNight > best.diedNight ? p : best;
+  }, null);
+}
+
+/** A few sentences of plain templated prose from data that's already
+    sitting in the record — no LLM call needed just for this (unlike
+    game/llmStoryteller.js's free-text judging, everything here is a
+    closed-form fact already computed above). */
+function recapNarration(record) {
+  const lines = [];
+
+  const cv = closestVote(record);
+  if (cv) {
+    const gap = Math.abs(cv.yesCount - cv.threshold);
+    lines.push(cv.passed
+      ? `${cv.nomineeName} was executed by the narrowest possible margin — ${cv.yesCount} against a threshold of ${cv.threshold}.`
+      : `${cv.nomineeName} survived a nomination that fell just ${gap} vote${gap === 1 ? '' : 's'} short.`);
+  }
+
+  const swing = biggestSwing(record);
+  if (swing && swing.delta > 0) {
+    lines.push(`The day's biggest swing: from ${swing.from.yesCount} vote${swing.from.yesCount === 1 ? '' : 's'} on ${swing.from.nomineeName} to ${swing.to.yesCount} on ${swing.to.nomineeName}.`);
+  }
+
+  const evil = longestSurvivingEvil(record);
+  if (evil) {
+    lines.push(evil.diedNight == null
+      ? `${evil.seatName}'s ${evil.characterName} was never caught.`
+      : `${evil.seatName}'s ${evil.characterName} lasted until ${evil.diedPhase === 'execution' ? `the Day ${evil.diedNight} execution` : `Night ${evil.diedNight}`}.`);
+  }
+
+  return lines;
+}
+
+/** Everything a recap page needs about one finished game, composed from a
+    single already-persisted record — nothing here reads a live game. */
+function recapFor(id) {
+  const record = getGame(id);
+  if (!record) return null;
+  return {
+    id: record.id,
+    endedAt: record.endedAt,
+    edition: record.edition,
+    playerCount: record.playerCount,
+    winner: record.winner,
+    reason: record.reason,
+    closestVote: closestVote(record),
+    biggestSwing: biggestSwing(record),
+    longestSurvivingEvil: longestSurvivingEvil(record),
+    narration: recapNarration(record),
+  };
+}
+
 module.exports = {
   findProfile, findOrCreateProfile, appendGameRecord,
   statsFor, statsForAll, statsForEdition, colorFor, listColors, setProfileColor,
   listGames, getGame, votingLeaderboard, characterWinRates, sessionStats,
+  closestVote, biggestSwing, longestSurvivingEvil, recapNarration, recapFor,
   normalizeName,
 };

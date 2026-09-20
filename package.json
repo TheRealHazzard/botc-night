@@ -11,6 +11,7 @@
     "sim": "node tools/simulate.js",
     "test:dom-shim": "node test/dom-shim/games.js && node test/dom-shim/simulate.js",
     "test:llm": "node test/llmStoryteller.js",
+    "test:history": "node test/historyRecap.js",
     "dev:player": "vite",
     "build:player": "vite build",
     "build:host": "vite build --mode host",
