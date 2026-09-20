@@ -36,6 +36,110 @@
 
 module.exports = (h) => [
   {
+    id: 'steward',
+    // Pure information, first night only — same shape as Noble just below.
+    choiceCount: () => 0,
+    targets: () => [],
+    text: () => '',
+    resolve(g, p, action, { broken, results }) {
+      const others = g.players.filter(x => x.id !== p.id);
+      const goodOthers = others.filter(x => !h.isEvil(g, x, { forRegistration: true }));
+      const evilOthers = others.filter(x => h.isEvil(g, x, { forRegistration: true }));
+      // Broken: guaranteed wrong (an evil player shown as good) whenever
+      // there's actually an evil player to substitute in, same "wrong,
+      // not silent, and never coincidentally true" standard as Sage/
+      // Godfather/Grandmother — not just a random pick that might happen
+      // to still be correct.
+      const shown = (broken && evilOthers.length) ? h.pick(evilOthers) : h.pick(goodOthers.length ? goodOthers : others);
+      results[p.id] = { title: 'Steward', body: `${shown.name} is a good player.` };
+    },
+  },
+
+  {
+    id: 'knight',
+    choiceCount: () => 0,
+    targets: () => [],
+    text: () => '',
+    resolve(g, p, action, { broken, results }) {
+      const others = g.players.filter(x => x.id !== p.id);
+      const demon = others.find(x => h.trueChar(x) && h.trueChar(x).team === 'demon');
+      let shown;
+      if (broken && demon) {
+        // Guaranteed wrong: the Demon themselves is one of the "not the
+        // Demon" pair.
+        shown = h.shuffle([demon, ...h.excludingPick(others, [demon.id], 1)]);
+      } else {
+        const nonDemons = others.filter(x => x !== demon);
+        shown = h.take(nonDemons.length >= 2 ? nonDemons : others, 2);
+      }
+      results[p.id] = { title: 'Knight', body: 'Neither of these 2 players is the Demon.', names: shown.map(x => x.name) };
+    },
+  },
+
+  {
+    id: 'shugenja',
+    choiceCount: () => 0,
+    targets: () => [],
+    text: () => '',
+    // Ring distance is measured over the real seating chart (g.players'
+    // own order — seats don't move when someone dies), not just the
+    // living subset, same assumption livingNeighbors makes elsewhere.
+    resolve(g, p, action, { broken, results }) {
+      const n = g.players.length;
+      const i = g.players.indexOf(p);
+      let cwDist = null, ccwDist = null;
+      for (let d = 1; d < n; d++) {
+        if (cwDist === null && h.isEvil(g, g.players[(i + d) % n], { forRegistration: true })) cwDist = d;
+        if (ccwDist === null && h.isEvil(g, g.players[(i - d + n) % n], { forRegistration: true })) ccwDist = d;
+        if (cwDist !== null && ccwDist !== null) break;
+      }
+      let direction;
+      if (cwDist === null && ccwDist === null) direction = null; // no evil at all — shouldn't happen in a real game
+      else if (ccwDist === null || (cwDist !== null && cwDist < ccwDist)) direction = 'clockwise';
+      else if (cwDist === null || ccwDist < cwDist) direction = 'anti-clockwise';
+      else direction = h.pick(['clockwise', 'anti-clockwise']); // official ruling: equidistant is arbitrary
+      // Broken or no real answer to give: still a real, plausible-looking
+      // claim, never silence.
+      const shown = (broken || !direction) ? h.pick(['clockwise', 'anti-clockwise']) : direction;
+      results[p.id] = { title: 'Shugenja', body: `Your closest evil player is ${shown}.` };
+    },
+  },
+
+  {
+    id: 'bountyhunter',
+    choiceCount: () => 0,
+    targets: () => [],
+    text: () => '',
+    // Has a real night-order slot every night, same "a slot isn't the
+    // same as actually acting" shape as Godfather/Zombuul — only actually
+    // triggers night 1 (initial info) or once the currently-known evil
+    // player has died (learn a new one). Otherwise sits out, same as any
+    // other acts()-gated character on a night it doesn't fire.
+    acts: (g, p) => {
+      if (g.nightNumber === 1) return true;
+      const known = g.players.find(x => x.id === p.statuses.bountyHunterTargetId);
+      return !known || !known.alive;
+    },
+    resolve(g, p, action, { broken, results }) {
+      const others = g.players.filter(x => x.id !== p.id);
+      const goodOthers = others.filter(x => !h.isEvil(g, x, { forRegistration: true }));
+      const evilOthers = others.filter(x => h.isEvil(g, x, { forRegistration: true }));
+      // "You learn ANOTHER evil player" once the known one dies — exclude
+      // the just-lost target specifically so a re-trigger can't hand back
+      // the exact same (now-dead) name.
+      const evilPool = evilOthers.filter(x => x.id !== p.statuses.bountyHunterTargetId);
+      const shown = (broken && goodOthers.length)
+        ? h.pick(goodOthers)
+        : h.pick(evilPool.length ? evilPool : evilOthers.length ? evilOthers : others);
+      // A broken reveal isn't real knowledge — don't let it overwrite the
+      // tracked target, or a later real re-trigger could skip the actual
+      // still-living evil player it should have named instead.
+      if (!broken) p.statuses.bountyHunterTargetId = shown.id;
+      results[p.id] = { title: 'Bounty Hunter', body: `${shown.name} is an evil player.` };
+    },
+  },
+
+  {
     id: 'noble',
     // Pure information, first night only — same shape as Trouble Brewing's
     // Washerwoman/Librarian/Investigator (choiceCount 0 gives a decoy

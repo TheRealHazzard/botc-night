@@ -356,6 +356,90 @@ console.log('\nEmpath');
     g.results.emp.body === 'Evil living neighbours: 1', g.results.emp && g.results.emp.body);
 }
 
+console.log('\nExperimental: Steward');
+{
+  const mk = (id, characterId) => ({ id, name: id, characterId, believedId: characterId, alive: true, statuses: {} });
+  const g = E.newGame();
+  g.nightNumber = 1; g.phase = 'night'; g.wave = 1; g.results = {};
+  g.players = [mk('st', 'steward'), mk('t1', 'chef'), mk('m1', 'poisoner'), mk('d', 'imp')];
+  E.resolveNight(g, 1);
+  check('unbroken: names an actually-good player', g.results.st.body === 't1 is a good player.', g.results.st.body);
+
+  const g2 = E.newGame();
+  g2.nightNumber = 1; g2.phase = 'night'; g2.wave = 1; g2.results = {};
+  g2.players = [mk('st', 'steward'), mk('t1', 'chef'), mk('m1', 'poisoner'), mk('d', 'imp')];
+  g2.players[0].statuses.poisoned = true;
+  E.resolveNight(g2, 1);
+  check('broken: guaranteed wrong — names an evil player as "good"',
+    g2.results.st.body === 'm1 is a good player.' || g2.results.st.body === 'd is a good player.', g2.results.st.body);
+}
+
+console.log('\nExperimental: Knight');
+{
+  const mk = (id, characterId) => ({ id, name: id, characterId, believedId: characterId, alive: true, statuses: {} });
+  const g = E.newGame();
+  g.nightNumber = 1; g.phase = 'night'; g.wave = 1; g.results = {};
+  g.players = [mk('kn', 'knight'), mk('t1', 'chef'), mk('t2', 'butler'), mk('m1', 'poisoner'), mk('d', 'imp')];
+  E.resolveNight(g, 1);
+  check('unbroken: never includes the real Demon', !g.results.kn.names.includes('d'), g.results.kn.names);
+
+  const g2 = E.newGame();
+  g2.nightNumber = 1; g2.phase = 'night'; g2.wave = 1; g2.results = {};
+  g2.players = [mk('kn', 'knight'), mk('t1', 'chef'), mk('t2', 'butler'), mk('m1', 'poisoner'), mk('d', 'imp')];
+  g2.players[0].statuses.poisoned = true;
+  E.resolveNight(g2, 1);
+  check('broken: guaranteed wrong — the real Demon is one of the two shown',
+    g2.results.kn.names.includes('d'), g2.results.kn.names);
+}
+
+console.log('\nExperimental: Shugenja');
+{
+  const mk = (id, characterId) => ({ id, name: id, characterId, believedId: characterId, alive: true, statuses: {} });
+  // Seat order is the ring: sh, t1(good), t2(good), evil, t3(good) — the
+  // only evil player is 2 seats clockwise (index 3 vs. Shugenja's index 0)
+  // and 2 seats anti-clockwise the other way around a 5-seat ring... to
+  // make the direction unambiguous, use an odd split: evil at index 1
+  // (1 seat clockwise) vs. wrapping the other way being longer.
+  const g = E.newGame();
+  g.nightNumber = 1; g.phase = 'night'; g.wave = 1; g.results = {};
+  g.players = [mk('sh', 'shugenja'), mk('d', 'imp'), mk('t1', 'chef'), mk('t2', 'butler'), mk('t3', 'soldier')];
+  E.resolveNight(g, 1);
+  check('closest evil one seat clockwise is correctly read as clockwise',
+    g.results.sh.body === 'Your closest evil player is clockwise.', g.results.sh.body);
+
+  const g2 = E.newGame();
+  g2.nightNumber = 1; g2.phase = 'night'; g2.wave = 1; g2.results = {};
+  g2.players = [mk('sh', 'shugenja'), mk('t1', 'chef'), mk('t2', 'butler'), mk('t3', 'soldier'), mk('d', 'imp')];
+  E.resolveNight(g2, 1);
+  check('closest evil one seat anti-clockwise (wrapping) is correctly read as anti-clockwise',
+    g2.results.sh.body === 'Your closest evil player is anti-clockwise.', g2.results.sh.body);
+}
+
+console.log('\nExperimental: Bounty Hunter');
+{
+  const mk = (id, characterId) => ({ id, name: id, characterId, believedId: characterId, alive: true, statuses: {} });
+  const g = E.newGame();
+  g.nightNumber = 1; g.phase = 'night'; g.wave = 1; g.results = {};
+  g.players = [mk('bh', 'bountyhunter'), mk('t1', 'chef'), mk('m1', 'poisoner'), mk('d', 'imp')];
+  E.resolveNight(g, 1);
+  const firstKnown = g.players.find(p => p.id === 'bh').statuses.bountyHunterTargetId;
+  check('night 1: names a real evil player and tracks them', ['m1', 'd'].includes(firstKnown), firstKnown);
+
+  const idlePrompt = E.promptFor({ ...g, nightNumber: 2 }, g.players.find(p => p.id === 'bh'));
+  check('does not re-trigger while the known target is still alive — gets a decoy, not a real prompt',
+    idlePrompt && idlePrompt.decoy === true, idlePrompt);
+
+  // Kill the tracked target, then confirm night 2 hands back a *different*
+  // still-living evil player, not the one who just died.
+  const known = g.players.find(p => p.id === firstKnown);
+  known.alive = false;
+  g.nightNumber = 2; g.phase = 'night'; g.wave = 1; g.results = {};
+  const otherEvilId = firstKnown === 'm1' ? 'd' : 'm1';
+  E.resolveNight(g, 1);
+  check('re-triggers once the known target dies, naming the other evil player',
+    g.results.bh && g.results.bh.body === `${otherEvilId} is an evil player.`, g.results.bh);
+}
+
 console.log('\nButler');
 {
   const mk = (id, characterId) => ({ id, name: id, characterId, believedId: characterId, alive: true, statuses: {} });

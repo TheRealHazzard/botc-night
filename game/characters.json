@@ -1672,6 +1672,60 @@
       "otherNightReminder": "The Vortox points to a player. That player dies."
     },
     {
+      "id": "steward",
+      "name": "Steward",
+      "edition": [],
+      "team": "townsfolk",
+      "ability": "You start knowing 1 good player.",
+      "setup": false,
+      "reminders": [],
+      "firstNightOrder": 34,
+      "firstNightReminder": "Show the Steward a good player.",
+      "otherNightOrder": 0,
+      "otherNightReminder": ""
+    },
+    {
+      "id": "knight",
+      "name": "Knight",
+      "edition": [],
+      "team": "townsfolk",
+      "ability": "You start knowing 2 players that are not the Demon.",
+      "setup": false,
+      "reminders": [],
+      "firstNightOrder": 34,
+      "firstNightReminder": "Show the Knight 2 players, neither of which is the Demon.",
+      "otherNightOrder": 0,
+      "otherNightReminder": ""
+    },
+    {
+      "id": "shugenja",
+      "name": "Shugenja",
+      "edition": [],
+      "team": "townsfolk",
+      "ability": "You start knowing if your closest evil player is clockwise or anti-clockwise. If equidistant, this info is arbitrary.",
+      "setup": false,
+      "reminders": [],
+      "firstNightOrder": 34,
+      "firstNightReminder": "Show the Shugenja the clockwise or anti-clockwise token.",
+      "otherNightOrder": 0,
+      "otherNightReminder": ""
+    },
+    {
+      "id": "bountyhunter",
+      "name": "Bounty Hunter",
+      "edition": [],
+      "team": "townsfolk",
+      "ability": "You start knowing 1 evil player. If the player you know dies, you learn another evil player tonight.",
+      "setup": false,
+      "reminders": [
+        "Know"
+      ],
+      "firstNightOrder": 34,
+      "firstNightReminder": "Show the Bounty Hunter an evil player. Place the Know reminder on that player.",
+      "otherNightOrder": 34,
+      "otherNightReminder": "If the player with the Know reminder has died, show the Bounty Hunter a new evil player and move the reminder."
+    },
+    {
       "id": "noble",
       "name": "Noble",
       "edition": [
