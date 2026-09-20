@@ -1131,6 +1131,13 @@ function publicState(g) {
     script: g.script,
     hint: g.hint,
     config: g.config,
+    // The official Townsfolk/Outsider/Minion/Demon split for however many
+    // are seated right now — Baron/Fang Gu/Godfather/Vigormortis can still
+    // shift Outsiders once roles are actually dealt (see dealRoles), so
+    // this is the base ratio before any in-play modifier, not a promise of
+    // the exact post-deal split. Null outside the valid 5-15 range (no
+    // table entry) rather than a misleading guess.
+    setupRatio: SETUP_TABLE[String(g.players.length)] || null,
     revealed: g.revealed,
     simulation: !!g.simulation,
     paused: !!g.paused,

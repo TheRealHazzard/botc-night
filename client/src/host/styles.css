@@ -261,6 +261,10 @@
         font-size: 1.05rem;
         flex-shrink: 0;
       }
+      .setup-ratio {
+        color: var(--bone-faint);
+        font-size: 0.85rem;
+      }
 
       .clockwrap {
         display: grid;

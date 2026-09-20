@@ -177,6 +177,7 @@ export default function App() {
                 players={displayS.players}
                 script={displayS.script}
                 scripts={scripts}
+                setupRatio={displayS.setupRatio}
                 browsing={browsing}
                 browseIndex={browseIndex}
                 browsedMeta={browsedMeta}

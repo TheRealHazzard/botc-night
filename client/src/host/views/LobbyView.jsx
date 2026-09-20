@@ -21,7 +21,7 @@ import { useJoinAddress } from '../hooks/useJoinAddress.js';
     header too (same App.jsx), for the same reason: a taskbar full of
     icon buttons reads as one coherent toolbar, not a pile of buttons
     competing with the QR code for the same narrow column. */
-export default function LobbyView({ players, script, scripts, browsing, browseIndex, browsedMeta, onBrowse, onEnterBrowse }) {
+export default function LobbyView({ players, script, scripts, setupRatio, browsing, browseIndex, browsedMeta, onBrowse, onEnterBrowse }) {
   const joinAddr = useJoinAddress();
   const enteringIds = useEnteringSeatIds(players.map(p => p.id));
 
@@ -52,7 +52,15 @@ export default function LobbyView({ players, script, scripts, browsing, browseIn
           <div className="narration">{players.length ? 'The town gathers.' : 'The town is still empty.'}</div>
           {players.length > 0 ? (
             <>
-              <div className="sub">{players.length} seated</div>
+              <div className="sub">
+                {players.length} seated
+                {setupRatio && (
+                  <span className="setup-ratio">
+                    {' '}· {setupRatio.townsfolk} Townsfolk · {setupRatio.outsider} Outsider{setupRatio.outsider === 1 ? '' : 's'} ·{' '}
+                    {setupRatio.minion} Minion{setupRatio.minion === 1 ? '' : 's'} · {setupRatio.demon} Demon{setupRatio.demon === 1 ? '' : 's'}
+                  </span>
+                )}
+              </div>
               <RingSeats players={players} enteringIds={enteringIds} />
             </>
           ) : (

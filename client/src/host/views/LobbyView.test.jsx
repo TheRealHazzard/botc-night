@@ -19,7 +19,7 @@ const scripts = [
 
 function baseProps(overrides = {}) {
   return {
-    players: [], script: 'tb', scripts,
+    players: [], script: 'tb', scripts, setupRatio: null,
     browsing: false, browseIndex: 0, browsedMeta: false,
     onBrowse: () => {}, onEnterBrowse: () => {},
     ...overrides,
@@ -53,6 +53,31 @@ describe('LobbyView', () => {
   it('shows the join address once resolved, falling back to "finding the address…" first', async () => {
     render(<LobbyView {...baseProps()} />);
     expect(await screen.findByText('http://192.168.1.5:3000')).toBeInTheDocument();
+  });
+
+  describe('setupRatio — the Townsfolk/Outsider/Minion/Demon reference for the seated count', () => {
+    const players = Array.from({ length: 8 }, (_, i) => ({ id: `p${i}`, name: `P${i}`, alive: true, connected: true, color: null }));
+
+    it('shows the ratio next to the seat count when one is given', () => {
+      render(<LobbyView {...baseProps({ players, setupRatio: { townsfolk: 5, outsider: 1, minion: 1, demon: 1 } })} />);
+      expect(screen.getByText('8 seated')).toBeInTheDocument();
+      expect(screen.getByText(/5 Townsfolk/)).toBeInTheDocument();
+      expect(screen.getByText(/1 Outsider ·/)).toBeInTheDocument(); // singular, not "1 Outsiders"
+      expect(screen.getByText(/1 Minion ·/)).toBeInTheDocument();
+      expect(screen.getByText(/1 Demon$/)).toBeInTheDocument();
+    });
+
+    it('pluralizes Outsiders/Minions/Demons when the count isn\'t 1', () => {
+      render(<LobbyView {...baseProps({ players, setupRatio: { townsfolk: 5, outsider: 2, minion: 2, demon: 1 } })} />);
+      expect(screen.getByText(/2 Outsiders/)).toBeInTheDocument();
+      expect(screen.getByText(/2 Minions/)).toBeInTheDocument();
+    });
+
+    it('shows nothing extra when there is no ratio for the current count (outside 5-15)', () => {
+      const { container } = render(<LobbyView {...baseProps({ players, setupRatio: null })} />);
+      expect(screen.getByText('8 seated')).toBeInTheDocument();
+      expect(container.querySelector('.setup-ratio')).not.toBeInTheDocument();
+    });
   });
 
   describe('browsing takes over all three panels, not just the left one', () => {
