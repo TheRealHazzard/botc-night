@@ -122,6 +122,67 @@ describe("App", () => {
     vi.unstubAllGlobals();
   });
 
+  it("vibrates with a distinct pattern when a night prompt opens, and again when a result lands — even mid-wave, no phase-key change", () => {
+    const vibrate = vi.fn();
+    vi.stubGlobal("navigator", { ...navigator, vibrate });
+
+    tableState.current = {
+      P: baseP({ phase: "night", prompt: null, result: null }),
+      token: "tok",
+      setToken: vi.fn(),
+    };
+    const { rerender } = render(<App />);
+    vibrate.mockClear(); // the phase-key buzz on this same render is a separate concern
+
+    tableState.current = {
+      P: baseP({ phase: "night", prompt: { text: "Choose two players.", targets: [], count: 1 }, submitted: false, result: null }),
+      token: "tok",
+      setToken: vi.fn(),
+    };
+    rerender(<App />);
+    expect(vibrate).toHaveBeenCalledWith([50, 30, 50, 30, 50]);
+
+    // Same open prompt again (an unrelated SSE push) — no repeat buzz.
+    vibrate.mockClear();
+    rerender(<App />);
+    expect(vibrate).not.toHaveBeenCalled();
+
+    // A result lands after the prompt is answered — a fresh buzz, distinct
+    // key from the prompt it replaced.
+    tableState.current = {
+      P: baseP({ phase: "night", prompt: { text: "Choose two players.", targets: [], count: 1 }, submitted: true, result: { title: "Empath", body: "Evil living neighbours: 1" } }),
+      token: "tok",
+      setToken: vi.fn(),
+    };
+    rerender(<App />);
+    expect(vibrate).toHaveBeenCalledWith([50, 30, 50, 30, 50]);
+
+    vi.unstubAllGlobals();
+  });
+
+  it("a submitted prompt with no result yet does not buzz", () => {
+    const vibrate = vi.fn();
+    vi.stubGlobal("navigator", { ...navigator, vibrate });
+
+    tableState.current = {
+      P: baseP({ phase: "night", prompt: { text: "Choose two players.", targets: [], count: 1 }, submitted: false, result: null }),
+      token: "tok",
+      setToken: vi.fn(),
+    };
+    const { rerender } = render(<App />);
+    vibrate.mockClear();
+
+    tableState.current = {
+      P: baseP({ phase: "night", prompt: { text: "Choose two players.", targets: [], count: 1 }, submitted: true, result: null }),
+      token: "tok",
+      setToken: vi.fn(),
+    };
+    rerender(<App />);
+    expect(vibrate).not.toHaveBeenCalled();
+
+    vi.unstubAllGlobals();
+  });
+
   it("opens and closes the script overlay from the topbar button", async () => {
     const userEvent = (await import("@testing-library/user-event")).default;
     mockFetch({
