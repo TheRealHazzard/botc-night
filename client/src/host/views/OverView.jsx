@@ -4,6 +4,7 @@ import RingSeats from '../components/RingSeats.jsx';
 import GameSummaryCard from '../components/GameSummaryCard.jsx';
 import SidepanelCard from '../components/SidepanelCard.jsx';
 import ControlPanelRow from '../components/ControlPanelRow.jsx';
+import ControlsDrawer from '../components/ControlsDrawer.jsx';
 import SessionStatsCard from '../components/SessionStatsCard.jsx';
 import PowerLogOverlay from '../components/PowerLogOverlay.jsx';
 import Icon from '../components/Icon.jsx';
@@ -58,7 +59,6 @@ export default function OverView({ players, victory, gameSummary, log, actionLog
 
   const right = (
     <div className="sidepanel">
-      <ControlPanelRow />
       {actionLog && actionLog.length > 0 && (
         <button type="button" onClick={() => setShowPowerLog(true)}>
           <Icon name="scroll" size={15} /> Power log
@@ -81,6 +81,9 @@ export default function OverView({ players, victory, gameSummary, log, actionLog
       {showPowerLog && (
         <PowerLogOverlay players={players} actionLog={actionLog} nightNumber={nightNumber} onClose={() => setShowPowerLog(false)} />
       )}
+      <ControlsDrawer>
+        <ControlPanelRow />
+      </ControlsDrawer>
     </>
   );
 }

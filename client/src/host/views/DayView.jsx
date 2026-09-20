@@ -5,7 +5,9 @@ import RingSeats from '../components/RingSeats.jsx';
 import TriviaLine from '../components/TriviaLine.jsx';
 import GameLeftPanel from '../components/GameLeftPanel.jsx';
 import ControlPanelRow from '../components/ControlPanelRow.jsx';
-import NominationPanel from '../components/NominationPanel.jsx';
+import ControlsDrawer from '../components/ControlsDrawer.jsx';
+import NominationList from '../components/NominationList.jsx';
+import NominateAction from '../components/NominateAction.jsx';
 import DayReport from '../components/DayReport.jsx';
 import Icon from '../components/Icon.jsx';
 import WhimBeat from '../components/WhimBeat.jsx';
@@ -59,10 +61,8 @@ export default function DayView({ players, nightNumber, deaths, mastermindExtraD
 
   const right = (
     <div className="sidepanel">
-      <ControlPanelRow />
-      <NominationPanel nominations={nominations} nightNumber={nightNumber} players={players} voteWindowSeconds={config.voteWindowSeconds} />
+      <NominationList nominations={nominations} nightNumber={nightNumber} players={players} voteWindowSeconds={config.voteWindowSeconds} />
       <DayReport deaths={deaths} players={players} nightNumber={nightNumber} />
-      <DayActions players={players} nominations={nominations} nightNumber={nightNumber} anyOpen={anyOpen} mastermindExtraDay={mastermindExtraDay} />
       {anyOpen && <TriviaLine scriptId={script} compact />}
     </div>
   );
@@ -71,6 +71,11 @@ export default function DayView({ players, nightNumber, deaths, mastermindExtraD
     <>
       <DashboardLayout left={left} main={main} right={right} />
       {minorBeat && <MinorBeatOverlay name={minorBeat.name} />}
+      <ControlsDrawer forceClosed={!!minorBeat}>
+        <ControlPanelRow />
+        <NominateAction nominations={nominations} nightNumber={nightNumber} players={players} />
+        <DayActions players={players} nominations={nominations} nightNumber={nightNumber} anyOpen={anyOpen} mastermindExtraDay={mastermindExtraDay} />
+      </ControlsDrawer>
     </>
   );
 }

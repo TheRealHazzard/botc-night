@@ -19,6 +19,7 @@ describe('RevealView', () => {
   it('Night falls posts /api/table/night', async () => {
     const fetchMock = mockFetch({ '/api/tokens': {}, '/api/table/night': {} });
     render(<RevealView players={players} scriptChars={[]} activeScriptMeta={activeScriptMeta} />);
+    await userEvent.click(screen.getByText('Storyteller controls')); // open the drawer
     await userEvent.click(screen.getByText(/night falls/i));
     expect(fetchMock.calls.some(c => c.url.includes('/api/table/night'))).toBe(true);
   });
@@ -27,6 +28,7 @@ describe('RevealView', () => {
     const fetchMock = mockFetch({ '/api/tokens': {}, '/api/table/reveal': {} });
     window.confirm = vi.fn(() => false);
     render(<RevealView players={players} scriptChars={[]} activeScriptMeta={activeScriptMeta} />);
+    await userEvent.click(screen.getByText('Storyteller controls')); // open the drawer
     await userEvent.click(screen.getByText('Reveal'));
     expect(fetchMock.calls.some(c => c.url.includes('/api/table/reveal'))).toBe(false);
     window.confirm.mockReturnValue(true);
