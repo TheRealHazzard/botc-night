@@ -228,9 +228,26 @@ function randomKiller(g, pool, excludeId, opts = { demonAttack: true }) {
   const picked = candidates.length === 1 ? candidates[0] : pick(candidates);
   if (picked.characterId === 'mayor' && !impaired(picked) && Math.random() < g.config.mayorRedirectChance) {
     const alt = alive(g).filter(x => x.id !== picked.id && x.id !== excludeId && !wouldBlockKill(g, x, opts));
-    if (alt.length) return randomKiller(g, alt, excludeId, opts);
+    if (alt.length) {
+      // Non-secret and deliberately non-attributing — the point is for the
+      // Storyteller to feel a whim just fired live, not to hand them the
+      // Mayor's identity mid-game. logWhim() is the one place that wording
+      // lives, shared with the registration roll below.
+      logWhim(g);
+      return randomKiller(g, alt, excludeId, opts);
+    }
   }
   return picked;
+}
+
+// "A whim fired" — one shared, deliberately vague line for every hidden
+// Math.random() roll a Storyteller-whim setting controls (Mayor redirect,
+// Recluse/Spy registration), so the host feels the dice moved without
+// learning which knob or which character it was. Kept non-secret (unlike
+// the attributed line elsewhere in this file) specifically so it's visible
+// live, not just after g.revealed — that's the whole point of surfacing it.
+function logWhim(g) {
+  logEvent(g, 'A quiet decision was made, unseen.', false);
 }
 
 /**
@@ -262,10 +279,14 @@ function isEvil(g, p, { forRegistration = false } = {}) {
   const c = trueChar(p);
   if (!c) return false;
   if (forRegistration && c.id === 'recluse') {
-    return Math.random() < g.config.recluseRegistersEvil;
+    const rolled = Math.random() < g.config.recluseRegistersEvil;
+    if (rolled) logWhim(g); // a good Recluse reading as evil — the whim actually fired
+    return rolled;
   }
   if (forRegistration && c.id === 'spy') {
-    return !(Math.random() < g.config.recluseRegistersEvil);
+    const rolled = Math.random() < g.config.recluseRegistersEvil;
+    if (rolled) logWhim(g); // an evil Spy reading as good — same knob, same tell
+    return !rolled;
   }
   // The Goon: flipped to evil for the rest of the game once an evil player
   // is the first to target them on some night.
@@ -477,6 +498,7 @@ function pairInfo(g, p, team, wrong) {
     if (c.id === 'recluse' && team !== 'townsfolk') return Math.random() < g.config.recluseRegistersEvil;
     return false;
   });
+  if (registrants.length) logWhim(g); // same registration whim isEvil() logs, this call's own roll site
   const pool = [...trueMembers, ...registrants];
   if (!pool.length) {
     if (!wrong) {
@@ -512,7 +534,7 @@ module.exports = {
   livingNeighbors, tealadyProtects, wouldBlockKill, randomKiller, checkKill, isEvil, triggerMoonchildIfNeeded,
   triggerPixieIfNeeded, applyCannibalTransform,
   reassignCharacter, flagAbnormal,
-  logEvent, outsiderDiedToday, minionDiedToday, somebodyDiedYesterday,
+  logEvent, logWhim, outsiderDiedToday, minionDiedToday, somebodyDiedYesterday,
   minionNominatedToday, demonVotedToday, vortoxActive,
   numberSignal, falseNumber, evilNeighbourCount, evilPairCount, pairInfo,
 };

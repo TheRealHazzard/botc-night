@@ -134,7 +134,11 @@ module.exports = (h) => [
         const tc = h.trueChar(x);
         if (tc.team === 'demon') return true;
         if (x.statuses.redHerring) return true;
-        if (tc.id === 'recluse') return Math.random() < g.config.recluseRegistersEvil;
+        if (tc.id === 'recluse') {
+          const rolled = Math.random() < g.config.recluseRegistersEvil;
+          if (rolled) h.logWhim(g); // same registration whim as isEvil()/pairInfo() — this is its own independent roll site
+          return rolled;
+        }
         return false;
       });
       answer = h.impairedFlip(broken, answer);

@@ -204,6 +204,7 @@ export default function App() {
                 scriptChars={scriptChars}
                 activeScriptMeta={activeScriptMeta}
                 muted={muted}
+                log={displayS.log}
               />
             )}
             {displayS.phase === "day" && (

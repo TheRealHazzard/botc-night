@@ -6,12 +6,15 @@ import GameLeftPanel from '../components/GameLeftPanel.jsx';
 import ControlPanelRow from '../components/ControlPanelRow.jsx';
 import SidepanelCard from '../components/SidepanelCard.jsx';
 import Countdown from '../components/Countdown.jsx';
+import WhimBeat from '../components/WhimBeat.jsx';
 import { useSpeak } from '../hooks/useSpeak.js';
+import { useWhimBeat } from '../hooks/useWhimBeat.js';
 
-export default function NightView({ players, nightNumber, wave, windowEndsAt, config, script, scriptChars, activeScriptMeta, muted }) {
+export default function NightView({ players, nightNumber, wave, windowEndsAt, config, script, scriptChars, activeScriptMeta, muted, log }) {
   const again = wave === 2;
   const line = again ? 'Something is not finished.' : 'Close your eyes. The town sleeps.';
   useSpeak(line, { dread: again, muted });
+  const whim = useWhimBeat(log);
 
   const acted = players.filter(p => p.submitted).length;
   const living = players.filter(p => p.alive).length;
@@ -21,6 +24,7 @@ export default function NightView({ players, nightNumber, wave, windowEndsAt, co
     <div className="stage-main">
       <DayCounterLabel text={label} />
       <div className="narration dread">{line}</div>
+      {whim && <WhimBeat />}
       <RingSeats players={players} />
     </div>
   );

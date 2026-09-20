@@ -145,6 +145,17 @@ describe('DayView', () => {
     expect(select().value).toBe('');
   });
 
+  it('a fresh whim-roll log line shows the beat during the day too', () => {
+    const { rerender } = render(
+      <DayView players={players} nightNumber={1} deaths={[]} mastermindExtraDay={false} nominations={[]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} log={[]} />
+    );
+    expect(screen.queryByText('A quiet decision, unseen.')).not.toBeInTheDocument();
+
+    const whimLog = [{ night: 1, phase: 'day', text: 'A quiet decision was made, unseen.', secret: false }];
+    rerender(<DayView players={players} nightNumber={1} deaths={[]} mastermindExtraDay={false} nominations={[]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} log={whimLog} />);
+    expect(screen.getByText('A quiet decision, unseen.')).toBeInTheDocument();
+  });
+
   it('the auto-computed leader ignores a qualifying nominee who has since died', () => {
     const nomP1 = { day: 1, nominatorName: 'Cy', nomineeName: 'Ada', nomineeId: 'p1', closed: true, yesCount: 2, votes: [] };
     const adaDead = threeAlive.map(p => (p.id === 'p1' ? { ...p, alive: false } : p));

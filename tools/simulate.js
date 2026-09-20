@@ -315,6 +315,15 @@ console.log('\nFortune Teller');
   check('pings on a Recluse roughly half the time (registration roll was being skipped entirely)',
     yes > trials * 0.3 && yes < trials * 0.7, `saw ${yes}/${trials} yes`);
 
+  const gWhim = E.newGame();
+  gWhim.config.recluseRegistersEvil = 1;
+  gWhim.nightNumber = 2; gWhim.phase = 'night'; gWhim.wave = 1; gWhim.results = {};
+  gWhim.players = [mk('ft1', 'fortuneteller'), mk('rec1', 'recluse'), mk('imp1', 'imp'), mk('t1', 'soldier'), mk('t2', 'slayer')];
+  gWhim.pending = { ft1: { targets: ['rec1', 't1'], decoy: false } };
+  E.resolveNight(gWhim, 1);
+  check('a Recluse registering evil leaves the same non-secret whim line, visible live',
+    gWhim.log.some(l => l.text === 'A quiet decision was made, unseen.' && l.secret === false));
+
   // Real bug: the Demon (order 24 on other nights) acts before the Fortune
   // Teller (order 54) — a Fortune Teller the Demon kills this same night
   // must not get a reading at all, same as any other standing-ability
@@ -782,6 +791,8 @@ console.log('\nMayor redirect on a night kill');
   const othersDead = gOn.players.filter(p => p.id !== 'mayor1' && p.id !== 'imp1' && !p.alive).length;
   check('with the chance forced to 1, the Mayor survives and someone else dies instead',
     mayorSurvived && othersDead === 1);
+  check('the redirect leaves a non-secret, non-attributing whim line the host sees live',
+    gOn.log.some(l => l.text === 'A quiet decision was made, unseen.' && l.secret === false));
 
   const gPoison = E.newGame();
   gPoison.config.mayorRedirectChance = 1;

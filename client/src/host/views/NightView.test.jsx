@@ -36,4 +36,15 @@ describe('NightView', () => {
     const { container } = render(<NightView players={players} nightNumber={1} wave={1} windowEndsAt={null} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />);
     expect(container.querySelector('.clockwrap')).not.toBeInTheDocument();
   });
+
+  it('a fresh whim-roll log line shows the beat; nothing shows on the initial mount', () => {
+    const { rerender } = render(
+      <NightView players={players} nightNumber={2} wave={1} windowEndsAt={null} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} log={[]} />
+    );
+    expect(screen.queryByText('A quiet decision, unseen.')).not.toBeInTheDocument();
+
+    const whimLog = [{ night: 2, phase: 'night', text: 'A quiet decision was made, unseen.', secret: false }];
+    rerender(<NightView players={players} nightNumber={2} wave={1} windowEndsAt={null} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} log={whimLog} />);
+    expect(screen.getByText('A quiet decision, unseen.')).toBeInTheDocument();
+  });
 });

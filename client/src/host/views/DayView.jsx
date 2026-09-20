@@ -8,13 +8,16 @@ import ControlPanelRow from '../components/ControlPanelRow.jsx';
 import NominationPanel from '../components/NominationPanel.jsx';
 import DayReport from '../components/DayReport.jsx';
 import Icon from '../components/Icon.jsx';
+import WhimBeat from '../components/WhimBeat.jsx';
 import { useSpeak } from '../hooks/useSpeak.js';
+import { useWhimBeat } from '../hooks/useWhimBeat.js';
 import { post } from '../../lib/api.js';
 
 export default function DayView({ players, nightNumber, deaths, mastermindExtraDay, nominations, config, script, scriptChars, activeScriptMeta, muted, log = [] }) {
   const lastNight = deaths.filter(d => d.night === nightNumber && d.cause !== 'execution');
   const line = lastNight.length ? `${lastNight.map(d => d.name).join(' and ')} did not wake.` : 'Everyone wakes. That should worry you.';
   useSpeak(line, { dread: !!lastNight.length, muted });
+  const whim = useWhimBeat(log);
 
   // Empty until an execution actually happens today — useSpeak/speak() both
   // no-op on an empty line, so this stays silent until then. A blocked
@@ -36,6 +39,7 @@ export default function DayView({ players, nightNumber, deaths, mastermindExtraD
         {lastNight.length > 0 && <Icon name="skull" size={18} />}
         <span>{line}</span>
       </div>
+      {whim && <WhimBeat />}
       {mastermindExtraDay && (
         <div className="hint">
           <Icon name="bolt" size={16} />

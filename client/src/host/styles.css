@@ -1078,6 +1078,35 @@
         flex-shrink: 0;
       }
 
+      /* Deliberately the quietest cue on the whole stage — a felt aside, not
+   a warning (.hint, oxblood) or a curiosity (.trivia, brass). Mounts only
+   for the few seconds useWhimBeat() reports true, so the fade is a plain
+   keyframe rather than a mount/unmount transition. */
+      .whim-beat {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: var(--bone-faint);
+        font-size: 0.85rem;
+        font-style: italic;
+        letter-spacing: 0.02em;
+        animation: whim-fade 2.6s ease-in-out;
+      }
+      .whim-beat .icon {
+        width: 13px;
+        height: 13px;
+        flex-shrink: 0;
+      }
+      @keyframes whim-fade {
+        0% { opacity: 0; }
+        18% { opacity: 1; }
+        75% { opacity: 1; }
+        100% { opacity: 0; }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .whim-beat { animation: none; }
+      }
+
       /* ---------------------------------------------------------- the dashboard
    Center is always the ring — the one thing everyone at the table actually
    watches — with contextual side panels for whatever info/controls that
