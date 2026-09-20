@@ -139,7 +139,47 @@ a.linklike-a{
   border:1px dashed #4a3722; background:#0d0906; border-radius:4px; padding:34px 18px;
   text-align:center; color:var(--bone-dim); user-select:none; cursor:pointer;
 }
+/* The role-reveal ceremony's press-and-hold — a filling ring rather than an
+   instant tap, so the one moment a player learns who they are gets a beat
+   instead of a flat toggle. --hold-progress (0..1) is set inline per frame
+   by RoleReveal.jsx; the ring is drawn with a conic-gradient rather than an
+   SVG stroke-dashoffset, since a single CSS variable is all a plain div
+   needs here. */
+.role-hold{ display:flex; flex-direction:column; align-items:center; gap:14px; }
+.hold-ring{
+  width:64px; height:64px; border-radius:50%; flex-shrink:0;
+  background:conic-gradient(var(--brass) calc(var(--hold-progress,0) * 360deg), #3a2a1c 0);
+  transition:background .05s linear;
+}
 .role{text-align:center; padding:22px 16px}
+/* A brief, team-colored beat on the moment of reveal itself — the same
+   card shape for every character, but the glow (blue/red) and the motion
+   are the first thing a player's eyes register, before they've even read
+   the name. */
+.role-reveal-in{ animation:role-reveal-in .5s ease-out; border-radius:8px; }
+.role-good{ box-shadow:0 0 0 rgba(76,109,143,0); }
+.role-evil{ box-shadow:0 0 0 rgba(142,34,38,0); }
+@keyframes role-reveal-in{
+  0% { opacity:0; transform:scale(0.92); box-shadow:0 0 0 rgba(0,0,0,0); }
+  40% { opacity:1; transform:scale(1.015); }
+  100% { opacity:1; transform:scale(1); }
+}
+.role-good.role-reveal-in{ animation-name:role-reveal-in-good; }
+.role-evil.role-reveal-in{ animation-name:role-reveal-in-evil; }
+@keyframes role-reveal-in-good{
+  0% { opacity:0; transform:scale(0.92); box-shadow:0 0 0 rgba(76,109,143,0); }
+  40% { opacity:1; transform:scale(1.015); box-shadow:0 0 32px rgba(76,109,143,0.45); }
+  100% { opacity:1; transform:scale(1); box-shadow:0 0 0 rgba(76,109,143,0); }
+}
+@keyframes role-reveal-in-evil{
+  0% { opacity:0; transform:scale(0.92); box-shadow:0 0 0 rgba(142,34,38,0); }
+  40% { opacity:1; transform:scale(1.015); box-shadow:0 0 32px rgba(142,34,38,0.45); }
+  100% { opacity:1; transform:scale(1); box-shadow:0 0 0 rgba(142,34,38,0); }
+}
+@media (prefers-reduced-motion: reduce){
+  .role-reveal-in{ animation:none; }
+  .hold-ring{ transition:none; }
+}
 .token{
   width:150px; height:150px; border-radius:50%; object-fit:cover; display:block;
   margin:0 auto 12px; border:2px solid #3d2c1c; background:#0d0906;
