@@ -22,7 +22,6 @@ export default function NightView({ players, nightNumber, wave, windowEndsAt, co
       <DayCounterLabel text={label} />
       <div className="narration dread">{line}</div>
       <RingSeats players={players} />
-      <TriviaLine scriptId={script} />
     </div>
   );
 
@@ -39,6 +38,7 @@ export default function NightView({ players, nightNumber, wave, windowEndsAt, co
         )}
         <div className="sub">{acted} of {living} have answered.</div>
       </SidepanelCard>
+      <TriviaLine scriptId={script} compact />
     </div>
   );
 

@@ -33,7 +33,6 @@ export default function DayView({ players, nightNumber, deaths, mastermindExtraD
         </div>
       )}
       <RingSeats players={players} />
-      {anyOpen && <TriviaLine scriptId={script} />}
     </div>
   );
 
@@ -45,6 +44,7 @@ export default function DayView({ players, nightNumber, deaths, mastermindExtraD
       <NominationPanel nominations={nominations} nightNumber={nightNumber} players={players} voteWindowSeconds={config.voteWindowSeconds} />
       <DayReport deaths={deaths} players={players} nightNumber={nightNumber} />
       <DayActions players={players} nominations={nominations} nightNumber={nightNumber} anyOpen={anyOpen} mastermindExtraDay={mastermindExtraDay} />
+      {anyOpen && <TriviaLine scriptId={script} compact />}
     </div>
   );
 
