@@ -180,8 +180,8 @@ module.exports = (h) => [
     choiceCount: () => 0,
     targets: () => [],
     text: () => '',
-    resolve(g, p, action, { broken, results }) {
-      const trueCount = h.evilNeighbourCount(g, p);
+    resolve(g, p, action, { broken, results, deaths }) {
+      const trueCount = h.evilNeighbourCount(g, p, deaths);
       const shown = broken ? h.falseNumber(trueCount, 2) : trueCount;
       results[p.id] = { title: 'Empath', body: `Evil living neighbours: ${h.numberSignal(shown)}` };
     },

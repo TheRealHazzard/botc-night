@@ -103,8 +103,16 @@ function publiclyAlive(p) {
     player on both sides (deduped via the Set). Shared by anything that
     cares about "neighbours" among the living: Tea Lady's protection,
     No Dashii's poison, and anything Sects & Violets adds later. */
-function livingNeighbors(g, p) {
-  const living = alive(g);
+// `pendingDeaths` (resolveNight's own local `deaths` array, still unapplied
+// — see engine.js's "Apply deaths" pass) lets a LATER-acting character's
+// neighbor topology correctly skip someone an EARLIER character already
+// killed this same night, without waiting for p.alive to actually flip.
+// Defaults to none, so every existing call site (which wants the raw,
+// still-including-p current snapshot — e.g. Vigormortis computing a
+// just-killed Minion's own adjacency at the moment they die) is unchanged.
+function livingNeighbors(g, p, pendingDeaths = []) {
+  const deadIds = new Set(pendingDeaths.map(d => d.player.id));
+  const living = alive(g).filter(x => !deadIds.has(x.id));
   const i = living.indexOf(p);
   if (i === -1) return [];
   const neighbors = new Set([living[(i - 1 + living.length) % living.length], living[(i + 1) % living.length]]);
@@ -407,8 +415,15 @@ function falseNumber(trueValue, max) {
   return pick(options);
 }
 
-function evilNeighbourCount(g, p) {
-  const living = alive(g);
+// Same `pendingDeaths` treatment as livingNeighbors above, for the same
+// reason: the Empath acts after the Demon on other nights (order 53 vs.
+// 24), so without this her count used a stale pre-kill neighbor snapshot
+// whenever the Demon killed one of her actual neighbors earlier that
+// night — she'd still be told about a neighbor already dead, instead of
+// the real one who'd become adjacent to her by the time she woke.
+function evilNeighbourCount(g, p, pendingDeaths = []) {
+  const deadIds = new Set(pendingDeaths.map(d => d.player.id));
+  const living = alive(g).filter(x => !deadIds.has(x.id));
   const i = living.indexOf(p);
   if (i === -1) return 0;
   const left = living[(i - 1 + living.length) % living.length];

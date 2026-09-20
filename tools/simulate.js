@@ -334,6 +334,28 @@ console.log('\nFortune Teller');
     !gk.actionLog.some(a => a.playerId === 'ft1'));
 }
 
+console.log('\nEmpath');
+{
+  const mk = (id, characterId) => ({ id, name: id, characterId, believedId: characterId, alive: true, statuses: {} });
+
+  // Real bug, same family as the Fortune Teller one above but structurally
+  // different: the Empath isn't dead, but her *count* went stale. Seat
+  // order (not just night order) matters here: p0=Empath, p1=an evil
+  // Minion seated as her immediate neighbor and about to be killed by the
+  // Imp this same night (order 24, vs. Empath's 53), p2/p3=good, p4=Imp
+  // (her other neighbor). True neighbors before any kill: p4 (evil) and
+  // p1 (evil) -> 2. Once p1's death is decided (even though p1.alive isn't
+  // flipped false until after the whole order runs), the CORRECT reading
+  // must skip past p1 to the next living player, p2 (good) -> 1.
+  const g = E.newGame();
+  g.nightNumber = 2; g.phase = 'night'; g.wave = 1; g.results = {};
+  g.players = [mk('emp', 'empath'), mk('m1', 'poisoner'), mk('t1', 'chef'), mk('t2', 'butler'), mk('imp1', 'imp')];
+  g.pending = { imp1: { targets: ['m1'], decoy: false } };
+  E.resolveNight(g, 1);
+  check('a same-night neighbor death is reflected, not a stale pre-kill snapshot',
+    g.results.emp.body === 'Evil living neighbours: 1', g.results.emp && g.results.emp.body);
+}
+
 console.log('\nButler');
 {
   const mk = (id, characterId) => ({ id, name: id, characterId, believedId: characterId, alive: true, statuses: {} });
