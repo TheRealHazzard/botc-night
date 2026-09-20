@@ -524,6 +524,19 @@ function resolveNight(g, wave = 1) {
   const deaths = [];
 
   for (const { player: p, character: c } of order) {
+    // A player killed earlier THIS SAME night (by an earlier character in
+    // tonight's order — the Demon, typically) never wakes for their own
+    // later turn, same as the real rules — but p.alive itself isn't
+    // flipped to false until the "Apply deaths" step below (a kill only
+    // takes effect once everyone's turn tonight has run, so death-order
+    // interactions like Grandmother's link can see every kill decided
+    // tonight). Checking `deaths` directly is the only way to see
+    // "already dead, just not yet applied" at this point in the loop. The
+    // Ravenkeeper's own "acts even though they just died" exception is a
+    // real rule too, but it's handled entirely by its own wave-2 slot (a
+    // separate resolveNight call with its own order/deaths), not here.
+    if (deaths.some(d => d.player.id === p.id)) continue;
+
     const submitted = g.pending[p.id];
     // A decoy submission is never allowed to drive a real ability.
     const action = submitted && !submitted.decoy ? submitted : null;

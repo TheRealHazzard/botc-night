@@ -314,6 +314,24 @@ console.log('\nFortune Teller');
   }
   check('pings on a Recluse roughly half the time (registration roll was being skipped entirely)',
     yes > trials * 0.3 && yes < trials * 0.7, `saw ${yes}/${trials} yes`);
+
+  // Real bug: the Demon (order 24 on other nights) acts before the Fortune
+  // Teller (order 54) — a Fortune Teller the Demon kills this same night
+  // must not get a reading at all, same as any other standing-ability
+  // character who dies before their own turn. p.alive isn't flipped false
+  // until resolveNight's "Apply deaths" pass runs *after* the whole
+  // night's order, so this only shows up when the killer's order number is
+  // genuinely lower — a same-game unit test with both in the right order,
+  // not just "she's alive when resolve() checks her".
+  const gk = E.newGame();
+  gk.nightNumber = 2; gk.phase = 'night'; gk.wave = 1; gk.results = {};
+  gk.players = [mk('imp1', 'imp'), mk('ft1', 'fortuneteller'), mk('t1', 'chef'), mk('t2', 'soldier'), mk('t3', 'slayer')];
+  gk.pending = { imp1: { targets: ['ft1'], decoy: false }, ft1: { targets: ['t1', 't2'], decoy: false } };
+  E.resolveNight(gk, 1);
+  check('a Fortune Teller killed by the Demon this same night gets no reading',
+    !gk.results.ft1, gk.results.ft1 && JSON.stringify(gk.results.ft1));
+  check('...and no action-log entry either — she never actually got a turn',
+    !gk.actionLog.some(a => a.playerId === 'ft1'));
 }
 
 console.log('\nButler');

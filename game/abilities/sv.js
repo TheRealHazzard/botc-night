@@ -151,15 +151,21 @@ module.exports = (h) => [
     choiceCount: () => 0,
     targets: () => [],
     text: () => '',
-    // Deaths this same night are collected in `deaths` but not yet applied
-    // (p.alive is still true) — see resolveNight's "Apply deaths" pass —
-    // so whether the Sage themselves was just killed by the Demon has to be
-    // read from that pending list, not from p.alive.
-    resolve(g, p, action, { broken, results, deaths }) {
-      const wasKilledByDemon = deaths.some(d => d.player.id === p.id && d.killedByDemon);
-      if (!wasKilledByDemon) return;
+    // Sage only ever has anything to say the instant the Demon kills them —
+    // an onDeath-only character (see README's Sweetheart/Klutz convention),
+    // not a standing nightly resolve(). This used to be resolve()-based,
+    // checking the pending `deaths` array directly since a same-night kill
+    // isn't applied (p.alive flipped false) until after the whole night's
+    // order has run — but that meant Sage's own turn had to be exempted
+    // from "a player already dead earlier this same night doesn't act,"
+    // the general rule resolveNight now enforces. onDeath sidesteps the
+    // whole issue: it only ever fires once a death is actually applied.
+    resolve() {},
+    onDeath(g, player, { killedByDemon, results }) {
+      if (!killedByDemon) return;
+      const broken = h.impaired(player);
       const demon = g.players.find(x => h.trueChar(x).team === 'demon');
-      const others = g.players.filter(x => x.id !== p.id);
+      const others = g.players.filter(x => x.id !== player.id);
       let shown;
       if (!broken && !h.vortoxActive(g) && demon) {
         const decoy = h.pick(others.filter(x => x.id !== demon.id));
@@ -172,7 +178,7 @@ module.exports = (h) => [
         // so this was the likeliest way anyone would ever notice.
         shown = h.excludingPick(others, demon ? [demon.id] : [], 2);
       }
-      results[p.id] = { title: 'Sage', body: 'The Demon is one of these two players.', names: shown.map(x => x.name) };
+      results[player.id] = { title: 'Sage', body: 'The Demon is one of these two players.', names: shown.map(x => x.name) };
     },
   },
 
