@@ -105,7 +105,7 @@ module.exports = (h) => [
     text: () => 'Choose a player, then guess their character. If you guess wrong, you die. You will not be told which.',
     extraPrompt: (g) => ({
       guessCharacter: true,
-      characterOptions: h.scriptPool(g.script).map(x => ({ id: x.id, name: x.name })),
+      characterOptions: h.activeScriptPool(g).map(x => ({ id: x.id, name: x.name })),
     }),
     resolve(g, p, action, { broken, target, deaths }) {
       const [t] = target(action && action.targets);

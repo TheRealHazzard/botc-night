@@ -37,9 +37,16 @@ const BUCKET4_IDS = ['gossip', 'savant', 'artist'];
     and keeps describing the script's full, fixed content (e.g. the lobby's
     "25 characters" card) regardless of what a table has turned off. */
 function activeScriptPool(g) {
+  // A custom-built roster (see the script builder / POST /api/table/script's
+  // customRoster option) bypasses scriptPool()'s named-edition lookup
+  // entirely — g.script is just 'custom' at that point, not a real
+  // meta.editions id, so scriptPool(g.script) would return nothing.
+  const base = (g.customRoster && g.customRoster.length)
+    ? CHARACTERS.filter(c => g.customRoster.includes(c.id))
+    : scriptPool(g.script);
   const disabled = g.config.disabledCharacterIds || [];
-  if (!disabled.length) return scriptPool(g.script);
-  return scriptPool(g.script).filter(c => !disabled.includes(c.id));
+  if (!disabled.length) return base;
+  return base.filter(c => !disabled.includes(c.id));
 }
 
 function shuffle(input) {

@@ -2050,6 +2050,59 @@
         transform: translateX(18px);
         background: var(--bone);
       }
+
+      /* The script builder shares the settings overlay's chrome
+   (.settings-overlay/.settings-header/.settings-body/.settings-section)
+   for the header and per-team grouping, adding just the character-chip
+   grid and the sticky commit footer below it. */
+      .script-builder-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .script-builder-grid {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      .script-builder-chip {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.85rem;
+        padding: 7px 14px;
+        border-radius: 20px;
+        border: 1px solid var(--line);
+        background: var(--surface);
+        color: var(--bone-dim);
+        cursor: pointer;
+        user-select: none;
+      }
+      .script-builder-chip input {
+        margin: 0;
+      }
+      .script-builder-chip.on {
+        border-color: var(--brass);
+        background: rgba(184, 134, 63, 0.14);
+        color: var(--bone);
+      }
+      .script-builder-footer {
+        position: sticky;
+        bottom: 0;
+        margin-top: 24px;
+        padding: 16px 0 4px;
+        border-top: 1px solid var(--line);
+        background: var(--void);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        flex-wrap: wrap;
+      }
+      .script-builder-error {
+        color: var(--oxblood-hi);
+        font-size: 0.85rem;
+      }
       .llm-status {
         font-size: 0.82rem;
         margin-top: 6px;

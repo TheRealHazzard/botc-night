@@ -201,7 +201,7 @@ module.exports = (h) => [
       if (!dead) return;
       let shown = h.trueChar(dead);
       if (broken) {
-        const others = h.scriptPool(g.script).filter(x => x.id !== shown.id);
+        const others = h.activeScriptPool(g).filter(x => x.id !== shown.id);
         shown = h.pick(others);
       }
       results[p.id] = { title: 'Undertaker', body: `Executed today: the ${shown.name}.` };
@@ -220,7 +220,7 @@ module.exports = (h) => [
       if (!t) return;
       let shown = h.trueChar(t);
       if (broken) {
-        const others = h.scriptPool(g.script).filter(x => x.id !== shown.id);
+        const others = h.activeScriptPool(g).filter(x => x.id !== shown.id);
         shown = h.pick(others);
       }
       results[p.id] = { title: 'Ravenkeeper', body: `${t.name} is the ${shown.name}.` };

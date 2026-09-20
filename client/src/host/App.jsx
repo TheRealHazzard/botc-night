@@ -11,6 +11,7 @@ import Icon from "./components/Icon.jsx";
 import ReclaimBanner from "./components/ReclaimBanner.jsx";
 import FatalFlashOverlay from "./components/FatalFlashOverlay.jsx";
 import SettingsOverlay from "./components/SettingsOverlay.jsx";
+import ScriptBuilderOverlay from "./components/ScriptBuilderOverlay.jsx";
 import LobbyView from "./views/LobbyView.jsx";
 import RevealView from "./views/RevealView.jsx";
 import NightView from "./views/NightView.jsx";
@@ -35,6 +36,7 @@ export default function App() {
   const scripts = useScripts();
   const scriptChars = useScriptRoster(displayS?.script);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [buildingScript, setBuildingScript] = useState(false);
   // Independent of the BOTC phase machine below — switching tabs never
   // touches `game` state, so an in-progress night is never at risk from a
   // peek at the toolkit, and the underlying phase/SSE stream keeps running
@@ -58,6 +60,7 @@ export default function App() {
     if (displayS?.phase !== "lobby") {
       setBrowsing(false);
       setConfirming(false);
+      setBuildingScript(false);
     }
   }, [displayS?.phase]);
 
@@ -183,6 +186,7 @@ export default function App() {
                 browsedMeta={browsedMeta}
                 onBrowse={setBrowseIndex}
                 onEnterBrowse={enterBrowse}
+                onBuildScript={() => setBuildingScript(true)}
               />
             )}
             {displayS.phase === "reveal" && (
@@ -254,6 +258,14 @@ export default function App() {
           llmConfigured={displayS.llmConfigured}
           patchConfig={patchConfig}
           onClose={() => setSettingsOpen(false)}
+        />
+      )}
+
+      {buildingScript && (
+        <ScriptBuilderOverlay
+          playerCount={displayS.players.length}
+          onClose={() => setBuildingScript(false)}
+          onCommitted={() => setBuildingScript(false)}
         />
       )}
     </>

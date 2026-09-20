@@ -15,7 +15,7 @@ import Icon from '../Icon.jsx';
     this vs. the browsing UI (LobbyView's 3-panel takeover, or
     GameLeftPanel's locked in-game view) — this component only ever asks
     to be swapped out, it doesn't own that toggle state itself. */
-export default function ScriptViewPanel({ meta, locked = false, onChangeScript }) {
+export default function ScriptViewPanel({ meta, locked = false, onChangeScript, onBuildScript }) {
   return (
     <div className="script-view-panel">
       <ScriptBadge meta={meta} />
@@ -26,6 +26,11 @@ export default function ScriptViewPanel({ meta, locked = false, onChangeScript }
       <button type="button" className={locked ? 'ghostbtn' : undefined} disabled={locked} onClick={onChangeScript}>
         <Icon name="scroll" size={15} /> Change script
       </button>
+      {onBuildScript && (
+        <button type="button" className={locked ? 'ghostbtn' : undefined} disabled={locked} onClick={onBuildScript}>
+          <Icon name="dice" size={15} /> Build a script
+        </button>
+      )}
     </div>
   );
 }

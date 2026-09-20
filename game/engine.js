@@ -45,6 +45,11 @@ function newGame() {
   return {
     phase: 'lobby',
     script: 'tb',
+    // A caller-supplied character-id list, dealt instead of a named
+    // edition's own roster (see activeScriptPool in helpers.js) — null
+    // whenever the table's playing an actual meta.editions script, same as
+    // most tables always will be. Set alongside script:'custom'.
+    customRoster: null,
     nightNumber: 0,
     wave: 0,
     windowEndsAt: null,

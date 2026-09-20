@@ -2817,6 +2817,34 @@ console.log('\nResult kind metadata (Phase 6: differentiated result cards)');
     gSpy.results.sp1.kind === 'grimoire' && Array.isArray(gSpy.results.sp1.grimoire));
 }
 
+console.log('\nCustom roster (Phase 9: script builder)');
+{
+  const mk = (id, characterId, alive = true) => ({ id, name: id, characterId, believedId: characterId, alive, statuses: {} });
+
+  const gc = E.newGame();
+  gc.customRoster = ['imp', 'poisoner', 'washerwoman', 'soldier', 'slayer'];
+  gc.players = [mk('p1', 'x'), mk('p2', 'x'), mk('p3', 'x'), mk('p4', 'x'), mk('p5', 'x')];
+  check('activeScriptPool returns exactly the custom roster, regardless of g.script',
+    JSON.stringify(E.activeScriptPool(gc).map(c => c.id).sort()) === JSON.stringify(['imp', 'poisoner', 'slayer', 'soldier', 'washerwoman'].sort()));
+
+  E.dealRoles(gc);
+  const dealtIds = gc.players.map(p => p.characterId).sort();
+  check('dealRoles deals only from the custom roster, one demon and one minion',
+    dealtIds.every(id => gc.customRoster.includes(id)) &&
+    dealtIds.filter(id => id === 'imp').length === 1 &&
+    dealtIds.filter(id => id === 'poisoner').length === 1,
+    JSON.stringify(dealtIds));
+
+  // Bucket-4 disables still apply on top of a custom roster, same as a
+  // named edition — activeScriptPool is the one shared choke point both
+  // paths run through.
+  const gDisabled = E.newGame();
+  gDisabled.customRoster = ['imp', 'poisoner', 'gossip', 'washerwoman', 'soldier'];
+  gDisabled.config.disabledCharacterIds = ['gossip'];
+  check('a Bucket-4 disable still filters a custom roster',
+    !E.activeScriptPool(gDisabled).some(c => c.id === 'gossip'));
+}
+
 console.log('\nEnd');
 g.revealed = true;
 check('reveal exposes the full grimoire',

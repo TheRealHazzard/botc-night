@@ -24,4 +24,16 @@ describe('ScriptViewPanel', () => {
     expect(btn).toBeDisabled();
     expect(btn).toHaveClass('ghostbtn');
   });
+
+  it('omits "Build a script" when onBuildScript is not passed (the in-game/locked view)', () => {
+    render(<ScriptViewPanel meta={meta} onChangeScript={() => {}} />);
+    expect(screen.queryByText(/build a script/i)).not.toBeInTheDocument();
+  });
+
+  it('shows "Build a script" and calls it when passed', async () => {
+    const onBuildScript = vi.fn();
+    render(<ScriptViewPanel meta={meta} onChangeScript={() => {}} onBuildScript={onBuildScript} />);
+    await userEvent.click(screen.getByText(/build a script/i));
+    expect(onBuildScript).toHaveBeenCalledTimes(1);
+  });
 });

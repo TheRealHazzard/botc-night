@@ -1015,7 +1015,7 @@ async function requestHandler(req, res) {
         // curated featuredCharacter (characters.json), which gets its
         // full ability text so the browse preview can give a real taste
         // of the script, not just a name and a team badge.
-        return json(res, 200, E.DATA.meta.editions.map(ed => {
+        const namedScripts = E.DATA.meta.editions.map(ed => {
           const pool = E.scriptPool(ed.id);
           const featured = ed.featuredCharacter && E.char(ed.featuredCharacter);
           return {
@@ -1027,7 +1027,44 @@ async function requestHandler(req, res) {
               : null,
             ...H.statsForEdition(ed.id),
           };
-        }));
+        });
+        // A synthetic entry so this table's own custom-built roster shows
+        // up wherever the client already looks up a script by id (the
+        // lobby's script card, the left panel's roster) — every one of
+        // those call sites already just finds-by-id in this list, none of
+        // them need to know "custom" isn't a real meta.editions entry.
+        if (game.customRoster && game.customRoster.length) {
+          const pool = game.customRoster.map(id => E.char(id)).filter(Boolean);
+          namedScripts.push({
+            id: 'custom', name: 'Custom Script', difficulty: null, playable: true,
+            description: 'A one-off roster assembled just for this table.',
+            characterCount: pool.length,
+            characters: pool.map(c => ({ id: c.id, name: c.name, team: c.team })),
+            featuredCharacter: null,
+            ...H.statsForEdition('custom'),
+          });
+        }
+        return json(res, 200, namedScripts);
+      }
+
+      if (route === '/api/setup-table') {
+        // The official Townsfolk/Outsider/Minion/Demon counts by player
+        // count — static, but the script builder needs it client-side for
+        // live balance feedback while a roster is still being assembled,
+        // before there's a real game to read setupRatio (publicState's
+        // own field) off of.
+        return json(res, 200, E.SETUP_TABLE);
+      }
+
+      if (route === '/api/characters') {
+        // Every real character across every script, for the script
+        // builder's own multi-select — deliberately not scoped to any one
+        // edition's roster the way /api/scripts's characters[] is.
+        // team:'special' (minion_info/demon_info) are informational-only
+        // grimoire entries, never a real dealable character.
+        return json(res, 200, E.CHARACTERS
+          .filter(c => c.team !== 'special')
+          .map(c => ({ id: c.id, name: c.name, team: c.team, ability: c.ability })));
       }
 
       if (route === '/api/join-address') {
@@ -1043,7 +1080,10 @@ async function requestHandler(req, res) {
         // useful any time someone claims a role mid-discussion.
         return json(res, 200, {
           edition: game.script,
-          characters: E.scriptPool(game.script).map(c => ({
+          // activeScriptPool, not scriptPool directly — a custom-built
+          // roster (game.script === 'custom') has no meta.editions entry
+          // for scriptPool() to look up at all.
+          characters: E.activeScriptPool(game).map(c => ({
             id: c.id, name: c.name, team: c.team, ability: c.ability,
           })),
         });
@@ -1724,7 +1764,7 @@ async function requestHandler(req, res) {
           if (!t || t.id === p.id || !E.publiclyAlive(t)) return json(res, 400, { error: 'Invalid target.' });
           if (seen.has(t.id)) return json(res, 400, { error: 'Duplicate player in guesses.' });
           seen.add(t.id);
-          if (!E.scriptPool(game.script).some(c => c.id === guess.characterGuess)) {
+          if (!E.activeScriptPool(game).some(c => c.id === guess.characterGuess)) {
             return json(res, 400, { error: 'Invalid character guess.' });
           }
         }
@@ -1899,12 +1939,35 @@ async function requestHandler(req, res) {
 
       if (route === '/api/table/script') {
         if (game.phase !== 'lobby') return json(res, 409, { error: 'Roles are already dealt.' });
+
+        // The script builder's own path — a caller-supplied character list
+        // instead of one of the fixed meta.editions ids. Validated here,
+        // not client-side alone, since this is the one place that actually
+        // commits to game.customRoster.
+        if (Array.isArray(body.customRoster)) {
+          const ids = body.customRoster;
+          if (new Set(ids).size !== ids.length) return json(res, 400, { error: 'The roster has a duplicate character.' });
+          const unknown = ids.find(id => !E.char(id));
+          if (unknown) return json(res, 400, { error: `Unknown character: ${unknown}` });
+          if (ids.length < 5) return json(res, 400, { error: 'Choose at least 5 characters.' });
+          const chars = ids.map(id => E.char(id));
+          const missingTeam = ['townsfolk', 'minion', 'demon'].find(team => !chars.some(c => c.team === team));
+          if (missingTeam) return json(res, 400, { error: `A script needs at least one ${missingTeam}.` });
+
+          game.script = 'custom';
+          game.customRoster = ids;
+          E.logEvent(game, `A custom script of ${ids.length} characters was assembled.`);
+          pushHost();
+          return json(res, 200, { ok: true });
+        }
+
         if (!PLAYABLE_SCRIPTS.includes(body.script)) return json(res, 400, { error: 'That script isn\'t playable yet.' });
         const cap = SCRIPT_MAX_PLAYERS[body.script];
         if (cap && game.players.length > cap) {
           const name = E.DATA.meta.editions.find(ed => ed.id === body.script).name;
           return json(res, 400, { error: `${name} only supports up to ${cap} players — ${game.players.length} are seated.` });
         }
+        game.customRoster = null;
         game.script = body.script;
         E.logEvent(game, `Script set to ${body.script.toUpperCase()}.`);
         pushHost();

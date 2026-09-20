@@ -21,7 +21,7 @@ import { useJoinAddress } from '../hooks/useJoinAddress.js';
     header too (same App.jsx), for the same reason: a taskbar full of
     icon buttons reads as one coherent toolbar, not a pile of buttons
     competing with the QR code for the same narrow column. */
-export default function LobbyView({ players, script, scripts, setupRatio, browsing, browseIndex, browsedMeta, onBrowse, onEnterBrowse }) {
+export default function LobbyView({ players, script, scripts, setupRatio, browsing, browseIndex, browsedMeta, onBrowse, onEnterBrowse, onBuildScript }) {
   const joinAddr = useJoinAddress();
   const enteringIds = useEnteringSeatIds(players.map(p => p.id));
 
@@ -36,7 +36,7 @@ export default function LobbyView({ players, script, scripts, setupRatio, browsi
           <ScriptSelectorList scripts={scripts} browseIndex={browseIndex} currentScriptId={script} onBrowse={onBrowse} />
         </>
       ) : activeMeta ? (
-        <ScriptViewPanel meta={activeMeta} onChangeScript={onEnterBrowse} />
+        <ScriptViewPanel meta={activeMeta} onChangeScript={onEnterBrowse} onBuildScript={onBuildScript} />
       ) : (
         <div className="sub">Loading scripts…</div>
       )}
