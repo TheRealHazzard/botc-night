@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import DayView from './DayView.jsx';
 import { mockFetch } from '../../../test/fetchMock.js';
+import { installFakeAudioContext, resetAudioCalls } from '../../../test/fakeAudioContext.js';
 
 const players = [
   { id: 'p1', name: 'Ada', alive: true, connected: true, ghostVoteUsed: false, color: null },
@@ -12,7 +13,11 @@ const activeScriptMeta = { id: 'tb', name: 'Trouble Brewing', difficulty: 1, des
 const config = { voteWindowSeconds: 20 };
 
 describe('DayView', () => {
-  beforeEach(() => mockFetch({ '/api/tokens': {}, '/trivia.json': [] }));
+  beforeEach(() => {
+    mockFetch({ '/api/tokens': {}, '/trivia.json': [] });
+    installFakeAudioContext();
+    resetAudioCalls();
+  });
 
   it('shows the death narration for last night, with a skull', () => {
     const { container } = render(
@@ -154,6 +159,28 @@ describe('DayView', () => {
     const whimLog = [{ night: 1, phase: 'day', text: 'A quiet decision was made, unseen.', secret: false }];
     rerender(<DayView players={players} nightNumber={1} deaths={[]} mastermindExtraDay={false} nominations={[]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} log={whimLog} />);
     expect(screen.getByText('A quiet decision, unseen.')).toBeInTheDocument();
+  });
+
+  it('a fresh execution shows the minor-beat overlay; a pre-existing one on mount does not', () => {
+    const { rerender } = render(
+      <DayView players={players} nightNumber={1} deaths={[]} mastermindExtraDay={false} nominations={[]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
+    );
+    expect(screen.queryByText('Ada is executed.')).not.toBeInTheDocument();
+
+    rerender(
+      <DayView players={players} nightNumber={1} deaths={[{ name: 'Ada', night: 1, cause: 'execution' }]} mastermindExtraDay={false} nominations={[]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
+    );
+    expect(screen.getByText('Ada is executed.')).toBeInTheDocument();
+  });
+
+  it('a fresh night-kill death does not show the minor-beat overlay', () => {
+    const { rerender } = render(
+      <DayView players={players} nightNumber={1} deaths={[]} mastermindExtraDay={false} nominations={[]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
+    );
+    rerender(
+      <DayView players={players} nightNumber={1} deaths={[{ name: 'Bo', night: 1, cause: 'demon' }]} mastermindExtraDay={false} nominations={[]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
+    );
+    expect(screen.queryByText('Bo is executed.')).not.toBeInTheDocument();
   });
 
   it('the auto-computed leader ignores a qualifying nominee who has since died', () => {
