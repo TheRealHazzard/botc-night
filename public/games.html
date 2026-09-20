@@ -237,6 +237,14 @@ function renderDetail(id) {
     );
     summary.append(v);
     if (g.reason) summary.append(el('p', null, g.reason));
+    const shareLink = el('a', 'small', 'Shareable recap →');
+    shareLink.href = '/recap?id=' + encodeURIComponent(id);
+    shareLink.target = '_blank';
+    shareLink.rel = 'noopener';
+    shareLink.style.textDecoration = 'underline';
+    shareLink.style.textUnderlineOffset = '3px';
+    summary.append(el('p', 'small muted', ''));
+    summary.lastChild.append(document.createTextNode('Paste-ready for a group chat: '), shareLink);
     view.append(summary);
 
     const roster = el('div', 'panel');

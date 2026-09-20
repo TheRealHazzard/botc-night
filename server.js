@@ -919,6 +919,16 @@ const GATE_EXEMPT = new Set([
   '/enter-table-code.html', '/enter-host-code.html',
   '/api/enter-table-code', '/api/enter-host-code',
   '/ca.pem',
+  // A deliberate, narrow hole: a finished game's recap, meant to be pasted
+  // into a group chat by people who were never given the table code.
+  // Safe specifically because H.recapFor() (game/history.js) can
+  // structurally never read a live game — it only ever reads
+  // data/games.jsonl, which a game is appended to once, at the moment it
+  // actually ends (recordGameHistory in this file), and never before. Both
+  // routes below only ever serve that same already-finished, already-
+  // revealed data; nothing here has a code path back to the live `game`
+  // object this file holds.
+  '/recap', '/api/recap',
 ]);
 
 // Returns true if this request was fully handled here — the caller must
@@ -965,6 +975,7 @@ async function requestHandler(req, res) {
       if (route === '/stats') return serveFile(res, 'stats.html');
       if (route === '/games') return serveFile(res, 'games.html');
       if (route === '/hall-of-fame') return serveFile(res, 'hall-of-fame.html');
+      if (route === '/recap') return serveFile(res, 'recap.html');
 
       // Explicit route (rather than falling through to the generic static
       // fallback below) so this always carries Cache-Control: no-cache —
