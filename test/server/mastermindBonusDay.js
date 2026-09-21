@@ -9,31 +9,12 @@
    real paths that can end it are covered here, not just the one that
    already had an explicit code branch for it before tonight's fix. */
 
-const { startServer, request } = require('./harness.js');
+const { startServer, request, answerAllNightPrompts } = require('./harness.js');
 
 let failures = 0;
 function check(label, ok, detail) {
   if (!ok) { failures++; console.log(`  FAIL  ${label}${detail ? ' — ' + detail : ''}`); }
   else console.log(`  ok    ${label}`);
-}
-
-function shuffle(arr) {
-  const a = arr.slice();
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
-
-async function answerAllNightPrompts(baseUrl, tokens) {
-  for (const token of tokens) {
-    const { json: state } = await request(baseUrl, `/api/state?token=${token}`);
-    if (!state.you.alive || !state.prompt || state.submitted) continue;
-    const targets = shuffle(state.prompt.targets).slice(0, state.prompt.count).map(t => t.id);
-    const r = await request(baseUrl, '/api/action', { method: 'POST', body: { token, targets } });
-    if (r.json && r.json.error) throw new Error(`/api/action for ${token} failed: ${r.json.error}`);
-  }
 }
 
 /** 3 townsfolk + Mastermind (minion) + Imp (demon) — deliberately mixing

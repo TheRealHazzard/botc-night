@@ -136,4 +136,48 @@ async function request(baseUrl, routePath, { method = 'GET', body } = {}) {
   return { status: res.status, json };
 }
 
-module.exports = { startServer, request };
+function shuffle(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+/** Every living player gets a real-or-decoy prompt every night by design
+    (see promptFor in game/engine.js) — read each one's own /api/state and
+    answer with a random valid target, so this stays roster-agnostic
+    instead of hand-coding per-character behavior.
+
+    Two real bugs this random choice has produced, both fixed here once
+    rather than in each test file that used to keep its own copy:
+    (1) "always pick the first listed target" could deterministically make
+    the same Poisoner re-poison the same Imp forever, since target order
+    is stable night to night — fixed by shuffling. (2) A properly random
+    pick can still choose to SELF-target — legal for most abilities, but
+    for the Imp specifically that's a real star-pass, and if its own
+    Poisoner happened to have died earlier in the SAME random-targeting
+    run, there's nobody left to inherit it, ending the game as a good win
+    the test never expects. A real evil player's own bot logic
+    (server.js's botChoice()) already avoids exactly this by never
+    self-targeting while another option exists; this mirrors that one
+    rule, without needing this HTTP-only test to also know who's evil
+    (a real privacy boundary /api/state correctly never exposes mid-game). */
+async function answerAllNightPrompts(baseUrl, tokens) {
+  for (const token of tokens) {
+    const { json: state } = await request(baseUrl, `/api/state?token=${token}`);
+    if (!state.you.alive || !state.prompt || state.submitted) continue;
+    const pool = state.prompt.targets.filter(t => t.id !== state.you.id);
+    const candidates = pool.length >= state.prompt.count ? pool : state.prompt.targets;
+    const targets = shuffle(candidates).slice(0, state.prompt.count).map(t => t.id);
+    const body = { token, targets };
+    if (state.prompt.guessCharacter && state.prompt.characterOptions && state.prompt.characterOptions.length) {
+      body.characterGuess = shuffle(state.prompt.characterOptions)[0].id;
+    }
+    const r = await request(baseUrl, '/api/action', { method: 'POST', body });
+    if (r.json && r.json.error) throw new Error(`/api/action for ${token} failed: ${r.json.error}`);
+  }
+}
+
+module.exports = { startServer, request, shuffle, answerAllNightPrompts };

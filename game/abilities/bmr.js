@@ -16,7 +16,8 @@ module.exports = (h) => [
     resolve(g, p, action, { broken, target }) {
       const [t] = target(action && action.targets);
       if (t && !broken) {
-        const drunkOne = Math.random() < 0.5 ? p : t;
+        const picked = h.decide(g, `sailor-drunk:${p.id}:${g.nightNumber}`, () => Math.random() < 0.5 ? p : t, x => ({ id: x.id, name: x.name }));
+        const drunkOne = picked.id === p.id ? p : t;
         drunkOne.statuses.drunk = true;
         drunkOne.statuses.drunkUntilNight = g.nightNumber;
         h.logEvent(g, `Sailor's choice of ${t.name} leaves ${drunkOne.name} drunk until dusk.`, true);
@@ -333,8 +334,16 @@ module.exports = (h) => [
           }
         }
         const lastNightKills = g.deaths.filter(d => d.night === g.nightNumber - 1 && d.killedByDemon);
-        if (lastNightKills.length && Math.random() < g.config.shabalothRegurgitateChance) {
-          const victim = g.players.find(x => x.name === h.pick(lastNightKills).name && !x.alive);
+        // One decision, not two: which of possibly several last-night
+        // kills comes back (if any) is itself a random pick, same
+        // structural-outcome category as whether it fires at all.
+        const revive = lastNightKills.length && h.decide(
+          g, `shabaloth-regurgitate:${g.nightNumber}`,
+          () => Math.random() < g.config.shabalothRegurgitateChance ? h.pick(lastNightKills) : null,
+          v => v && { name: v.name },
+        );
+        if (revive) {
+          const victim = g.players.find(x => x.name === revive.name && !x.alive);
           if (victim) {
             victim.alive = true;
             delete victim.statuses.diedTonight;

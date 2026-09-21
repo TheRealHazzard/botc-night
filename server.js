@@ -147,6 +147,16 @@ const GOSSIP_ARTIST_SYSTEM = {
     startSimulation) that don't otherwise know this field needs to exist.
     Capped so an hours-long table doesn't grow this unbounded. */
 async function llmCall(kind, opts) {
+  // Replay tool, slice 2: substitutes the recorded response instead of
+  // calling a live model — same ordered-queue, tag-checked pattern as
+  // game/helpers.js's decide(), reusing slice 1's own llmLog as the feed.
+  if (game.replayFeed && game.replayFeed.llmResponses && game.replayFeed.llmResponses.length) {
+    const next = game.replayFeed.llmResponses.shift();
+    if (next.kind !== kind) {
+      E.logEvent(game, `Replay divergence: expected LLM call "${next.kind}", this run reached "${kind}".`, false);
+    }
+    return { ok: next.ok, data: next.data, reason: next.reason };
+  }
   const at = Date.now();
   const result = await askStoryteller(opts);
   if (!game.llmLog) game.llmLog = [];
@@ -855,6 +865,12 @@ function recordGameHistory() {
     // Nothing else recorded here captures the *choice* itself, only its
     // effect (resultsLog) or its visible consequence (deaths/log).
     privateActionLog: game.privateActionLog || [],
+    // Each seat's actual dealt characterId/believedId/statuses, snapshotted
+    // the moment dealing finished — see /api/table/deal. players[] above
+    // shows a seat's FINAL characterId, which a star-pass, a succession,
+    // or a Barber/Snake Charmer/Pit-Hag swap can leave different from what
+    // it started as; replay needs the real starting point.
+    startingAssignment: game.startingAssignment || [],
     // The one game-level (not per-seat) setup secret dealRoles() computes —
     // see game/engine.js's own dealRoles().
     puzzlemasterDrunkId: game.puzzlemasterDrunkId || null,
@@ -2639,7 +2655,25 @@ async function requestHandler(req, res) {
           const name = E.DATA.meta.editions.find(ed => ed.id === game.script).name;
           return json(res, 400, { error: `${name} only supports up to ${dealCap} players — ${game.players.length} are seated.` });
         }
-        try { E.dealRoles(game); } catch (e) { return json(res, 400, { error: e.message }); }
+        // presetAssignment/replayFeed: replay tool, slice 2 — a real
+        // client never sends either, so normal dealing is untouched.
+        try { E.dealRoles(game, body.presetAssignment, body.puzzlemasterId); } catch (e) { return json(res, 400, { error: e.message }); }
+        if (body.replayFeed) game.replayFeed = body.replayFeed;
+        // The one snapshot recordGameHistory() can't reconstruct after the
+        // fact: a seat's characterId at game-over reflects the Imp's own
+        // star-pass, Scarlet Woman's succession, a Barber/Snake Charmer/
+        // Pit-Hag swap — whatever it ended AS, not what it was actually
+        // DEALT. Replay needs the real starting point, not the final one.
+        game.startingAssignment = game.players.map(p => ({
+          // playerId included (unlike anywhere else in the persisted
+          // history) specifically so a replay driver can recover a NAME
+          // for every seat, not just the ones who happen to act, vote, or
+          // nominate — a seat with no active night ability (Baron, say)
+          // never appears anywhere else with its id paired to a name, but
+          // still needs one the moment it's the TARGET of somebody else's
+          // recorded action.
+          playerId: p.id, seatName: p.name, characterId: p.characterId, believedId: p.believedId, statuses: { ...p.statuses },
+        }));
         pushAll();
         return json(res, 200, { ok: true });
       }

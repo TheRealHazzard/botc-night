@@ -10,7 +10,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { startServer, request } = require('./harness.js');
+const { startServer, request, answerAllNightPrompts } = require('./harness.js');
 
 let failures = 0;
 function check(label, ok, detail) {
@@ -20,38 +20,6 @@ function check(label, ok, detail) {
 
 const REAL_GAMES_FILE = path.join(__dirname, '..', '..', 'data', 'games.jsonl');
 const realGamesFileBefore = fs.existsSync(REAL_GAMES_FILE) ? fs.readFileSync(REAL_GAMES_FILE, 'utf8') : null;
-
-function shuffle(arr) {
-  const a = arr.slice();
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
-
-/** Every living player gets a real-or-decoy prompt every night by design
-    (see promptFor in game/engine.js) — read each one's own /api/state and
-    answer with a random valid target, so this stays roster-agnostic
-    instead of hand-coding per-character behavior. Random, not "always the
-    first target": target order is stable across nights for the same game,
-    so an "always pick index 0" bot can deterministically make the same
-    Poisoner re-poison the same Imp every single night — a test-harness
-    artifact, not a real game bug, but one that silently stalled every kill
-    for the rest of the game the first time this test ran. */
-async function answerAllNightPrompts(baseUrl, tokens) {
-  for (const token of tokens) {
-    const { json: state } = await request(baseUrl, `/api/state?token=${token}`);
-    if (!state.you.alive || !state.prompt || state.submitted) continue;
-    const targets = shuffle(state.prompt.targets).slice(0, state.prompt.count).map(t => t.id);
-    const body = { token, targets };
-    if (state.prompt.guessCharacter && state.prompt.characterOptions && state.prompt.characterOptions.length) {
-      body.characterGuess = shuffle(state.prompt.characterOptions)[0].id;
-    }
-    const r = await request(baseUrl, '/api/action', { method: 'POST', body });
-    if (r.json && r.json.error) throw new Error(`/api/action for ${token} failed: ${r.json.error}`);
-  }
-}
 
 (async () => {
   const server = await startServer();

@@ -13,6 +13,7 @@ const {
   triggerPixieIfNeeded, applyCannibalTransform,
   logEvent, outsiderDiedToday, minionDiedToday, somebodyDiedYesterday,
   numberSignal, falseNumber, evilNeighbourCount, evilPairCount, pairInfo,
+  decide,
 } = H;
 
 // One registry entry per active character (real night prompt and/or
@@ -152,7 +153,35 @@ function newGame() {
 
 /* ------------------------------------------------------------------ setup */
 
-function dealRoles(g) {
+/** `presetAssignment` (replay tool, slice 2): an optional
+    `[{playerId, characterId, believedId, statuses}]`, from a finished
+    game's own persisted record. When given, every pool/shuffle/take()
+    below is skipped entirely — this directly restores each seat exactly
+    as slice 1 recorded it, rather than trying to re-roll dealRoles' own
+    randomness into landing on the same result again. `puzzlemasterId`
+    is the one game-level (not per-seat) setup secret, restored the same
+    way. A real client never sends either — nothing about normal dealing
+    changes. */
+function dealRoles(g, presetAssignment, puzzlemasterId) {
+  if (presetAssignment) {
+    for (const preset of presetAssignment) {
+      const p = byId(g, preset.playerId);
+      // Loud, not a silent skip: a presetAssignment entry that matches
+      // nobody means the driver's own id-remap step is wrong, and dealing
+      // the OTHER seats correctly while quietly leaving this one
+      // undealt is a much worse failure to debug than an error here.
+      if (!p) throw new Error(`presetAssignment: no player with id ${preset.playerId}`);
+      p.characterId = preset.characterId;
+      p.believedId = preset.believedId;
+      p.alive = true;
+      p.statuses = preset.statuses || {};
+    }
+    if (puzzlemasterId) g.puzzlemasterDrunkId = puzzlemasterId;
+    g.phase = 'reveal';
+    logEvent(g, `Roles dealt to ${g.players.length} players (replay).`);
+    return;
+  }
+
   const n = g.players.length;
   const table = SETUP_TABLE[String(n)];
   if (!table) throw new Error(`No setup defined for ${n} players (need 5-15).`);
@@ -742,7 +771,9 @@ async function resolveNight(g, wave = 1) {
   // like Mayor's redirect and Recluse's registration, as a per-night roll.
   if (wave === 1) {
     for (const tinker of alive(g).filter(x => x.characterId === 'tinker')) {
-      if (!impaired(tinker) && Math.random() < g.config.tinkerDeathChance) {
+      // Preserving the original short-circuit exactly: an impaired Tinker
+      // never rolls at all, not "rolls but the death never lands."
+      if (!impaired(tinker) && decide(g, `tinker-death:${tinker.id}:${g.nightNumber}`, () => Math.random() < g.config.tinkerDeathChance)) {
         // A real death happening tonight — Innkeeper's protection is
         // attacker-agnostic and has to apply here too (nightKill, not
         // demonAttack, since this isn't the Demon and shouldn't also
@@ -868,7 +899,7 @@ function resolveMastermindDay(g, executedPlayer) {
 function resolveMadness(g) {
   for (const p of alive(g)) {
     if (!p.statuses.madReasons || !p.statuses.madReasons.length) continue;
-    if (!p.statuses.madClaimedToday && Math.random() < g.config.madExecutionChance) {
+    if (!p.statuses.madClaimedToday && decide(g, `mad-execution:${p.id}:${g.nightNumber}`, () => Math.random() < g.config.madExecutionChance)) {
       const blocked = checkKill(g, p, { executionAttack: true });
       if (blocked) {
         logEvent(g, `${p.name} didn't act mad enough and should have been executed, but survives (${blocked}).`);

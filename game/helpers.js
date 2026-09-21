@@ -229,6 +229,33 @@ function wouldBlockKill(g, target, { demonAttack = false, executionAttack = fals
  * doesn't wrongly grant Soldier's Demon-only immunity (same distinction
  * `wouldBlockKill`'s own `nightKill` parameter exists to make elsewhere).
  */
+/** Replay tool, slice 2: the one place a "structural" random roll (one
+    whose outcome changes later game state, not just what a player is
+    told) gets made, everywhere in the engine. Normal play: run
+    `computeFresh()`, log the outcome (via `toLogValue`, when the raw
+    result isn't already loggable — e.g. a player object) to
+    `g.decisionLog`, return it. Replay (`g.replayFeed` set — see
+    dealRoles' presetAssignment): skip `computeFresh()` entirely and
+    return the next recorded outcome instead, in strict order. `tag` is
+    never used to look anything up — replay feeds back the same sequence
+    of actions in the same order by construction, so a plain queue
+    suffices — it's only ever compared against what the *next* queued
+    entry claims to be, so a mismatch (this game no longer reproduces
+    under the current code) surfaces immediately instead of silently
+    replaying the wrong thing. */
+function decide(g, tag, computeFresh, toLogValue) {
+  if (g.replayFeed) {
+    const next = g.replayFeed.decisions.shift();
+    if (next && next.tag !== tag) {
+      logEvent(g, `Replay divergence: expected "${next.tag}", this run reached "${tag}".`, false);
+    }
+    return next ? next.value : computeFresh();
+  }
+  const result = computeFresh();
+  g.decisionLog.push({ night: g.nightNumber, tag, value: toLogValue ? toLogValue(result) : result });
+  return result;
+}
+
 /** dramaBias's one real hook (0 = coldly random, 1 = maximum tension, same
     scale the config's own doc-comment describes) — every other setting on
     the roadmap already had a real effect; this one had a slider, a
@@ -248,18 +275,21 @@ function wouldBlockKill(g, target, { demonAttack = false, executionAttack = fals
     the same (pick()'s plain uniform draw); weight scales linearly with
     today's own nomination count as bias rises to 1. */
 function dramaticPick(g, candidates) {
-  if (!g.config.dramaBias) return pick(candidates);
-  const weights = candidates.map(x => {
-    const nominatedCount = g.nominations.filter(n => n.nomineeId === x.id).length;
-    return 1 + g.config.dramaBias * nominatedCount;
-  });
-  const total = weights.reduce((sum, w) => sum + w, 0);
-  let roll = Math.random() * total;
-  for (let i = 0; i < candidates.length; i++) {
-    roll -= weights[i];
-    if (roll <= 0) return candidates[i];
-  }
-  return candidates[candidates.length - 1];
+  const picked = decide(g, 'dramatic-pick:' + g.nightNumber, () => {
+    if (!g.config.dramaBias) return pick(candidates);
+    const weights = candidates.map(x => {
+      const nominatedCount = g.nominations.filter(n => n.nomineeId === x.id).length;
+      return 1 + g.config.dramaBias * nominatedCount;
+    });
+    const total = weights.reduce((sum, w) => sum + w, 0);
+    let roll = Math.random() * total;
+    for (let i = 0; i < candidates.length; i++) {
+      roll -= weights[i];
+      if (roll <= 0) return candidates[i];
+    }
+    return candidates[candidates.length - 1];
+  }, p => ({ id: p.id, name: p.name }));
+  return candidates.find(c => c.id === picked.id) || candidates[0];
 }
 
 // Module-level, not per-game: this process only ever runs one table at a
@@ -348,25 +378,39 @@ function logWhimConfirm(g, { kind, fired, reason }) {
  * fire," it never has to remember to log anything itself.
  */
 async function resolveWhim(g, ctx) {
+  const tag = `whim:${ctx.kind}`;
   let fired, reason = null;
-  if (whimJudge) {
-    try {
-      const verdict = await whimJudge(g, ctx);
-      if (verdict !== undefined) {
-        fired = !!verdict.fire;
-        reason = verdict.reason || null;
-      }
-    } catch (e) {
-      // fall through to the legacy roll below
+  // Replay: never re-consults a live judge (there may not even be one
+  // running) — just plays back what actually fired. Checked first, before
+  // whimJudge, unlike decide()'s own compute-then-log shape below: this
+  // roll's "compute" step is itself async and network-dependent, so
+  // replay needs to skip it entirely rather than compute-then-discard.
+  if (g.replayFeed) {
+    const next = g.replayFeed.decisions.shift();
+    if (next && next.tag !== tag) {
+      logEvent(g, `Replay divergence: expected "${next.tag}", this run reached "${tag}".`, false);
     }
+    ({ fired = false, reason = null } = (next && next.value) || {});
+  } else {
+    if (whimJudge) {
+      try {
+        const verdict = await whimJudge(g, ctx);
+        if (verdict !== undefined) {
+          fired = !!verdict.fire;
+          reason = verdict.reason || null;
+        }
+      } catch (e) {
+        // fall through to the legacy roll below
+      }
+    }
+    if (fired === undefined) {
+      fired = Math.random() < WHIM_LEGACY_CHANCE[ctx.kind](g);
+    }
+    // Unconditional, unlike logWhimConfirm below — a whim that doesn't
+    // fire outside the <=5-living window otherwise leaves no trace
+    // anywhere a replay could read back. Never shown live, history-only.
+    g.decisionLog.push({ night: g.nightNumber, tag, value: { fired, reason } });
   }
-  if (fired === undefined) {
-    fired = Math.random() < WHIM_LEGACY_CHANCE[ctx.kind](g);
-  }
-  // Unconditional, unlike logWhimConfirm below — a whim that doesn't fire
-  // outside the <=5-living window otherwise leaves no trace anywhere a
-  // replay could read back. Never shown live, only ever read from history.
-  g.decisionLog.push({ night: g.nightNumber, tag: `whim:${ctx.kind}`, value: { fired, reason } });
   if (alive(g).length <= 5) logWhimConfirm(g, { kind: ctx.kind, fired, reason });
   if (fired) logWhim(g);
   return fired;
@@ -803,4 +847,5 @@ module.exports = {
   minionNominatedToday, demonVotedToday, vortoxActive,
   numberSignal, falseNumber, evilNeighbourCount, evilPairCount, pairInfo,
   resultCount, resultYesNo, resultPointer,
+  decide,
 };
