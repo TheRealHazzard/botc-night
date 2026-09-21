@@ -680,6 +680,10 @@
         >Night
         <input type="number" id="speed" min="2" max="60" value="6" />s</label
       >
+      <label title="Gossip/Savant/Artist and the Mayor/Recluse-Spy/Pacifist whim rolls use it, if enabled — but bots can't trigger Gossip/Savant/Artist at all, only the whim rolls (Trouble Brewing or Bad Moon Rising), so a pure bot game on other scripts won't show any traffic on the LLM Storyteller panel below.">
+        <input type="checkbox" id="llmToggle" />
+        LLM Storyteller
+      </label>
       <button class="primary" id="run">Run a game</button>
       <button id="pause" disabled>Pause</button>
     </header>
@@ -1278,9 +1282,13 @@
         const players = Number(document.getElementById("players").value) || 9;
         const speed = Number(document.getElementById("speed").value) || 6;
         const script = document.getElementById("simScript").value;
-        post("/api/sim/start", { players, speed, script }).then(() =>
-          connect(),
-        );
+        const llmStorytellerEnabled = document.getElementById("llmToggle").checked;
+        post("/api/sim/start", {
+          players,
+          speed,
+          script,
+          config: { llmStorytellerEnabled },
+        }).then(() => connect());
       };
       document.getElementById("pause").onclick = () => post("/api/sim/pause");
       document.getElementById("modeObserver").onclick = () =>
