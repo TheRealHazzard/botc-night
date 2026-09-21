@@ -1107,6 +1107,53 @@
         .whim-beat { animation: none; }
       }
 
+      /* The Confirm — a stronger, harder-to-miss sibling of .whim-beat,
+   reserved for the rarer case where the game is close enough that the call
+   plausibly mattered. Fixed and view-agnostic (rendered from App.jsx, not
+   any one phase view) because the state carrying it can arrive already on
+   a different phase than the one the decision was made in. Persistent
+   (no auto-fade) since it's meant to be read and dismissed, not glanced at
+   like the beat. */
+      .whim-confirm {
+        position: fixed;
+        right: 20px;
+        bottom: 20px;
+        z-index: 40;
+        width: min(340px, calc(100vw - 40px));
+        background: var(--surface);
+        border: 1px solid var(--brass);
+        border-radius: 8px;
+        padding: 16px 18px;
+        box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+        animation: whim-confirm-in 0.25s ease-out;
+      }
+      .whim-confirm-head {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: var(--brass);
+        font-size: 0.78rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        margin-bottom: 8px;
+      }
+      .whim-confirm p {
+        margin: 0 0 12px;
+        font-size: 0.92rem;
+        color: var(--bone);
+        line-height: 1.4;
+      }
+      .whim-confirm button {
+        width: 100%;
+      }
+      @keyframes whim-confirm-in {
+        from { opacity: 0; transform: translateY(8px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .whim-confirm { animation: none; }
+      }
+
       /* ---------------------------------------------------------- the dashboard
    Center is always the ring — the one thing everyone at the table actually
    watches — with contextual side panels for whatever info/controls that

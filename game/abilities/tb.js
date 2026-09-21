@@ -137,9 +137,9 @@ module.exports = (h) => [
         const tc = h.trueChar(x);
         if (tc.team === 'demon' || x.statuses.redHerring) { answer = true; break; }
         if (tc.id === 'recluse') {
-          const rolled = await h.resolveWhim(g, { kind: 'registration-ambiguity', target: x });
-          if (rolled) h.logWhim(g); // same registration whim as isEvilRegistration()/pairInfo() — this is its own independent roll site
-          if (rolled) { answer = true; break; }
+          // resolveWhim() itself logs the fired decision — this is its own
+          // independent roll site, same as isEvilRegistration()/pairInfo().
+          if (await h.resolveWhim(g, { kind: 'registration-ambiguity', target: x })) { answer = true; break; }
         }
       }
       answer = h.impairedFlip(broken, answer);

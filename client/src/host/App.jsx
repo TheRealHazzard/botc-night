@@ -7,9 +7,11 @@ import { useScripts } from "./hooks/useScripts.js";
 import { useScriptRoster } from "./hooks/useScriptRoster.js";
 import { useWakeLock } from "../hooks/useWakeLock.js";
 import { post } from "../lib/api.js";
+import { useWhimConfirm } from "./hooks/useWhimConfirm.js";
 import Icon from "./components/Icon.jsx";
 import ReclaimBanner from "./components/ReclaimBanner.jsx";
 import FatalFlashOverlay from "./components/FatalFlashOverlay.jsx";
+import WhimConfirmCard from "./components/WhimConfirmCard.jsx";
 import SettingsOverlay from "./components/SettingsOverlay.jsx";
 import ScriptBuilderOverlay from "./components/ScriptBuilderOverlay.jsx";
 import LobbyView from "./views/LobbyView.jsx";
@@ -35,6 +37,7 @@ export default function App() {
   const fullscreen = useFullscreen();
   const scripts = useScripts();
   const scriptChars = useScriptRoster(displayS?.script);
+  const { card: whimCard, dismiss: dismissWhimCard } = useWhimConfirm(displayS?.whimConfirmations);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [buildingScript, setBuildingScript] = useState(false);
   // Independent of the BOTC phase machine below — switching tabs never
@@ -246,6 +249,8 @@ export default function App() {
       {fatalFlashing && (
         <FatalFlashOverlay blow={blow} onDone={onFatalFlashDone} />
       )}
+
+      <WhimConfirmCard card={whimCard} onDismiss={dismissWhimCard} />
 
       {settingsOpen && displayS.config && (
         <SettingsOverlay

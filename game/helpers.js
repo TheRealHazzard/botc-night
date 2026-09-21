@@ -286,6 +286,43 @@ const WHIM_LEGACY_CHANCE = {
   'pacifist-save': g => g.config.pacifistSaveChance,
 };
 
+// Whether firing a given whim kind serves good or evil, once it actually
+// manifests — mayor-redirect/pacifist-save both keep a good player alive,
+// but registration-ambiguity's "fires" outcome is the opposite: a Recluse
+// reading as evil wastes the town's suspicion on an innocent, and a Spy
+// reading as good lets a real evil player blend in — both serve evil.
+// Shared by heuristicWhim() (which side to lean toward) and
+// logWhimConfirm() (which side a given outcome favored) below.
+const WHIM_FIRING_HELPS_GOOD = {
+  'mayor-redirect': true,
+  'pacifist-save': true,
+  'registration-ambiguity': false,
+};
+
+/** The Confirm — a host-facing, advisory-only record of a whim decision
+    close enough to plausibly matter (see resolveWhim's stakes check),
+    gated to living.length <= 5 so routine early-game rolls never become
+    noise. Never gates or reverses anything: the decision already stands by
+    the time this is visible, so this is transparency, not a veto. `kind`
+    and `reason` can each name a character or ability, so — same "the
+    Storyteller stays blind until reveal" principle publicState()'s own
+    character/team fields already follow — publicState() strips both of
+    them pre-reveal, unlike resultsLog/actionLog's all-or-nothing gate:
+    this needs to stay usable *during* play (a host-facing card in the
+    moment is the whole point), so only the two identity-bearing fields are
+    withheld, not the whole entry — `helpsGood`/livingCount/goodAlive/
+    evilAlive are all already-public aggregate facts, safe to show live. */
+function logWhimConfirm(g, { kind, fired, reason }) {
+  const living = alive(g);
+  const goodAlive = living.filter(p => !isEvil(g, p)).length;
+  g.whimConfirmations.push({
+    night: g.nightNumber, kind, fired, reason: reason || null,
+    helpsGood: WHIM_FIRING_HELPS_GOOD[kind] !== false,
+    livingCount: living.length, goodAlive, evilAlive: living.length - goodAlive,
+    at: Date.now(),
+  });
+}
+
 /**
  * The one place every Bucket-1 "Storyteller might" roll in the game now
  * goes through — Mayor's redirect, Recluse/Spy misregistration (in all its
@@ -294,22 +331,36 @@ const WHIM_LEGACY_CHANCE = {
  * truth in evaluateClaim/buildStorytellerContext), and Pacifist's save.
  * `ctx.kind` identifies which for both the legacy fallback rate and
  * whatever a real judge wants to reason about; `ctx.target` is the player
- * the decision concerns, when there is one. A judge returning `undefined`
- * (not this table's call to make — LLM off, no key, request failed) or
- * throwing both fall back to the plain roll, the same "any failure falls
- * back to the deterministic path" doctrine Bucket 4 already follows — this
- * never stalls or crashes resolution over a network hiccup.
+ * the decision concerns, when there is one. A judge is expected to resolve
+ * `{fire, reason}` — `undefined` (not this table's call to make: LLM off,
+ * no key, request failed) or a throw both fall back to the plain roll
+ * (with no reason to show), the same "any failure falls back to the
+ * deterministic path" doctrine Bucket 4 already follows — this never
+ * stalls or crashes resolution over a network hiccup. Also the one place
+ * that logs the decision — both the deliberately-vague logWhim() beat
+ * every table gets, and, when the game is close enough to matter, the
+ * richer logWhimConfirm() record — so every call site just asks "did it
+ * fire," it never has to remember to log anything itself.
  */
 async function resolveWhim(g, ctx) {
+  let fired, reason = null;
   if (whimJudge) {
     try {
       const verdict = await whimJudge(g, ctx);
-      if (verdict !== undefined) return !!verdict;
+      if (verdict !== undefined) {
+        fired = !!verdict.fire;
+        reason = verdict.reason || null;
+      }
     } catch (e) {
       // fall through to the legacy roll below
     }
   }
-  return Math.random() < WHIM_LEGACY_CHANCE[ctx.kind](g);
+  if (fired === undefined) {
+    fired = Math.random() < WHIM_LEGACY_CHANCE[ctx.kind](g);
+  }
+  if (alive(g).length <= 5) logWhimConfirm(g, { kind: ctx.kind, fired, reason });
+  if (fired) logWhim(g);
+  return fired;
 }
 
 /** Registration-aware team read for one player — the async sibling of
@@ -323,32 +374,17 @@ async function resolveWhim(g, ctx) {
 async function isEvilRegistration(g, p) {
   const c = trueChar(p);
   if (!c) return false;
+  // resolveWhim() itself logs (both the vague beat and, when the game is
+  // close, the richer confirm record) — a good Recluse reading as evil, or
+  // an evil Spy reading as good, both just need the roll here.
   if (c.id === 'recluse') {
-    const rolled = await resolveWhim(g, { kind: 'registration-ambiguity', target: p });
-    if (rolled) logWhim(g); // a good Recluse reading as evil — the whim actually fired
-    return rolled;
+    return await resolveWhim(g, { kind: 'registration-ambiguity', target: p });
   }
   if (c.id === 'spy') {
-    const rolled = await resolveWhim(g, { kind: 'registration-ambiguity', target: p });
-    if (rolled) logWhim(g); // an evil Spy reading as good — same knob, same tell
-    return !rolled;
+    return !(await resolveWhim(g, { kind: 'registration-ambiguity', target: p }));
   }
   return isEvil(g, p);
 }
-
-// Whether firing a given whim kind serves good or evil, once it actually
-// manifests — mayor-redirect/pacifist-save both keep a good player alive,
-// but registration-ambiguity's "fires" outcome is the opposite: a Recluse
-// reading as evil wastes the town's suspicion on an innocent, and a Spy
-// reading as good lets a real evil player blend in — both serve evil.
-// heuristicWhim() below uses this to fire more often for whichever side is
-// actually behind, matching the roadmap's "help the losing side" framing
-// instead of just favoring good indiscriminately.
-const WHIM_FIRING_HELPS_GOOD = {
-  'mayor-redirect': true,
-  'pacifist-save': true,
-  'registration-ambiguity': false,
-};
 
 /**
  * Option 1 from "The Whim" roadmap discussion: a synchronous, no-network
@@ -360,7 +396,10 @@ const WHIM_FIRING_HELPS_GOOD = {
  * the plain WHIM_LEGACY_CHANCE roll in every existing test, untouched.
  * Once a real judge — LLM or this — IS attached, the mayorRedirectChance/
  * recluseRegistersEvil/pacifistSaveChance sliders stop doing anything: a
- * deliberate trade (confirmed with the user), not an oversight.
+ * deliberate trade (confirmed with the user), not an oversight. Returns
+ * {fire, reason} — same shape a real LLM verdict resolves — so
+ * logWhimConfirm has something to show on a high-stakes call even with no
+ * LLM in the loop at all.
  */
 function heuristicWhim(g, ctx) {
   const living = alive(g);
@@ -374,23 +413,24 @@ function heuristicWhim(g, ctx) {
   let chance = 0.5; // same baseline this bucket has always defaulted to
   if (sideNeedsHelp) chance *= 1.4;
   if (living.length <= 5) chance *= 1.2; // a whim matters more in the endgame than on night one
-  return Math.random() < Math.min(chance, 0.9);
+  const fire = Math.random() < Math.min(chance, 0.9);
+  const trailingSide = sideNeedsHelp ? (helpsGood ? 'good' : 'evil') : null;
+  const reason = trailingSide
+    ? `${living.length} living (${goodAlive} good, ${evilAlive} evil) — ${trailingSide} is behind, leaning toward helping them.`
+    : `${living.length} living (${goodAlive} good, ${evilAlive} evil) — roughly even, close to a coin flip.`;
+  return { fire, reason };
 }
 
 async function randomKiller(g, pool, excludeId, opts = { demonAttack: true }) {
   const candidates = (pool || []).filter(x => x && x.id !== excludeId);
   if (!candidates.length) return null;
   const picked = candidates.length === 1 ? candidates[0] : dramaticPick(g, candidates);
+  // resolveWhim() itself logs the fired decision (both the vague beat and,
+  // when the game is close, the richer confirm record) — nothing extra
+  // needed here beyond acting on the verdict.
   if (picked.characterId === 'mayor' && !impaired(picked) && await resolveWhim(g, { kind: 'mayor-redirect', target: picked })) {
     const alt = alive(g).filter(x => x.id !== picked.id && x.id !== excludeId && !wouldBlockKill(g, x, opts));
-    if (alt.length) {
-      // Non-secret and deliberately non-attributing — the point is for the
-      // Storyteller to feel a whim just fired live, not to hand them the
-      // Mayor's identity mid-game. logWhim() is the one place that wording
-      // lives, shared with the registration roll below.
-      logWhim(g);
-      return randomKiller(g, alt, excludeId, opts);
-    }
+    if (alt.length) return randomKiller(g, alt, excludeId, opts);
   }
   return picked;
 }
@@ -667,13 +707,14 @@ async function pairInfo(g, p, team, wrong) {
     if (x.id === p.id || trueMembers.includes(x)) continue;
     const c = trueChar(x);
     if (!c) continue;
+    // resolveWhim() itself logs each fired decision — no need to also log
+    // here, unlike the old inline Math.random() roll this replaced.
     if (c.id === 'spy' && team !== 'demon' && await resolveWhim(g, { kind: 'registration-ambiguity', target: x })) {
       registrants.push(x);
     } else if (c.id === 'recluse' && team !== 'townsfolk' && await resolveWhim(g, { kind: 'registration-ambiguity', target: x })) {
       registrants.push(x);
     }
   }
-  if (registrants.length) logWhim(g); // same registration whim isEvil() logs, this call's own roll site
   const pool = [...trueMembers, ...registrants];
   if (!pool.length) {
     if (!wrong) {

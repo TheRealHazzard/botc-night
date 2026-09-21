@@ -148,8 +148,8 @@ async function rephraseSavantStatements(statements) {
 
 const WHIM_SCHEMA = {
   type: 'object',
-  properties: { fire: { type: 'boolean' } },
-  required: ['fire'],
+  properties: { fire: { type: 'boolean' }, reason: { type: 'string' } },
+  required: ['fire', 'reason'],
   additionalProperties: false,
 };
 
@@ -170,29 +170,42 @@ const WHIM_SYSTEM = {
     '"if the Mayor is attacked by the Demon at night, the Storyteller may choose to make another ' +
     'player die instead." Real Storyteller guidance treats this as a judgment call, not a fixed rate ' +
     '— the goal is to help whichever side is currently losing, invisibly. Given the game state, decide ' +
-    'whether to redirect the kill away from the Mayor this time.',
+    'whether to redirect the kill away from the Mayor this time, and give one short sentence of reasoning.',
   'registration-ambiguity':
     'You are a Blood on the Clocktower Storyteller deciding whether a Recluse or Spy\'s ambiguous ' +
     'registration should mislead an information-gathering ability right now. Real Storyteller guidance ' +
     'treats this as a judgment call, not a fixed rate — the goal is to help whichever side is currently ' +
-    'losing, invisibly. Given the game state, decide whether the misregistration should manifest this time.',
+    'losing, invisibly. Given the game state, decide whether the misregistration should manifest this ' +
+    'time, and give one short sentence of reasoning.',
   'pacifist-save':
     'You are a Blood on the Clocktower Storyteller deciding whether to invoke the Pacifist\'s power: ' +
     'an executed good player might secretly not die. Real Storyteller guidance treats this as a ' +
     'judgment call, not a fixed rate — the goal is to help whichever side is currently losing, ' +
-    'invisibly. Given the game state, decide whether to save this good player from execution.',
+    'invisibly. Given the game state, decide whether to save this good player from execution, and give ' +
+    'one short sentence of reasoning.',
 };
 
-/** The real judge behind game.whimJudge (see resolveWhim in helpers.js).
-    When the LLM Storyteller is off or unconfigured, this defers to
-    E.heuristicWhim() — a synchronous, no-network judgment over the same
-    "help whoever's behind" principle — rather than dropping straight to a
-    flat rate; turning the toggle off saves API usage without giving up
-    real judgment. Only a genuine LLM request failure (network, timeout, a
+// The reasoning text above (this.reason on the confirm record) can freely
+// name a character — "protecting the Mayor," "the Recluse's ambiguity" —
+// since publicState() withholds it, along with `kind`, until g.revealed.
+// See The Confirm's doc comment on logWhimConfirm in helpers.js: this is
+// deliberately NOT as vague as logWhim()'s live beat, because it's never
+// shown live pre-reveal in the first place.
+
+/** The real judge behind game.whimJudge (see resolveWhim in helpers.js) —
+    resolves {fire, reason}. When the LLM Storyteller is off or
+    unconfigured, this defers to E.heuristicWhim() — a synchronous,
+    no-network judgment over the same "help whoever's behind" principle,
+    with its own templated reason — rather than dropping straight to a flat
+    rate; turning the toggle off saves API usage without giving up real
+    judgment. Only a genuine LLM request failure (network, timeout, a
     malformed reply) falls further, to heuristicWhim() as well, same "any
     failure degrades gracefully" doctrine Bucket 4's judgeFreeformClaim/
     rephraseSavantStatements already follow. Never throws, so a quiet
-    outage never stalls a night's resolution on a hung request. */
+    outage never stalls a night's resolution on a hung request. The reason
+    string is what The Confirm (resolveWhim's logWhimConfirm) shows the
+    host on a high-stakes call — safe to let it name a character freely,
+    since publicState() withholds it until reveal. */
 async function llmWhimJudge(g, ctx) {
   if (!(g.config.llmStorytellerEnabled && llmConfigured())) return E.heuristicWhim(g, ctx);
   const living = E.alive(g);
@@ -208,7 +221,7 @@ async function llmWhimJudge(g, ctx) {
     maxTokens: 40,
   });
   if (!result.ok) return E.heuristicWhim(g, ctx);
-  return !!(result.data && result.data.fire);
+  return { fire: !!(result.data && result.data.fire), reason: (result.data && result.data.reason) || null };
 }
 E.setWhimJudge(llmWhimJudge);
 

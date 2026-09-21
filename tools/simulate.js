@@ -2911,7 +2911,7 @@ console.log('\nThe Whim: judge injection (setWhimJudge/resolveWhim)');
   const mk = (id, characterId) => ({ id, name: id, characterId, believedId: characterId, alive: true, statuses: {} });
 
   // A judge that always says yes overrides even a chance=0 legacy rate.
-  E.setWhimJudge(async () => true);
+  E.setWhimJudge(async () => ({ fire: true, reason: 'test judge says yes' }));
   const g1 = E.newGame();
   g1.config.mayorRedirectChance = 0;
   g1.players = [mk('may1', 'mayor'), mk('t1', 'chef'), mk('t2', 'soldier')];
@@ -2919,7 +2919,7 @@ console.log('\nThe Whim: judge injection (setWhimJudge/resolveWhim)');
   check('a judge saying yes overrides mayorRedirectChance=0', r1.id !== 'may1');
 
   // A judge that always says no overrides even a chance=1 legacy rate.
-  E.setWhimJudge(async () => false);
+  E.setWhimJudge(async () => ({ fire: false, reason: 'test judge says no' }));
   const g2 = E.newGame();
   g2.config.mayorRedirectChance = 1;
   g2.players = [mk('may1', 'mayor'), mk('t1', 'chef'), mk('t2', 'soldier')];
@@ -2946,6 +2946,40 @@ console.log('\nThe Whim: judge injection (setWhimJudge/resolveWhim)');
   const r4 = await E.randomKiller(g4, [g4.players[0]]);
   check('a throwing judge never crashes resolution — falls back to the plain roll', r4.id === 'may1');
 
+  // The Confirm: a high-stakes call (few living) with a judge attached
+  // gets a whimConfirmations entry carrying the reason; a low-stakes call
+  // (plenty living) never does, even though the exact same judge decided it.
+  E.setWhimJudge(async () => ({ fire: true, reason: 'protecting the trailing side' }));
+  const g5 = E.newGame();
+  g5.config.mayorRedirectChance = 0;
+  g5.players = [mk('may1', 'mayor'), mk('t1', 'chef'), mk('t2', 'soldier')]; // 3 living: high stakes
+  await E.randomKiller(g5, [g5.players[0]]);
+  check('a high-stakes decision (<=5 living) is logged to whimConfirmations',
+    g5.whimConfirmations.length === 1, JSON.stringify(g5.whimConfirmations));
+  check('the logged entry carries kind, fired, and the judge\'s reason',
+    g5.whimConfirmations[0].kind === 'mayor-redirect' &&
+    g5.whimConfirmations[0].fired === true &&
+    g5.whimConfirmations[0].reason === 'protecting the trailing side');
+  check('the logged entry also carries the aggregate counts and which side firing helps',
+    g5.whimConfirmations[0].livingCount === 3 && g5.whimConfirmations[0].helpsGood === true);
+
+  const g6 = E.newGame();
+  g6.config.mayorRedirectChance = 0;
+  g6.players = Array.from({ length: 7 }, (_, i) => mk('p' + i, i === 0 ? 'mayor' : 'chef')); // 7 living: not high stakes
+  await E.randomKiller(g6, [g6.players[0]]);
+  check('a low-stakes decision (>5 living) is never logged to whimConfirmations, even when it fires',
+    g6.whimConfirmations.length === 0);
+
+  // publicState() withholds kind/reason pre-reveal (they could name a
+  // character) but keeps the aggregate, already-public fields live — the
+  // whole reason this doesn't use resultsLog/actionLog's all-or-nothing gate.
+  const pre = E.publicState(g5).whimConfirmations[0];
+  check('pre-reveal, kind and reason are withheld', pre.kind === undefined && pre.reason === undefined);
+  check('pre-reveal, the aggregate/public fields still come through', pre.fired === true && pre.livingCount === 3);
+  g5.revealed = true;
+  const post = E.publicState(g5).whimConfirmations[0];
+  check('post-reveal, kind and reason are restored', post.kind === 'mayor-redirect' && post.reason === 'protecting the trailing side');
+
   // setWhimJudge is module-level, global state, not per-game — leaving a
   // fake judge attached here would silently corrupt every other check() in
   // this file that runs after this section.
@@ -2961,8 +2995,16 @@ console.log('\nheuristicWhim (Option 1: the non-LLM judgment)');
     const g = E.newGame();
     g.players = playerSpec.map(([id, c]) => mk(id, c));
     let fires = 0;
-    for (let i = 0; i < trials; i++) if (E.heuristicWhim(g, { kind })) fires++;
+    for (let i = 0; i < trials; i++) if (E.heuristicWhim(g, { kind }).fire) fires++;
     return fires / trials;
+  }
+
+  {
+    const g = E.newGame();
+    g.players = [mk('a', 'imp'), mk('b', 'poisoner'), mk('c', 'chef')];
+    const { reason } = E.heuristicWhim(g, { kind: 'mayor-redirect' });
+    check('heuristicWhim always includes a one-line reason, even with no LLM in the loop',
+      typeof reason === 'string' && reason.length > 0, JSON.stringify(reason));
   }
 
   // mayor-redirect/pacifist-save both keep a good player alive when they

@@ -98,6 +98,10 @@ function newGame() {
     // publicState). Info-only abilities (Empath, Chef, ...) don't appear
     // here at all; only real "choose a player" moments do.
     actionLog: [],
+    // The Confirm — host-facing, advisory-only records of a whim decision
+    // (see resolveWhim/logWhimConfirm in helpers.js) close enough to the
+    // game's outcome to be worth surfacing live, not just after reveal.
+    whimConfirmations: [],
     revealed: false,
     pendingReclaims: [],
     historyRecorded: false, // guards against writing the same completed game twice
@@ -1244,6 +1248,16 @@ function publicState(g) {
     // Bucket-4-style true-character info looks like, not something a
     // still-playing table should be able to read.
     resultsLog: g.revealed ? g.resultsLog : [],
+    // The Confirm — unlike resultsLog/actionLog's all-or-nothing reveal
+    // gate, this needs to stay usable *during* play (a host-facing card in
+    // the moment is the whole point), so only the two fields that could
+    // name a character or ability (`kind`, `reason`) are withheld
+    // pre-reveal — helpsGood/livingCount/goodAlive/evilAlive are already
+    // publicly-observable aggregate facts, safe to show live.
+    whimConfirmations: g.whimConfirmations.map(w => (g.revealed ? w : {
+      night: w.night, fired: w.fired, helpsGood: w.helpsGood,
+      livingCount: w.livingCount, goodAlive: w.goodAlive, evilAlive: w.evilAlive, at: w.at,
+    })),
   };
 }
 
