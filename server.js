@@ -1438,6 +1438,10 @@ async function requestHandler(req, res) {
           statuses: {},
           connected: false,
         };
+        // The first seat taken becomes the lobby leader — see leaderId's
+        // own comment in engine.js's newGame(). Checked before the push
+        // below, since after it game.players.length is never 0 again.
+        if (game.players.length === 0) game.leaderId = player.id;
         game.players.push(player);
         E.logEvent(game, `${name} took a seat.`);
         pushHost();
@@ -2136,6 +2140,7 @@ async function requestHandler(req, res) {
         // usual cause) without losing the script the host already picked.
         if (game.phase !== 'lobby') return json(res, 409, { error: 'Roles are already dealt.' });
         game.players = [];
+        game.leaderId = null; // the next person to join becomes leader again
         playerStreams.clear();
         E.logEvent(game, 'The lobby was cleared.');
         pushHost();

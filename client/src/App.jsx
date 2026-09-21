@@ -3,12 +3,14 @@ import { useTableState } from './hooks/useTableState.js';
 import { useWakeLock } from './hooks/useWakeLock.js';
 import TopBar from './components/TopBar.jsx';
 import ScriptOverlay from './components/ScriptOverlay.jsx';
+import LeaderControlsOverlay from './components/LeaderControlsOverlay.jsx';
 import JoinFlow from './components/join/JoinFlow.jsx';
 import PlayerApp from './components/PlayerApp.jsx';
 
 export default function App() {
   const { P, token, setToken, forgetToken } = useTableState();
   const [scriptOpen, setScriptOpen] = useState(false);
+  const [leaderControlsOpen, setLeaderControlsOpen] = useState(false);
 
   const changeUser = () => {
     if (confirm('Leave this seat? You can rejoin or reclaim it from the join screen.')) forgetToken();
@@ -48,11 +50,16 @@ export default function App() {
 
   return (
     <>
-      <TopBar onOpenScript={() => setScriptOpen(true)} />
+      <TopBar
+        onOpenScript={() => setScriptOpen(true)}
+        onOpenLeaderControls={() => setLeaderControlsOpen(true)}
+        isLeader={!!P?.isLeader}
+      />
       <div id="app">
         {P ? <PlayerApp P={P} token={token} onChangeUser={changeUser} /> : <JoinFlow onJoined={setToken} />}
       </div>
       <ScriptOverlay open={scriptOpen} onClose={() => setScriptOpen(false)} script={P?.script} />
+      <LeaderControlsOverlay open={leaderControlsOpen} onClose={() => setLeaderControlsOpen(false)} />
     </>
   );
 }

@@ -115,6 +115,13 @@ function newGame() {
     // client/src/hooks/useBluffBeat.js), visible to the host and every
     // player alike, unlike everything else The Whim's family surfaces.
     bluffBeatAt: null,
+    // Whoever took the first seat this game (server.js's /api/join) — with
+    // no designated Storyteller, someone at the table needs a way to run
+    // the game without walking up to the host screen. Keyed to a player
+    // id, not a token/connection, so it survives that player reconnecting
+    // or reclaiming their seat; only ever reassigned by a fresh newGame()
+    // or an emptied lobby (see /api/table/clear-lobby), never mid-game.
+    leaderId: null,
     revealed: false,
     pendingReclaims: [],
     historyRecorded: false, // guards against writing the same completed game twice
@@ -1319,6 +1326,11 @@ function privateState(g, playerId) {
     // everyone at once, host and every player alike (see
     // client/src/hooks/useBluffBeat.js).
     bluffBeatAt: g.bluffBeatAt,
+    // Whoever took the first seat gets an extra "Storyteller controls"
+    // button on their own phone (see LeaderControlsOverlay.jsx) — nothing
+    // else in this object changes for them; the overlay drives itself off
+    // the same /api/host-state the TV already uses, once opened.
+    isLeader: !!g.leaderId && p.id === g.leaderId,
     prompt: g.phase === 'night' ? promptFor(g, p) : null,
     submitted: !!g.pending[p.id],
     result: g.results[p.id] || null,

@@ -26,4 +26,16 @@ describe('TopBar', () => {
     await userEvent.click(btn);
     expect(btn).toHaveAccessibleName(/115%/);
   });
+
+  it('the Storyteller button is hidden for a non-leader', () => {
+    render(<TopBar onOpenScript={() => {}} isLeader={false} />);
+    expect(screen.queryByText('Storyteller')).not.toBeInTheDocument();
+  });
+
+  it('the Storyteller button shows for the leader and calls onOpenLeaderControls', async () => {
+    const onOpenLeaderControls = vi.fn();
+    render(<TopBar onOpenScript={() => {}} onOpenLeaderControls={onOpenLeaderControls} isLeader={true} />);
+    await userEvent.click(screen.getByText('Storyteller'));
+    expect(onOpenLeaderControls).toHaveBeenCalledTimes(1);
+  });
 });

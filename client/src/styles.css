@@ -120,11 +120,16 @@ h2{font-family:'Cormorant Garamond',Georgia,serif; font-size:1.5rem; margin:0 0 
 .small{font-size:.85rem}
 .card{border:1px solid #2e2117; background:#120d08; border-radius:4px; padding:18px; margin-bottom:14px}
 
-input,button{font-family:inherit; font-size:1.05rem}
-input[type=text]{
+input,button,select{font-family:inherit; font-size:1.05rem}
+input[type=text],select{
   width:100%; padding:14px; background:#0d0906; color:var(--bone);
   border:1px solid #3a2a1c; border-radius:3px;
 }
+/* LeaderControlsOverlay's nominator/nominee pair — the same shape as the
+   host's own .nomrow, just narrower to fit a phone. */
+.nomrow{display:flex; align-items:center; gap:8px}
+.nomrow select{width:auto; flex:1; min-width:0}
+.nomrow span{color:var(--bone-dim); flex-shrink:0}
 textarea.freetext{
   width:100%; padding:14px; background:#0d0906; color:var(--bone);
   border:1px solid #3a2a1c; border-radius:3px; font-family:inherit; font-size:1rem;
