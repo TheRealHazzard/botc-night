@@ -346,6 +346,15 @@ a.linklike-a{
 .result-history-night{
   font-size:.7rem; text-transform:uppercase; letter-spacing:.1em; color:var(--bone-dim); margin-bottom:2px;
 }
+/* Speak to the Storyteller — this session's own transcript, oldest first
+   (a conversation reads top-down, unlike .result-history's newest-first
+   archive). */
+.storyteller-log{display:flex; flex-direction:column; gap:12px; margin-top:10px}
+.storyteller-q{font-style:italic; color:var(--bone-dim); font-size:.92rem}
+.storyteller-a{
+  margin-top:4px; padding:10px 12px; border-left:2px solid var(--brass);
+  background:var(--surface-2); font-size:.95rem;
+}
 .dead-banner{border:1px solid var(--brass); color:var(--brass); padding:12px; text-align:center; border-radius:3px; margin-bottom:14px}
 .dead-banner.spent{border-color:var(--line); color:var(--bone-dim)}
 

@@ -8,6 +8,7 @@ import SingleTargetChoice from './game/SingleTargetChoice.jsx';
 import SimpleActionPrompt from './game/SimpleActionPrompt.jsx';
 import GossipClaim from './game/GossipClaim.jsx';
 import ArtistQuestion from './game/ArtistQuestion.jsx';
+import AskStoryteller from './game/AskStoryteller.jsx';
 import JugglerGuess from './game/JugglerGuess.jsx';
 import ActiveVoteCard from './game/ActiveVoteCard.jsx';
 import VoteRevealOverlay from './VoteRevealOverlay.jsx';
@@ -179,6 +180,11 @@ export default function PlayerApp({ P, token, onChangeUser, onOpenLeaderControls
       ) : P.phase === 'day' && !activeVote ? (
         <DaylightCard canNominate={!!P.canNominate} onNominate={() => setNominating(true)} />
       ) : null}
+
+      {/* A general utility, not one of the mutually-exclusive day prompts
+          above — available alongside whichever of those is showing, same
+          as ResultHistoryCard sits alongside the live ResultCard. */}
+      {P.phase === 'day' && P.llmEnabled && <AskStoryteller token={token} />}
 
       <VoteRevealOverlay activeVote={activeVote} />
     </>

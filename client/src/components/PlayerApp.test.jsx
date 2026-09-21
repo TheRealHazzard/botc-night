@@ -79,6 +79,21 @@ describe('PlayerApp', () => {
     expect(onOpenLeaderControls).toHaveBeenCalledTimes(1);
   });
 
+  it('hides Speak to the Storyteller when the LLM is off', () => {
+    render(<PlayerApp P={baseP({ llmEnabled: false })} token="tok" />);
+    expect(screen.queryByText('Speak to the Storyteller')).not.toBeInTheDocument();
+  });
+
+  it('shows Speak to the Storyteller during the day once the LLM is on', () => {
+    render(<PlayerApp P={baseP({ llmEnabled: true })} token="tok" />);
+    expect(screen.getByText('Speak to the Storyteller')).toBeInTheDocument();
+  });
+
+  it('hides Speak to the Storyteller outside the day phase, even with the LLM on', () => {
+    render(<PlayerApp P={baseP({ llmEnabled: true, phase: 'night', prompt: null })} token="tok" />);
+    expect(screen.queryByText('Speak to the Storyteller')).not.toBeInTheDocument();
+  });
+
   it('an unspent death shows the "still have a voice" copy instead', () => {
     const P = baseP({ you: { ...baseP().you, alive: false, ghostVoteUsed: false } });
     render(<PlayerApp P={P} token="tok" />);

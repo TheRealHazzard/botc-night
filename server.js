@@ -193,6 +193,63 @@ async function judgeFreeformClaim(game, claimText, kind) {
   return verdict;
 }
 
+const ASK_STORYTELLER_SCHEMA = {
+  type: 'object',
+  properties: { answer: { type: 'string' } },
+  required: ['answer'],
+  additionalProperties: false,
+};
+
+const ASK_STORYTELLER_SYSTEM =
+  'You are privately answering a question from a player during a game of Blood on the Clocktower — ' +
+  'either a general question about the game\'s rules, or a question about this specific game right now. ' +
+  'You are given only what this player already knows: their own character and ability, their own results ' +
+  'so far, and the same public information every player at the table can already see (who is alive, deaths, ' +
+  'nominations, public statements). Never assert anything about another player\'s hidden character, team, or ' +
+  'role — you were not given that, and must not guess at it or imply it. If the question asks about ' +
+  'something genuinely outside what you know, say so honestly rather than inventing an answer. For a ' +
+  'general rules question, answer from your own knowledge of the game. Keep the answer short, in the voice ' +
+  'of an old Storyteller.';
+
+/** Any player's own "speak to the Storyteller" box — a general utility, not
+    gated to a specific character the way Gossip/Savant/Artist are, and
+    genuinely open-ended (a rules question works too, not just a question
+    about this game). Unlike judgeFreeformClaim above (which sees the FULL
+    ground truth, to judge a claim against reality), this can say anything
+    back in its own words — so its input has to be the one privacy boundary
+    that already governs this player's own phone, not a hand-picked subset
+    that could quietly drift from it: E.privateState() for what only this
+    player knows (their own character, their own results), plus the same
+    subset of E.publicState() everyone at the table can already see (the
+    roster, deaths, nominations, non-secret log). Never the true character
+    or team of anyone else. Returns the answer text, or null on any failure
+    — there's no deterministic fallback for a genuinely open question the
+    way Gossip/Artist/Savant each have one underneath their own LLM path. */
+async function answerPlayerQuestion(game, player, question) {
+  const priv = E.privateState(game, player.id);
+  const pub = E.publicState(game);
+  const known = {
+    you: priv.you,
+    result: priv.result,
+    resultHistory: priv.resultHistory,
+    phase: pub.phase,
+    nightNumber: pub.nightNumber,
+    players: pub.players,
+    deaths: pub.deaths,
+    nominations: pub.nominations,
+    log: pub.log,
+  };
+  const result = await llmCall('ask-storyteller', {
+    system: ASK_STORYTELLER_SYSTEM,
+    prompt: `What this player currently knows:\n${JSON.stringify(known)}\n\nTheir question: ${JSON.stringify(question)}`,
+    schema: ASK_STORYTELLER_SCHEMA,
+    maxTokens: 300,
+  });
+  if (!result.ok) return null;
+  const answer = result.data && result.data.answer;
+  return typeof answer === 'string' && answer.trim() ? answer.trim() : null;
+}
+
 /** Sects & Violets' Savant: rephrase two already-decided, already-correct
     statements more evocatively. The LLM never gets to assert a new fact here
     — on any failure this returns null and the caller keeps the originals
@@ -1913,6 +1970,33 @@ async function requestHandler(req, res) {
         pushPlayer(p.id);
         pushHost();
         return json(res, 200, { ok: true });
+      }
+
+      if (route === '/api/ask-storyteller') {
+        // A general "speak to the Storyteller" utility — any player, not
+        // gated to a specific believed character the way Gossip/Savant/
+        // Artist are, and no per-day or per-game cap since this isn't a
+        // character power. Ghosts allowed (real BOTC ghosts still speak);
+        // day-phase only, matching every other Storyteller-facing prompt.
+        // No structured-menu fallback exists for a genuinely open
+        // question, so unlike Gossip/Artist this is LLM-only — off or
+        // unconfigured just means the box doesn't work, not a lesser
+        // deterministic path underneath it. The answer is handed straight
+        // back in the response, not pushed/persisted into game.results —
+        // that slot belongs to tonight's actual ability result, and this
+        // is a side conversation, not one.
+        const p = E.byToken(game, body.token);
+        if (!p) return json(res, 404, { error: 'Unknown player.' });
+        if (p.bot) return json(res, 409, { error: 'This seat is bot-controlled.' });
+        if (game.phase !== 'day') return json(res, 409, { error: 'Only during the day.' });
+        if (!game.config.llmStorytellerEnabled) return json(res, 409, { error: 'The LLM Storyteller is off for this table.' });
+        const question = typeof body.question === 'string' ? body.question.trim() : '';
+        if (!question || question.length > 400) return json(res, 400, { error: 'Ask your question in 400 characters or fewer.' });
+        const answer = await answerPlayerQuestion(game, p, question);
+        if (answer === null) return json(res, 409, { error: "The Storyteller couldn't answer that — try again, or rephrase." });
+        E.logEvent(game, `${p.name} spoke to the Storyteller.`, true);
+        pushHost();
+        return json(res, 200, { ok: true, answer });
       }
 
       if (route === '/api/mad-claim') {
