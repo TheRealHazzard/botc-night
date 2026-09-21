@@ -53,6 +53,36 @@ describe('usePhaseFade', () => {
     expect(result.current.displayS).toEqual(night);
   });
 
+  it('a same-key push landing mid-fade does not leave the stage stuck invisible', async () => {
+    // Regression: a real bug, reported from an actual game. A player's
+    // action (or a reconnect, or anything else that pushes fresh S)
+    // landing inside the ~1s dusk/dawn fade window used to leave `fading`
+    // stuck true forever — the effect's own cleanup clears the pending
+    // setFading(false) timer (React always runs it before this rerun), and
+    // the same-key branch that runs instead only called setDisplayS, never
+    // setFading(false). .view.fading is opacity:0 in the real CSS, so the
+    // whole stage (everything except the header, which lives outside
+    // .view) would just disappear with nothing left scheduled to bring it
+    // back — exactly "blank, only the header visible" from a live report.
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    stubReducedMotion(false);
+    installFakeAudioContext();
+    const { result, rerender } = renderHook(({ S }) => usePhaseFade(S), { initialProps: { S: day } });
+    resetAudioCalls();
+
+    act(() => rerender({ S: night })); // starts the dusk fade
+    expect(result.current.fading).toBe(true);
+
+    // A second push arrives well before the 950ms dusk timer would have
+    // fired on its own — same phase:night:wave key, just fresher data.
+    await act(async () => { await vi.advanceTimersByTimeAsync(200); });
+    const nightUpdated = { ...night, deaths: [{ name: 'X', cause: 'demon' }] };
+    act(() => rerender({ S: nightUpdated }));
+
+    expect(result.current.fading).toBe(false); // must not still be true
+    expect(result.current.displayS).toEqual(nightUpdated);
+  });
+
   it('a cold mount straight into an already-finished game with a fatal blow shows it immediately — no stuck-null blank screen', () => {
     // Regression: opening/reloading the host page after a game (or
     // simulation) already ended on an execution/slayer-shot finds

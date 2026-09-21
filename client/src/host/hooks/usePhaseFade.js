@@ -49,7 +49,19 @@ export function usePhaseFade(S, { muted = false } = {}) {
     const changed = key !== lastKeyRef.current;
     lastKeyRef.current = key;
 
-    if (!changed) { setDisplayS(S); return; }
+    // A same-phase-key push landing WHILE a transition's own fade timer is
+    // still pending (a player's action arriving mid-dusk/dawn, a
+    // reconnect, anything) is exactly the collision this branch has to
+    // handle: the effect below already reruns on every S change, so its
+    // cleanup clears that pending timer before this line ever runs — but
+    // clearing the timer also cancels the setFading(false) that timer was
+    // going to call. Without resetting it here too, `fading` stays stuck
+    // true forever (nothing else is scheduled to ever flip it back), and
+    // .view.fading is opacity:0 — the entire stage goes invisible except
+    // the header, which lives outside it. Real bug, hit in practice
+    // exactly where it's most likely: day/night switches are the single
+    // most common moment for another push to land inside that ~1s window.
+    if (!changed) { setDisplayS(S); setFading(false); return; }
 
     // Only holds displayS back for the flash when something is actually
     // on screen to cut away FROM. On a cold mount (opening or reloading
