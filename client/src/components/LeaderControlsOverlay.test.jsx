@@ -156,6 +156,20 @@ describe('LeaderControlsOverlay', () => {
       await userEvent.click(screen.getByText('Night falls'));
       expect(fetchMock.calls.some(c => c.url.includes('/api/table/night'))).toBe(true);
     });
+
+    // A silently-disabled Night falls, with no stated reason, would be a
+    // private leak on the leader's own phone of exactly the fact the host
+    // TV already announces out loud to the whole table — see DayView.jsx's
+    // own mastermindExtraDay hint. The leader gets the same statement, not
+    // just a mystery disabled button.
+    it('explains the Mastermind\'s bonus day out loud, same as the host TV, instead of a silently-disabled button', () => {
+      FakeEventSource.instances = [];
+      vi.stubGlobal('EventSource', FakeEventSource);
+      render(<LeaderControlsOverlay open={true} onClose={() => {}} />);
+      push(dayState({ mastermindExtraDay: true }));
+      expect(screen.getByText(/mastermind's power lingers/i)).toBeInTheDocument();
+      expect(screen.getByText('Night falls')).toBeDisabled();
+    });
   });
 
   describe('always available', () => {

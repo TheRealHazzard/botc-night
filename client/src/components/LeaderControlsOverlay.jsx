@@ -112,6 +112,18 @@ function DayControls({ S, busy, run }) {
 
   return (
     <>
+      {/* The real rule (and the host TV's own DayView) announces this
+          outright — the town does observe the game continuing past an
+          apparent game-ending execution, it's not secret. Stated plainly
+          here too, not just left as an unexplained disabled button below:
+          on the leader's own phone, a silently-disabled "Night falls"
+          would otherwise be a private, inferable leak of the exact same
+          fact the TV already says out loud to the whole table. */}
+      {S.mastermindExtraDay && (
+        <p className="dim small">
+          The Demon has fallen — but the Mastermind's power lingers. Play one more day. If a good player is executed now, evil wins. If evil is, good does.
+        </p>
+      )}
       {!anyOpen && alive.length >= 2 && (
         <div className="card">
           <div className="nomrow">
