@@ -2147,6 +2147,32 @@ async function requestHandler(req, res) {
         return json(res, 200, { ok: true });
       }
 
+      if (route === '/api/table/hand-off-leader') {
+        // Unlike every other /api/table/ route, this one has to check WHO
+        // is asking, not just whether host actions are allowed at all —
+        // its entire purpose is "the current leader delegates to someone
+        // specific," so it's the one place a request's own player token
+        // (not the host_code gate, which doesn't identify a person) has to
+        // be checked against game.leaderId. Available in any phase, not
+        // just the lobby — stepping away mid-game is exactly the case
+        // this exists for.
+        const requester = E.byToken(game, body.token);
+        if (!requester || requester.id !== game.leaderId) {
+          return json(res, 403, { error: 'Only the current Storyteller leader can hand this off.' });
+        }
+        const target = E.byId(game, body.toPlayerId);
+        if (!target) return json(res, 404, { error: 'That player is no longer seated.' });
+        if (target.id === requester.id) return json(res, 400, { error: 'They already have it.' });
+        game.leaderId = target.id;
+        E.logEvent(game, `${target.name} is now running the Storyteller controls.`);
+        pushHost();
+        // isLeader lives in privateState(), not publicState() — pushHost()
+        // alone never reaches either player's own phone.
+        pushPlayer(requester.id);
+        pushPlayer(target.id);
+        return json(res, 200, { ok: true });
+      }
+
       if (route === '/api/table/deal') {
         if (game.players.length < 5) return json(res, 400, { error: 'Need at least 5 players.' });
         const dealCap = SCRIPT_MAX_PLAYERS[game.script];

@@ -48,6 +48,16 @@ export default function App() {
     }
   }, [P?.phase, P?.prompt, P?.submitted, P?.result]);
 
+  // Handing off leadership (see LeaderControlsOverlay.jsx) flips P.isLeader
+  // false on the very next push to whoever just gave it up — if their copy
+  // of the overlay is still open at that moment (the tap that triggered the
+  // hand-off closes it themselves already, but a hand-off could in
+  // principle also arrive from elsewhere), it no longer means anything for
+  // them to be looking at.
+  useEffect(() => {
+    if (leaderControlsOpen && P && !P.isLeader) setLeaderControlsOpen(false);
+  }, [P?.isLeader]);
+
   return (
     <>
       <TopBar
@@ -59,7 +69,12 @@ export default function App() {
         {P ? <PlayerApp P={P} token={token} onChangeUser={changeUser} /> : <JoinFlow onJoined={setToken} />}
       </div>
       <ScriptOverlay open={scriptOpen} onClose={() => setScriptOpen(false)} script={P?.script} />
-      <LeaderControlsOverlay open={leaderControlsOpen} onClose={() => setLeaderControlsOpen(false)} />
+      <LeaderControlsOverlay
+        open={leaderControlsOpen}
+        onClose={() => setLeaderControlsOpen(false)}
+        token={token}
+        myId={P?.you?.id}
+      />
     </>
   );
 }

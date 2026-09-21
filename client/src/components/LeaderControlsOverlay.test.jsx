@@ -171,6 +171,72 @@ describe('LeaderControlsOverlay', () => {
     });
   });
 
+  describe('hand off', () => {
+    it('is hidden when no one else is seated', () => {
+      FakeEventSource.instances = [];
+      vi.stubGlobal('EventSource', FakeEventSource);
+      render(<LeaderControlsOverlay open={true} onClose={() => {}} token="leader-tok" myId="p0" />);
+      push({ phase: 'lobby', nightNumber: 0, wave: 0, nominations: [], mastermindExtraDay: false, players: [{ id: 'p0', name: 'Me', alive: true }] });
+      expect(screen.queryByText('Hand off Storyteller controls')).not.toBeInTheDocument();
+    });
+
+    it('excludes the current leader from the picker, offering everyone else', () => {
+      FakeEventSource.instances = [];
+      vi.stubGlobal('EventSource', FakeEventSource);
+      render(<LeaderControlsOverlay open={true} onClose={() => {}} token="leader-tok" myId="p0" />);
+      push({
+        phase: 'lobby', nightNumber: 0, wave: 0, nominations: [], mastermindExtraDay: false,
+        players: [{ id: 'p0', name: 'Me', alive: true }, { id: 'p1', name: 'Ada', alive: true }, { id: 'p2', name: 'Bo', alive: true }],
+      });
+      const picker = screen.getByText('Hand off Storyteller controls').closest('.card').querySelector('select');
+      expect([...picker.options].map(o => o.textContent)).toEqual(['Ada', 'Bo']);
+    });
+
+    it('confirms, then posts the leader\'s own token and the chosen player to /api/table/hand-off-leader', async () => {
+      FakeEventSource.instances = [];
+      vi.stubGlobal('EventSource', FakeEventSource);
+      vi.spyOn(window, 'confirm').mockReturnValue(true);
+      const fetchMock = mockFetch({ '/api/table/hand-off-leader': { ok: true } });
+      render(<LeaderControlsOverlay open={true} onClose={() => {}} token="leader-tok" myId="p0" />);
+      push({
+        phase: 'lobby', nightNumber: 0, wave: 0, nominations: [], mastermindExtraDay: false,
+        players: [{ id: 'p0', name: 'Me', alive: true }, { id: 'p1', name: 'Ada', alive: true }],
+      });
+      await userEvent.click(screen.getByText('Hand off Storyteller controls'));
+      expect(window.confirm).toHaveBeenCalledWith(expect.stringMatching(/Ada/));
+      expect(lastBody(fetchMock, '/api/table/hand-off-leader')).toEqual({ token: 'leader-tok', toPlayerId: 'p1' });
+    });
+
+    it('declining the confirm never posts', async () => {
+      FakeEventSource.instances = [];
+      vi.stubGlobal('EventSource', FakeEventSource);
+      vi.spyOn(window, 'confirm').mockReturnValue(false);
+      const fetchMock = mockFetch({ '/api/table/hand-off-leader': { ok: true } });
+      render(<LeaderControlsOverlay open={true} onClose={() => {}} token="leader-tok" myId="p0" />);
+      push({
+        phase: 'lobby', nightNumber: 0, wave: 0, nominations: [], mastermindExtraDay: false,
+        players: [{ id: 'p0', name: 'Me', alive: true }, { id: 'p1', name: 'Ada', alive: true }],
+      });
+      await userEvent.click(screen.getByText('Hand off Storyteller controls'));
+      expect(fetchMock.calls.some(c => c.url.includes('/api/table/hand-off-leader'))).toBe(false);
+    });
+
+    it('closes the overlay once the hand-off succeeds', async () => {
+      FakeEventSource.instances = [];
+      vi.stubGlobal('EventSource', FakeEventSource);
+      vi.spyOn(window, 'confirm').mockReturnValue(true);
+      mockFetch({ '/api/table/hand-off-leader': { ok: true } });
+      const onClose = vi.fn();
+      render(<LeaderControlsOverlay open={true} onClose={onClose} token="leader-tok" myId="p0" />);
+      push({
+        phase: 'lobby', nightNumber: 0, wave: 0, nominations: [], mastermindExtraDay: false,
+        players: [{ id: 'p0', name: 'Me', alive: true }, { id: 'p1', name: 'Ada', alive: true }],
+      });
+      await userEvent.click(screen.getByText('Hand off Storyteller controls'));
+      expect(onClose).toHaveBeenCalledTimes(1);
+    });
+  });
+
   describe('host-code-gated tables', () => {
     it('shows a link to enter the host code instead of a raw error', async () => {
       FakeEventSource.instances = [];

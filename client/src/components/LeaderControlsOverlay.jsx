@@ -16,7 +16,7 @@ const PHASE_LABEL = { lobby: 'Lobby', reveal: 'Revealing roles', night: 'Night',
     Deliberately shows only the same aggregate, already-public state the
     TV shows (who's alive, nominations, phase) — never a character or team
     before g.revealed, same as everyone else at this table. */
-export default function LeaderControlsOverlay({ open, onClose }) {
+export default function LeaderControlsOverlay({ open, onClose, token, myId }) {
   const S = useLeaderState(open);
   const [busy, setBusy] = useState(false);
   const [hostCodeNeeded, setHostCodeNeeded] = useState(false);
@@ -39,6 +39,10 @@ export default function LeaderControlsOverlay({ open, onClose }) {
       if (r && r.error) { alert(r.error); return; }
       if (onSuccess) onSuccess(r);
     });
+  };
+
+  const handOff = (toPlayerId, name) => {
+    run('/api/table/hand-off-leader', { token, toPlayerId }, `Hand the Storyteller controls to ${name}? You'll lose access to this overlay.`, onClose);
   };
 
   return (
@@ -67,6 +71,7 @@ export default function LeaderControlsOverlay({ open, onClose }) {
           {S && S.phase === 'lobby' && <LobbyControls S={S} busy={busy} run={run} />}
           {S && S.phase === 'day' && <DayControls S={S} busy={busy} run={run} />}
           {S && <AlwaysControls busy={busy} run={run} />}
+          {S && <HandOffControl S={S} myId={myId} busy={busy} handOff={handOff} />}
         </div>
       </div>
     </div>
@@ -151,6 +156,33 @@ function DayControls({ S, busy, run }) {
         </button>
       </div>
     </>
+  );
+}
+
+/** Stepping away mid-game shouldn't mean the table's stuck waiting for the
+    leader to come back — lets them delegate to a specific other seated
+    player, in any phase, not just the lobby. Deliberately not a self-serve
+    "become leader" button for anyone else: only the current leader's own
+    tap (server.js checks the request's own token against game.leaderId)
+    can do this, same as a real Storyteller physically handing someone the
+    script rather than someone else just picking it up. */
+function HandOffControl({ S, myId, busy, handOff }) {
+  const others = S.players.filter(p => p.id !== myId);
+  const [toId, setToId] = useState(() => others[0]?.id || '');
+
+  if (!others.length) return null;
+  const target = others.find(p => p.id === toId) || others[0];
+
+  return (
+    <div className="card">
+      <p className="dim small">Stepping away? Hand these controls to someone else at the table.</p>
+      <select value={target.id} onChange={e => setToId(e.target.value)}>
+        {others.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+      </select>
+      <button type="button" disabled={busy} onClick={() => handOff(target.id, target.name)}>
+        Hand off Storyteller controls
+      </button>
+    </div>
   );
 }
 
