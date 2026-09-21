@@ -19,6 +19,41 @@ good-or-evil.
 once at the moment it applies. See `pacifistSaveChance`, `tinkerDeathChance`,
 `mayorRedirectChance`, `shabalothRegurgitateChance` in `newGame()`.
 
+**Three of these four — Mayor's redirect, Pacifist's save, and Recluse/Spy
+registration — aren't a flat rate any more.** Real Storyteller guidance (the
+official wiki, and two independent community tools) is explicit that these
+are judgment calls, not a fixed percentage: help whichever side is currently
+losing, invisibly. `resolveWhim(g, ctx)` in `helpers.js` is the one choke
+point every one of these rolls now goes through — `randomKiller` (Mayor),
+`isEvilRegistration` (Recluse/Spy, in all its call sites: Empath/Chef's
+counts, Washerwoman/Librarian/Investigator's `pairInfo`, the Fortune
+Teller's demon check, and Bucket 3/4's `evaluateClaim`/
+`buildStorytellerContext`), and server.js's `recordExecution` (Pacifist) all
+call it instead of rolling `Math.random()` directly.
+
+`resolveWhim` itself stays inside `helpers.js`'s pure, synchronous-except-
+for-this contract — it never touches the network or `process.env` itself.
+Instead it defers to `whimJudge`, a module-level function server.js wires in
+once via `setWhimJudge()`, gated behind the exact same `llmStorytellerEnabled`
+toggle Bucket 4 uses (`server.js`'s `llmWhimJudge`, reusing
+`game/llmStoryteller.js`'s `askStoryteller`). No judge attached at all (every
+`tools/simulate.js` run, and any table with the toggle off) — or a judge
+returning `undefined` ("not this table's call," e.g. the LLM is off or the
+request failed) or throwing — all fall through to the exact same flat
+`Math.random() < chance` roll this bucket has always used, so a real table
+never stalls or crashes over a network hiccup, same "any failure falls back
+to the deterministic path" doctrine Bucket 4 already follows.
+
+This is *why* `randomKiller`/`isEvilRegistration`/`pairInfo` (and the
+handful of `resolve()` functions across `abilities/*.js` that call them) are
+`async` even though nothing in this bucket used to need it — reasoning
+about real game state can mean an actual network round-trip mid-resolution,
+so the whole call chain up through `resolveNight` had to become awaitable.
+Tinker's death roll and Shabaloth's regurgitate stayed plain
+`Math.random()` — genuinely arbitrary calls with no state worth reasoning
+about — so they're the two "Bucket 1" examples that are still exactly a
+flat rate.
+
 ## Bucket 2 — Real knowledge, fully derivable from game state
 
 The Storyteller isn't judging anything — they're just reading off a fact the

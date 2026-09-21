@@ -56,7 +56,7 @@ module.exports = (h) => [
     acts: (g) => g.nightNumber !== 1,
     targets: (g) => h.alive(g),
     text: () => 'Choose a player. They die.',
-    resolve(g, p, action, { broken, target, deaths, results }) {
+    async resolve(g, p, action, { broken, target, deaths, results }) {
       const [t] = target(action && action.targets);
       if (!t || broken) return;
       if (t.id === p.id) {
@@ -87,7 +87,7 @@ module.exports = (h) => [
       }
       // Mayor: "If you die at night, another player might die instead" —
       // randomKiller() is where that redirect actually lives.
-      const finalTarget = h.randomKiller(g, [t], p.id);
+      const finalTarget = await h.randomKiller(g, [t], p.id);
       const blocked = h.checkKill(g, finalTarget, { demonAttack: true });
       if (blocked) {
         h.logEvent(g, `Imp attacked ${finalTarget.name}, who survives (${blocked}).`, true);
@@ -125,22 +125,23 @@ module.exports = (h) => [
     // clean single-player read. No self-exclusion here on purpose.
     targets: (g) => g.players,
     text: () => 'Choose two players. You will learn if either is the Demon.',
-    resolve(g, p, action, { broken, target, results }) {
+    async resolve(g, p, action, { broken, target, results }) {
       const chosen = target(action && action.targets);
       // The Recluse "might register as ... a Demon" — Empath and Chef
-      // already roll for this via isEvil(forRegistration), but this check
+      // already roll for this via isEvilRegistration(), but this check
       // was comparing true team directly and skipping that roll entirely.
-      let answer = chosen.some(x => {
+      // A plain .some() can't await, so this is a for-loop with an early
+      // break instead — same short-circuit behavior.
+      let answer = false;
+      for (const x of chosen) {
         const tc = h.trueChar(x);
-        if (tc.team === 'demon') return true;
-        if (x.statuses.redHerring) return true;
+        if (tc.team === 'demon' || x.statuses.redHerring) { answer = true; break; }
         if (tc.id === 'recluse') {
-          const rolled = Math.random() < g.config.recluseRegistersEvil;
-          if (rolled) h.logWhim(g); // same registration whim as isEvil()/pairInfo() — this is its own independent roll site
-          return rolled;
+          const rolled = await h.resolveWhim(g, { kind: 'registration-ambiguity', target: x });
+          if (rolled) h.logWhim(g); // same registration whim as isEvilRegistration()/pairInfo() — this is its own independent roll site
+          if (rolled) { answer = true; break; }
         }
-        return false;
-      });
+      }
       answer = h.impairedFlip(broken, answer);
       results[p.id] = {
         ...h.resultYesNo('Fortune Teller', answer, answer ? 'Yes — one of them is the Demon.' : 'No — neither is the Demon.'),
@@ -158,9 +159,9 @@ module.exports = (h) => [
     choiceCount: () => 0,
     targets: () => [],
     text: () => '',
-    resolve(g, p, action, { broken, results }) {
+    async resolve(g, p, action, { broken, results }) {
       const team = { washerwoman: 'townsfolk', librarian: 'outsider', investigator: 'minion' }[id];
-      const info = h.pairInfo(g, p, team, broken);
+      const info = await h.pairInfo(g, p, team, broken);
       const c = h.char(id);
       results[p.id] = h.resultPointer(c.name, info.players, info.text);
     },
@@ -171,8 +172,8 @@ module.exports = (h) => [
     choiceCount: () => 0,
     targets: () => [],
     text: () => '',
-    resolve(g, p, action, { broken, results }) {
-      const trueCount = h.evilPairCount(g);
+    async resolve(g, p, action, { broken, results }) {
+      const trueCount = await h.evilPairCount(g);
       const shown = broken ? h.falseNumber(trueCount, Math.max(2, trueCount + 1)) : trueCount;
       results[p.id] = h.resultCount('Chef', shown, `Pairs of neighbouring evil players: ${h.numberSignal(shown)}`);
     },
@@ -183,8 +184,8 @@ module.exports = (h) => [
     choiceCount: () => 0,
     targets: () => [],
     text: () => '',
-    resolve(g, p, action, { broken, results, deaths }) {
-      const trueCount = h.evilNeighbourCount(g, p, deaths);
+    async resolve(g, p, action, { broken, results, deaths }) {
+      const trueCount = await h.evilNeighbourCount(g, p, deaths);
       const shown = broken ? h.falseNumber(trueCount, 2) : trueCount;
       results[p.id] = h.resultCount('Empath', shown, `Evil living neighbours: ${h.numberSignal(shown)}`);
     },

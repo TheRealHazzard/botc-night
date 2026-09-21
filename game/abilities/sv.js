@@ -110,9 +110,13 @@ module.exports = (h) => [
     choiceCount: () => 0,
     targets: () => [],
     text: () => '',
-    resolve(g, p, action, { broken, results }) {
+    async resolve(g, p, action, { broken, results }) {
       const dead = g.players.filter(x => !x.alive);
-      const trueCount = dead.filter(x => h.isEvil(g, x, { forRegistration: true })).length;
+      // A plain .filter() can't await — count matches with a for-loop instead.
+      let trueCount = 0;
+      for (const x of dead) {
+        if (await h.isEvilRegistration(g, x)) trueCount++;
+      }
       const shown = (broken || h.vortoxActive(g)) ? h.falseNumber(trueCount, Math.max(dead.length, 1)) : trueCount;
       results[p.id] = { title: 'Oracle', body: `Dead players who are evil: ${h.numberSignal(shown)}` };
     },
@@ -125,12 +129,12 @@ module.exports = (h) => [
     optional: () => true,
     targets: (g, p) => h.alive(g).filter(x => x.id !== p.id),
     text: () => 'Choose two players (not yourself), or pass. You learn if they are the same alignment. Once per game.',
-    resolve(g, p, action, { broken, target, results }) {
+    async resolve(g, p, action, { broken, target, results }) {
       const chosen = target(action && action.targets);
       if (chosen.length < 2) return;
       p.statuses.seamstressUsed = true;
       const [a, b] = chosen;
-      const trueSame = h.isEvil(g, a, { forRegistration: true }) === h.isEvil(g, b, { forRegistration: true });
+      const trueSame = await h.isEvilRegistration(g, a) === await h.isEvilRegistration(g, b);
       // Wrong, not silent — the same doctrine every other impaired info
       // role here follows (see Balloonist). A poisoned/drunk Seamstress
       // still submits a real choice and still spends her once-per-game
@@ -368,7 +372,7 @@ module.exports = (h) => [
     choiceCount: () => 1,
     targets: (g, p) => h.alive(g).filter(x => x.id !== p.id),
     text: () => 'Choose a player. They die.',
-    resolve(g, p, action, { broken, target, deaths }) {
+    async resolve(g, p, action, { broken, target, deaths }) {
       if (broken) return;
       // Recomputed fresh every night the ability works — cleared and
       // rebuilt together so a neighbour a death has moved away from never
@@ -388,7 +392,7 @@ module.exports = (h) => [
       }
       const [t] = target(action && action.targets);
       if (!t) return;
-      const finalTarget = h.randomKiller(g, [t], p.id);
+      const finalTarget = await h.randomKiller(g, [t], p.id);
       const blocked = h.checkKill(g, finalTarget, { demonAttack: true });
       if (blocked) {
         h.logEvent(g, `No Dashii attacked ${finalTarget.name}, who survives (${blocked}).`, true);
@@ -445,10 +449,10 @@ module.exports = (h) => [
     choiceCount: () => 1,
     targets: (g, p) => h.alive(g).filter(x => x.id !== p.id),
     text: () => 'Choose a player. They die.',
-    resolve(g, p, action, { broken, target, deaths, results }) {
+    async resolve(g, p, action, { broken, target, deaths, results }) {
       const [t] = target(action && action.targets);
       if (!t || broken) return;
-      const finalTarget = h.randomKiller(g, [t], p.id);
+      const finalTarget = await h.randomKiller(g, [t], p.id);
       const blocked = h.checkKill(g, finalTarget, { demonAttack: true });
       if (blocked) {
         h.logEvent(g, `Fang Gu attacked ${finalTarget.name}, who survives (${blocked}).`, true);
@@ -490,10 +494,10 @@ module.exports = (h) => [
     choiceCount: () => 1,
     targets: (g, p) => h.alive(g).filter(x => x.id !== p.id),
     text: () => 'Choose a player. They die.',
-    resolve(g, p, action, { broken, target, deaths }) {
+    async resolve(g, p, action, { broken, target, deaths }) {
       const [t] = target(action && action.targets);
       if (!t || broken) return;
-      const finalTarget = h.randomKiller(g, [t], p.id);
+      const finalTarget = await h.randomKiller(g, [t], p.id);
       const blocked = h.checkKill(g, finalTarget, { demonAttack: true });
       if (blocked) {
         h.logEvent(g, `Vigormortis attacked ${finalTarget.name}, who survives (${blocked}).`, true);
@@ -534,10 +538,10 @@ module.exports = (h) => [
     // and the Vortox check in engine.js's checkVictory. This entry is only
     // the ordinary kill, identical in shape to Zombuul's or Fang Gu's plain
     // branch.
-    resolve(g, p, action, { broken, target, deaths }) {
+    async resolve(g, p, action, { broken, target, deaths }) {
       const [t] = target(action && action.targets);
       if (!t || broken) return;
-      const finalTarget = h.randomKiller(g, [t], p.id);
+      const finalTarget = await h.randomKiller(g, [t], p.id);
       const blocked = h.checkKill(g, finalTarget, { demonAttack: true });
       if (blocked) {
         h.logEvent(g, `Vortox attacked ${finalTarget.name}, who survives (${blocked}).`, true);

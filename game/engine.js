@@ -8,7 +8,8 @@ const {
   DATA, CHARACTERS, SETUP_TABLE, char, scriptPool, BUCKET4_IDS, activeScriptPool,
   shuffle, pick, take, excludingPick,
   byId, byToken, alive, actingChar, trueChar, impaired, impairedFlip, publiclyAlive,
-  wouldBlockKill, randomKiller, checkKill, isEvil, triggerMoonchildIfNeeded, flagAbnormal,
+  wouldBlockKill, randomKiller, checkKill, isEvil, isEvilRegistration, resolveWhim, setWhimJudge,
+  heuristicWhim, triggerMoonchildIfNeeded, flagAbnormal,
   triggerPixieIfNeeded, applyCannibalTransform,
   logEvent, outsiderDiedToday, minionDiedToday, somebodyDiedYesterday,
   numberSignal, falseNumber, evilNeighbourCount, evilPairCount, pairInfo,
@@ -524,7 +525,7 @@ function triggerDeathHooks(g, player, { killedByDemon = false, results } = {}) {
  * on what wave 1 did (the Ravenkeeper dying), so it must not re-run the night:
  * re-resolving would wipe `diedTonight` and recompute every info role's answer.
  */
-function resolveNight(g, wave = 1) {
+async function resolveNight(g, wave = 1) {
   const order = actingTonight(g).filter(e => waveFor(e.character.id) === wave);
   const results = {};
 
@@ -644,7 +645,11 @@ function resolveNight(g, wave = 1) {
     }
 
     if (entry) {
-      entry.resolve(g, p, action, { broken, target, deaths, results, order });
+      // await works fine here whether a given character's resolve() is
+      // sync or async — only the handful that actually need a whim
+      // decision (randomKiller/isEvilRegistration/pairInfo) are async; the
+      // rest just resolve on the next microtask tick, same net effect.
+      await entry.resolve(g, p, action, { broken, target, deaths, results, order });
     }
   }
 
@@ -857,12 +862,12 @@ function buildSavantStatements(g, p, { broken = false } = {}) {
  * never adjusted for either. Returns `{ error }` for a malformed claim,
  * else `{ isTrue }`.
  */
-function evaluateClaim(g, body) {
+async function evaluateClaim(g, body) {
   if (body.claimType === 'team') {
     const target = byId(g, body.targetId);
     if (!target) return { error: 'Invalid target.' };
     if (!['good', 'evil'].includes(body.claimValue)) return { error: 'Invalid claim.' };
-    return { isTrue: isEvil(g, target, { forRegistration: true }) === (body.claimValue === 'evil') };
+    return { isTrue: await isEvilRegistration(g, target) === (body.claimValue === 'evil') };
   }
   if (body.claimType === 'character') {
     const target = byId(g, body.targetId);
@@ -879,7 +884,11 @@ function evaluateClaim(g, body) {
     if (!Number.isInteger(threshold) || threshold < 1 || threshold > targets.length) {
       return { error: 'Invalid threshold.' };
     }
-    const matchCount = targets.filter(t => isEvil(g, t, { forRegistration: true }) === (body.claimValue === 'evil')).length;
+    // A plain .filter() can't await — count matches with a for-loop instead.
+    let matchCount = 0;
+    for (const t of targets) {
+      if (await isEvilRegistration(g, t) === (body.claimValue === 'evil')) matchCount++;
+    }
     return { isTrue: matchCount >= threshold };
   }
   return { error: 'Invalid claim type.' };
@@ -891,23 +900,28 @@ function evaluateClaim(g, body) {
  * — deliberately scoped to exactly what evaluateClaim() above is already
  * allowed to look at, nothing wider, so a free-text claim can never be "about"
  * more than the structured menu could ever expose: per-player name and true
- * character, registration-aware team (isEvil(..., {forRegistration:true}),
- * matching evaluateClaim's own semantics — not literal trueChar().team, so a
+ * character, registration-aware team (isEvilRegistration(), matching
+ * evaluateClaim's own semantics — not literal trueChar().team, so a
  * misregistering Recluse/Spy reads the same way to a free-text claim as it
  * does to a structured one), and public alive status (a faked-dead Zombuul
  * reads as dead, matching what the table could truthfully claim). Nothing
  * from p.statuses (poison/drunk/protection internals), no night-order or
- * ability-text detail. Pure and synchronous — isEvil()'s Recluse/Spy branch
- * rolls Math.random() internally, so this must be called exactly once per
- * request and its result reused, never recomputed mid-request.
+ * ability-text detail. Async now (isEvilRegistration() may await a real
+ * Storyteller-whim judgment, not just roll Math.random()) — still must be
+ * called exactly once per request and its result reused, never recomputed
+ * mid-request, since each call is its own independent decision.
  */
-function buildStorytellerContext(g) {
-  return g.players.map(p => ({
-    name: p.name,
-    character: trueChar(p) ? trueChar(p).name : null,
-    team: isEvil(g, p, { forRegistration: true }) ? 'evil' : 'good',
-    alive: publiclyAlive(p),
-  }));
+async function buildStorytellerContext(g) {
+  const out = [];
+  for (const p of g.players) {
+    out.push({
+      name: p.name,
+      character: trueChar(p) ? trueChar(p).name : null,
+      team: await isEvilRegistration(g, p) ? 'evil' : 'good',
+      alive: publiclyAlive(p),
+    });
+  }
+  return out;
 }
 
 /**
@@ -1392,7 +1406,8 @@ module.exports = {
   generateHint, logEvent, publicState, privateState,
   checkVictory, applyPoliticianFlip, succeedDemon, trueChar, impaired, impairedFlip,
   checkKill, wouldBlockKill, publiclyAlive, randomKiller,
-  isEvil, minionDiedToday, triggerMoonchildIfNeeded, triggerDeathHooks, resolveMastermindDay,
+  isEvil, isEvilRegistration, resolveWhim, setWhimJudge, heuristicWhim,
+  minionDiedToday, triggerMoonchildIfNeeded, triggerDeathHooks, resolveMastermindDay,
   resolveDayVote, gameSummary, resolveMadness, buildSavantStatements, evaluateClaim,
   activeScriptPool, applyConfigPatch, buildStorytellerContext, BUCKET4_IDS,
   applyCannibalTransform,

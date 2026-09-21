@@ -50,10 +50,10 @@ module.exports = (h) => [
     choiceCount: () => 0,
     targets: () => [],
     text: () => '',
-    resolve(g, p, action, { broken, results }) {
+    async resolve(g, p, action, { broken, results }) {
       const others = g.players.filter(x => x.id !== p.id);
-      const goodOthers = others.filter(x => !h.isEvil(g, x, { forRegistration: true }));
-      const evilOthers = others.filter(x => h.isEvil(g, x, { forRegistration: true }));
+      const goodOthers = [], evilOthers = [];
+      for (const x of others) (await h.isEvilRegistration(g, x) ? evilOthers : goodOthers).push(x);
       // Broken: guaranteed wrong (an evil player shown as good) whenever
       // there's actually an evil player to substitute in, same "wrong,
       // not silent, and never coincidentally true" standard as Sage/
@@ -93,13 +93,13 @@ module.exports = (h) => [
     // Ring distance is measured over the real seating chart (g.players'
     // own order — seats don't move when someone dies), not just the
     // living subset, same assumption livingNeighbors makes elsewhere.
-    resolve(g, p, action, { broken, results }) {
+    async resolve(g, p, action, { broken, results }) {
       const n = g.players.length;
       const i = g.players.indexOf(p);
       let cwDist = null, ccwDist = null;
       for (let d = 1; d < n; d++) {
-        if (cwDist === null && h.isEvil(g, g.players[(i + d) % n], { forRegistration: true })) cwDist = d;
-        if (ccwDist === null && h.isEvil(g, g.players[(i - d + n) % n], { forRegistration: true })) ccwDist = d;
+        if (cwDist === null && await h.isEvilRegistration(g, g.players[(i + d) % n])) cwDist = d;
+        if (ccwDist === null && await h.isEvilRegistration(g, g.players[(i - d + n) % n])) ccwDist = d;
         if (cwDist !== null && ccwDist !== null) break;
       }
       let direction;
@@ -129,10 +129,10 @@ module.exports = (h) => [
       const known = g.players.find(x => x.id === p.statuses.bountyHunterTargetId);
       return !known || !known.alive;
     },
-    resolve(g, p, action, { broken, results }) {
+    async resolve(g, p, action, { broken, results }) {
       const others = g.players.filter(x => x.id !== p.id);
-      const goodOthers = others.filter(x => !h.isEvil(g, x, { forRegistration: true }));
-      const evilOthers = others.filter(x => h.isEvil(g, x, { forRegistration: true }));
+      const goodOthers = [], evilOthers = [];
+      for (const x of others) (await h.isEvilRegistration(g, x) ? evilOthers : goodOthers).push(x);
       // "You learn ANOTHER evil player" once the known one dies — exclude
       // the just-lost target specifically so a re-trigger can't hand back
       // the exact same (now-dead) name.
@@ -255,10 +255,10 @@ module.exports = (h) => [
     choiceCount: () => 0,
     targets: () => [],
     text: () => '',
-    resolve(g, p, action, { broken, results }) {
+    async resolve(g, p, action, { broken, results }) {
       const others = g.players.filter(x => x.id !== p.id);
-      const evilOthers = others.filter(x => h.isEvil(g, x, { forRegistration: true }));
-      const goodOthers = others.filter(x => !evilOthers.includes(x));
+      const evilOthers = [], goodOthers = [];
+      for (const x of others) (await h.isEvilRegistration(g, x) ? evilOthers : goodOthers).push(x);
       // A poisoned/drunk Noble, or a table too evil-heavy to guarantee the
       // real 1-of-3 shape (rare, only at very small evil-skewed counts),
       // both fall back to 3 genuinely random players.
@@ -386,7 +386,7 @@ module.exports = (h) => [
       guessCharacter: true,
       characterOptions: h.activeScriptPool(g).map(x => ({ id: x.id, name: x.name })),
     }),
-    resolve(g, p, action, { broken, deaths }) {
+    async resolve(g, p, action, { broken, deaths }) {
       const guess = action && action.characterGuess;
       if (!guess || broken) return;
       // "In play" means the character was dealt to someone, whether or not
@@ -397,7 +397,7 @@ module.exports = (h) => [
       const everHolder = g.players.find(x => x.id !== p.id && h.trueChar(x) && h.trueChar(x).id === guess);
       if (everHolder && !everHolder.alive) return; // already dead — nothing left for "they die" to do
       const pool = everHolder ? [everHolder] : h.alive(g).filter(x => x.id !== p.id);
-      const finalTarget = h.randomKiller(g, pool, p.id);
+      const finalTarget = await h.randomKiller(g, pool, p.id);
       if (!finalTarget) return;
       const blockedReason = h.checkKill(g, finalTarget, { demonAttack: true });
       if (blockedReason) {

@@ -262,11 +262,126 @@ function dramaticPick(g, candidates) {
   return candidates[candidates.length - 1];
 }
 
-function randomKiller(g, pool, excludeId, opts = { demonAttack: true }) {
+// Module-level, not per-game: this process only ever runs one table at a
+// time, so keeping the judge here (rather than on `g` itself) keeps every
+// game object free of a stray function reference — nothing has to remember
+// to re-attach it on every `newGame()`/`/api/table/reset`. server.js is the
+// only thing that ever calls setWhimJudge(), once, wiring in a real
+// LLM-backed decision gated by the same llmStorytellerEnabled toggle Bucket
+// 4 (Gossip/Savant/Artist) already uses. Nothing in game/ ever sets this —
+// tools/simulate.js's ~2000 assertions never touch it, so every "Bucket 1"
+// roll below falls through to WHIM_LEGACY_CHANCE exactly as before, keeping
+// every existing test's behavior byte-for-byte identical.
+let whimJudge = null;
+function setWhimJudge(fn) { whimJudge = fn; }
+
+// The exact per-kind flat rate each of these three "Storyteller might..."
+// moments has always used (see ABILITY_PATTERNS.md's Bucket 1) — kept as the
+// fallback both when no judge is wired in at all, and when a wired-in judge
+// itself fails (network error, timeout, disabled) so a real table's night
+// never stalls or crashes waiting on it.
+const WHIM_LEGACY_CHANCE = {
+  'mayor-redirect': g => g.config.mayorRedirectChance,
+  'registration-ambiguity': g => g.config.recluseRegistersEvil,
+  'pacifist-save': g => g.config.pacifistSaveChance,
+};
+
+/**
+ * The one place every Bucket-1 "Storyteller might" roll in the game now
+ * goes through — Mayor's redirect, Recluse/Spy misregistration (in all its
+ * call sites: Empath/Chef's counts, Washerwoman/Librarian/Investigator's
+ * pairInfo, the Fortune Teller's demon check, and the Bucket-3/4 ground
+ * truth in evaluateClaim/buildStorytellerContext), and Pacifist's save.
+ * `ctx.kind` identifies which for both the legacy fallback rate and
+ * whatever a real judge wants to reason about; `ctx.target` is the player
+ * the decision concerns, when there is one. A judge returning `undefined`
+ * (not this table's call to make — LLM off, no key, request failed) or
+ * throwing both fall back to the plain roll, the same "any failure falls
+ * back to the deterministic path" doctrine Bucket 4 already follows — this
+ * never stalls or crashes resolution over a network hiccup.
+ */
+async function resolveWhim(g, ctx) {
+  if (whimJudge) {
+    try {
+      const verdict = await whimJudge(g, ctx);
+      if (verdict !== undefined) return !!verdict;
+    } catch (e) {
+      // fall through to the legacy roll below
+    }
+  }
+  return Math.random() < WHIM_LEGACY_CHANCE[ctx.kind](g);
+}
+
+/** Registration-aware team read for one player — the async sibling of
+    isEvil() below, split out because only THIS case (a Recluse or Spy's
+    alternate registration) can ever need a real judgment call; everyone
+    else's alignment is a deterministic fact with nothing to decide. Kept as
+    its own function (rather than an option on isEvil) specifically so every
+    other call site — victory checks, vote tallies, the dozen info-role reads
+    that want TRUE alignment — stays perfectly synchronous and untouched by
+    this whole feature. */
+async function isEvilRegistration(g, p) {
+  const c = trueChar(p);
+  if (!c) return false;
+  if (c.id === 'recluse') {
+    const rolled = await resolveWhim(g, { kind: 'registration-ambiguity', target: p });
+    if (rolled) logWhim(g); // a good Recluse reading as evil — the whim actually fired
+    return rolled;
+  }
+  if (c.id === 'spy') {
+    const rolled = await resolveWhim(g, { kind: 'registration-ambiguity', target: p });
+    if (rolled) logWhim(g); // an evil Spy reading as good — same knob, same tell
+    return !rolled;
+  }
+  return isEvil(g, p);
+}
+
+// Whether firing a given whim kind serves good or evil, once it actually
+// manifests — mayor-redirect/pacifist-save both keep a good player alive,
+// but registration-ambiguity's "fires" outcome is the opposite: a Recluse
+// reading as evil wastes the town's suspicion on an innocent, and a Spy
+// reading as good lets a real evil player blend in — both serve evil.
+// heuristicWhim() below uses this to fire more often for whichever side is
+// actually behind, matching the roadmap's "help the losing side" framing
+// instead of just favoring good indiscriminately.
+const WHIM_FIRING_HELPS_GOOD = {
+  'mayor-redirect': true,
+  'pacifist-save': true,
+  'registration-ambiguity': false,
+};
+
+/**
+ * Option 1 from "The Whim" roadmap discussion: a synchronous, no-network
+ * judgment call, reasoning over real aggregate game state instead of a flat
+ * rate — for a table with no LLM Storyteller judge available or willing to
+ * answer. This is the fallback *inside* server.js's llmWhimJudge, not
+ * resolveWhim's own bottom-of-the-stack default: tools/simulate.js never
+ * attaches any judge at all, so its per-kind chance sliders keep driving
+ * the plain WHIM_LEGACY_CHANCE roll in every existing test, untouched.
+ * Once a real judge — LLM or this — IS attached, the mayorRedirectChance/
+ * recluseRegistersEvil/pacifistSaveChance sliders stop doing anything: a
+ * deliberate trade (confirmed with the user), not an oversight.
+ */
+function heuristicWhim(g, ctx) {
+  const living = alive(g);
+  const goodAlive = living.filter(p => !isEvil(g, p)).length;
+  const evilAlive = living.length - goodAlive;
+  const margin = goodAlive - evilAlive; // positive: good is ahead
+  const helpsGood = WHIM_FIRING_HELPS_GOOD[ctx.kind] !== false;
+  // Fire more often for whichever side firing actually helps, exactly when
+  // that side is the one currently behind.
+  const sideNeedsHelp = helpsGood ? margin <= 0 : margin >= 0;
+  let chance = 0.5; // same baseline this bucket has always defaulted to
+  if (sideNeedsHelp) chance *= 1.4;
+  if (living.length <= 5) chance *= 1.2; // a whim matters more in the endgame than on night one
+  return Math.random() < Math.min(chance, 0.9);
+}
+
+async function randomKiller(g, pool, excludeId, opts = { demonAttack: true }) {
   const candidates = (pool || []).filter(x => x && x.id !== excludeId);
   if (!candidates.length) return null;
   const picked = candidates.length === 1 ? candidates[0] : dramaticPick(g, candidates);
-  if (picked.characterId === 'mayor' && !impaired(picked) && Math.random() < g.config.mayorRedirectChance) {
+  if (picked.characterId === 'mayor' && !impaired(picked) && await resolveWhim(g, { kind: 'mayor-redirect', target: picked })) {
     const alt = alive(g).filter(x => x.id !== picked.id && x.id !== excludeId && !wouldBlockKill(g, x, opts));
     if (alt.length) {
       // Non-secret and deliberately non-attributing — the point is for the
@@ -315,19 +430,15 @@ function checkKill(g, target, opts = {}) {
   return reason;
 }
 
-function isEvil(g, p, { forRegistration = false } = {}) {
+/** True team, no registration ambiguity — every call site that wants a fact
+    rather than a judgment (victory checks, vote tallies, the Tea Lady's real
+    protection, General's heuristic) uses this and stays synchronous. A
+    Recluse/Spy's *registration* is a separate, async question — see
+    isEvilRegistration() above — since that's the one case with a real
+    Storyteller whim behind it. */
+function isEvil(g, p) {
   const c = trueChar(p);
   if (!c) return false;
-  if (forRegistration && c.id === 'recluse') {
-    const rolled = Math.random() < g.config.recluseRegistersEvil;
-    if (rolled) logWhim(g); // a good Recluse reading as evil — the whim actually fired
-    return rolled;
-  }
-  if (forRegistration && c.id === 'spy') {
-    const rolled = Math.random() < g.config.recluseRegistersEvil;
-    if (rolled) logWhim(g); // an evil Spy reading as good — same knob, same tell
-    return !rolled;
-  }
   // The Goon: flipped to evil for the rest of the game once an evil player
   // is the first to target them on some night.
   if (c.id === 'goon' && p.statuses.goonEvil) return true;
@@ -501,7 +612,7 @@ function falseNumber(trueValue, max) {
 // whenever the Demon killed one of her actual neighbors earlier that
 // night — she'd still be told about a neighbor already dead, instead of
 // the real one who'd become adjacent to her by the time she woke.
-function evilNeighbourCount(g, p, pendingDeaths = []) {
+async function evilNeighbourCount(g, p, pendingDeaths = []) {
   const deadIds = new Set(pendingDeaths.map(d => d.player.id));
   const living = alive(g).filter(x => !deadIds.has(x.id));
   const i = living.indexOf(p);
@@ -510,18 +621,18 @@ function evilNeighbourCount(g, p, pendingDeaths = []) {
   const right = living[(i + 1) % living.length];
   let count = 0;
   for (const nb of new Set([left, right])) {
-    if (nb !== p && isEvil(g, nb, { forRegistration: true })) count++;
+    if (nb !== p && await isEvilRegistration(g, nb)) count++;
   }
   return count;
 }
 
-function evilPairCount(g) {
+async function evilPairCount(g) {
   const seats = g.players;
   let pairs = 0;
   for (let i = 0; i < seats.length; i++) {
     const a = seats[i];
     const b = seats[(i + 1) % seats.length];
-    if (isEvil(g, a, { forRegistration: true }) && isEvil(g, b, { forRegistration: true })) pairs++;
+    if (await isEvilRegistration(g, a) && await isEvilRegistration(g, b)) pairs++;
   }
   return pairs;
 }
@@ -543,20 +654,25 @@ function fabricateWrongPair(g, team, excludeIds) {
 }
 
 /** "1 of these 2 players is the X" — true version, or a deliberately wrong one. */
-function pairInfo(g, p, team, wrong) {
+async function pairInfo(g, p, team, wrong) {
   const trueMembers = g.players.filter(x => x.id !== p.id && trueChar(x) && trueChar(x).team === team);
   // The Spy (registers as Townsfolk/Outsider/Minion, never Demon) and the
   // Recluse (registers as Outsider/Minion/Demon, never Townsfolk) can also
   // be shown as the "subject" of these reveals — a Storyteller-discretion
   // "might" in the real rules, modeled as a roll like their other effects.
-  const registrants = g.players.filter(x => {
-    if (x.id === p.id || trueMembers.includes(x)) return false;
+  // A plain .filter() can't await, so this is a for-loop rather than the
+  // single expression it reads like everywhere else in this file.
+  const registrants = [];
+  for (const x of g.players) {
+    if (x.id === p.id || trueMembers.includes(x)) continue;
     const c = trueChar(x);
-    if (!c) return false;
-    if (c.id === 'spy' && team !== 'demon') return Math.random() < g.config.recluseRegistersEvil;
-    if (c.id === 'recluse' && team !== 'townsfolk') return Math.random() < g.config.recluseRegistersEvil;
-    return false;
-  });
+    if (!c) continue;
+    if (c.id === 'spy' && team !== 'demon' && await resolveWhim(g, { kind: 'registration-ambiguity', target: x })) {
+      registrants.push(x);
+    } else if (c.id === 'recluse' && team !== 'townsfolk' && await resolveWhim(g, { kind: 'registration-ambiguity', target: x })) {
+      registrants.push(x);
+    }
+  }
   if (registrants.length) logWhim(g); // same registration whim isEvil() logs, this call's own roll site
   const pool = [...trueMembers, ...registrants];
   if (!pool.length) {
@@ -590,7 +706,8 @@ module.exports = {
   DATA, CHARACTERS, SETUP_TABLE, char, scriptPool, BUCKET4_IDS, activeScriptPool,
   shuffle, pick, take, excludingPick,
   byId, byToken, alive, seatIndex, actingChar, trueChar, impaired, impairedFlip, publiclyAlive,
-  livingNeighbors, tealadyProtects, wouldBlockKill, randomKiller, checkKill, isEvil, triggerMoonchildIfNeeded,
+  livingNeighbors, tealadyProtects, wouldBlockKill, randomKiller, checkKill, isEvil, isEvilRegistration,
+  resolveWhim, setWhimJudge, heuristicWhim, triggerMoonchildIfNeeded,
   triggerPixieIfNeeded, applyCannibalTransform,
   reassignCharacter, flagAbnormal,
   logEvent, logWhim, outsiderDiedToday, minionDiedToday, somebodyDiedYesterday,

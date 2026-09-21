@@ -99,7 +99,7 @@ const VERDICT_SCHEMA = {
     default verdict, since there's no deterministic fallback for free text
     the way there is for Savant's statements below. */
 async function judgeFreeformClaim(game, claimText) {
-  const context = E.buildStorytellerContext(game);
+  const context = await E.buildStorytellerContext(game);
   const result = await askStoryteller({
     system:
       'You are silently judging one claim made during a game of Blood on the Clocktower. ' +
@@ -145,6 +145,72 @@ async function rephraseSavantStatements(statements) {
   if (!Array.isArray(out) || out.length !== 2 || out.some(s => typeof s !== 'string' || !s.trim())) return null;
   return out;
 }
+
+const WHIM_SCHEMA = {
+  type: 'object',
+  properties: { fire: { type: 'boolean' } },
+  required: ['fire'],
+  additionalProperties: false,
+};
+
+// "The Whim" — see game/ABILITY_PATTERNS.md's Bucket 1. Mayor's redirect,
+// Recluse/Spy registration, and Pacifist's save were each a flat
+// Math.random() < chance roll, identical odds whether the game's on a
+// knife's edge or barely started. Real Storyteller guidance (the official
+// wiki, and two independent community tools converging on the same
+// language) says these are judgment calls: help whichever side is
+// currently losing, invisibly. This reasons over real, aggregate game
+// state instead of a fixed rate — gated behind the exact same
+// llmStorytellerEnabled toggle as Bucket 4 (Gossip/Savant/Artist), so
+// turning that off (a usage-limit concern, or just not wanting it) turns
+// this off too, with the plain roll underneath as the honest fallback.
+const WHIM_SYSTEM = {
+  'mayor-redirect':
+    'You are a Blood on the Clocktower Storyteller deciding whether to invoke the Mayor\'s power: ' +
+    '"if the Mayor is attacked by the Demon at night, the Storyteller may choose to make another ' +
+    'player die instead." Real Storyteller guidance treats this as a judgment call, not a fixed rate ' +
+    '— the goal is to help whichever side is currently losing, invisibly. Given the game state, decide ' +
+    'whether to redirect the kill away from the Mayor this time.',
+  'registration-ambiguity':
+    'You are a Blood on the Clocktower Storyteller deciding whether a Recluse or Spy\'s ambiguous ' +
+    'registration should mislead an information-gathering ability right now. Real Storyteller guidance ' +
+    'treats this as a judgment call, not a fixed rate — the goal is to help whichever side is currently ' +
+    'losing, invisibly. Given the game state, decide whether the misregistration should manifest this time.',
+  'pacifist-save':
+    'You are a Blood on the Clocktower Storyteller deciding whether to invoke the Pacifist\'s power: ' +
+    'an executed good player might secretly not die. Real Storyteller guidance treats this as a ' +
+    'judgment call, not a fixed rate — the goal is to help whichever side is currently losing, ' +
+    'invisibly. Given the game state, decide whether to save this good player from execution.',
+};
+
+/** The real judge behind game.whimJudge (see resolveWhim in helpers.js).
+    When the LLM Storyteller is off or unconfigured, this defers to
+    E.heuristicWhim() — a synchronous, no-network judgment over the same
+    "help whoever's behind" principle — rather than dropping straight to a
+    flat rate; turning the toggle off saves API usage without giving up
+    real judgment. Only a genuine LLM request failure (network, timeout, a
+    malformed reply) falls further, to heuristicWhim() as well, same "any
+    failure degrades gracefully" doctrine Bucket 4's judgeFreeformClaim/
+    rephraseSavantStatements already follow. Never throws, so a quiet
+    outage never stalls a night's resolution on a hung request. */
+async function llmWhimJudge(g, ctx) {
+  if (!(g.config.llmStorytellerEnabled && llmConfigured())) return E.heuristicWhim(g, ctx);
+  const living = E.alive(g);
+  const goodAlive = living.filter(p => {
+    const c = E.trueChar(p);
+    return c && (c.team === 'townsfolk' || c.team === 'outsider');
+  }).length;
+  const evilAlive = living.length - goodAlive;
+  const result = await askStoryteller({
+    system: WHIM_SYSTEM[ctx.kind],
+    prompt: `Night/day ${g.nightNumber}. Living players: ${living.length} total (${goodAlive} good, ${evilAlive} evil).`,
+    schema: WHIM_SCHEMA,
+    maxTokens: 40,
+  });
+  if (!result.ok) return E.heuristicWhim(g, ctx);
+  return !!(result.data && result.data.fire);
+}
+E.setWhimJudge(llmWhimJudge);
 
 function pushHost() {
   const payload = hostState();
@@ -281,12 +347,12 @@ function allSubmitted() {
   return required.length > 0 && required.every(p => game.pending[p.id]);
 }
 
-function closeWindow() {
+async function closeWindow() {
   clearTimeout(windowTimer);
   if (game.phase !== 'night') return;
 
   if (game.wave === 1) {
-    E.resolveNight(game, 1);
+    await E.resolveNight(game, 1);
     if (E.needsWaveTwo(game)) {
       game.wave = 2;
       game.windowEndsAt = Date.now() + game.config.wave2Seconds * 1000;
@@ -296,7 +362,7 @@ function closeWindow() {
       return;
     }
   } else {
-    E.resolveNight(game, 2);
+    await E.resolveNight(game, 2);
   }
 
   endNight();
@@ -346,7 +412,7 @@ function closeNomination() {
   pushAll();
 }
 
-function recordExecution(playerId) {
+async function recordExecution(playerId) {
   const p = playerId ? E.byId(game, playerId) : null;
 
   // The Mastermind's bonus day: the previous execution killed the Demon
@@ -403,7 +469,7 @@ function recordExecution(playerId) {
     const pacifist = E.alive(game).find(x => x.characterId === 'pacifist' && !E.impaired(x));
     const tc = E.trueChar(p);
     if (pacifist && tc && (tc.team === 'townsfolk' || tc.team === 'outsider') &&
-        Math.random() < game.config.pacifistSaveChance) {
+        await E.resolveWhim(game, { kind: 'pacifist-save', target: p })) {
       p.statuses.pacifistSaved = true;
     }
     // Devil's Advocate, Pacifist, and Tea Lady can all legitimately save an
@@ -714,7 +780,7 @@ function beginSimNight() {
   setTimeout(botsAnswer, Math.max(400, game.config.windowSeconds * 400));
 }
 
-function runSimStep() {
+async function runSimStep() {
   if (!game.simulation || game.paused || game.phase === 'over') return;
 
   if (game.phase === 'reveal') {
@@ -726,7 +792,7 @@ function runSimStep() {
     if (!game.dayDone) {
       // Most days end in an execution; some do not.
       const target = Math.random() < 0.78 ? chooseExecution() : null;
-      recordExecution(target ? target.id : null);
+      await recordExecution(target ? target.id : null);
       if (game.phase === 'over') return;
       // The Mastermind's bonus day: recordExecution() just bought one more
       // same-day execution attempt rather than ending the game — don't mark
@@ -1449,7 +1515,7 @@ async function requestHandler(req, res) {
         // Nobody left waiting on the clock once every real-or-decoy prompt
         // is in — same effect closeWindow's own timer would have, just not
         // making everyone sit through the rest of a window nobody needs.
-        if (allSubmitted()) closeWindow();
+        if (allSubmitted()) await closeWindow();
         return json(res, 200, { ok: true });
       }
 
@@ -1528,7 +1594,7 @@ async function requestHandler(req, res) {
           // The claim-shape menu (team/character/atleast) and its
           // ground-truth check are shared with Sects & Violets' Artist —
           // see evaluateClaim in engine.js.
-          const evaluated = E.evaluateClaim(game, body);
+          const evaluated = await E.evaluateClaim(game, body);
           if (evaluated.error) return json(res, 400, { error: evaluated.error });
           isTrue = evaluated.isTrue;
         }
@@ -1644,7 +1710,7 @@ async function requestHandler(req, res) {
           if (verdict === 'ambiguous') unsure = true;
           else isTrue = verdict === 'true';
         } else {
-          const evaluated = E.evaluateClaim(game, body);
+          const evaluated = await E.evaluateClaim(game, body);
           if (evaluated.error) return json(res, 400, { error: evaluated.error });
           isTrue = evaluated.isTrue;
         }
@@ -1993,7 +2059,7 @@ async function requestHandler(req, res) {
         const today = game.nominations.filter(n => n.day === game.nightNumber);
         if (today.some(n => !n.closed)) return json(res, 409, { error: 'A nomination is still being voted on.' });
         const winnerId = E.resolveDayVote(game);
-        if (!recordExecution(winnerId || null)) return json(res, 409, { error: 'Already executed (or decided not to) today.' });
+        if (!await recordExecution(winnerId || null)) return json(res, 409, { error: 'Already executed (or decided not to) today.' });
         return json(res, 200, { ok: true, executedId: winnerId || null });
       }
 
@@ -2068,7 +2134,7 @@ async function requestHandler(req, res) {
 
       if (route === '/api/table/execute') {
         if (game.phase !== 'day') return json(res, 409, { error: 'Not day.' });
-        if (!recordExecution(body.playerId || null)) return json(res, 409, { error: 'Already executed (or decided not to) today.' });
+        if (!await recordExecution(body.playerId || null)) return json(res, 409, { error: 'Already executed (or decided not to) today.' });
         return json(res, 200, { ok: true });
       }
 

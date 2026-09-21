@@ -136,14 +136,14 @@ module.exports = (h) => [
     choiceCount: () => 0,
     targets: () => [],
     text: () => '',
-    resolve(g, p, action, { broken, deaths }) {
+    async resolve(g, p, action, { broken, deaths }) {
       // Only reached at all when the day's claim was already frozen true
       // (checked here, not via a prompt). Not the Demon and not a Minion,
       // so its own cause tag avoids the same false-trigger risk the
       // Assassin/Godfather cases below were fixed for.
       const claimTrue = p.statuses.gossipClaimDay === g.nightNumber - 1 && p.statuses.gossipClaimTrue;
       if (claimTrue && !broken) {
-        const victim = h.randomKiller(g, h.alive(g).filter(x => x.id !== p.id), p.id, { nightKill: true });
+        const victim = await h.randomKiller(g, h.alive(g).filter(x => x.id !== p.id), p.id, { nightKill: true });
         if (victim) {
           // nightKill, not demonAttack — the Gossip is Townsfolk, and
           // demonAttack would also (incorrectly) grant Soldier immunity
@@ -251,14 +251,14 @@ module.exports = (h) => [
     acts: (g) => g.nightNumber !== 1 && h.outsiderDiedToday(g),
     targets: (g, p) => h.alive(g).filter(x => x.id !== p.id),
     text: () => 'An Outsider was executed today. Choose a player. They die.',
-    resolve(g, p, action, { broken, target, deaths }) {
+    async resolve(g, p, action, { broken, target, deaths }) {
       const [t] = target(action && action.targets);
       if (t && !broken) {
         // Mayor redirect, same as every other kill — nightKill, not
         // demonAttack, threaded through to the redirect's own alt-pool
         // check too (randomKiller's 4th arg), or a redirect landing on a
         // Soldier would wrongly grant Soldier's Demon-only immunity.
-        const finalTarget = h.randomKiller(g, [t], p.id, { nightKill: true });
+        const finalTarget = await h.randomKiller(g, [t], p.id, { nightKill: true });
         // nightKill, not demonAttack — the Godfather is a Minion, and
         // demonAttack would also (incorrectly) grant Soldier immunity
         // against a kill that isn't the Demon's.
@@ -281,14 +281,14 @@ module.exports = (h) => [
     choiceCount: () => 1,
     targets: (g, p) => h.alive(g).filter(x => x.id !== p.id),
     text: () => 'Choose a player. They are poisoned. Whoever you poisoned last night now dies.',
-    resolve(g, p, action, { broken, target, deaths }) {
+    async resolve(g, p, action, { broken, target, deaths }) {
       const [t] = target(action && action.targets);
       if (t && !broken) {
         const prevId = p.statuses.pukkaLastTarget;
         if (prevId) {
           const prev = h.byId(g, prevId);
           if (prev && prev.alive) {
-            const finalPrev = h.randomKiller(g, [prev], p.id);
+            const finalPrev = await h.randomKiller(g, [prev], p.id);
             const blocked = h.checkKill(g, finalPrev, { demonAttack: true });
             // "Becomes healthy" applies to the originally-poisoned player
             // no matter what happens next — including a Mayor redirect,
@@ -317,13 +317,13 @@ module.exports = (h) => [
     choiceCount: () => 2,
     targets: (g, p) => h.alive(g).filter(x => x.id !== p.id),
     text: () => 'Choose two players. They die.',
-    resolve(g, p, action, { broken, target, deaths }) {
+    async resolve(g, p, action, { broken, target, deaths }) {
       const chosen = target(action && action.targets);
       if (chosen.length && !broken) {
         for (const t of chosen) {
           // Each of Shabaloth's two targets is checked independently —
           // one being the Mayor doesn't affect the other's fate.
-          const finalTarget = h.randomKiller(g, [t], p.id);
+          const finalTarget = await h.randomKiller(g, [t], p.id);
           const blocked = h.checkKill(g, finalTarget, { demonAttack: true });
           if (blocked) {
             h.logEvent(g, `Shabaloth attacked ${finalTarget.name}, who survives (${blocked}).`, true);
@@ -354,7 +354,7 @@ module.exports = (h) => [
     text: (g, p) => (p.statuses.poChargedUp
       ? 'You passed last night. Choose three players. They all die.'
       : 'Choose a player, or pass. They die.'),
-    resolve(g, p, action, { broken, target, deaths }) {
+    async resolve(g, p, action, { broken, target, deaths }) {
       const chosen = target(action && action.targets);
       if (broken) return;
       if (chosen.length === 0) {
@@ -364,7 +364,7 @@ module.exports = (h) => [
       }
       p.statuses.poChargedUp = false;
       for (const t of chosen) {
-        const finalTarget = h.randomKiller(g, [t], p.id); // checked independently per target, same as Shabaloth
+        const finalTarget = await h.randomKiller(g, [t], p.id); // checked independently per target, same as Shabaloth
         const blocked = h.checkKill(g, finalTarget, { demonAttack: true });
         if (blocked) {
           h.logEvent(g, `Po attacked ${finalTarget.name}, who survives (${blocked}).`, true);
@@ -382,10 +382,10 @@ module.exports = (h) => [
     acts: (g) => !h.somebodyDiedYesterday(g),
     targets: (g, p) => h.alive(g).filter(x => x.id !== p.id),
     text: () => 'Choose a player. They die.',
-    resolve(g, p, action, { broken, target, deaths }) {
+    async resolve(g, p, action, { broken, target, deaths }) {
       const [t] = target(action && action.targets);
       if (!t || broken) return;
-      const finalTarget = h.randomKiller(g, [t], p.id);
+      const finalTarget = await h.randomKiller(g, [t], p.id);
       const blocked = h.checkKill(g, finalTarget, { demonAttack: true });
       if (blocked) {
         h.logEvent(g, `Zombuul attacked ${finalTarget.name}, who survives (${blocked}).`, true);

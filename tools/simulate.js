@@ -36,6 +36,16 @@ function autoAnswer(g) {
   }
 }
 
+// Wrapped in one async IIFE because resolveNight() (and everything that
+// funnels a Storyteller-whim decision through it — randomKiller,
+// isEvilRegistration, pairInfo) is async now, so every one of this file's
+// ~160 await E.resolveNight(...) calls needs an enclosing async function.
+// No judge is ever wired in here (setWhimJudge is only ever called by
+// server.js), so every roll below still falls back to the exact same plain
+// Math.random() behavior this file always tested — this wrapper changes
+// nothing about what's being asserted, only what's needed to await it.
+(async () => {
+
 console.log('\nSetup');
 const g = E.newGame();
 seat(g, 9);
@@ -74,7 +84,7 @@ check('decoys are shaped like real prompts',
   prompts.every(x => !x.prompt || (x.prompt.text && x.prompt.targets.length && x.prompt.count >= 1)));
 
 autoAnswer(g);
-E.resolveNight(g);
+await E.resolveNight(g);
 
 const demon = g.players.find(p => E.trueChar(p).team === 'demon');
 const minions = g.players.filter(p => E.trueChar(p).team === 'minion');
@@ -96,7 +106,7 @@ console.log('\nSmall games (5-6 players): the Demon and Minions don\'t recognize
   E.dealRoles(gSmall);
   gSmall.nightNumber = 1; gSmall.phase = 'night'; gSmall.wave = 1;
   autoAnswer(gSmall);
-  E.resolveNight(gSmall);
+  await E.resolveNight(gSmall);
   const demonSmall = gSmall.players.find(p => E.trueChar(p).team === 'demon');
   const minionsSmall = gSmall.players.filter(p => E.trueChar(p).team === 'minion');
   check('at 6 players, the Demon is not told who its Minions are',
@@ -109,7 +119,7 @@ console.log('\nSmall games (5-6 players): the Demon and Minions don\'t recognize
   E.dealRoles(gBoundary);
   gBoundary.nightNumber = 1; gBoundary.phase = 'night'; gBoundary.wave = 1;
   autoAnswer(gBoundary);
-  E.resolveNight(gBoundary);
+  await E.resolveNight(gBoundary);
   const demonBoundary = gBoundary.players.find(p => E.trueChar(p).team === 'demon');
   const minionsBoundary = gBoundary.players.filter(p => E.trueChar(p).team === 'minion');
   check('right at the boundary, 7 players, the Demon IS told who its Minions are',
@@ -130,7 +140,7 @@ if (info) {
   for (let i = 0; i < 40; i++) {
     g.pending = {}; g.results = {};
     autoAnswer(g);
-    E.resolveNight(g);
+    await E.resolveNight(g);
     if (JSON.stringify(g.results[info.id] || {}) !== before) differed++;
   }
   check(`poisoned ${info.believedId} can produce false information`, differed > 0,
@@ -163,7 +173,7 @@ for (let n = 2; n <= 4; n++) {
   g.nightNumber = n; g.phase = 'night'; g.wave = 1; g.pending = {}; g.results = {};
   autoAnswer(g);
   const before = E.alive(g).length;
-  E.resolveNight(g);
+  await E.resolveNight(g);
   const after = E.alive(g).length;
   check(`night ${n} resolved (${before} -> ${after} alive)`, after <= before);
 
@@ -172,7 +182,7 @@ for (let n = 2; n <= 4; n++) {
     const rk = g.players.find(p => p.believedId === 'ravenkeeper' && p.statuses.diedTonight);
     check('  ravenkeeper is asked only after dying', !!E.promptFor(g, rk));
     autoAnswer(g);
-    E.resolveNight(g, 2);
+    await E.resolveNight(g, 2);
     check('  ravenkeeper learned a character', !!g.results[rk.id]);
     check('  wave 2 did not re-run the whole night',
       g.players.filter(p => p.statuses.diedTonight).length >= 1);
@@ -239,7 +249,7 @@ console.log('\nScarlet Woman succession');
     gStar.results = {};
     gStar.players = [mk('imp4', 'imp'), mk('sw4', 'scarletwoman'), mk('min1', 'poisoner'), mk('t11', 'chef'), mk('t12', 'empath'), mk('t13', 'soldier')];
     gStar.pending = { imp4: { targets: ['imp4'], decoy: false } };
-    E.resolveNight(gStar, 1);
+    await E.resolveNight(gStar, 1);
     if (gStar.players.find(p => p.id === 'imp4').alive) allDied = false;
     newImpCounts.add(gStar.players.filter(p => p.characterId === 'imp' && p.id !== 'imp4').length);
   }
@@ -265,7 +275,7 @@ console.log('\nImp self-target respects protection, same as any other target');
   g.nightNumber = 2; g.phase = 'night'; g.wave = 1; g.results = {};
   g.players = [mk('imp1', 'imp'), mk('min1', 'poisoner'), mk('mo1', 'monk'), mk('t1', 'chef')];
   g.pending = { mo1: { targets: ['imp1'], decoy: false }, imp1: { targets: ['imp1'], decoy: false } };
-  E.resolveNight(g, 1);
+  await E.resolveNight(g, 1);
   check('a Monk-protected Imp survives targeting themselves',
     g.players.find(p => p.id === 'imp1').alive);
   check('...and no star-pass happens — the Minion stays a Minion',
@@ -279,11 +289,11 @@ console.log('\nPoison timing');
   gp.nightNumber = 1; gp.phase = 'night'; gp.wave = 1; gp.results = {};
   gp.players = [mk('poi1', 'poisoner'), mk('emp1', 'empath'), mk('t1', 'chef'), mk('t2', 'soldier'), mk('t3', 'slayer')];
   gp.pending = { poi1: { targets: ['emp1'], decoy: false } };
-  E.resolveNight(gp, 1);
+  await E.resolveNight(gp, 1);
   check('poison is applied the night it is used', gp.players.find(p => p.id === 'emp1').statuses.poisoned === true);
 
   gp.nightNumber = 2; gp.pending = { poi1: { targets: ['t1'], decoy: false } }; gp.results = {};
-  E.resolveNight(gp, 1);
+  await E.resolveNight(gp, 1);
   check('...but is cleared before the following night resolves (was lasting a night too long)',
     !gp.players.find(p => p.id === 'emp1').statuses.poisoned);
 }
@@ -309,7 +319,7 @@ console.log('\nFortune Teller');
     gr.nightNumber = 2; gr.phase = 'night'; gr.wave = 1; gr.results = {};
     gr.players = [mk('ft1', 'fortuneteller'), mk('rec1', 'recluse'), mk('imp1', 'imp'), mk('t1', 'soldier'), mk('t2', 'slayer')];
     gr.pending = { ft1: { targets: ['rec1', 't1'], decoy: false } };
-    E.resolveNight(gr, 1);
+    await E.resolveNight(gr, 1);
     if (gr.results.ft1.body.startsWith('Yes')) yes++;
   }
   check('pings on a Recluse roughly half the time (registration roll was being skipped entirely)',
@@ -320,7 +330,7 @@ console.log('\nFortune Teller');
   gWhim.nightNumber = 2; gWhim.phase = 'night'; gWhim.wave = 1; gWhim.results = {};
   gWhim.players = [mk('ft1', 'fortuneteller'), mk('rec1', 'recluse'), mk('imp1', 'imp'), mk('t1', 'soldier'), mk('t2', 'slayer')];
   gWhim.pending = { ft1: { targets: ['rec1', 't1'], decoy: false } };
-  E.resolveNight(gWhim, 1);
+  await E.resolveNight(gWhim, 1);
   check('a Recluse registering evil leaves the same non-secret whim line, visible live',
     gWhim.log.some(l => l.text === 'A quiet decision was made, unseen.' && l.secret === false));
 
@@ -336,7 +346,7 @@ console.log('\nFortune Teller');
   gk.nightNumber = 2; gk.phase = 'night'; gk.wave = 1; gk.results = {};
   gk.players = [mk('imp1', 'imp'), mk('ft1', 'fortuneteller'), mk('t1', 'chef'), mk('t2', 'soldier'), mk('t3', 'slayer')];
   gk.pending = { imp1: { targets: ['ft1'], decoy: false }, ft1: { targets: ['t1', 't2'], decoy: false } };
-  E.resolveNight(gk, 1);
+  await E.resolveNight(gk, 1);
   check('a Fortune Teller killed by the Demon this same night gets no reading',
     !gk.results.ft1, gk.results.ft1 && JSON.stringify(gk.results.ft1));
   check('...and no action-log entry either — she never actually got a turn',
@@ -360,7 +370,7 @@ console.log('\nEmpath');
   g.nightNumber = 2; g.phase = 'night'; g.wave = 1; g.results = {};
   g.players = [mk('emp', 'empath'), mk('m1', 'poisoner'), mk('t1', 'chef'), mk('t2', 'butler'), mk('imp1', 'imp')];
   g.pending = { imp1: { targets: ['m1'], decoy: false } };
-  E.resolveNight(g, 1);
+  await E.resolveNight(g, 1);
   check('a same-night neighbor death is reflected, not a stale pre-kill snapshot',
     g.results.emp.body === 'Evil living neighbours: 1', g.results.emp && g.results.emp.body);
 }
@@ -371,14 +381,14 @@ console.log('\nExperimental: Steward');
   const g = E.newGame();
   g.nightNumber = 1; g.phase = 'night'; g.wave = 1; g.results = {};
   g.players = [mk('st', 'steward'), mk('t1', 'chef'), mk('m1', 'poisoner'), mk('d', 'imp')];
-  E.resolveNight(g, 1);
+  await E.resolveNight(g, 1);
   check('unbroken: names an actually-good player', g.results.st.body === 't1 is a good player.', g.results.st.body);
 
   const g2 = E.newGame();
   g2.nightNumber = 1; g2.phase = 'night'; g2.wave = 1; g2.results = {};
   g2.players = [mk('st', 'steward'), mk('t1', 'chef'), mk('m1', 'poisoner'), mk('d', 'imp')];
   g2.players[0].statuses.poisoned = true;
-  E.resolveNight(g2, 1);
+  await E.resolveNight(g2, 1);
   check('broken: guaranteed wrong — names an evil player as "good"',
     g2.results.st.body === 'm1 is a good player.' || g2.results.st.body === 'd is a good player.', g2.results.st.body);
 }
@@ -389,14 +399,14 @@ console.log('\nExperimental: Knight');
   const g = E.newGame();
   g.nightNumber = 1; g.phase = 'night'; g.wave = 1; g.results = {};
   g.players = [mk('kn', 'knight'), mk('t1', 'chef'), mk('t2', 'butler'), mk('m1', 'poisoner'), mk('d', 'imp')];
-  E.resolveNight(g, 1);
+  await E.resolveNight(g, 1);
   check('unbroken: never includes the real Demon', !g.results.kn.names.includes('d'), g.results.kn.names);
 
   const g2 = E.newGame();
   g2.nightNumber = 1; g2.phase = 'night'; g2.wave = 1; g2.results = {};
   g2.players = [mk('kn', 'knight'), mk('t1', 'chef'), mk('t2', 'butler'), mk('m1', 'poisoner'), mk('d', 'imp')];
   g2.players[0].statuses.poisoned = true;
-  E.resolveNight(g2, 1);
+  await E.resolveNight(g2, 1);
   check('broken: guaranteed wrong — the real Demon is one of the two shown',
     g2.results.kn.names.includes('d'), g2.results.kn.names);
 }
@@ -412,14 +422,14 @@ console.log('\nExperimental: Shugenja');
   const g = E.newGame();
   g.nightNumber = 1; g.phase = 'night'; g.wave = 1; g.results = {};
   g.players = [mk('sh', 'shugenja'), mk('d', 'imp'), mk('t1', 'chef'), mk('t2', 'butler'), mk('t3', 'soldier')];
-  E.resolveNight(g, 1);
+  await E.resolveNight(g, 1);
   check('closest evil one seat clockwise is correctly read as clockwise',
     g.results.sh.body === 'Your closest evil player is clockwise.', g.results.sh.body);
 
   const g2 = E.newGame();
   g2.nightNumber = 1; g2.phase = 'night'; g2.wave = 1; g2.results = {};
   g2.players = [mk('sh', 'shugenja'), mk('t1', 'chef'), mk('t2', 'butler'), mk('t3', 'soldier'), mk('d', 'imp')];
-  E.resolveNight(g2, 1);
+  await E.resolveNight(g2, 1);
   check('closest evil one seat anti-clockwise (wrapping) is correctly read as anti-clockwise',
     g2.results.sh.body === 'Your closest evil player is anti-clockwise.', g2.results.sh.body);
 }
@@ -430,7 +440,7 @@ console.log('\nExperimental: Bounty Hunter');
   const g = E.newGame();
   g.nightNumber = 1; g.phase = 'night'; g.wave = 1; g.results = {};
   g.players = [mk('bh', 'bountyhunter'), mk('t1', 'chef'), mk('m1', 'poisoner'), mk('d', 'imp')];
-  E.resolveNight(g, 1);
+  await E.resolveNight(g, 1);
   const firstKnown = g.players.find(p => p.id === 'bh').statuses.bountyHunterTargetId;
   check('night 1: names a real evil player and tracks them', ['m1', 'd'].includes(firstKnown), firstKnown);
 
@@ -444,7 +454,7 @@ console.log('\nExperimental: Bounty Hunter');
   known.alive = false;
   g.nightNumber = 2; g.phase = 'night'; g.wave = 1; g.results = {};
   const otherEvilId = firstKnown === 'm1' ? 'd' : 'm1';
-  E.resolveNight(g, 1);
+  await E.resolveNight(g, 1);
   check('re-triggers once the known target dies, naming the other evil player',
     g.results.bh && g.results.bh.body === `${otherEvilId} is an evil player.`, g.results.bh);
 }
@@ -458,7 +468,7 @@ console.log('\nExperimental: King');
   g.script = 'tb'; g.nightNumber = 2; g.phase = 'night'; g.wave = 1; g.results = {};
   g.players = [mk('kg', 'king'), mk('t1', 'chef'), mk('t2', 'butler'), mk('d', 'imp')];
   g.players[1].alive = false;
-  E.resolveNight(g, 1);
+  await E.resolveNight(g, 1);
   check('does not act while the living still outnumber the dead', !g.results.kg, g.results.kg);
 
   // 2 dead of 4 — threshold met (dead equals living).
@@ -466,7 +476,7 @@ console.log('\nExperimental: King');
   g2.script = 'tb'; g2.nightNumber = 3; g2.phase = 'night'; g2.wave = 1; g2.results = {};
   g2.players = [mk('kg', 'king'), mk('t1', 'chef'), mk('t2', 'butler'), mk('d', 'imp')];
   g2.players[1].alive = false; g2.players[2].alive = false;
-  E.resolveNight(g2, 1);
+  await E.resolveNight(g2, 1);
   check('acts once the dead equal the living', !!g2.results.kg, g2.results.kg);
   const namedId = g2.results.kg.body.split(' is the ')[0];
   const namedPlayer = g2.players.find(p => p.id === namedId);
@@ -482,7 +492,7 @@ console.log('\nExperimental: King');
   const g3 = E.newGame();
   g3.script = 'tb'; g3.nightNumber = 1; g3.phase = 'night'; g3.wave = 1; g3.results = {};
   g3.players = [mk('kg', 'king'), mk('t1', 'chef'), mk('t2', 'butler'), mk('t3', 'soldier'), mk('m1', 'poisoner'), mk('m2', 'baron'), mk('d', 'imp')];
-  E.resolveNight(g3, 1);
+  await E.resolveNight(g3, 1);
   check('the Demon is told "X is the King"', g3.results.d && g3.results.d.body.includes('kg is the King.'), g3.results.d && g3.results.d.body);
 }
 
@@ -495,7 +505,7 @@ console.log('\nExperimental: Choirboy');
   g.script = 'tb'; g.nightNumber = 2; g.phase = 'night'; g.wave = 1; g.results = {};
   g.players = [mk('kg', 'king'), mk('cb', 'choirboy'), mk('t1', 'chef'), mk('d', 'imp')];
   g.pending = { d: { targets: ['kg'], decoy: false } };
-  E.resolveNight(g, 1);
+  await E.resolveNight(g, 1);
   check('fires when the Demon kills the King, naming the real Demon',
     g.results.cb && g.results.cb.body === 'd is the Demon.', g.results.cb);
 
@@ -506,7 +516,7 @@ console.log('\nExperimental: Choirboy');
   g2.players = [mk('kg', 'king'), mk('cb', 'choirboy'), mk('as1', 'assassin'), mk('d', 'fanggu')];
   g2.players.find(p => p.id === 'as1').statuses.assassinUsed = false;
   g2.pending = { as1: { targets: ['kg'], decoy: false } };
-  E.resolveNight(g2, 1);
+  await E.resolveNight(g2, 1);
   check("a Minion kill does not trigger Choirboy's reveal", !g2.results.cb, g2.results.cb);
 
   // No Choirboy in the game at all — the King's onDeath hook must not
@@ -515,7 +525,7 @@ console.log('\nExperimental: Choirboy');
   g3.script = 'tb'; g3.nightNumber = 2; g3.phase = 'night'; g3.wave = 1; g3.results = {};
   g3.players = [mk('kg', 'king'), mk('t1', 'chef'), mk('d', 'imp')];
   g3.pending = { d: { targets: ['kg'], decoy: false } };
-  E.resolveNight(g3, 1);
+  await E.resolveNight(g3, 1);
   check('no Choirboy in play: King still dies cleanly, nothing else happens', !g3.players.find(p => p.id === 'kg').alive);
 }
 
@@ -528,14 +538,14 @@ console.log('\nExperimental: Acrobat');
   g.players = [mk('ac', 'acrobat'), mk('t1', 'chef'), mk('t2', 'butler')];
   g.players.find(p => p.id === 't1').statuses.poisoned = true;
   g.pending = { ac: { targets: ['t1'], decoy: false } };
-  E.resolveNight(g, 1);
+  await E.resolveNight(g, 1);
   check('choosing a poisoned player kills the Acrobat', !g.players.find(p => p.id === 'ac').alive);
 
   const g2 = E.newGame();
   g2.nightNumber = 2; g2.phase = 'night'; g2.wave = 1; g2.results = {};
   g2.players = [mk('ac', 'acrobat'), mk('t1', 'chef'), mk('t2', 'butler')];
   g2.pending = { ac: { targets: ['t1'], decoy: false } };
-  E.resolveNight(g2, 1);
+  await E.resolveNight(g2, 1);
   check('choosing a clean player does nothing', g2.players.find(p => p.id === 'ac').alive);
 
   // Poisoned/drunk Acrobat: the check itself simply doesn't run, even
@@ -547,7 +557,7 @@ console.log('\nExperimental: Acrobat');
   g3.players.find(p => p.id === 'ac').statuses.poisoned = true;
   g3.players.find(p => p.id === 't1').statuses.poisoned = true;
   g3.pending = { ac: { targets: ['t1'], decoy: false } };
-  E.resolveNight(g3, 1);
+  await E.resolveNight(g3, 1);
   check('an impaired Acrobat never dies from the check, even on a true match',
     g3.players.find(p => p.id === 'ac').alive);
 }
@@ -566,7 +576,7 @@ console.log('\nExperimental: Nightwatchman');
   g.nightNumber = 1; g.phase = 'night'; g.wave = 1; g.results = {};
   g.players = [mk('nw', 'nightwatchman'), mk('t1', 'chef')];
   g.pending = { nw: { targets: ['t1'], decoy: false } };
-  E.resolveNight(g, 1);
+  await E.resolveNight(g, 1);
   check('the chosen player — not the Nightwatchman — receives the reveal, merged alongside their own info',
     g.results.t1 && g.results.t1.body === 'Pairs of neighbouring evil players: 0 nw is the Nightwatchman.' && !g.results.nw, g.results);
   check('the once-per-game flag is spent on a real choice', g.players.find(p => p.id === 'nw').statuses.nightwatchmanUsed === true);
@@ -576,7 +586,7 @@ console.log('\nExperimental: Nightwatchman');
   g2.nightNumber = 1; g2.phase = 'night'; g2.wave = 1; g2.results = {};
   g2.players = [mk('nw', 'nightwatchman'), mk('t1', 'chef')];
   g2.pending = { nw: { targets: [], decoy: false } };
-  E.resolveNight(g2, 1);
+  await E.resolveNight(g2, 1);
   check('passing does not spend the once-per-game charge', !g2.players.find(p => p.id === 'nw').statuses.nightwatchmanUsed);
 }
 
@@ -587,7 +597,7 @@ console.log('\nExperimental: Snitch');
   const g = E.newGame();
   g.script = 'tb'; g.nightNumber = 1; g.phase = 'night'; g.wave = 1; g.results = {};
   g.players = [mk('sn', 'snitch'), mk('t1', 'chef'), mk('t2', 'butler'), mk('t3', 'soldier'), mk('t4', 'slayer'), mk('m1', 'poisoner'), mk('d', 'imp')];
-  E.resolveNight(g, 1);
+  await E.resolveNight(g, 1);
   const minionNames = g.results.m1.names;
   check('the Minion gets fellow-Minion info plus 3 bluffs', minionNames.filter(n => n.includes('not in play')).length === 3, minionNames);
 
@@ -596,7 +606,7 @@ console.log('\nExperimental: Snitch');
   const g2 = E.newGame();
   g2.script = 'tb'; g2.nightNumber = 1; g2.phase = 'night'; g2.wave = 1; g2.results = {};
   g2.players = [mk('sn', 'snitch'), mk('t1', 'chef'), mk('m1', 'poisoner'), mk('d', 'imp')];
-  E.resolveNight(g2, 1);
+  await E.resolveNight(g2, 1);
   check('under 7 players, evil still stays in the dark — no bluffs handed out', !g2.results.m1);
 }
 
@@ -608,7 +618,7 @@ console.log('\nButler');
   g.nightNumber = 2; g.phase = 'night'; g.wave = 1; g.results = {};
   g.players = [mk('bu1', 'butler'), mk('t1', 'chef')];
   g.pending = { bu1: { targets: ['t1'], decoy: false } };
-  E.resolveNight(g, 1);
+  await E.resolveNight(g, 1);
   check('an unpoisoned Butler\'s choice sets the next-day master restriction',
     g.players.find(p => p.id === 't1').statuses.master === true);
 
@@ -621,7 +631,7 @@ console.log('\nButler');
   g2.players = [mk('bu1', 'butler'), mk('t1', 'chef')];
   g2.players.find(p => p.id === 'bu1').statuses.poisoned = true;
   g2.pending = { bu1: { targets: ['t1'], decoy: false } };
-  E.resolveNight(g2, 1);
+  await E.resolveNight(g2, 1);
   check('a poisoned Butler\'s choice sets no restriction at all',
     !g2.players.find(p => p.id === 't1').statuses.master);
 }
@@ -634,7 +644,7 @@ console.log('\nSpy grimoire under impairment');
   const gs = E.newGame();
   gs.nightNumber = 2; gs.phase = 'night'; gs.wave = 1; gs.results = {};
   gs.players = lineup();
-  E.resolveNight(gs, 1);
+  await E.resolveNight(gs, 1);
   const trueNames = gs.players.map(p => E.trueChar(p).name);
   check('an unpoisoned Spy sees the true grimoire',
     JSON.stringify(gs.results.spy1.grimoire.map(r => r.character)) === JSON.stringify(trueNames));
@@ -645,7 +655,7 @@ console.log('\nSpy grimoire under impairment');
     gp2.nightNumber = 2; gp2.phase = 'night'; gp2.wave = 1; gp2.results = {};
     gp2.players = lineup();
     gp2.players[0].statuses.poisoned = true;
-    E.resolveNight(gp2, 1);
+    await E.resolveNight(gp2, 1);
     const shown = gp2.results.spy1.grimoire.map(r => r.character);
     const truth = gp2.players.map(p => E.trueChar(p).name);
     if (JSON.stringify(shown) !== JSON.stringify(truth)) anyDiffered = true;
@@ -668,7 +678,7 @@ console.log('\nSpy grimoire: also shows what the Drunk (and Lunatic) believe the
     { id: 't1', name: 't1', characterId: 'chef', believedId: 'chef', alive: true, statuses: {} },
     { id: 't2', name: 't2', characterId: 'soldier', believedId: 'soldier', alive: true, statuses: {} },
   ];
-  E.resolveNight(g, 1);
+  await E.resolveNight(g, 1);
   const grim = g.results.spy1 && g.results.spy1.grimoire;
   const drunkRow = grim && grim.find(r => r.name === 'drunk1');
   const spyRow = grim && grim.find(r => r.name === 'spy1');
@@ -689,7 +699,7 @@ console.log('\nSpy/Recluse as a registered subject for Washerwoman-type reveals'
     gw.config.recluseRegistersEvil = 1; // force the registration roll itself; picking as subject is still random
     gw.nightNumber = 1; gw.phase = 'night'; gw.wave = 1; gw.results = {};
     gw.players = [mk('ww1', 'washerwoman'), mk('spy1', 'spy'), mk('imp1', 'imp'), mk('t1', 'soldier'), mk('t2', 'slayer')];
-    E.resolveNight(gw, 1);
+    await E.resolveNight(gw, 1);
     const info = gw.results.ww1;
     // The Spy is the *subject* (not merely the decoy) exactly when the named
     // character isn't Soldier or Slayer — the only two true Townsfolk here.
@@ -713,7 +723,7 @@ console.log('\nLibrarian: "no Outsider in play", under impairment');
   const g = E.newGame();
   g.nightNumber = 1; g.phase = 'night'; g.wave = 1; g.results = {};
   g.players = [mk('li1', 'librarian'), mk('imp1', 'imp'), mk('t1', 'soldier'), mk('t2', 'slayer')]; // no Outsider dealt
-  E.resolveNight(g, 1);
+  await E.resolveNight(g, 1);
   check('an unpoisoned Librarian is truthfully told no Outsider is in play (sanity check)',
     g.results.li1.body.includes('no outsider is in play'));
 
@@ -721,7 +731,7 @@ console.log('\nLibrarian: "no Outsider in play", under impairment');
   g2.nightNumber = 1; g2.phase = 'night'; g2.wave = 1; g2.results = {};
   g2.players = [mk('li1', 'librarian'), mk('imp1', 'imp'), mk('t1', 'soldier'), mk('t2', 'slayer')];
   g2.players.find(p => p.id === 'li1').statuses.poisoned = true;
-  E.resolveNight(g2, 1);
+  await E.resolveNight(g2, 1);
   check('a poisoned Librarian is NOT told the true "no Outsider in play" fact',
     !g2.results.li1.body.includes('no outsider is in play'));
   check('...gets a fabricated false-positive pair instead',
@@ -767,7 +777,7 @@ console.log('\nMayor redirect on a night kill');
     g.nightNumber = 2; g.phase = 'night'; g.wave = 1; g.results = {};
     g.players = lineup();
     g.pending = { imp1: { targets: ['mayor1'], decoy: false } };
-    E.resolveNight(g, 1);
+    await E.resolveNight(g, 1);
     if (g.players.find(p => p.id === 'mayor1').alive) redirected++; else notRedirected++;
   }
   check('the Mayor\'s night death is sometimes redirected, sometimes not (40 trials)',
@@ -778,7 +788,7 @@ console.log('\nMayor redirect on a night kill');
   gOff.nightNumber = 2; gOff.phase = 'night'; gOff.wave = 1; gOff.results = {};
   gOff.players = lineup();
   gOff.pending = { imp1: { targets: ['mayor1'], decoy: false } };
-  E.resolveNight(gOff, 1);
+  await E.resolveNight(gOff, 1);
   check('with the chance forced to 0, the Mayor just dies', !gOff.players.find(p => p.id === 'mayor1').alive);
 
   const gOn = E.newGame();
@@ -786,7 +796,7 @@ console.log('\nMayor redirect on a night kill');
   gOn.nightNumber = 2; gOn.phase = 'night'; gOn.wave = 1; gOn.results = {};
   gOn.players = lineup();
   gOn.pending = { imp1: { targets: ['mayor1'], decoy: false } };
-  E.resolveNight(gOn, 1);
+  await E.resolveNight(gOn, 1);
   const mayorSurvived = gOn.players.find(p => p.id === 'mayor1').alive;
   const othersDead = gOn.players.filter(p => p.id !== 'mayor1' && p.id !== 'imp1' && !p.alive).length;
   check('with the chance forced to 1, the Mayor survives and someone else dies instead',
@@ -800,7 +810,7 @@ console.log('\nMayor redirect on a night kill');
   gPoison.players = lineup();
   gPoison.players.find(p => p.id === 'mayor1').statuses.poisoned = true;
   gPoison.pending = { imp1: { targets: ['mayor1'], decoy: false } };
-  E.resolveNight(gPoison, 1);
+  await E.resolveNight(gPoison, 1);
   check('a poisoned Mayor gets no redirect (the ability just fails) and dies normally',
     !gPoison.players.find(p => p.id === 'mayor1').alive);
 }
@@ -814,7 +824,7 @@ console.log('\nBMR: Sailor');
     g.script = 'bmr'; g.nightNumber = 1; g.phase = 'night'; g.wave = 1; g.results = {};
     g.players = [mk('sailor1', 'sailor'), mk('t1', 'chef')];
     g.pending = { sailor1: { targets: ['t1'], decoy: false } };
-    E.resolveNight(g, 1);
+    await E.resolveNight(g, 1);
     const sd = !!g.players[0].statuses.drunk, td = !!g.players[1].statuses.drunk;
     if (sd && !td) sailorDrunk++; else if (td && !sd) targetDrunk++; else bad++;
   }
@@ -842,7 +852,7 @@ console.log('\nBMR: Chambermaid');
   // Soldier has no night ability at all and isn't in tonight's order.
   g.players = [mk('cm1', 'chambermaid'), mk('poi1', 'poisoner'), mk('emp1', 'empath'), mk('t1', 'soldier')];
   g.pending = { cm1: { targets: ['poi1', 'emp1'], decoy: false }, poi1: { targets: ['t1'], decoy: false } };
-  E.resolveNight(g, 1);
+  await E.resolveNight(g, 1);
   check('Chambermaid counts both a choice-role and a pure-info role as woken',
     g.results.cm1.body.includes('2'), g.results.cm1.body);
 
@@ -855,7 +865,7 @@ console.log('\nBMR: Chambermaid');
   g2.players = [mk('cm1', 'chambermaid'), mk('poi1', 'poisoner'), mk('t1', 'soldier')];
   g2.players.find(p => p.id === 'poi1').statuses.poisoned = true;
   g2.pending = { cm1: { targets: ['poi1', 't1'], decoy: false } };
-  E.resolveNight(g2, 1);
+  await E.resolveNight(g2, 1);
   check('an impaired role that still wakes counts as 1, not 0',
     g2.results.cm1.body.includes('1'), g2.results.cm1.body);
 
@@ -863,7 +873,7 @@ console.log('\nBMR: Chambermaid');
   g3.script = 'bmr'; g3.nightNumber = 2; g3.phase = 'night'; g3.wave = 1; g3.results = {};
   g3.players = [mk('cm1', 'chambermaid'), mk('t1', 'soldier'), mk('t2', 'fool')];
   g3.pending = { cm1: { targets: ['t1', 't2'], decoy: false } };
-  E.resolveNight(g3, 1);
+  await E.resolveNight(g3, 1);
   check('...but a character with no night ability at all is never counted',
     g3.results.cm1.body.includes('0'), g3.results.cm1.body);
 
@@ -875,7 +885,7 @@ console.log('\nBMR: Chambermaid');
   g4.script = 'bmr'; g4.nightNumber = 2; g4.phase = 'night'; g4.wave = 1; g4.results = {};
   g4.players = [mk('cm1', 'chambermaid'), mk('gf1', 'godfather'), mk('t1', 'soldier')];
   g4.pending = { cm1: { targets: ['gf1', 't1'], decoy: false } };
-  E.resolveNight(g4, 1);
+  await E.resolveNight(g4, 1);
   check('a Godfather with no qualifying Outsider execution today does not count as woken',
     g4.results.cm1.body.includes('0'), g4.results.cm1.body);
 }
@@ -887,7 +897,7 @@ console.log('\nBMR: Exorcist blocks the Demon');
   g.script = 'bmr'; g.nightNumber = 2; g.phase = 'night'; g.wave = 1; g.results = {};
   g.players = [mk('ex1', 'exorcist'), mk('imp1', 'imp'), mk('t1', 'chef'), mk('t2', 'soldier')];
   g.pending = { ex1: { targets: ['imp1'], decoy: false }, imp1: { targets: ['t1'], decoy: false } };
-  E.resolveNight(g, 1);
+  await E.resolveNight(g, 1);
   check('a Demon targeted by the Exorcist does not act — their target survives',
     g.players.find(p => p.id === 't1').alive);
   check('the Demon is told the Exorcist\'s actual name, not just flavor text saying "the Exorcist"',
@@ -897,7 +907,7 @@ console.log('\nBMR: Exorcist blocks the Demon');
   g2.script = 'bmr'; g2.nightNumber = 3; g2.phase = 'night'; g2.wave = 1; g2.results = {};
   g2.players = [mk('ex1', 'exorcist'), mk('imp1', 'imp'), mk('t1', 'chef'), mk('t2', 'empath')];
   g2.pending = { ex1: { targets: ['t1'], decoy: false }, imp1: { targets: ['t2'], decoy: false } };
-  E.resolveNight(g2, 1);
+  await E.resolveNight(g2, 1);
   check('...but targeting a non-Demon leaves the Demon free to act',
     !g2.players.find(p => p.id === 't2').alive);
 }
@@ -909,7 +919,7 @@ console.log('\nBMR: Innkeeper');
   g.script = 'bmr'; g.nightNumber = 2; g.phase = 'night'; g.wave = 1; g.results = {};
   g.players = [mk('ik1', 'innkeeper'), mk('imp1', 'imp'), mk('t1', 'chef'), mk('t2', 'soldier')];
   g.pending = { ik1: { targets: ['t1', 't2'], decoy: false }, imp1: { targets: ['t1'], decoy: false } };
-  E.resolveNight(g, 1);
+  await E.resolveNight(g, 1);
   const t1 = g.players.find(p => p.id === 't1'), t2 = g.players.find(p => p.id === 't2');
   check('both Innkeeper picks survive a Demon attack', t1.alive && t2.alive);
   check('exactly one of the two ends up drunk until dusk',
@@ -924,14 +934,14 @@ console.log('\nBMR: Gambler');
   g.script = 'bmr'; g.nightNumber = 2; g.phase = 'night'; g.wave = 1; g.results = {};
   g.players = [mk('ga1', 'gambler'), mk('t1', 'chef')];
   g.pending = { ga1: { targets: ['t1'], decoy: false, characterGuess: 'chef' } };
-  E.resolveNight(g, 1);
+  await E.resolveNight(g, 1);
   check('a correct guess costs the Gambler nothing', g.players.find(p => p.id === 'ga1').alive);
 
   const g2 = E.newGame();
   g2.script = 'bmr'; g2.nightNumber = 2; g2.phase = 'night'; g2.wave = 1; g2.results = {};
   g2.players = [mk('ga1', 'gambler'), mk('t1', 'chef')];
   g2.pending = { ga1: { targets: ['t1'], decoy: false, characterGuess: 'empath' } };
-  E.resolveNight(g2, 1);
+  await E.resolveNight(g2, 1);
   check('a wrong guess kills the Gambler', !g2.players.find(p => p.id === 'ga1').alive);
   check('the Gambler is never told whether they were right or wrong',
     !g2.results.ga1);
@@ -941,7 +951,7 @@ console.log('\nBMR: Gambler');
   g3.players = [mk('ga1', 'gambler'), mk('t1', 'chef')];
   g3.players[0].statuses.poisoned = true;
   g3.pending = { ga1: { targets: ['t1'], decoy: false, characterGuess: 'empath' } };
-  E.resolveNight(g3, 1);
+  await E.resolveNight(g3, 1);
   check('a poisoned Gambler never dies from a wrong guess — the ability just fails',
     g3.players.find(p => p.id === 'ga1').alive);
 
@@ -954,7 +964,7 @@ console.log('\nBMR: Gambler');
   g4.script = 'bmr'; g4.nightNumber = 2; g4.phase = 'night'; g4.wave = 1; g4.results = {};
   g4.players = [{ id: 'ga1', name: 'ga1', characterId: 'fool', believedId: 'gambler', alive: true, statuses: {} }, mk('t1', 'chef')];
   g4.pending = { ga1: { targets: ['t1'], decoy: false, characterGuess: 'empath' } };
-  E.resolveNight(g4, 1);
+  await E.resolveNight(g4, 1);
   check('a wrong guess still respects the Fool\'s one-time survival',
     g4.players.find(p => p.id === 'ga1').alive && g4.players.find(p => p.id === 'ga1').statuses.foolUsed);
 
@@ -969,7 +979,7 @@ console.log('\nBMR: Gambler');
     ik1: { targets: ['ga1', 't1'], decoy: false },
     ga1: { targets: ['t1'], decoy: false, characterGuess: 'empath' },
   };
-  E.resolveNight(g5, 1);
+  await E.resolveNight(g5, 1);
   check('an Innkeeper-protected Gambler survives a wrong guess',
     g5.players.find(p => p.id === 'ga1').alive);
 }
@@ -1005,7 +1015,7 @@ console.log('\nBMR: Gossip');
   g3.players = [mk('go1', 'gossip'), mk('t1', 'chef')];
   g3.players[0].statuses.gossipClaimDay = 1;
   g3.players[0].statuses.gossipClaimTrue = true;
-  E.resolveNight(g3, 1);
+  await E.resolveNight(g3, 1);
   check('a true claim from yesterday kills the only other player automatically',
     !g3.players.find(p => p.id === 't1').alive);
 
@@ -1016,13 +1026,13 @@ console.log('\nBMR: Gossip');
   g4.players = [mk('go1', 'gossip'), mk('t1', 'chef')];
   g4.players[0].statuses.gossipClaimDay = 1; // would have fired night 2, not night 3
   g4.players[0].statuses.gossipClaimTrue = true;
-  E.resolveNight(g4, 1);
+  await E.resolveNight(g4, 1);
   check('a stale claim from an earlier day never kills anyone', g4.players.find(p => p.id === 't1').alive);
 
   const g5 = E.newGame();
   g5.script = 'bmr'; g5.nightNumber = 2; g5.phase = 'night'; g5.wave = 1; g5.results = {};
   g5.players = [mk('go1', 'gossip'), mk('t1', 'chef')];
-  E.resolveNight(g5, 1);
+  await E.resolveNight(g5, 1);
   check('no claim made at all never kills anyone', g5.players.find(p => p.id === 't1').alive);
 
   // Impairment at the moment the kill would happen (independent of the
@@ -1033,7 +1043,7 @@ console.log('\nBMR: Gossip');
   g6.players[0].statuses.gossipClaimDay = 1;
   g6.players[0].statuses.gossipClaimTrue = true;
   g6.players[0].statuses.poisoned = true;
-  E.resolveNight(g6, 1);
+  await E.resolveNight(g6, 1);
   check('poisoned at the moment of the kill, it fails even though the claim was true',
     g6.players.find(p => p.id === 't1').alive);
 
@@ -1045,7 +1055,7 @@ console.log('\nBMR: Gossip');
     gt.players = [mk('go1', 'gossip'), mk('t1', 'chef'), mk('t2', 'soldier'), mk('t3', 'empath')];
     gt.players[0].statuses.gossipClaimDay = 1;
     gt.players[0].statuses.gossipClaimTrue = true;
-    E.resolveNight(gt, 1);
+    await E.resolveNight(gt, 1);
     if (!gt.players.find(p => p.id === 'go1').alive) goSurvivedAll = false;
   }
   check('the Gossip is never their own random victim (30 trials)', goSurvivedAll);
@@ -1061,7 +1071,7 @@ console.log('\nBMR: Gossip');
     gl.players[0].statuses.gossipClaimDay = 1;
     gl.players[0].statuses.gossipClaimTrue = true;
     gl.players.find(p => p.id === 'gm1').statuses.grandchildId = 'gc1';
-    E.resolveNight(gl, 1);
+    await E.resolveNight(gl, 1);
     const gc1Died = !gl.players.find(p => p.id === 'gc1').alive;
     const gmAlive = gl.players.find(p => p.id === 'gm1').alive;
     if (gc1Died && !gmAlive) linkNeverFalselyTriggered = false;
@@ -1077,7 +1087,7 @@ console.log('\nBMR: randomKiller (shared Mayor-redirect resolver)');
   const g = E.newGame();
   g.players = [mk('t1', 'chef')];
   check('a non-Mayor single-candidate pool is returned as-is',
-    E.randomKiller(g, [g.players[0]]) === g.players[0]);
+    await E.randomKiller(g, [g.players[0]]) === g.players[0]);
 
   // Forcing the roll (chance = 1) against a lone Mayor with alternates
   // available must redirect to one of them, never the Mayor.
@@ -1086,7 +1096,7 @@ console.log('\nBMR: randomKiller (shared Mayor-redirect resolver)');
     const gm = E.newGame();
     gm.config.mayorRedirectChance = 1;
     gm.players = [mk('may1', 'mayor'), mk('t1', 'chef'), mk('t2', 'soldier')];
-    const result = E.randomKiller(gm, [gm.players[0]]);
+    const result = await E.randomKiller(gm, [gm.players[0]]);
     if (result.id === 'may1') redirectedEveryTime = false;
   }
   check('mayorRedirectChance=1 always redirects away from the Mayor (20 trials)', redirectedEveryTime);
@@ -1095,26 +1105,26 @@ console.log('\nBMR: randomKiller (shared Mayor-redirect resolver)');
   const gm0 = E.newGame();
   gm0.config.mayorRedirectChance = 0;
   gm0.players = [mk('may1', 'mayor'), mk('t1', 'chef')];
-  check('mayorRedirectChance=0 never redirects', E.randomKiller(gm0, [gm0.players[0]]).id === 'may1');
+  check('mayorRedirectChance=0 never redirects', (await E.randomKiller(gm0, [gm0.players[0]])).id === 'may1');
 
   // An impaired Mayor never redirects — the ability just fails.
   const gmi = E.newGame();
   gmi.config.mayorRedirectChance = 1;
   gmi.players = [mk('may1', 'mayor'), mk('t1', 'chef')];
   gmi.players[0].statuses.poisoned = true;
-  check('a poisoned Mayor never redirects, even at chance=1', E.randomKiller(gmi, [gmi.players[0]]).id === 'may1');
+  check('a poisoned Mayor never redirects, even at chance=1', (await E.randomKiller(gmi, [gmi.players[0]])).id === 'may1');
 
   // With no alternates to redirect to, the Mayor is the result regardless.
   const gmSolo = E.newGame();
   gmSolo.config.mayorRedirectChance = 1;
   gmSolo.players = [mk('may1', 'mayor')];
-  check('no living alternates to redirect to -> the Mayor stands', E.randomKiller(gmSolo, [gmSolo.players[0]]).id === 'may1');
+  check('no living alternates to redirect to -> the Mayor stands', (await E.randomKiller(gmSolo, [gmSolo.players[0]])).id === 'may1');
 
   // A pool of many, no Mayor involved, spreads across more than one victim.
   const seen = new Set();
   const gp = E.newGame();
   gp.players = [mk('a', 'chef'), mk('b', 'soldier'), mk('c', 'empath'), mk('d', 'fool')];
-  for (let i = 0; i < 30; i++) seen.add(E.randomKiller(gp, gp.players).id);
+  for (let i = 0; i < 30; i++) seen.add((await E.randomKiller(gp, gp.players)).id);
   check('a multi-candidate pool is genuinely randomized, not always the same pick (30 trials)', seen.size > 1);
 
   // dramaBias's one real hook: weighting toward whoever's already been
@@ -1127,7 +1137,7 @@ console.log('\nBMR: randomKiller (shared Mayor-redirect resolver)');
   gBias0.players = [mk('a', 'chef'), mk('b', 'soldier'), mk('c', 'empath'), mk('d', 'fool')];
   gBias0.nominations = [{ nomineeId: 'a' }, { nomineeId: 'a' }, { nomineeId: 'a' }];
   let aCountBias0 = 0;
-  for (let i = 0; i < trials; i++) if (E.randomKiller(gBias0, gBias0.players).id === 'a') aCountBias0++;
+  for (let i = 0; i < trials; i++) if ((await E.randomKiller(gBias0, gBias0.players)).id === 'a') aCountBias0++;
   check('dramaBias=0 ignores nomination history — roughly a flat 1-in-4, even with "a" nominated 3 times',
     aCountBias0 > trials * 0.15 && aCountBias0 < trials * 0.35, `saw a picked ${aCountBias0}/${trials}`);
 
@@ -1136,7 +1146,7 @@ console.log('\nBMR: randomKiller (shared Mayor-redirect resolver)');
   gBias1.players = [mk('a', 'chef'), mk('b', 'soldier'), mk('c', 'empath'), mk('d', 'fool')];
   gBias1.nominations = [{ nomineeId: 'a' }, { nomineeId: 'a' }, { nomineeId: 'a' }];
   let aCountBias1 = 0;
-  for (let i = 0; i < trials; i++) if (E.randomKiller(gBias1, gBias1.players).id === 'a') aCountBias1++;
+  for (let i = 0; i < trials; i++) if ((await E.randomKiller(gBias1, gBias1.players)).id === 'a') aCountBias1++;
   check('dramaBias=1 clearly favors the most-nominated candidate over the flat-bias rate',
     aCountBias1 > aCountBias0 + trials * 0.15, `bias0 saw ${aCountBias0}/${trials}, bias1 saw ${aCountBias1}/${trials}`);
 }
@@ -1148,7 +1158,7 @@ console.log('\nBMR: Courtier');
   g.script = 'bmr'; g.nightNumber = 3; g.phase = 'night'; g.wave = 1; g.results = {};
   g.players = [mk('co1', 'courtier'), mk('t1', 'chef')];
   g.pending = { co1: { targets: ['t1'], decoy: false } };
-  E.resolveNight(g, 1);
+  await E.resolveNight(g, 1);
   const t1 = g.players.find(p => p.id === 't1');
   check('Courtier makes the target drunk', t1.statuses.drunk === true);
   check('...for exactly 3 nights and days (clears at dusk of night 6, not before)',
@@ -1163,14 +1173,14 @@ console.log('\nBMR: Professor');
   g.script = 'bmr'; g.nightNumber = 3; g.phase = 'night'; g.wave = 1; g.results = {};
   g.players = [mk('pr1', 'professor'), mk('dead1', 'chef', false), mk('dead2', 'imp', false)];
   g.pending = { pr1: { targets: ['dead1'], decoy: false } };
-  E.resolveNight(g, 1);
+  await E.resolveNight(g, 1);
   check('Professor resurrects a dead Townsfolk', g.players.find(p => p.id === 'dead1').alive);
 
   const g2 = E.newGame();
   g2.script = 'bmr'; g2.nightNumber = 3; g2.phase = 'night'; g2.wave = 1; g2.results = {};
   g2.players = [mk('pr1', 'professor'), mk('dead2', 'imp', false)];
   g2.pending = { pr1: { targets: ['dead2'], decoy: false } };
-  E.resolveNight(g2, 1);
+  await E.resolveNight(g2, 1);
   check('...but not a dead Demon', !g2.players.find(p => p.id === 'dead2').alive);
 }
 
@@ -1181,12 +1191,12 @@ console.log('\nBMR: Devil\'s Advocate execution immunity');
   g.script = 'bmr'; g.nightNumber = 2; g.phase = 'night'; g.wave = 1; g.results = {};
   g.players = [mk('da1', 'devilsadvocate'), mk('t1', 'chef')];
   g.pending = { da1: { targets: ['t1'], decoy: false } };
-  E.resolveNight(g, 1);
+  await E.resolveNight(g, 1);
   check('the chosen player is immune to execution tomorrow',
     E.wouldBlockKill(g, g.players.find(p => p.id === 't1'), { executionAttack: true }) === 'devils-advocate');
 
   g.nightNumber = 3; g.results = {}; g.pending = { da1: { targets: ['t1'], decoy: false } };
-  E.resolveNight(g, 1); // wave-1 reset should clear yesterday's immunity before granting a fresh one
+  await E.resolveNight(g, 1); // wave-1 reset should clear yesterday's immunity before granting a fresh one
   check('...and that immunity does not linger past the one day it covers (fresh grant re-applies, doesn\'t double)',
     E.wouldBlockKill(g, g.players.find(p => p.id === 't1'), { executionAttack: true }) === 'devils-advocate');
 
@@ -1194,7 +1204,7 @@ console.log('\nBMR: Devil\'s Advocate execution immunity');
   g2.script = 'bmr'; g2.nightNumber = 2; g2.phase = 'night'; g2.wave = 1; g2.results = {};
   g2.players = [mk('da1', 'devilsadvocate'), mk('t1', 'chef')];
   g2.pending = {};
-  E.resolveNight(g2, 1); // no DA action at all this night — clears any stale immunity
+  await E.resolveNight(g2, 1); // no DA action at all this night — clears any stale immunity
   check('with no DA action, no one is execution-immune',
     E.wouldBlockKill(g2, g2.players.find(p => p.id === 't1'), { executionAttack: true }) === null);
 }
@@ -1206,7 +1216,7 @@ console.log('\nBMR: Assassin bypasses all protection');
   g.script = 'bmr'; g.nightNumber = 2; g.phase = 'night'; g.wave = 1; g.results = {};
   g.players = [mk('as1', 'assassin'), mk('t1', 'soldier'), mk('t2', 'fool')];
   g.pending = { as1: { targets: ['t1'], decoy: false } };
-  E.resolveNight(g, 1);
+  await E.resolveNight(g, 1);
   check('the Assassin kills straight through the Soldier\'s demon-only immunity',
     !g.players.find(p => p.id === 't1').alive);
   check('the Assassin is marked used after a real kill', g.players.find(p => p.id === 'as1').statuses.assassinUsed);
@@ -1215,7 +1225,7 @@ console.log('\nBMR: Assassin bypasses all protection');
   g2.script = 'bmr'; g2.nightNumber = 2; g2.phase = 'night'; g2.wave = 1; g2.results = {};
   g2.players = [mk('as1', 'assassin'), mk('t2', 'fool')];
   g2.pending = { as1: { targets: ['t2'], decoy: false } };
-  E.resolveNight(g2, 1);
+  await E.resolveNight(g2, 1);
   check('...and even through the Fool\'s one-time survival',
     !g2.players.find(p => p.id === 't2').alive);
 
@@ -1223,7 +1233,7 @@ console.log('\nBMR: Assassin bypasses all protection');
   g3.script = 'bmr'; g3.nightNumber = 2; g3.phase = 'night'; g3.wave = 1; g3.results = {};
   g3.players = [mk('as1', 'assassin'), mk('t1', 'chef')];
   g3.pending = { as1: { targets: [], decoy: false } };
-  E.resolveNight(g3, 1);
+  await E.resolveNight(g3, 1);
   check('passing does not consume the once-per-game charge',
     !g3.players.find(p => p.id === 'as1').statuses.assassinUsed);
 }
@@ -1264,7 +1274,7 @@ console.log('\nBMR: Godfather');
   const prompt = E.promptFor(g2, g2.players[0]);
   check('...but does after an Outsider is executed', !!prompt && !prompt.decoy && prompt.characterId === 'godfather');
   g2.pending = { gf1: { targets: ['t1'], decoy: false } };
-  E.resolveNight(g2, 1);
+  await E.resolveNight(g2, 1);
   check('...and then actually kills', !g2.players.find(p => p.id === 't1').alive);
 
   // Soldier's card is explicitly "safe from the Demon" — not from a
@@ -1277,7 +1287,7 @@ console.log('\nBMR: Godfather');
   g3.deaths = [{ night: 2, name: 'o1', cause: 'execution' }]; // outsiderDiedToday checks night === nightNumber - 1
   g3.players.push({ id: 'o1', name: 'o1', characterId: 'tinker', believedId: 'tinker', alive: false, statuses: {} });
   g3.pending = { gf1: { targets: ['so1'], decoy: false } };
-  E.resolveNight(g3, 1);
+  await E.resolveNight(g3, 1);
   check('a Godfather kill is NOT blocked by Soldier immunity — that\'s Demon-only',
     !g3.players.find(p => p.id === 'so1').alive);
 }
@@ -1289,13 +1299,13 @@ console.log('\nBMR: Pukka');
   g.script = 'bmr'; g.nightNumber = 2; g.phase = 'night'; g.wave = 1; g.results = {};
   g.players = [mk('pu1', 'pukka'), mk('t1', 'chef'), mk('t2', 'soldier')];
   g.pending = { pu1: { targets: ['t1'], decoy: false } };
-  E.resolveNight(g, 1);
+  await E.resolveNight(g, 1);
   check('the first poison target is poisoned but does not die yet',
     g.players.find(p => p.id === 't1').statuses.poisoned && g.players.find(p => p.id === 't1').alive);
 
   g.nightNumber = 3; g.results = {};
   g.pending = { pu1: { targets: ['t2'], decoy: false } };
-  E.resolveNight(g, 1);
+  await E.resolveNight(g, 1);
   check('choosing a new target kills the previously poisoned player',
     !g.players.find(p => p.id === 't1').alive);
   check('...and the new target becomes poisoned in their place',
@@ -1312,10 +1322,10 @@ console.log('\nBMR: Pukka');
   g2.script = 'bmr'; g2.nightNumber = 2; g2.phase = 'night'; g2.wave = 1; g2.results = {};
   g2.players = [mk('pu1', 'pukka'), mk('t1', 'chef'), mk('t2', 'chef'), mk('mo1', 'monk')];
   g2.pending = { pu1: { targets: ['t1'], decoy: false } };
-  E.resolveNight(g2, 1);
+  await E.resolveNight(g2, 1);
   g2.nightNumber = 3; g2.results = {};
   g2.pending = { pu1: { targets: ['t2'], decoy: false }, mo1: { targets: ['t1'], decoy: false } };
-  E.resolveNight(g2, 1);
+  await E.resolveNight(g2, 1);
   const t1After = g2.players.find(p => p.id === 't1');
   check('a Monk-protected survivor of Pukka\'s follow-up kill becomes healthy again',
     t1After.alive && !t1After.statuses.poisoned);
@@ -1328,7 +1338,7 @@ console.log('\nBMR: Shabaloth');
   g.script = 'bmr'; g.nightNumber = 2; g.phase = 'night'; g.wave = 1; g.results = {};
   g.players = [mk('sh1', 'shabaloth'), mk('t1', 'chef'), mk('t2', 'empath'), mk('t3', 'slayer')];
   g.pending = { sh1: { targets: ['t1', 't2'], decoy: false } };
-  E.resolveNight(g, 1);
+  await E.resolveNight(g, 1);
   check('Shabaloth kills both chosen players',
     !g.players.find(p => p.id === 't1').alive && !g.players.find(p => p.id === 't2').alive);
 
@@ -1341,7 +1351,7 @@ console.log('\nBMR: Shabaloth');
     g2.players.find(p => p.id === 't1').alive = false;
     g2.deaths = [{ night: 2, name: 't1', cause: 'demon', killedByDemon: true }];
     g2.pending = { sh1: { targets: ['t3'], decoy: false } };
-    E.resolveNight(g2, 1);
+    await E.resolveNight(g2, 1);
     if (g2.players.find(p => p.id === 't1').alive) revived++;
   }
   check('regurgitation sometimes brings back last night\'s kill, sometimes not (40 trials)',
@@ -1356,7 +1366,7 @@ console.log('\nBMR: Shabaloth');
   g3.players.find(p => p.id === 't1').alive = false; // Assassin's kill last night, not Shabaloth's
   g3.deaths = [{ night: 2, name: 't1', cause: 'minion', killedByDemon: false }];
   g3.pending = { sh1: { targets: ['t3'], decoy: false } };
-  E.resolveNight(g3, 1);
+  await E.resolveNight(g3, 1);
   check('a Minion\'s kill from the same night is never regurgitated by Shabaloth',
     !g3.players.find(p => p.id === 't1').alive);
 }
@@ -1368,7 +1378,7 @@ console.log('\nBMR: Po');
   g.script = 'bmr'; g.nightNumber = 2; g.phase = 'night'; g.wave = 1; g.results = {};
   g.players = [mk('po1', 'po'), mk('t1', 'chef'), mk('t2', 'undertaker'), mk('t3', 'slayer'), mk('t4', 'empath')];
   g.pending = { po1: { targets: [], decoy: false } };
-  E.resolveNight(g, 1);
+  await E.resolveNight(g, 1);
   check('choosing no one charges Po up, and kills no one',
     g.players.find(p => p.id === 'po1').statuses.poChargedUp === true &&
     g.players.filter(p => p.alive).length === 5);
@@ -1377,7 +1387,7 @@ console.log('\nBMR: Po');
   const chargedPrompt = E.promptFor(g, g.players.find(p => p.id === 'po1'));
   check('the next prompt asks for exactly 3 targets', chargedPrompt.count === 3);
   g.pending = { po1: { targets: ['t1', 't2', 't3'], decoy: false } };
-  E.resolveNight(g, 1);
+  await E.resolveNight(g, 1);
   check('a charged Po kills all 3 chosen players',
     !g.players.find(p => p.id === 't1').alive && !g.players.find(p => p.id === 't2').alive && !g.players.find(p => p.id === 't3').alive);
   check('...and is no longer charged afterward', !g.players.find(p => p.id === 'po1').statuses.poChargedUp);
@@ -1397,7 +1407,7 @@ console.log('\nBMR: Zombuul');
   const prompt = E.promptFor(g, g.players[0]);
   check('...but does after a quiet day', !prompt.decoy && prompt.characterId === 'zombuul');
   g.pending = { zo1: { targets: ['t1'], decoy: false } };
-  E.resolveNight(g, 1);
+  await E.resolveNight(g, 1);
   check('Zombuul\'s own kill is a normal kill, not a faked one', !g.players.find(p => p.id === 't1').alive);
 
   // The "faked death" one-shot protects the Zombuul *player* the first time
@@ -1422,7 +1432,7 @@ console.log('\nBMR: Goon');
   gEvil.script = 'bmr'; gEvil.nightNumber = 2; gEvil.phase = 'night'; gEvil.wave = 1; gEvil.results = {};
   gEvil.players = [mk('goon1', 'goon'), mk('imp1', 'imp'), mk('t1', 'chef')];
   gEvil.pending = { imp1: { targets: ['goon1'], decoy: false } };
-  E.resolveNight(gEvil, 1);
+  await E.resolveNight(gEvil, 1);
   const goon = gEvil.players.find(p => p.id === 'goon1');
   check('targeted by an evil character, the Goon is drunk and flips evil',
     goon.statuses.drunk === true && goon.statuses.goonEvil === true);
@@ -1431,7 +1441,7 @@ console.log('\nBMR: Goon');
   gGood.script = 'bmr'; gGood.nightNumber = 2; gGood.phase = 'night'; gGood.wave = 1; gGood.results = {};
   gGood.players = [mk('goon1', 'goon'), mk('monk1', 'monk'), mk('imp1', 'imp')];
   gGood.pending = { monk1: { targets: ['goon1'], decoy: false } };
-  E.resolveNight(gGood, 1);
+  await E.resolveNight(gGood, 1);
   const goon2 = gGood.players.find(p => p.id === 'goon1');
   check('targeted by a good character, the Goon is drunk but stays good',
     goon2.statuses.drunk === true && !goon2.statuses.goonEvil);
@@ -1447,7 +1457,7 @@ console.log('\nBMR: Lunatic never actually kills');
   g.script = 'bmr'; g.nightNumber = 2; g.phase = 'night'; g.wave = 1; g.results = {};
   g.players = [mk('lu1', 'lunatic', 'imp'), mk('imp1', 'imp'), mk('t1', 'chef')];
   g.pending = { lu1: { targets: ['t1'], decoy: false } };
-  E.resolveNight(g, 1);
+  await E.resolveNight(g, 1);
   check('the Lunatic\'s fake target does not actually die', g.players.find(p => p.id === 't1').alive);
   check('the real Demon is told what the Lunatic pointed at',
     !!g.results.imp1 && /Lunatic/.test(g.results.imp1.body) && /t1/.test(g.results.imp1.body));
@@ -1461,7 +1471,7 @@ console.log('\nBMR: Grandmother');
   g.players = [mk('gm1', 'grandmother'), mk('gc1', 'chef'), mk('imp1', 'imp')];
   g.players.find(p => p.id === 'gm1').statuses.grandchildId = 'gc1';
   g.pending = { imp1: { targets: ['gc1'], decoy: false } };
-  E.resolveNight(g, 1);
+  await E.resolveNight(g, 1);
   check('the Grandmother dies alongside a grandchild killed by the Demon',
     !g.players.find(p => p.id === 'gm1').alive);
 
@@ -1470,7 +1480,7 @@ console.log('\nBMR: Grandmother');
   g2.players = [mk('gm1', 'grandmother'), mk('gc1', 'chef'), mk('imp1', 'imp')];
   g2.players.find(p => p.id === 'gm1').statuses.grandchildId = 'gc1';
   g2.pending = { imp1: { targets: ['gm1'], decoy: false } };
-  E.resolveNight(g2, 1);
+  await E.resolveNight(g2, 1);
   check('the Demon killing the Grandmother directly does not also kill an untouched grandchild',
     g2.players.find(p => p.id === 'gc1').alive && !g2.players.find(p => p.id === 'gm1').alive);
 
@@ -1481,7 +1491,7 @@ console.log('\nBMR: Grandmother');
   g3.players = [mk('gm1', 'grandmother'), mk('gc1', 'chef'), mk('as1', 'assassin')];
   g3.players.find(p => p.id === 'gm1').statuses.grandchildId = 'gc1';
   g3.pending = { as1: { targets: ['gc1'], decoy: false } };
-  E.resolveNight(g3, 1);
+  await E.resolveNight(g3, 1);
   check('the Assassin killing the grandchild does NOT also kill the Grandmother',
     !g3.players.find(p => p.id === 'gc1').alive && g3.players.find(p => p.id === 'gm1').alive);
 
@@ -1492,7 +1502,7 @@ console.log('\nBMR: Grandmother');
   g4.deaths = [{ night: 2, name: 'o1', cause: 'execution' }];
   g4.players.push({ id: 'o1', name: 'o1', characterId: 'tinker', believedId: 'tinker', alive: false, statuses: {} });
   g4.pending = { gf1: { targets: ['gc1'], decoy: false } };
-  E.resolveNight(g4, 1);
+  await E.resolveNight(g4, 1);
   check('...nor does the Godfather',
     !g4.players.find(p => p.id === 'gc1').alive && g4.players.find(p => p.id === 'gm1').alive);
 }
@@ -1578,7 +1588,7 @@ console.log('\nBMR: drunk-until-dusk clears at the right night (the mechanism Mi
   t.statuses.drunkUntilNight = 2;
   g.players = [t];
   g.pending = {};
-  E.resolveNight(g, 1); // night 3's wave-1 reset: 2 < 3 -> clears now, exactly at this dusk
+  await E.resolveNight(g, 1); // night 3's wave-1 reset: 2 < 3 -> clears now, exactly at this dusk
   check('drunk-until-dusk set for night 2 is cleared by night 3\'s reset, not held an extra night',
     !E.impaired(t));
 }
@@ -1683,7 +1693,7 @@ console.log('\nSV: Clockmaker');
   // Seats 0..5, demon at 3, minion at 4 -> 1 step apart.
   g.players = [mk('cm', 'clockmaker'), mk('a', 'oracle'), mk('b', 'oracle'), mk('imp1', 'imp'), mk('min1', 'witch'), mk('c', 'oracle')];
   g.pending = {};
-  E.resolveNight(g, 1);
+  await E.resolveNight(g, 1);
   check('Clockmaker learns the correct step count', g.results.cm.body.includes('1'));
 }
 
@@ -1694,7 +1704,7 @@ console.log('\nSV: Dreamer');
   g.script = 'sv'; g.nightNumber = 2; g.phase = 'night'; g.wave = 1; g.results = {};
   g.players = [mk('dr', 'dreamer'), mk('t1', 'oracle'), mk('imp1', 'imp')];
   g.pending = { dr: { targets: ['imp1'], decoy: false } };
-  E.resolveNight(g, 1);
+  await E.resolveNight(g, 1);
   check('Dreamer names the targeted player', g.results.dr.names[0] === 'imp1');
   check('Dreamer shows the true character among the pair, since unimpaired', g.results.dr.body.includes('Imp'));
 
@@ -1703,7 +1713,7 @@ console.log('\nSV: Dreamer');
   g2.players = [mk('dr', 'dreamer'), mk('t1', 'oracle'), mk('imp1', 'imp')];
   g2.players.find(p => p.id === 'dr').statuses.poisoned = true;
   g2.pending = { dr: { targets: ['imp1'], decoy: false } };
-  E.resolveNight(g2, 1);
+  await E.resolveNight(g2, 1);
   check('a poisoned Dreamer still gets a body, just not a guaranteed-correct one', !!g2.results.dr);
 }
 
@@ -1714,7 +1724,7 @@ console.log('\nSV: Mathematician');
   g.script = 'sv'; g.nightNumber = 2; g.phase = 'night'; g.wave = 1; g.results = {};
   g.players = [mk('math', 'mathematician'), mk('sc', 'snakecharmer'), mk('imp1', 'imp'), mk('t1', 'oracle')];
   g.pending = { sc: { targets: ['imp1'], decoy: false } };
-  E.resolveNight(g, 1);
+  await E.resolveNight(g, 1);
   check('Mathematician counts both players the Snake Charmer swap flagged', g.results.math.body.includes('2'));
 }
 
@@ -1728,7 +1738,7 @@ console.log('\nSV: Flowergirl and Town Crier');
     day: 1, nomineeId: 't1', nominatorId: 'min1', closed: true,
     votes: [{ playerId: 'imp1', vote: 'yes' }, { playerId: 't1', vote: 'no' }],
   }];
-  E.resolveNight(g, 1);
+  await E.resolveNight(g, 1);
   check('Flowergirl correctly learns a Demon voted yesterday', g.results.fg.body.includes('Yes'));
   check('Town Crier correctly learns a Minion nominated yesterday', g.results.tc.body.includes('Yes'));
 
@@ -1736,7 +1746,7 @@ console.log('\nSV: Flowergirl and Town Crier');
   g2.script = 'sv'; g2.nightNumber = 2; g2.phase = 'night'; g2.wave = 1; g2.results = {};
   g2.players = [mk('fg', 'flowergirl'), mk('tc', 'towncrier'), mk('imp1', 'imp'), mk('min1', 'witch'), mk('t1', 'oracle')];
   g2.nominations = [{ day: 1, nomineeId: 'imp1', nominatorId: 't1', closed: true, votes: [{ playerId: 't1', vote: 'yes' }] }];
-  E.resolveNight(g2, 1);
+  await E.resolveNight(g2, 1);
   check('Flowergirl correctly learns no Demon voted yesterday', g2.results.fg.body.includes('No'));
   check('Town Crier correctly learns no Minion nominated yesterday', g2.results.tc.body.includes('No'));
 }
@@ -1747,7 +1757,7 @@ console.log('\nSV: Oracle');
   const g = E.newGame();
   g.script = 'sv'; g.nightNumber = 2; g.phase = 'night'; g.wave = 1; g.results = {};
   g.players = [mk('or', 'oracle'), mk('d1', 'oracle', false), mk('d2', 'witch', false), mk('t1', 'oracle', true)];
-  E.resolveNight(g, 1);
+  await E.resolveNight(g, 1);
   check('Oracle counts exactly the dead evil players', g.results.or.body.includes('1'));
 }
 
@@ -1758,7 +1768,7 @@ console.log('\nSV: Seamstress');
   g.script = 'sv'; g.nightNumber = 1; g.phase = 'night'; g.wave = 1; g.results = {};
   g.players = [mk('se', 'seamstress'), mk('a', 'oracle'), mk('b', 'witch')];
   g.pending = { se: { targets: ['a', 'b'], decoy: false } };
-  E.resolveNight(g, 1);
+  await E.resolveNight(g, 1);
   check('two different-alignment players are correctly told apart', g.results.se.body.includes('No'));
   check('the once-per-game charge is spent', g.players.find(p => p.id === 'se').statuses.seamstressUsed === true);
 
@@ -1766,7 +1776,7 @@ console.log('\nSV: Seamstress');
   g2.script = 'sv'; g2.nightNumber = 1; g2.phase = 'night'; g2.wave = 1; g2.results = {};
   g2.players = [mk('se', 'seamstress'), mk('a', 'oracle'), mk('b', 'oracle')];
   g2.pending = { se: { targets: ['a', 'b'], decoy: false } };
-  E.resolveNight(g2, 1);
+  await E.resolveNight(g2, 1);
   check('two same-alignment players are correctly told to match', g2.results.se.body.includes('Yes'));
 
   const g3 = E.newGame();
@@ -1774,7 +1784,7 @@ console.log('\nSV: Seamstress');
   g3.players = [mk('se', 'seamstress'), mk('a', 'oracle'), mk('b', 'oracle')];
   g3.players.find(p => p.id === 'se').statuses.poisoned = true;
   g3.pending = { se: { targets: ['a', 'b'], decoy: false } };
-  E.resolveNight(g3, 1);
+  await E.resolveNight(g3, 1);
   check('a poisoned Seamstress still gets a result (wrong, not silent — silence is itself a tell)', !!g3.results.se);
   check('...and the once-per-game charge is spent anyway', g3.players.find(p => p.id === 'se').statuses.seamstressUsed === true);
 }
@@ -1786,7 +1796,7 @@ console.log('\nSV: Sage');
   g.script = 'sv'; g.nightNumber = 2; g.phase = 'night'; g.wave = 1; g.results = {};
   g.players = [mk('sg', 'sage'), mk('imp1', 'imp'), mk('t1', 'oracle')];
   g.pending = { imp1: { targets: ['sg'], decoy: false } };
-  E.resolveNight(g, 1);
+  await E.resolveNight(g, 1);
   check('the Sage dies to the Demon', !g.players.find(p => p.id === 'sg').alive);
   check('the Sage learns a pair including the real Demon', g.results.sg.names.includes('imp1'));
 
@@ -1796,7 +1806,7 @@ console.log('\nSV: Sage');
   g2.script = 'sv'; g2.nightNumber = 2; g2.phase = 'night'; g2.wave = 1; g2.results = {};
   g2.players = [mk('sg', 'sage'), mk('as1', 'assassin'), mk('t1', 'oracle')];
   g2.pending = { as1: { targets: ['sg'], decoy: false } };
-  E.resolveNight(g2, 1);
+  await E.resolveNight(g2, 1);
   check("a Minion kill does not trigger the Sage's reveal", !g2.results.sg);
 
   // Poisoned (or Vortox-killed): the pair shown is supposed to be false,
@@ -1812,7 +1822,7 @@ console.log('\nSV: Sage');
     g3.players = [mk('sg', 'sage'), mk('imp1', 'imp'), mk('t1', 'oracle'), mk('t2', 'witch'), mk('t3', 'snakecharmer')];
     g3.players.find(p => p.id === 'sg').statuses.poisoned = true;
     g3.pending = { imp1: { targets: ['sg'], decoy: false } };
-    E.resolveNight(g3, 1);
+    await E.resolveNight(g3, 1);
     if (g3.results.sg.names.includes('imp1')) sawRealDemon = true;
   }
   check(`a poisoned Sage's false pair never actually includes the real Demon (${trials} trials)`, !sawRealDemon);
@@ -1826,7 +1836,7 @@ console.log('\nSV: Snake Charmer');
   g.script = 'sv'; g.nightNumber = 2; g.phase = 'night'; g.wave = 1; g.results = {};
   g.players = [mk('sc', 'snakecharmer'), mk('imp1', 'imp'), mk('t1', 'oracle')];
   g.pending = { sc: { targets: ['imp1'], decoy: false } };
-  E.resolveNight(g, 1);
+  await E.resolveNight(g, 1);
   const sc = g.players.find(p => p.id === 'sc');
   const imp1 = g.players.find(p => p.id === 'imp1');
   check('Snake Charmer becomes the Demon after targeting the real Demon', sc.characterId === 'imp' && sc.believedId === 'imp');
@@ -1838,7 +1848,7 @@ console.log('\nSV: Snake Charmer');
   g2.script = 'sv'; g2.nightNumber = 2; g2.phase = 'night'; g2.wave = 1; g2.results = {};
   g2.players = [mk('sc', 'snakecharmer'), mk('t1', 'oracle'), mk('imp1', 'imp')];
   g2.pending = { sc: { targets: ['t1'], decoy: false } };
-  E.resolveNight(g2, 1);
+  await E.resolveNight(g2, 1);
   const sc2 = g2.players.find(p => p.id === 'sc');
   check('targeting a non-Demon does nothing', sc2.characterId === 'snakecharmer' && !sc2.statuses.poisoned);
 
@@ -1849,7 +1859,7 @@ console.log('\nSV: Snake Charmer');
   g3.script = 'sv'; g3.nightNumber = 2; g3.phase = 'night'; g3.wave = 1; g3.results = {};
   g3.players = [mk('sc', 'snakecharmer'), mk('imp1', 'imp'), mk('v1', 'oracle')];
   g3.pending = { sc: { targets: ['imp1'], decoy: false }, imp1: { targets: ['v1'], decoy: false } };
-  E.resolveNight(g3, 1);
+  await E.resolveNight(g3, 1);
   check("the ex-Demon's already-pending kill this same night is nullified by the fresh poison",
     g3.players.find(p => p.id === 'v1').alive);
 }
@@ -1872,7 +1882,7 @@ console.log('\nSV: Philosopher');
   check('their own character is excluded from the options', !prompt.characterOptions.some(o => o.id === 'philosopher'));
 
   g.pending = { ph: { targets: [], decoy: false, characterGuess: 'dreamer' } };
-  E.resolveNight(g, 1);
+  await E.resolveNight(g, 1);
   check('the Philosopher gains the chosen ability (believedId changes, characterId does not)',
     phPlayer.believedId === 'dreamer' && phPlayer.characterId === 'philosopher');
   check('the once-per-game flag is set', phPlayer.statuses.philosopherUsed === true);
@@ -1880,7 +1890,7 @@ console.log('\nSV: Philosopher');
 
   g.nightNumber = 2; g.wave = 1; g.results = {};
   g.pending = { ph: { targets: ['imp1'], decoy: false } };
-  E.resolveNight(g, 1);
+  await E.resolveNight(g, 1);
   check('the following night, the Philosopher acts as their gained character', !!g.results.ph && g.results.ph.title === 'Dreamer');
 }
 
@@ -1891,7 +1901,7 @@ console.log('\nSV: Pit-Hag');
   g.script = 'sv'; g.nightNumber = 2; g.phase = 'night'; g.wave = 1; g.results = {};
   g.players = [mk('ph', 'pithag'), mk('t1', 'oracle')];
   g.pending = { ph: { targets: ['t1'], decoy: false, characterGuess: 'empath' } };
-  E.resolveNight(g, 1);
+  await E.resolveNight(g, 1);
   const t1 = g.players.find(p => p.id === 't1');
   check('Pit-Hag remakes the target into the chosen not-in-play character', t1.characterId === 'empath' && t1.believedId === 'empath');
 
@@ -1899,7 +1909,7 @@ console.log('\nSV: Pit-Hag');
   g2.script = 'sv'; g2.nightNumber = 2; g2.phase = 'night'; g2.wave = 1; g2.results = {};
   g2.players = [mk('ph', 'pithag'), mk('t1', 'oracle'), mk('e1', 'empath')];
   g2.pending = { ph: { targets: ['t1'], decoy: false, characterGuess: 'empath' } };
-  E.resolveNight(g2, 1);
+  await E.resolveNight(g2, 1);
   check('Pit-Hag does nothing if the chosen character is already in play',
     g2.players.find(p => p.id === 't1').characterId === 'oracle');
 }
@@ -1941,7 +1951,7 @@ console.log('\nSV: Witch');
   g.script = 'sv'; g.nightNumber = 1; g.phase = 'night'; g.wave = 1; g.results = {};
   g.players = [mk('w', 'witch'), mk('t1', 'oracle'), mk('t2', 'oracle'), mk('t3', 'oracle'), mk('t4', 'oracle')];
   g.pending = { w: { targets: ['t1'], decoy: false } };
-  E.resolveNight(g, 1);
+  await E.resolveNight(g, 1);
   check('Witch curses the chosen player', g.players.find(p => p.id === 't1').statuses.witchCursed === true);
 
   const g2 = E.newGame();
@@ -1956,7 +1966,7 @@ console.log('\nSV: Witch');
   g3.players = [mk('w', 'witch'), mk('t1', 'oracle'), mk('t2', 'oracle'), mk('t3', 'oracle')];
   g3.players.find(p => p.id === 't1').statuses.witchCursed = true; // stale, never consumed
   g3.pending = {};
-  E.resolveNight(g3, 1);
+  await E.resolveNight(g3, 1);
   check("a stale, unconsumed curse from a previous night is cleared at the next night's reset",
     !g3.players.find(p => p.id === 't1').statuses.witchCursed);
 }
@@ -1969,7 +1979,7 @@ console.log('\nSV: No Dashii');
   // Circle: nd - t1 - t2 - v1 - t3 (back to nd). nd's living neighbours are t1 and t3.
   g.players = [mk('nd', 'nodashii'), mk('t1', 'oracle'), mk('t2', 'oracle'), mk('v1', 'witch'), mk('t3', 'oracle')];
   g.pending = { nd: { targets: ['t2'], decoy: false } };
-  E.resolveNight(g, 1);
+  await E.resolveNight(g, 1);
   const t1 = g.players.find(p => p.id === 't1'), t3 = g.players.find(p => p.id === 't3'), t2 = g.players.find(p => p.id === 't2');
   check('No Dashii poisons both Townsfolk neighbours', !!t1.statuses.poisoned && !!t3.statuses.poisoned);
   check('No Dashii kills the chosen target', !t2.alive);
@@ -1979,7 +1989,7 @@ console.log('\nSV: No Dashii');
   g2.players = [mk('nd', 'nodashii'), mk('t1', 'oracle'), mk('t2', 'oracle'), mk('v1', 'witch'), mk('t3', 'oracle')];
   g2.nightNumber = 2; g2.phase = 'night'; g2.wave = 1;
   g2.pending = { nd: { targets: ['v1'], decoy: false } };
-  E.resolveNight(g2, 1);
+  await E.resolveNight(g2, 1);
   check('night 2: t1 and t3 (the living neighbours) are poisoned',
     !!g2.players.find(p => p.id === 't1').statuses.poisoned && !!g2.players.find(p => p.id === 't3').statuses.poisoned);
 
@@ -1987,7 +1997,7 @@ console.log('\nSV: No Dashii');
   g2.players.find(p => p.id === 't1').alive = false;
   g2.nightNumber = 3; g2.wave = 1; g2.results = {};
   g2.pending = { nd: { targets: ['t2'], decoy: false } };
-  E.resolveNight(g2, 1);
+  await E.resolveNight(g2, 1);
   check('night 3: the departed neighbour (t1) is no longer poisoned', !g2.players.find(p => p.id === 't1').statuses.poisoned);
   check('night 3: the new adjacent Townsfolk (t2) is poisoned instead', !!g2.players.find(p => p.id === 't2').statuses.poisoned);
   check('night 3: t3 remains a neighbour and stays poisoned', !!g2.players.find(p => p.id === 't3').statuses.poisoned);
@@ -2003,7 +2013,7 @@ console.log('\nSV: Juggler');
     { playerId: 't1', characterGuess: 'oracle' },   // correct
     { playerId: 'imp1', characterGuess: 'witch' },  // wrong
   ];
-  E.resolveNight(g, 1);
+  await E.resolveNight(g, 1);
   check('Juggler correctly counts 1 of 2 guesses right', g.results.ju.body.includes('1'));
   check('the stored guesses are consumed after the reveal', !g.players.find(p => p.id === 'ju').statuses.jugglerGuesses);
 }
@@ -2041,7 +2051,7 @@ console.log('\nSV: Evil Twin');
   g.players = [mk('et', 'eviltwin'), mk('gt', 'oracle'), mk('vx1', 'vortox')];
   g.players.find(p => p.id === 'et').statuses.twinId = 'gt';
   g.players.find(p => p.id === 'gt').statuses.evilTwinId = 'et';
-  E.resolveNight(g, 1);
+  await E.resolveNight(g, 1);
   check('the Evil Twin learns their Twin', g.results.et.body.includes('gt'));
   check('the good Twin learns the Evil Twin', g.results.gt.body.includes('et'));
 
@@ -2050,7 +2060,7 @@ console.log('\nSV: Evil Twin');
   g2.players = [mk('et', 'eviltwin'), mk('gt', 'oracle'), mk('vx1', 'vortox')];
   g2.players.find(p => p.id === 'et').statuses.twinId = 'gt';
   g2.players.find(p => p.id === 'et').statuses.poisoned = true;
-  E.resolveNight(g2, 1);
+  await E.resolveNight(g2, 1);
   check('a poisoned Evil Twin tells neither side anything', !g2.results.et && !g2.results.gt);
 }
 
@@ -2086,7 +2096,7 @@ console.log('\nSV: Fang Gu');
   g.script = 'sv'; g.nightNumber = 2; g.phase = 'night'; g.wave = 1; g.results = {};
   g.players = [mk('fg', 'fanggu'), mk('out1', 'sweetheart'), mk('t1', 'oracle')];
   g.pending = { fg: { targets: ['out1'], decoy: false } };
-  E.resolveNight(g, 1);
+  await E.resolveNight(g, 1);
   check('the targeted Outsider becomes the new Fang Gu', g.players.find(p => p.id === 'out1').characterId === 'fanggu');
   check('the original Fang Gu dies instead', !g.players.find(p => p.id === 'fg').alive);
   check('the game-wide transform flag is now set', g.fangGuTransformUsed === true);
@@ -2096,7 +2106,7 @@ console.log('\nSV: Fang Gu');
   g2.players = [mk('fg', 'fanggu'), mk('out1', 'sweetheart'), mk('t1', 'oracle')];
   g2.fangGuTransformUsed = true;
   g2.pending = { fg: { targets: ['out1'], decoy: false } };
-  E.resolveNight(g2, 1);
+  await E.resolveNight(g2, 1);
   check('once the transform is already used, a later Outsider kill is just a normal kill',
     !g2.players.find(p => p.id === 'out1').alive && g2.players.find(p => p.id === 'fg').alive);
 
@@ -2104,7 +2114,7 @@ console.log('\nSV: Fang Gu');
   g3.script = 'sv'; g3.nightNumber = 2; g3.phase = 'night'; g3.wave = 1; g3.results = {};
   g3.players = [mk('fg', 'fanggu'), mk('t1', 'oracle')];
   g3.pending = { fg: { targets: ['t1'], decoy: false } };
-  E.resolveNight(g3, 1);
+  await E.resolveNight(g3, 1);
   check('killing a Townsfolk is always a normal kill, never a transform',
     !g3.players.find(p => p.id === 't1').alive && g3.players.find(p => p.id === 'fg').alive);
 }
@@ -2116,7 +2126,7 @@ console.log('\nSV: Vigormortis');
   g.script = 'sv'; g.nightNumber = 2; g.phase = 'night'; g.wave = 1; g.results = {};
   g.players = [mk('vg', 'vigormortis'), mk('min1', 'poisoner'), mk('t1', 'oracle'), mk('t2', 'oracle')];
   g.pending = { vg: { targets: ['min1'], decoy: false } };
-  E.resolveNight(g, 1);
+  await E.resolveNight(g, 1);
   const min1 = g.players.find(p => p.id === 'min1');
   check('the killed Minion is marked dead', !min1.alive);
   check('...but flagged to keep acting', min1.statuses.vigormortisKept === true);
@@ -2127,14 +2137,14 @@ console.log('\nSV: Vigormortis');
   check('the dead-but-kept Minion still receives a real prompt the following night',
     !!prompt && prompt.characterId === 'poisoner');
   g.pending = { min1: { targets: ['t2'], decoy: false } };
-  E.resolveNight(g, 1);
+  await E.resolveNight(g, 1);
   check('...and their kept ability actually still works', g.players.find(p => p.id === 't2').statuses.poisoned === true);
 
   const g2 = E.newGame();
   g2.script = 'sv'; g2.nightNumber = 2; g2.phase = 'night'; g2.wave = 1; g2.results = {};
   g2.players = [mk('vg', 'vigormortis'), mk('t1', 'oracle'), mk('t2', 'oracle')];
   g2.pending = { vg: { targets: ['t1'], decoy: false } };
-  E.resolveNight(g2, 1);
+  await E.resolveNight(g2, 1);
   check('killing a Townsfolk grants no kept-ability status', !g2.players.find(p => p.id === 't1').statuses.vigormortisKept);
 }
 
@@ -2145,13 +2155,13 @@ console.log('\nSV: Vortox');
   g.script = 'sv'; g.nightNumber = 2; g.phase = 'night'; g.wave = 1; g.results = {};
   g.players = [mk('vx', 'vortox'), mk('t1', 'oracle')];
   g.pending = { vx: { targets: ['t1'], decoy: false } };
-  E.resolveNight(g, 1);
+  await E.resolveNight(g, 1);
   check('Vortox kills its target like any other demon', !g.players.find(p => p.id === 't1').alive);
 
   const g2 = E.newGame();
   g2.script = 'sv'; g2.nightNumber = 2; g2.phase = 'night'; g2.wave = 1; g2.results = {};
   g2.players = [mk('or', 'oracle'), mk('vx', 'vortox'), mk('d1', 'oracle', false)];
-  E.resolveNight(g2, 1);
+  await E.resolveNight(g2, 1);
   check('an unimpaired Oracle shows false info while a living Vortox is in play',
     !g2.results.or.body.includes('Dead players who are evil: 0'));
 
@@ -2159,7 +2169,7 @@ console.log('\nSV: Vortox');
   const g3 = E.newGame();
   g3.script = 'sv'; g3.nightNumber = 2; g3.phase = 'night'; g3.wave = 1; g3.results = {};
   g3.players = [mk('or', 'oracle'), mk('vx', 'vortox', false), mk('d1', 'oracle', false)];
-  E.resolveNight(g3, 1);
+  await E.resolveNight(g3, 1);
   check('once Vortox is dead, the same Oracle reports truthfully again',
     g3.results.or.body.includes('Dead players who are evil: 1'));
 }
@@ -2198,7 +2208,7 @@ console.log('\nSV: Barber');
   g.script = 'sv'; g.nightNumber = 2; g.phase = 'night'; g.wave = 1; g.results = {};
   g.players = [mk('fg', 'vortox'), mk('ba', 'barber'), mk('t1', 'oracle'), mk('t2', 'dreamer')];
   g.pending = { fg: { targets: ['ba'], decoy: false } };
-  E.resolveNight(g, 1);
+  await E.resolveNight(g, 1);
   const fg = g.players.find(p => p.id === 'fg');
   check("the Barber dies to the Demon's kill tonight", !g.players.find(p => p.id === 'ba').alive);
   check('the Demon is flagged for a wave-2 barber-swap prompt', fg.statuses.barberSwapPending === true);
@@ -2210,7 +2220,7 @@ console.log('\nSV: Barber');
     !!prompt && prompt.characterId === 'barber-swap' && prompt.count === 2 && prompt.optional === true);
 
   g.pending = { fg: { targets: ['t1', 't2'], decoy: false } };
-  E.resolveNight(g, 2);
+  await E.resolveNight(g, 2);
   const t1 = g.players.find(p => p.id === 't1'), t2 = g.players.find(p => p.id === 't2');
   check('the swap exchanges their characters', t1.characterId === 'dreamer' && t2.characterId === 'oracle');
   check('...and their believedId moves with it', t1.believedId === 'dreamer' && t2.believedId === 'oracle');
@@ -2223,7 +2233,7 @@ console.log('\nSV: Barber');
   g.players = [mk('fg', 'fanggu'), mk('t1', 'oracle'), mk('t2', 'dreamer')];
   g.players.find(p => p.id === 'fg').statuses.barberSwapPending = true;
   g.pending = {};
-  E.resolveNight(g, 2);
+  await E.resolveNight(g, 2);
   check('passing (no targets) leaves everyone unchanged', g.players.find(p => p.id === 't1').characterId === 'oracle');
   check('the flag is still cleared even on a pass', g.players.find(p => p.id === 'fg').statuses.barberSwapPending === false);
 }
@@ -2236,7 +2246,7 @@ console.log('\nSV: Barber');
   fg.statuses.barberSwapPending = true;
   fg.statuses.poisoned = true;
   g.pending = { fg: { targets: ['t1', 't2'], decoy: false } };
-  E.resolveNight(g, 2);
+  await E.resolveNight(g, 2);
   check('a poisoned Demon cannot use the barber-swap even if submitted', g.players.find(p => p.id === 't1').characterId === 'oracle');
 }
 {
@@ -2294,7 +2304,7 @@ console.log('\nSV: Cerenovus');
   g.script = 'sv'; g.nightNumber = 1; g.phase = 'night'; g.wave = 1; g.results = {};
   g.players = [mk('ce', 'cerenovus'), mk('t1', 'oracle')];
   g.pending = { ce: { targets: ['t1'], decoy: false, characterGuess: 'dreamer' } };
-  E.resolveNight(g, 1);
+  await E.resolveNight(g, 1);
   const t1 = g.players.find(p => p.id === 't1');
   check('the target becomes mad about the chosen character',
     t1.statuses.madReasons && t1.statuses.madReasons.length === 1 && t1.statuses.madReasons[0].label === 'Dreamer');
@@ -2308,7 +2318,7 @@ console.log('\nSV: Cerenovus');
   g.players = [mk('ce', 'cerenovus'), mk('mu', 'mutant')];
   g.players.find(p => p.id === 'mu').statuses.madReasons = [{ label: 'an Outsider', expiresAfterCheck: false }];
   g.pending = { ce: { targets: ['mu'], decoy: false, characterGuess: 'oracle' } };
-  E.resolveNight(g, 1);
+  await E.resolveNight(g, 1);
   const mu = g.players.find(p => p.id === 'mu');
   check("a Mutant who is also Cerenovus'd keeps both madness reasons", mu.statuses.madReasons.length === 2);
 }
@@ -2367,15 +2377,15 @@ console.log('\nSV: evaluateClaim (shared by Gossip and Artist)');
   const g = E.newGame();
   g.script = 'sv';
   g.players = [mk('t1', 'oracle'), mk('vx', 'vortox')];
-  check('team claim, correctly evil', E.evaluateClaim(g, { claimType: 'team', targetId: 'vx', claimValue: 'evil' }).isTrue === true);
-  check('team claim, correctly not evil', E.evaluateClaim(g, { claimType: 'team', targetId: 't1', claimValue: 'evil' }).isTrue === false);
-  check('character claim, correct', E.evaluateClaim(g, { claimType: 'character', targetId: 't1', claimValue: 'oracle' }).isTrue === true);
-  check('character claim, wrong', E.evaluateClaim(g, { claimType: 'character', targetId: 't1', claimValue: 'dreamer' }).isTrue === false);
-  check('atleast claim, threshold met', E.evaluateClaim(g, { claimType: 'atleast', targetIds: ['t1', 'vx'], threshold: 1, claimValue: 'evil' }).isTrue === true);
-  check('atleast claim, threshold not met', E.evaluateClaim(g, { claimType: 'atleast', targetIds: ['t1', 'vx'], threshold: 2, claimValue: 'evil' }).isTrue === false);
-  check('invalid claim type is rejected', !!E.evaluateClaim(g, { claimType: 'nonsense' }).error);
-  check('invalid target is rejected', !!E.evaluateClaim(g, { claimType: 'team', targetId: 'nope', claimValue: 'evil' }).error);
-  check('too few distinct targets for atleast is rejected', !!E.evaluateClaim(g, { claimType: 'atleast', targetIds: ['t1'], threshold: 1, claimValue: 'evil' }).error);
+  check('team claim, correctly evil', (await E.evaluateClaim(g, { claimType: 'team', targetId: 'vx', claimValue: 'evil' })).isTrue === true);
+  check('team claim, correctly not evil', (await E.evaluateClaim(g, { claimType: 'team', targetId: 't1', claimValue: 'evil' })).isTrue === false);
+  check('character claim, correct', (await E.evaluateClaim(g, { claimType: 'character', targetId: 't1', claimValue: 'oracle' })).isTrue === true);
+  check('character claim, wrong', (await E.evaluateClaim(g, { claimType: 'character', targetId: 't1', claimValue: 'dreamer' })).isTrue === false);
+  check('atleast claim, threshold met', (await E.evaluateClaim(g, { claimType: 'atleast', targetIds: ['t1', 'vx'], threshold: 1, claimValue: 'evil' })).isTrue === true);
+  check('atleast claim, threshold not met', (await E.evaluateClaim(g, { claimType: 'atleast', targetIds: ['t1', 'vx'], threshold: 2, claimValue: 'evil' })).isTrue === false);
+  check('invalid claim type is rejected', !!(await E.evaluateClaim(g, { claimType: 'nonsense' })).error);
+  check('invalid target is rejected', !!(await E.evaluateClaim(g, { claimType: 'team', targetId: 'nope', claimValue: 'evil' })).error);
+  check('too few distinct targets for atleast is rejected', !!(await E.evaluateClaim(g, { claimType: 'atleast', targetIds: ['t1'], threshold: 1, claimValue: 'evil' })).error);
 }
 
 console.log('\nSV: buildSavantStatements');
@@ -2466,7 +2476,7 @@ console.log('\nbuildStorytellerContext');
   const g = E.newGame();
   g.script = 'bmr';
   g.players = [mk('Ada', 'imp'), mk('Bo', 'chef', false)];
-  const ctx = E.buildStorytellerContext(g);
+  const ctx = await E.buildStorytellerContext(g);
   check('one entry per player', ctx.length === 2);
   const ada = ctx.find(x => x.name === 'Ada');
   check('true character name is included', ada.character === 'Imp');
@@ -2482,13 +2492,14 @@ console.log('\nCarousel: Noble');
   g.script = 'trust'; g.nightNumber = 1; g.phase = 'night'; g.wave = 1; g.results = {};
   g.players = [mk('n', 'noble'), mk('t1', 'oracle'), mk('t2', 'oracle'), mk('e1', 'baron'), mk('d', 'imp')];
   g.pending = {};
-  E.resolveNight(g, 1);
+  await E.resolveNight(g, 1);
   const shownNames = g.results.n.names;
   check('Noble is shown exactly 3 players', shownNames.length === 3);
-  const shownEvilCount = shownNames.filter(name => {
+  let shownEvilCount = 0;
+  for (const name of shownNames) {
     const p = g.players.find(x => x.name === name);
-    return E.isEvil(g, p, { forRegistration: true });
-  }).length;
+    if (await E.isEvilRegistration(g, p)) shownEvilCount++;
+  }
   check('exactly 1 of the 3 shown is evil', shownEvilCount === 1, `got ${shownEvilCount}`);
 
   const g2 = E.newGame();
@@ -2496,7 +2507,7 @@ console.log('\nCarousel: Noble');
   g2.players = [mk('n', 'noble'), mk('t1', 'oracle'), mk('t2', 'oracle'), mk('e1', 'baron'), mk('d', 'imp')];
   g2.players.find(p => p.id === 'n').statuses.poisoned = true;
   g2.pending = {};
-  E.resolveNight(g2, 1);
+  await E.resolveNight(g2, 1);
   check('a poisoned Noble still gets shown something (broken, not silent)', g2.results.n.names.length === 3);
 }
 
@@ -2512,7 +2523,7 @@ console.log('\nCarousel: Balloonist');
     g.nightNumber = night;
     g.phase = 'night';
     g.results = {};
-    E.resolveNight(g, 1);
+    await E.resolveNight(g, 1);
     const body = g.results.b.body;
     for (const t of ['townsfolk', 'outsider', 'minion', 'demon']) if (body.includes(` a ${t}.`)) seenTypes.add(t);
   }
@@ -2532,7 +2543,7 @@ console.log('\nCarousel: Magician (deliverOpeningInfo)');
     mk('m1', 'baron'), mk('m2', 'poisoner'), mk('d', 'imp'),
   ];
   g.pending = {};
-  E.resolveNight(g, 1);
+  await E.resolveNight(g, 1);
   check("Minions are told the Magician, not the real Demon, is the Demon",
     g.results.m1.body.includes('mag is the Demon') && !g.results.m1.body.includes('d is the Demon'));
   check("the Demon is told the Magician appears to be a Minion",
@@ -2548,7 +2559,7 @@ console.log('\nCarousel: Puzzlemaster');
   g.players.find(p => p.id === 't1').statuses.drunk = true;
   g.script = 'lunar-eclipse'; g.nightNumber = 1; g.phase = 'night'; g.wave = 1; g.results = {};
   g.pending = { pz: { targets: ['t1'], decoy: false } };
-  E.resolveNight(g, 1);
+  await E.resolveNight(g, 1);
   check('a correct guess names the real Demon', g.results.pz.body.includes('Correct') && g.results.pz.body.includes('d'));
   check('the guess is spent after use', g.players.find(p => p.id === 'pz').statuses.puzzlemasterUsed === true);
 
@@ -2561,7 +2572,7 @@ console.log('\nCarousel: Puzzlemaster');
   g2.players.find(p => p.id === 't1').statuses.drunk = true;
   g2.script = 'lunar-eclipse'; g2.nightNumber = 1; g2.phase = 'night'; g2.wave = 1; g2.results = {};
   g2.pending = { pz: { targets: ['t2'], decoy: false } }; // guesses wrong
-  E.resolveNight(g2, 1);
+  await E.resolveNight(g2, 1);
   check('a wrong guess is told Wrong, with false info, not the real Demon',
     g2.results.pz.body.includes('Wrong') && !g2.results.pz.body.includes(' d.') && !g2.results.pz.body.endsWith(' d'));
 
@@ -2571,7 +2582,7 @@ console.log('\nCarousel: Puzzlemaster');
   g3.players.find(p => p.id === 't1').statuses.drunk = true;
   g3.script = 'lunar-eclipse'; g3.nightNumber = 1; g3.phase = 'night'; g3.wave = 1; g3.results = {};
   g3.pending = { pz: { targets: [], decoy: false } }; // passes
-  E.resolveNight(g3, 1);
+  await E.resolveNight(g3, 1);
   check('passing does not spend the once-ever guess', !g3.players.find(p => p.id === 'pz').statuses.puzzlemasterUsed);
 }
 
@@ -2582,7 +2593,7 @@ console.log('\nCarousel: Preacher');
   g.script = 'hide-and-seek'; g.nightNumber = 1; g.phase = 'night'; g.wave = 1; g.results = {};
   g.players = [mk('pr', 'preacher'), mk('t1', 'oracle'), mk('m1', 'baron'), mk('d', 'imp')];
   g.pending = { pr: { targets: ['m1'], decoy: false } };
-  E.resolveNight(g, 1);
+  await E.resolveNight(g, 1);
   const minion = g.players.find(p => p.id === 'm1');
   check('a targeted Minion is silenced (poisoned) for the night', minion.statuses.poisoned === true);
   check('the silenced Minion is told so', g.results.m1 && g.results.m1.body.includes('Preacher'));
@@ -2591,7 +2602,7 @@ console.log('\nCarousel: Preacher');
   g2.script = 'hide-and-seek'; g2.nightNumber = 1; g2.phase = 'night'; g2.wave = 1; g2.results = {};
   g2.players = [mk('pr', 'preacher'), mk('t1', 'oracle'), mk('m1', 'baron'), mk('d', 'imp')];
   g2.pending = { pr: { targets: ['t1'], decoy: false } }; // targets a Townsfolk, not a Minion
-  E.resolveNight(g2, 1);
+  await E.resolveNight(g2, 1);
   check('targeting a non-Minion silences nobody', !g2.players.find(p => p.id === 't1').statuses.poisoned);
 }
 
@@ -2620,7 +2631,7 @@ console.log('\nCarousel: Pixie');
   g.script = 'boozling'; g.nightNumber = 1; g.phase = 'night'; g.wave = 1; g.results = {};
   g.players = [mk('px', 'pixie'), mk('t1', 'oracle'), mk('t2', 'sage'), mk('m1', 'baron'), mk('d', 'imp')];
   g.pending = {};
-  E.resolveNight(g, 1);
+  await E.resolveNight(g, 1);
   const revealedId = g.players.find(p => p.id === 'px').statuses.pixieRevealedId;
   check('Pixie is shown an in-play Townsfolk', revealedId === 'oracle' || revealedId === 'sage', revealedId);
 
@@ -2639,7 +2650,7 @@ console.log('\nCarousel: Pixie');
   g2.script = 'boozling'; g2.nightNumber = 1; g2.phase = 'night'; g2.wave = 1; g2.results = {};
   g2.players = [mk('px', 'pixie'), mk('t1', 'oracle'), mk('t2', 'sage'), mk('m1', 'baron'), mk('d', 'imp')];
   g2.pending = {};
-  E.resolveNight(g2, 1);
+  await E.resolveNight(g2, 1);
   const revealedId2 = g2.players.find(p => p.id === 'px').statuses.pixieRevealedId;
   const revealedPlayer2 = g2.players.find(p => p.characterId === revealedId2);
   // Not mad about being this character at all — dying should change nothing.
@@ -2655,14 +2666,14 @@ console.log('\nCarousel: Ojo');
   g.script = 'hide-and-seek'; g.nightNumber = 2; g.phase = 'night'; g.wave = 1; g.results = {};
   g.players = [mk('t1', 'oracle'), mk('t2', 'sage'), mk('m1', 'baron'), mk('oj', 'ojo')];
   g.pending = { oj: { targets: [], decoy: false, characterGuess: 'oracle' } };
-  E.resolveNight(g, 1);
+  await E.resolveNight(g, 1);
   check('naming an in-play character kills whoever holds it', g.players.find(p => p.id === 't1').alive === false);
 
   const g2 = E.newGame();
   g2.script = 'hide-and-seek'; g2.nightNumber = 2; g2.phase = 'night'; g2.wave = 1; g2.results = {};
   g2.players = [mk('t1', 'oracle'), mk('t2', 'sage'), mk('m1', 'baron'), mk('oj', 'ojo')];
   g2.pending = { oj: { targets: [], decoy: false, characterGuess: 'empath' } }; // not in this game
-  E.resolveNight(g2, 1);
+  await E.resolveNight(g2, 1);
   const deadCount = g2.players.filter(p => !p.alive).length;
   check('naming a character not in play still kills someone (the Storyteller chooses)', deadCount === 1);
 
@@ -2682,7 +2693,7 @@ console.log('\nCarousel: Ojo');
   g4.players = [mk('t1', 'oracle'), mk('t2', 'sage'), mk('m1', 'baron'), mk('oj', 'ojo')];
   g4.players.find(p => p.id === 't1').alive = false; // oracle's holder already dead before tonight
   g4.pending = { oj: { targets: [], decoy: false, characterGuess: 'oracle' } };
-  E.resolveNight(g4, 1);
+  await E.resolveNight(g4, 1);
   const newlyDead = g4.players.filter(p => !p.alive && p.id !== 't1');
   check('naming a character whose holder already died kills nobody new', newlyDead.length === 0);
 }
@@ -2694,7 +2705,7 @@ console.log('\nCarousel: Lycanthrope');
   g.script = 'lunar-eclipse'; g.nightNumber = 2; g.phase = 'night'; g.wave = 1; g.results = {};
   g.players = [mk('ly', 'lycanthrope'), mk('t1', 'oracle'), mk('m1', 'baron'), mk('d', 'imp')];
   g.pending = { ly: { targets: ['t1'], decoy: false } };
-  E.resolveNight(g, 1);
+  await E.resolveNight(g, 1);
   check('killing a good target succeeds', g.players.find(p => p.id === 't1').alive === false);
   check("no one else dies the same night, even the demon's own kill", g.deaths.filter(d => d.night === 2).length === 1);
 
@@ -2702,7 +2713,7 @@ console.log('\nCarousel: Lycanthrope');
   g2.script = 'lunar-eclipse'; g2.nightNumber = 2; g2.phase = 'night'; g2.wave = 1; g2.results = {};
   g2.players = [mk('ly', 'lycanthrope'), mk('m1', 'baron'), mk('d', 'imp')];
   g2.pending = { ly: { targets: ['m1'], decoy: false } }; // targets evil — nothing happens
-  E.resolveNight(g2, 1);
+  await E.resolveNight(g2, 1);
   check('targeting an evil player kills nobody', g2.players.find(p => p.id === 'm1').alive === true);
 }
 
@@ -2748,7 +2759,7 @@ console.log('\nCarousel: Marionette (dealRoles + deliverOpeningInfo)');
     check('believes they are a real good character', believedChar && (believedChar.team === 'townsfolk' || believedChar.team === 'outsider'));
     const results = {};
     g.nightNumber = 1;
-    E.resolveNight(g, 1); // deliverOpeningInfo runs inside this
+    await E.resolveNight(g, 1); // deliverOpeningInfo runs inside this
     const demon = g.players.find(p => E.trueChar(p) && E.trueChar(p).team === 'demon');
     if (demon && g.players.length >= 7) {
       const demonResult = g.results && g.results[demon.id];
@@ -2768,14 +2779,14 @@ console.log('\nCarousel: General');
   g.script = 'trust'; g.nightNumber = 1; g.phase = 'night'; g.wave = 1; g.results = {};
   g.players = [mk('gn', 'general'), mk('t1', 'oracle'), mk('t2', 'oracle'), mk('t3', 'oracle'), mk('d', 'imp', false)];
   g.pending = {};
-  E.resolveNight(g, 1);
+  await E.resolveNight(g, 1);
   check('with no living Demon, the verdict is "good"', g.results.gn.body.includes('good'));
 
   const g2 = E.newGame();
   g2.script = 'trust'; g2.nightNumber = 1; g2.phase = 'night'; g2.wave = 1; g2.results = {};
   g2.players = [mk('gn', 'general'), mk('d', 'imp')];
   g2.pending = {};
-  E.resolveNight(g2, 1);
+  await E.resolveNight(g2, 1);
   check('down to just the General and the Demon, the verdict is "evil"', g2.results.gn.body.includes('evil'));
 }
 
@@ -2835,34 +2846,34 @@ console.log('\nResult kind metadata (Phase 6: differentiated result cards)');
   const gChef = E.newGame();
   gChef.nightNumber = 1; gChef.phase = 'night'; gChef.wave = 1; gChef.results = {};
   gChef.players = [mk('c1', 'chef'), mk('min1', 'poisoner'), mk('d1', 'imp')];
-  E.resolveNight(gChef, 1);
+  await E.resolveNight(gChef, 1);
   check('Chef result carries kind:count and the shown number', gChef.results.c1.kind === 'count' && typeof gChef.results.c1.count === 'number');
 
   const gEmp = E.newGame();
   gEmp.nightNumber = 1; gEmp.phase = 'night'; gEmp.wave = 1; gEmp.results = {};
   gEmp.players = [mk('e1', 'empath'), mk('min1', 'poisoner'), mk('d1', 'imp')];
-  E.resolveNight(gEmp, 1);
+  await E.resolveNight(gEmp, 1);
   check('Empath result carries kind:count', gEmp.results.e1.kind === 'count');
 
   const gFt = E.newGame();
   gFt.nightNumber = 2; gFt.phase = 'night'; gFt.wave = 1; gFt.results = {};
   gFt.players = [mk('ft1', 'fortuneteller'), mk('d1', 'imp'), mk('t1', 'soldier')];
   gFt.pending = { ft1: { targets: ['d1', 't1'], decoy: false } };
-  E.resolveNight(gFt, 1);
+  await E.resolveNight(gFt, 1);
   check('Fortune Teller result carries kind:yesno, yes:true, and still keeps names',
     gFt.results.ft1.kind === 'yesno' && gFt.results.ft1.yes === true && Array.isArray(gFt.results.ft1.names) && gFt.results.ft1.names.length === 2);
 
   const gWw = E.newGame();
   gWw.nightNumber = 1; gWw.phase = 'night'; gWw.wave = 1; gWw.results = {};
   gWw.players = [mk('ww1', 'washerwoman'), mk('t1', 'soldier'), mk('d1', 'imp')];
-  E.resolveNight(gWw, 1);
+  await E.resolveNight(gWw, 1);
   check('Washerwoman result carries kind:pointer and two named players',
     gWw.results.ww1.kind === 'pointer' && Array.isArray(gWw.results.ww1.names) && gWw.results.ww1.names.length === 2);
 
   const gSpy = E.newGame();
   gSpy.nightNumber = 1; gSpy.phase = 'night'; gSpy.wave = 1; gSpy.results = {};
   gSpy.players = [mk('sp1', 'spy'), mk('t1', 'soldier'), mk('d1', 'imp')];
-  E.resolveNight(gSpy, 1);
+  await E.resolveNight(gSpy, 1);
   check('Spy result carries kind:grimoire alongside its existing grimoire array',
     gSpy.results.sp1.kind === 'grimoire' && Array.isArray(gSpy.results.sp1.grimoire));
 }
@@ -2895,6 +2906,95 @@ console.log('\nCustom roster (Phase 9: script builder)');
     !E.activeScriptPool(gDisabled).some(c => c.id === 'gossip'));
 }
 
+console.log('\nThe Whim: judge injection (setWhimJudge/resolveWhim)');
+{
+  const mk = (id, characterId) => ({ id, name: id, characterId, believedId: characterId, alive: true, statuses: {} });
+
+  // A judge that always says yes overrides even a chance=0 legacy rate.
+  E.setWhimJudge(async () => true);
+  const g1 = E.newGame();
+  g1.config.mayorRedirectChance = 0;
+  g1.players = [mk('may1', 'mayor'), mk('t1', 'chef'), mk('t2', 'soldier')];
+  const r1 = await E.randomKiller(g1, [g1.players[0]]);
+  check('a judge saying yes overrides mayorRedirectChance=0', r1.id !== 'may1');
+
+  // A judge that always says no overrides even a chance=1 legacy rate.
+  E.setWhimJudge(async () => false);
+  const g2 = E.newGame();
+  g2.config.mayorRedirectChance = 1;
+  g2.players = [mk('may1', 'mayor'), mk('t1', 'chef'), mk('t2', 'soldier')];
+  const r2 = await E.randomKiller(g2, [g2.players[0]]);
+  check('a judge saying no overrides mayorRedirectChance=1', r2.id === 'may1');
+
+  // A judge that declines (undefined — "not this table's call to make",
+  // e.g. the LLM is off) defers to the plain roll underneath, same as
+  // having no judge attached at all.
+  E.setWhimJudge(async () => undefined);
+  const g3 = E.newGame();
+  g3.config.mayorRedirectChance = 0;
+  g3.players = [mk('may1', 'mayor'), mk('t1', 'chef'), mk('t2', 'soldier')];
+  const r3 = await E.randomKiller(g3, [g3.players[0]]);
+  check('a judge returning undefined defers to the plain roll (chance=0 never redirects)', r3.id === 'may1');
+
+  // A judge that throws (a real network failure) never crashes or stalls
+  // resolution — falls back to the plain roll, same doctrine Bucket 4
+  // already follows for a failed askStoryteller() call.
+  E.setWhimJudge(async () => { throw new Error('network blew up'); });
+  const g4 = E.newGame();
+  g4.config.mayorRedirectChance = 0;
+  g4.players = [mk('may1', 'mayor'), mk('t1', 'chef'), mk('t2', 'soldier')];
+  const r4 = await E.randomKiller(g4, [g4.players[0]]);
+  check('a throwing judge never crashes resolution — falls back to the plain roll', r4.id === 'may1');
+
+  // setWhimJudge is module-level, global state, not per-game — leaving a
+  // fake judge attached here would silently corrupt every other check() in
+  // this file that runs after this section.
+  E.setWhimJudge(null);
+}
+
+console.log('\nheuristicWhim (Option 1: the non-LLM judgment)');
+{
+  const mk = (id, characterId) => ({ id, name: id, characterId, believedId: characterId, alive: true, statuses: {} });
+  const trials = 800;
+
+  function fireRate(kind, playerSpec) {
+    const g = E.newGame();
+    g.players = playerSpec.map(([id, c]) => mk(id, c));
+    let fires = 0;
+    for (let i = 0; i < trials; i++) if (E.heuristicWhim(g, { kind })) fires++;
+    return fires / trials;
+  }
+
+  // mayor-redirect/pacifist-save both keep a good player alive when they
+  // fire, so they should fire MORE often once good is clearly behind.
+  const mayorGoodBehind = fireRate('mayor-redirect', [['a', 'imp'], ['b', 'poisoner'], ['c', 'chef']]); // 1 good, 2 evil
+  const mayorGoodAhead = fireRate('mayor-redirect', [['a', 'imp'], ['b', 'chef'], ['c', 'soldier'], ['d', 'empath']]); // 3 good, 1 evil
+  check('mayor-redirect fires more when good is behind than when good is ahead',
+    mayorGoodBehind > mayorGoodAhead, `behind=${mayorGoodBehind}, ahead=${mayorGoodAhead}`);
+
+  const pacifistGoodBehind = fireRate('pacifist-save', [['a', 'imp'], ['b', 'poisoner'], ['c', 'chef']]);
+  const pacifistGoodAhead = fireRate('pacifist-save', [['a', 'imp'], ['b', 'chef'], ['c', 'soldier'], ['d', 'empath']]);
+  check('pacifist-save fires more when good is behind than when good is ahead',
+    pacifistGoodBehind > pacifistGoodAhead, `behind=${pacifistGoodBehind}, ahead=${pacifistGoodAhead}`);
+
+  // registration-ambiguity's "fires" outcome helps EVIL (misleads an info
+  // role, or lets a Spy blend in) — so it's the mirror image: fires more
+  // often when EVIL is the one behind (good ahead or level).
+  const regGoodAhead = fireRate('registration-ambiguity', [['a', 'imp'], ['b', 'chef'], ['c', 'soldier'], ['d', 'empath']]); // evil behind
+  const regGoodBehind = fireRate('registration-ambiguity', [['a', 'imp'], ['b', 'poisoner'], ['c', 'chef']]); // evil ahead
+  check('registration-ambiguity fires more when evil is behind (good ahead) than when evil is ahead — the mirror of the other two kinds',
+    regGoodAhead > regGoodBehind, `good-ahead=${regGoodAhead}, good-behind=${regGoodBehind}`);
+
+  // The endgame bonus: a tight 4-living-or-fewer game should fire more
+  // often than an even larger, level game of the same kind.
+  const endgame = fireRate('mayor-redirect', [['a', 'imp'], ['b', 'chef']]); // 2 living, endgame, good behind
+  const midgame = fireRate('mayor-redirect', [
+    ['a', 'imp'], ['b', 'poisoner'], ['c', 'chef'], ['d', 'soldier'], ['e', 'empath'], ['f', 'librarian'],
+  ]); // 6 living, not endgame, good ahead
+  check('a tight endgame fires more often than a larger, good-ahead midgame', endgame > midgame,
+    `endgame=${endgame}, midgame=${midgame}`);
+}
+
 console.log('\nEnd');
 g.revealed = true;
 check('reveal exposes the full grimoire',
@@ -2902,3 +3002,8 @@ check('reveal exposes the full grimoire',
 
 console.log(`\n${failures ? failures + ' FAILURES' : 'All checks passed'}\n`);
 process.exit(failures ? 1 : 0);
+
+})().catch(e => {
+  console.error(e);
+  process.exit(1);
+});
