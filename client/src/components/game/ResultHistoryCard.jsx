@@ -13,8 +13,8 @@ export default function ResultHistoryCard({ history }) {
 
   const sorted = [...history].sort((a, b) => b.night - a.night);
   const label = history.length === 1
-    ? 'Hold to check your result history'
-    : `Hold to check your result history (${history.length} nights)`;
+    ? 'Hold to see information given'
+    : `Hold to see information given (${history.length} nights)`;
 
   return (
     <div className="card">
