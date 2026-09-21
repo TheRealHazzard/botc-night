@@ -199,7 +199,10 @@ a.linklike-a{
    .hold already does. */
 .hold-ring{
   width:64px; height:64px; border-radius:50%; flex-shrink:0;
-  background:conic-gradient(var(--bone) calc(var(--hold-progress,0) * 360deg), var(--line) 0);
+  /* The unfilled track matches the icon's own void background, so at rest
+     (0 progress) the ring reads as a plain satyr badge with no visible
+     border — the ring only becomes visible as it fills in while held. */
+  background:conic-gradient(var(--bone) calc(var(--hold-progress,0) * 360deg), var(--void) 0);
   transition:background .05s linear;
   display:flex; align-items:center; justify-content:center;
   /* Leaves the progress fill visible as an actual ring around the icon,
