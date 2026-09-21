@@ -45,12 +45,13 @@ npm run host:public # needs cloudflared on PATH
 
 ## Testing
 
-This project treats the rules engine as something that has to be provably correct, not just "seems to work at the table":
+This project treats both the rules engine *and* the server built on top of it as things that have to be provably correct, not just "seems to work at the table" — two different failure modes need two different kinds of test. An engine bug is the rules themselves being wrong; a wiring bug is `server.js` not calling the right thing on the right real path even though the rule underneath it is correct — the kind that only shows up once someone actually plays the game a specific way. Both real correctness bugs found in this project's history so far were the second kind, invisible to engine-level testing alone.
 
 | Command | What it checks |
 |---|---|
 | `npm run sim` | `tools/simulate.js` — hundreds of specific, hand-written assertions against real game states, covering every character and cross-cutting rule. |
 | `node tools/audit-abilities.js` | A generic pass over *every* character in the built registry, checking the invariants that have actually caused real bugs — an impaired info role must never go silent, a decoy pool must never include the true answer, a night-order slot isn't the same as actually acting, a death's cause must always be tagged explicitly. This catches the next character to make the same mistake automatically, not just the ones already found. |
+| `npm run test:server` | Spawns the real `server.js` as a real child process (isolated temp data directory, ephemeral port) and drives it over real HTTP — a full game lifecycle end to end, plus permanent regression coverage for every wiring bug found so far. See `test/server/harness.js`. |
 | `npm run test:player` | The full client component/hook test suite (`vitest`). |
 | `npm run test:llm` | The optional LLM integration's defensive parsing — no real API key or network access needed. |
 | `npm run test:dom-shim` | Lightweight integration smoke tests for the static host pages. |

@@ -10,7 +10,12 @@ const fs = require('fs');
 const path = require('path');
 const { COLOR_PALETTE, byId: colorById } = require('./colors');
 
-const DATA_DIR = path.join(__dirname, '..', 'data');
+// Overridable so tests can point this at an isolated temp directory instead
+// of polluting the real table's own history. Read once at require time,
+// same as PORT in server.js — unlike an API key, nothing ever needs to
+// rotate this mid-process, so a test harness just needs to set it before
+// spawning the server.
+const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, '..', 'data');
 const PROFILES_FILE = path.join(DATA_DIR, 'profiles.json');
 const GAMES_FILE = path.join(DATA_DIR, 'games.jsonl');
 
