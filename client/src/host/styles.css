@@ -1361,6 +1361,17 @@
         background: var(--surface);
         padding: 18px 20px;
       }
+      /* Multiple control blocks stacked inside a single SidepanelCard (the
+   persistent right-panel copy of the Storyteller controls) need the same
+   breathing room between them the drawer's own .controls-drawer-panel
+   already gives its children via flex+gap — SidepanelCard itself is a
+   plain block container, so without this its children (ControlPanelRow,
+   NominateAction, the execute row) touched edge-to-edge. */
+      .sidepanel-card-stack {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
       .sidepanel-title {
         font-size: 0.68rem;
         text-transform: uppercase;

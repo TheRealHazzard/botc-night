@@ -38,7 +38,9 @@ export default function RevealView({ players, scriptChars, activeScriptMeta, mut
   // from the table's own view of the ring).
   const right = (
     <div className="sidepanel">
-      <SidepanelCard icon="gear" title="Storyteller controls">{controls}</SidepanelCard>
+      <SidepanelCard icon="gear" title="Storyteller controls">
+        <div className="sidepanel-card-stack">{controls}</div>
+      </SidepanelCard>
     </div>
   );
 
