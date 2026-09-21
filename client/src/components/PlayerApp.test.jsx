@@ -67,6 +67,18 @@ describe('PlayerApp', () => {
     expect(screen.getByText(/your vote is spent/i)).toBeInTheDocument();
   });
 
+  it('hides the Storyteller-controls banner for a non-leader', () => {
+    render(<PlayerApp P={baseP({ isLeader: false })} token="tok" />);
+    expect(screen.queryByText('Storyteller controls')).not.toBeInTheDocument();
+  });
+
+  it('shows the Storyteller-controls banner for the leader and calls onOpenLeaderControls', async () => {
+    const onOpenLeaderControls = vi.fn();
+    render(<PlayerApp P={baseP({ isLeader: true })} token="tok" onOpenLeaderControls={onOpenLeaderControls} />);
+    await userEvent.click(screen.getByText('Storyteller controls'));
+    expect(onOpenLeaderControls).toHaveBeenCalledTimes(1);
+  });
+
   it('an unspent death shows the "still have a voice" copy instead', () => {
     const P = baseP({ you: { ...baseP().you, alive: false, ghostVoteUsed: false } });
     render(<PlayerApp P={P} token="tok" />);

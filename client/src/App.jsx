@@ -60,13 +60,11 @@ export default function App() {
 
   return (
     <>
-      <TopBar
-        onOpenScript={() => setScriptOpen(true)}
-        onOpenLeaderControls={() => setLeaderControlsOpen(true)}
-        isLeader={!!P?.isLeader}
-      />
+      <TopBar onOpenScript={() => setScriptOpen(true)} />
       <div id="app">
-        {P ? <PlayerApp P={P} token={token} onChangeUser={changeUser} /> : <JoinFlow onJoined={setToken} />}
+        {P
+          ? <PlayerApp P={P} token={token} onChangeUser={changeUser} onOpenLeaderControls={() => setLeaderControlsOpen(true)} />
+          : <JoinFlow onJoined={setToken} />}
       </div>
       <ScriptOverlay open={scriptOpen} onClose={() => setScriptOpen(false)} script={P?.script} />
       <LeaderControlsOverlay

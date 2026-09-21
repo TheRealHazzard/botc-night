@@ -336,3 +336,13 @@ a.linklike-a{
   border:1px dashed #4a3722; color:var(--bone-dim); padding:10px 14px;
   text-align:center; border-radius:3px; margin-bottom:14px; font-size:.85rem;
 }
+/* A real call-to-action, not just a status line — brass border/text picks
+   it out from .watch-banner's quieter dashed-neutral treatment, since
+   tapping this actually does something. margin-top:0 overrides button's
+   own default spacing so it sits flush at the top of the page. */
+.leader-banner{
+  width:100%; margin:0 0 14px; padding:12px 14px;
+  border:1px solid var(--brass); border-radius:3px;
+  background:#1a1206; color:var(--brass); font-weight:700; text-align:center;
+}
+.leader-banner:active{background:var(--brass); color:#1a1206}

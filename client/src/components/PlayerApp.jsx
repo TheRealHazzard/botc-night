@@ -23,7 +23,7 @@ import { useBluffBeat } from '../hooks/useBluffBeat.js';
     (nominate/slayer/gossip/juggler/savant/artist/plain-daylight) are
     mutually exclusive in the data itself — the server only ever sets one
     at a time — so they're written as a plain if/else-if chain here too. */
-export default function PlayerApp({ P, token, onChangeUser }) {
+export default function PlayerApp({ P, token, onChangeUser, onOpenLeaderControls }) {
   const { activeVote, castVote, revealVote, ghostVoteEnabled, setGhostVoteEnabled } = useActiveVote(P, token);
   const announcement = usePromptAnnouncement(P);
   const bluffBeat = useBluffBeat(P.bluffBeatAt);
@@ -49,6 +49,17 @@ export default function PlayerApp({ P, token, onChangeUser }) {
     <>
       <div className="sr-only" aria-live="polite">{announcement}</div>
       <BluffBeat active={bluffBeat} />
+
+      {/* No designated Storyteller means someone still has to start the
+          game/nights/executions — the first person to join gets this. A
+          full-width banner rather than a header button: it used to be a
+          third header button, and on a narrow phone that's one more than
+          a row with the wordmark can fit without overflowing. */}
+      {P.isLeader && (
+        <button type="button" className="leader-banner" onClick={onOpenLeaderControls}>
+          Storyteller controls
+        </button>
+      )}
 
       {P.watching && (
         <div className="watch-banner">

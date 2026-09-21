@@ -27,15 +27,12 @@ describe('TopBar', () => {
     expect(btn).toHaveAccessibleName(/115%/);
   });
 
-  it('the Storyteller button is hidden for a non-leader', () => {
-    render(<TopBar onOpenScript={() => {}} isLeader={false} />);
-    expect(screen.queryByText('Storyteller')).not.toBeInTheDocument();
-  });
-
-  it('the Storyteller button shows for the leader and calls onOpenLeaderControls', async () => {
-    const onOpenLeaderControls = vi.fn();
-    render(<TopBar onOpenScript={() => {}} onOpenLeaderControls={onOpenLeaderControls} isLeader={true} />);
-    await userEvent.click(screen.getByText('Storyteller'));
-    expect(onOpenLeaderControls).toHaveBeenCalledTimes(1);
+  // The Storyteller-controls entry point moved to a full-width banner in
+  // PlayerApp.jsx (see its own test file) specifically so this header
+  // never has to fit a third button — nothing leader-related belongs here
+  // any more.
+  it('never renders a Storyteller button, regardless of props', () => {
+    render(<TopBar onOpenScript={() => {}} />);
+    expect(screen.queryByText(/storyteller/i)).not.toBeInTheDocument();
   });
 });

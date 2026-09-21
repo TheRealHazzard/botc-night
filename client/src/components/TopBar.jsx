@@ -1,6 +1,11 @@
 import { useTextScale } from '../hooks/useTextScale.js';
 
-export default function TopBar({ onOpenScript, onOpenLeaderControls, isLeader }) {
+// The Storyteller-controls entry point used to live here as a third
+// button, and on a narrow phone that's one more than a row with the
+// wordmark can hold without overflowing (see PlayerApp.jsx's leader-banner
+// instead — full-width, so it isn't fighting Aa/The script for the same
+// tight horizontal space).
+export default function TopBar({ onOpenScript }) {
   const { scale, cycle } = useTextScale();
 
   return (
@@ -14,15 +19,6 @@ export default function TopBar({ onOpenScript, onOpenLeaderControls, isLeader })
       >
         Aa
       </button>
-      {/* No designated Storyteller means someone still has to start the
-          game/nights/executions — the first person to join gets this, so
-          they can do it from their own phone instead of walking up to the
-          host screen. See LeaderControlsOverlay.jsx. */}
-      {isLeader && (
-        <button type="button" className="scriptbtn" onClick={onOpenLeaderControls}>
-          Storyteller
-        </button>
-      )}
       <button type="button" className="scriptbtn" onClick={onOpenScript}>
         The script
       </button>
