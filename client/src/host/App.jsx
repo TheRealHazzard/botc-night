@@ -173,6 +173,7 @@ export default function App() {
         onClearLobby={clearLobby}
         onOpenHistory={() => window.open("/games", "_blank")}
         onOpenHallOfFame={() => window.open("/hall-of-fame", "_blank")}
+        onOpenCharacters={() => window.open("/characters", "_blank")}
       />
 
       <ReclaimBanner pendingReclaims={S?.pendingReclaims} />
@@ -305,6 +306,7 @@ function Header({
   onClearLobby,
   onOpenHistory,
   onOpenHallOfFame,
+  onOpenCharacters,
 }) {
   const locked = browsedMeta && browsedMeta.playable === false;
   const canStart = playerCount >= 5;
@@ -383,6 +385,14 @@ function Header({
               onClick={onOpenHallOfFame}
             >
               <Icon name="trophy" size={17} />
+            </button>
+            <button
+              type="button"
+              className="mutebtn"
+              title="Character checklist"
+              onClick={onOpenCharacters}
+            >
+              <Icon name="check" size={17} />
             </button>
             <button
               type="button"

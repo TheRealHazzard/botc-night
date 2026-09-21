@@ -479,6 +479,13 @@ describe("App", () => {
       expect(openSpy).toHaveBeenCalledWith("/hall-of-fame", "_blank");
     });
 
+    it("Character checklist opens /characters in a new tab", async () => {
+      const openSpy = vi.spyOn(window, "open").mockImplementation(() => {});
+      render(<App />);
+      await userEvent.click(screen.getByTitle("Character checklist"));
+      expect(openSpy).toHaveBeenCalledWith("/characters", "_blank");
+    });
+
     it("Start/Clear/History are hidden while browsing scripts, and reappear on Close", async () => {
       render(<App />);
       await userEvent.click(screen.getByText(/change script/i));

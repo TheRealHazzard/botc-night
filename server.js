@@ -1541,6 +1541,7 @@ async function requestHandler(req, res) {
       if (route === '/games') return serveFile(res, 'games.html');
       if (route === '/hall-of-fame') return serveFile(res, 'hall-of-fame.html');
       if (route === '/recap') return serveFile(res, 'recap.html');
+      if (route === '/characters') return serveFile(res, 'characters.html');
 
       // Explicit route (rather than falling through to the generic static
       // fallback below) so this always carries Cache-Control: no-cache —
@@ -1763,6 +1764,27 @@ async function requestHandler(req, res) {
 
       if (route === '/api/leaderboard/characters') {
         return json(res, 200, H.characterWinRates());
+      }
+
+      if (route === '/api/characters/checklist') {
+        // Every real, dealable character (see /api/characters above) cross-
+        // referenced against every completed real game ever recorded — the
+        // beta-testing question "have we actually seen this one played?",
+        // which characterWinRates() alone can't answer since it only ever
+        // lists characters that HAVE appeared at least once.
+        const played = new Map(H.characterWinRates().map(c => [c.characterId, c]));
+        const checklist = E.CHARACTERS
+          .filter(c => c.team !== 'special')
+          .map(c => {
+            const stats = played.get(c.id);
+            return {
+              id: c.id, name: c.name, team: c.team,
+              timesPlayed: stats ? stats.total : 0,
+              wins: stats ? stats.wins : 0,
+              winRate: stats ? stats.winRate : null,
+            };
+          });
+        return json(res, 200, checklist);
       }
 
       if (route === '/api/session/current') {

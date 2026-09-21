@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Character Checklist</title>
+<meta name="theme-color" content="#f2e8d3" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#18130f" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="/icons/icon-32.png">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700&family=Cormorant+Garamond:wght@500;600;700&family=Spectral:ital,wght@0,400;0,500;1,400&family=Space+Mono:wght@400;700&display=swap">
+<style>
+:root{
+  --ink:#18130f; --ink-2:#241c15; --ink-3:#3a2e22;
+  --parchment:#f2e8d3; --parchment-2:#fbf5e6; --parchment-3:#e2d3b3;
+  --oxblood:#9a2f35; --oxblood-bright:#c1474d;
+  --brass:#b8863f; --brass-bright:#d9a75a;
+  --good:#3c5875; --good-bright:#6f93b5; --evil-bright:#d08a86; --ash:#7a7267;
+
+  --bg: var(--parchment); --bg-2: var(--parchment-2); --panel-border: var(--parchment-3);
+  --text:#2a2015; --text-dim:#6b5f4c; --accent: var(--oxblood); --accent-text:#fff8ef;
+  --shadow: 0 2px 10px rgba(30,20,10,.10);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg: var(--ink); --bg-2: var(--ink-2); --panel-border: var(--ink-3);
+    --text:#ece2ce; --text-dim:#ab9d86; --accent: var(--brass-bright); --accent-text:#241a0c;
+    --shadow: 0 2px 14px rgba(0,0,0,.45);
+  }
+}
+:root[data-theme="dark"]{
+  --bg: var(--ink); --bg-2: var(--ink-2); --panel-border: var(--ink-3);
+  --text:#ece2ce; --text-dim:#ab9d86; --accent: var(--brass-bright); --accent-text:#241a0c;
+  --shadow: 0 2px 14px rgba(0,0,0,.45);
+}
+
+*{box-sizing:border-box}
+body{margin:0; background:var(--bg); color:var(--text); font-family:'Spectral',Georgia,serif; font-size:16px; line-height:1.55}
+h1,h2,h3{font-family:'Cormorant Garamond',Georgia,serif; font-weight:600; margin:0 0 .4em; text-wrap:balance}
+.mono{font-family:'Space Mono',monospace; font-variant-numeric:tabular-nums}
+button{font-family:inherit; font-size:1rem; color:inherit; cursor:pointer}
+:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+
+.app{max-width:760px; margin:0 auto; padding:0 18px 60px}
+header{display:flex; align-items:baseline; justify-content:space-between; gap:14px; padding:26px 4px 16px; border-bottom:2px solid var(--panel-border)}
+.wordmark{font-family:'Cinzel Decorative',serif; font-size:1.4rem; color:var(--accent)}
+header a{color:var(--text-dim); font-size:.82rem; text-decoration:underline; text-underline-offset:3px}
+
+.panel{background:var(--bg-2); border:1px solid var(--panel-border); border-radius:6px; box-shadow:var(--shadow); padding:20px; margin-bottom:16px}
+.muted{color:var(--text-dim)}
+.small{font-size:.85rem}
+.empty{color:var(--text-dim); padding:30px 4px; text-align:center}
+
+.progress-row{display:flex; align-items:baseline; justify-content:space-between; gap:10px; margin-bottom:10px}
+.progress-count{font-family:'Cinzel Decorative',serif; font-size:1.2rem; color:var(--accent)}
+.progress-track{height:8px; border-radius:4px; background:var(--bg); border:1px solid var(--panel-border); overflow:hidden}
+.progress-fill{height:100%; background:var(--accent); border-radius:4px 0 0 4px}
+
+.filters{display:flex; gap:8px; margin-bottom:16px}
+.filters button{background:var(--bg-2); border:1px solid var(--panel-border); border-radius:20px; padding:6px 14px; font-size:.85rem; color:var(--text-dim)}
+.filters button.on{background:var(--accent); border-color:var(--accent); color:var(--accent-text); font-weight:600}
+
+.team-group{margin-bottom:18px}
+.team-group h3{display:flex; align-items:baseline; gap:8px; color:var(--text-dim); font-size:1.05rem; text-transform:uppercase; letter-spacing:.04em; border-bottom:1px solid var(--panel-border); padding-bottom:6px; margin-bottom:2px}
+.team-group h3 .n{font-family:'Space Mono',monospace; font-size:.75rem; letter-spacing:0; text-transform:none}
+
+.charrow{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:9px 2px; border-bottom:1px dashed var(--panel-border)}
+.charrow:last-child{border-bottom:none}
+.charrow.untested{opacity:.55}
+.charname{display:flex; align-items:center; gap:9px}
+.mark{width:18px; height:18px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center}
+.mark svg{width:11px; height:11px; stroke:var(--accent-text); stroke-width:3; fill:none; stroke-linecap:round; stroke-linejoin:round}
+.mark.tested{background:var(--good)}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .mark.tested{background:var(--good-bright)} }
+.mark.untested{background:none; border:1.5px dashed var(--panel-border)}
+.charstat{font-size:.85rem; color:var(--text-dim); white-space:nowrap}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <span class="wordmark">Character Checklist</span>
+    <span><a href="/games">Game history</a> &nbsp;·&nbsp; <a href="/hall-of-fame">Hall of Fame</a> &nbsp;·&nbsp; <a href="/">Back to the table</a></span>
+  </header>
+  <div id="view"></div>
+</div>
+
+<script>
+const el = (t, c, x) => { const n = document.createElement(t); if (c) n.className = c; if (x != null) n.textContent = x; return n; };
+const fmtPct = x => x == null ? '—' : Math.round(x * 100) + '%';
+const TEAM_LABEL = { townsfolk: 'Townsfolk', outsider: 'Outsiders', minion: 'Minions', demon: 'Demons' };
+const TEAM_ORDER = ['townsfolk', 'outsider', 'minion', 'demon'];
+const CHECK_SVG = '<svg viewBox="0 0 24 24"><path d="M5 13l4.5 4.5L19 8"/></svg>';
+
+function summaryPanel(chars) {
+  const tested = chars.filter(c => c.timesPlayed > 0).length;
+  const panel = el('div', 'panel');
+  const row = el('div', 'progress-row');
+  row.append(el('h3', null, 'Tested live at this table'));
+  row.append(el('span', 'progress-count mono', `${tested} / ${chars.length}`));
+  panel.append(row);
+  const track = el('div', 'progress-track');
+  const fill = el('div', 'progress-fill');
+  fill.style.width = (chars.length ? (100 * tested / chars.length) : 0) + '%';
+  track.append(fill);
+  panel.append(track);
+  panel.append(el('p', 'small muted', 'A character counts once at least one real (non-simulation) game has dealt it to a real player.'));
+  return panel;
+}
+
+function charRow(c) {
+  const row = el('div', 'charrow' + (c.timesPlayed ? '' : ' untested'));
+  const left = el('div', 'charname');
+  const mark = el('div', 'mark ' + (c.timesPlayed ? 'tested' : 'untested'));
+  if (c.timesPlayed) mark.innerHTML = CHECK_SVG;
+  left.append(mark, document.createTextNode(c.name));
+  row.append(left);
+  row.append(el('div', 'charstat mono',
+    c.timesPlayed ? `${c.timesPlayed} game${c.timesPlayed === 1 ? '' : 's'} · ${fmtPct(c.winRate)} win` : 'never dealt'));
+  return row;
+}
+
+function teamGroup(team, chars) {
+  const group = el('div', 'team-group');
+  const tested = chars.filter(c => c.timesPlayed > 0).length;
+  const h = el('h3');
+  h.append(document.createTextNode(TEAM_LABEL[team] || team));
+  h.append(el('span', 'n', `${tested}/${chars.length}`));
+  group.append(h);
+  chars.forEach(c => group.append(charRow(c)));
+  return group;
+}
+
+function render(chars) {
+  const view = document.getElementById('view');
+  view.innerHTML = '';
+  if (!chars.length) {
+    view.append(el('div', 'empty', 'Could not load the character list right now.'));
+    return;
+  }
+  view.append(summaryPanel(chars));
+
+  const panel = el('div', 'panel');
+  let showUntestedOnly = false;
+
+  const filters = el('div', 'filters');
+  const btnAll = el('button', 'on', 'All characters');
+  const btnUntested = el('button', null, 'Untested only');
+  filters.append(btnAll, btnUntested);
+  panel.append(filters);
+
+  const groups = el('div');
+  panel.append(groups);
+  view.append(panel);
+
+  function draw() {
+    groups.innerHTML = '';
+    TEAM_ORDER.forEach(team => {
+      let inTeam = chars.filter(c => c.team === team);
+      if (showUntestedOnly) inTeam = inTeam.filter(c => !c.timesPlayed);
+      if (!inTeam.length) return;
+      groups.append(teamGroup(team, inTeam));
+    });
+    if (showUntestedOnly && !groups.children.length) {
+      groups.append(el('div', 'empty', 'Every character has been dealt in a real game at least once.'));
+    }
+  }
+
+  btnAll.addEventListener('click', () => { showUntestedOnly = false; btnAll.className = 'on'; btnUntested.className = ''; draw(); });
+  btnUntested.addEventListener('click', () => { showUntestedOnly = true; btnUntested.className = 'on'; btnAll.className = ''; draw(); });
+  draw();
+}
+
+fetch('/api/characters/checklist').then(r => r.json()).then(render).catch(() => render([]));
+</script>
+</body>
+</html>
