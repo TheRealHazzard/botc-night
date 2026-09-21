@@ -9,8 +9,18 @@ import TokenOrFallback from './TokenOrFallback.jsx';
     competing with the fixed-height dashboard for room. Both the acting
     role and every target get their actual token art, not just a name —
     text alone was hard to scan at a glance. */
-export default function PowerLogOverlay({ players, actionLog, nightNumber, onClose }) {
+export default function PowerLogOverlay({ players, actionLog, resultsLog, nightNumber, onClose }) {
   const nights = Array.from({ length: nightNumber }, (_, i) => i + 1);
+
+  // Grouped by night only, not split into Night/Day columns like the grid
+  // above — a result carries no phase of its own (game.results is a flat
+  // per-player slot a day action can overwrite just as a night one does),
+  // so night-by-night is the coarsest grouping that's still always honest.
+  const infoByNight = {};
+  (resultsLog || []).forEach(r => {
+    (infoByNight[r.night] = infoByNight[r.night] || []).push(r);
+  });
+  const infoNights = Object.keys(infoByNight).map(Number).sort((a, b) => a - b);
   // actionLog's targets are recorded by name, not id (see game/engine.js) —
   // /api/join now rejects a duplicate name at the source, but this stays
   // defensive against older data from before that existed: a name shared
@@ -61,6 +71,26 @@ export default function PowerLogOverlay({ players, actionLog, nightNumber, onClo
             ))}
           </tbody>
         </table>
+
+        {infoNights.length > 0 && (
+          <div className="powerlog-info">
+            <h3>Information received</h3>
+            {infoNights.map(n => (
+              <div className="powerlog-info-night" key={n}>
+                <div className="powerlog-info-night-label">Night {n}</div>
+                {infoByNight[n].map((r, i) => (
+                  <div className="powerlog-info-row" key={i}>
+                    <TokenOrFallback characterId={r.characterId} imgClass="powerlog-token" fallbackClass="powerlog-token-fallback" />
+                    <div>
+                      <span className="powerlog-info-who">{r.playerName} &mdash; {r.characterName || 'Unknown'}</span>
+                      <span className="powerlog-info-body">{r.title ? `${r.title}: ` : ''}{r.body}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

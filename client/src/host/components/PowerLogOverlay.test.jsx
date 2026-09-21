@@ -68,4 +68,25 @@ describe('PowerLogOverlay', () => {
     await userEvent.click(screen.getByText('Close'));
     expect(onClose).toHaveBeenCalledTimes(1);
   });
+
+  it('omits "Information received" entirely when there is no resultsLog', () => {
+    render(<PowerLogOverlay players={players} actionLog={actionLog} nightNumber={1} onClose={() => {}} />);
+    expect(screen.queryByText('Information received')).not.toBeInTheDocument();
+  });
+
+  it('groups resultsLog entries by night, showing who/character/title/body — the actual fix for a result that never rendered live', () => {
+    const resultsLog = [
+      { night: 1, playerId: 'p1', playerName: 'Ada', characterId: 'soldier', characterName: 'Soldier', title: 'Empath', body: 'Evil living neighbours: 1' },
+      { night: 2, playerId: 'p2', playerName: 'Bo', characterId: 'imp', characterName: 'Ravenkeeper', title: 'Ravenkeeper', body: 'Ada is the Soldier.' },
+    ];
+    const { container } = render(<PowerLogOverlay players={players} actionLog={actionLog} resultsLog={resultsLog} nightNumber={2} onClose={() => {}} />);
+    const infoSection = container.querySelector('.powerlog-info');
+    expect(within(infoSection).getByText('Information received')).toBeInTheDocument();
+    expect(within(infoSection).getByText('Night 1')).toBeInTheDocument();
+    expect(within(infoSection).getByText('Night 2')).toBeInTheDocument();
+    expect(within(infoSection).getByText('Ada — Soldier')).toBeInTheDocument();
+    expect(within(infoSection).getByText('Empath: Evil living neighbours: 1')).toBeInTheDocument();
+    expect(within(infoSection).getByText('Bo — Ravenkeeper')).toBeInTheDocument();
+    expect(within(infoSection).getByText('Ravenkeeper: Ada is the Soldier.')).toBeInTheDocument();
+  });
 });

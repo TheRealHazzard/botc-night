@@ -234,6 +234,7 @@ export default function App() {
                 gameSummary={displayS.gameSummary}
                 log={displayS.log}
                 actionLog={displayS.actionLog}
+                resultsLog={displayS.resultsLog}
                 nightNumber={displayS.nightNumber}
                 muted={muted}
               />

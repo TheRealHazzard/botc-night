@@ -207,6 +207,36 @@ function pushAll() {
 
 /* -------------------------------------------------------------- phases */
 
+/** Snapshots whatever's currently sitting in game.results into the durable
+    game.resultsLog, tagged with the night it belongs to — called right
+    before game.results gets wiped (startNight) and again at the moment
+    the game actually ends (finishIfOver, for whichever night's results
+    never got the chance to be flushed by a startNight that never came).
+    Idempotent on purpose: drops any entries already logged for this same
+    night before re-adding the current snapshot, so calling it more than
+    once for the same night (finishIfOver can run more than once in a day
+    without an intervening startNight) never duplicates rows. Uses each
+    player's TRUE character, not their believed one — same convention
+    actionLog already follows, and the same reveal-gated exposure in
+    publicState() as actionLog keeps this from being a live spoiler. */
+function flushNightResults() {
+  if (!game.nightNumber) return; // nothing dealt yet (lobby/reveal has no results to lose)
+  game.resultsLog = (game.resultsLog || []).filter(r => r.night !== game.nightNumber);
+  for (const [playerId, result] of Object.entries(game.results || {})) {
+    if (!result) continue;
+    const p = E.byId(game, playerId);
+    const c = p && E.trueChar(p);
+    game.resultsLog.push({
+      night: game.nightNumber,
+      playerId,
+      playerName: p ? p.name : playerId,
+      characterId: c ? c.id : null,
+      characterName: c ? c.name : null,
+      ...result,
+    });
+  }
+}
+
 function startNight() {
   // The Mastermind's bonus day isn't over until its own execution (or an
   // explicit no-execution) actually happens — recordExecution() is the only
@@ -223,6 +253,7 @@ function startNight() {
     E.resolveMadness(game);
     if (finishIfOver()) return;
   }
+  flushNightResults();
   game.nightNumber += 1;
   game.phase = 'night';
   game.wave = 1;
@@ -459,6 +490,11 @@ function finishIfOver() {
   game.revealed = true;
   game.windowEndsAt = null;
   E.logEvent(game, `${result.winner === 'good' ? 'Good' : 'Evil'} wins. ${result.reason}`);
+  // The game can end mid-night (a kill decides it) or mid-day (an
+  // execution does) with no later startNight() ever coming along to flush
+  // whatever's still sitting in game.results — this is the only other
+  // place that would happen, so it's the only other place that needs to.
+  flushNightResults();
   recordGameHistory();
   pushAll();
   return true;
@@ -506,6 +542,11 @@ function recordGameHistory() {
     nominations: game.nominations,
     log: game.log,
     actionLog: game.actionLog,
+    // Every info role's actual result, every night — see
+    // flushNightResults() above. Persisted so "what was X actually told"
+    // survives long after game.results itself (and the live game object
+    // entirely) is gone.
+    resultsLog: game.resultsLog || [],
   };
   H.appendGameRecord(record);
 }

@@ -67,6 +67,13 @@ describe('OverView', () => {
     expect(screen.getByText('Power log', { selector: 'h2' })).toBeInTheDocument();
   });
 
+  it('the Power log button also appears with a non-empty resultsLog, even when actionLog is empty (a game of pure info roles)', () => {
+    baseMocks();
+    const resultsLog = [{ night: 1, playerId: 'p1', playerName: 'Ada', characterId: 'empath', characterName: 'Empath', title: 'Empath', body: 'Evil living neighbours: 0' }];
+    render(<OverView players={players} victory={null} gameSummary={null} log={[]} actionLog={[]} resultsLog={resultsLog} nightNumber={1} />);
+    expect(screen.getByText('Power log')).toBeInTheDocument();
+  });
+
   it('shows revealed character names in the roster', () => {
     baseMocks();
     render(<OverView players={players} victory={null} gameSummary={null} log={[]} actionLog={[]} nightNumber={1} />);

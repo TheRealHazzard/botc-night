@@ -1879,6 +1879,55 @@
         vertical-align: middle;
       }
 
+      /* Every info role's actual result, grouped by night — separate from
+   the grid above since a result carries no phase of its own to slot into
+   a Night/Day column honestly. */
+      .powerlog-info {
+        margin-top: 32px;
+        max-width: 720px;
+      }
+      .powerlog-info h3 {
+        font-family: "Space Mono", monospace;
+        font-size: 0.7rem;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--bone-faint);
+        margin: 0 0 14px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid var(--line);
+      }
+      .powerlog-info-night {
+        margin-bottom: 18px;
+      }
+      .powerlog-info-night-label {
+        font-family: "Cormorant Garamond", Georgia, serif;
+        font-style: italic;
+        font-size: 1rem;
+        color: var(--bone-dim);
+        margin-bottom: 8px;
+      }
+      .powerlog-info-row {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        padding: 8px 0;
+        border-bottom: 1px dashed var(--line-soft);
+      }
+      .powerlog-info-row:last-child {
+        border-bottom: none;
+      }
+      .powerlog-info-who {
+        display: block;
+        font-weight: 600;
+        color: var(--bone);
+        font-size: 0.88rem;
+      }
+      .powerlog-info-body {
+        display: block;
+        color: var(--bone-dim);
+        font-size: 0.9rem;
+      }
+
       /* ----------------------------------------------------------- settings */
       .settings-overlay {
         position: fixed;

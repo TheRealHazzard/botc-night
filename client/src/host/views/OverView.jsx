@@ -22,7 +22,7 @@ function logLabel(l) {
   return ''; // lobby/reveal/over, or older data with no recorded phase
 }
 
-export default function OverView({ players, victory, gameSummary, log, actionLog, nightNumber, muted }) {
+export default function OverView({ players, victory, gameSummary, log, actionLog, resultsLog, nightNumber, muted }) {
   const [showPowerLog, setShowPowerLog] = useState(false);
 
   const victoryLine = victory ? `${victory.winner === 'good' ? 'Good wins.' : 'Evil wins.'} ${victory.reason}` : '';
@@ -59,7 +59,7 @@ export default function OverView({ players, victory, gameSummary, log, actionLog
 
   const right = (
     <div className="sidepanel">
-      {actionLog && actionLog.length > 0 && (
+      {((actionLog && actionLog.length > 0) || (resultsLog && resultsLog.length > 0)) && (
         <button type="button" onClick={() => setShowPowerLog(true)}>
           <Icon name="scroll" size={15} /> Power log
         </button>
@@ -79,7 +79,7 @@ export default function OverView({ players, victory, gameSummary, log, actionLog
     <>
       <DashboardLayout left={left} main={main} right={right} />
       {showPowerLog && (
-        <PowerLogOverlay players={players} actionLog={actionLog} nightNumber={nightNumber} onClose={() => setShowPowerLog(false)} />
+        <PowerLogOverlay players={players} actionLog={actionLog} resultsLog={resultsLog} nightNumber={nightNumber} onClose={() => setShowPowerLog(false)} />
       )}
       <ControlsDrawer>
         <ControlPanelRow />

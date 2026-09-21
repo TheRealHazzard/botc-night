@@ -73,7 +73,18 @@ function newGame() {
     },
     players: [],
     pending: {},
+    // The live delivery slot for whatever a player's own client should
+    // currently be showing — reset to {} every startNight() (see
+    // server.js), because it's only ever meant to hold "this night's"
+    // results. That reset is also why it can't be the durable record of
+    // what someone was actually told: by the time anyone notices a result
+    // never rendered, the night that produced it is long gone. resultsLog
+    // below is the fix — flushNightResults() (server.js) snapshots this
+    // object into it right before every reset, and again at game-over for
+    // whatever the final night left behind, so nothing in here is ever
+    // lost even though this object itself is deliberately ephemeral.
     results: {},
+    resultsLog: [],
     deaths: [],
     executedToday: null,
     noExecutionToday: false,
@@ -1211,6 +1222,14 @@ function publicState(g) {
     log: g.revealed ? g.log : g.log.filter(l => !l.secret),
     gameSummary: g.revealed ? gameSummary(g) : null,
     actionLog: g.revealed ? g.actionLog : [],
+    // Same reveal gate as actionLog — every info role's actual result,
+    // night by night, for exactly the situation that prompted this: a
+    // result that never rendered on someone's phone used to be
+    // unrecoverable the moment the next night reset g.results. Empty pre-
+    // reveal for the same reason actionLog is: this is exactly what
+    // Bucket-4-style true-character info looks like, not something a
+    // still-playing table should be able to read.
+    resultsLog: g.revealed ? g.resultsLog : [],
   };
 }
 
