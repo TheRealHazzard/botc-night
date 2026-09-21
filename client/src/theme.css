@@ -1,0 +1,33 @@
+/* Shared color tokens for both the host TV and every player's phone — a
+   single source of truth so the two screens can't silently drift apart
+   the way they already had. The host's own neutrals were deliberately
+   hue-shifted from brown-black toward purple-black at some point, to
+   match Blood on the Clocktower's own site (deep purple + near-black +
+   gold/metallic accents) — but the player stylesheet was never brought
+   along, and kept its original warm-brown palette, mostly hardcoded as
+   literal hex values rather than tokens at all. This file is that one
+   source both client/src/styles.css and client/src/host/styles.css
+   import, instead of each defining (and being able to silently
+   re-diverge from) their own copy.
+
+   void/surface/surface-2/line/line-soft are the host's own real,
+   actively-used surface ladder (its --ash/--smoke were defined but never
+   actually used anywhere — dropped here rather than carried forward as
+   more dead tokens). */
+:root{
+  --void:#0d0811;
+  --surface:#160e1a;
+  --surface-2:#1e1322;
+  --line:#2e1d34;
+  --line-soft:#231628;
+  --bone:#e8dcc4;
+  --bone-dim:#95886e;
+  --bone-faint:#5f5645;
+  --oxblood:#8e2226;
+  --oxblood-hi:#a92c2f;
+  --ember:#c4553a;
+  --brass:#b8863f;
+  --good:#5c86ab;
+  --good-hi:#7aa0c2;
+  --violet:#5b3f80;
+}

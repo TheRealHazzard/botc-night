@@ -69,7 +69,18 @@ export default function RoleReveal({ label, children }) {
         onKeyUp={onKeyUp}
       >
         <div className="hold-ring" style={{ '--hold-progress': progress }}>
-          <img className="hold-ring-icon" src="/icons/botc_head.png" alt="" />
+          {/* The whole point of this element is being held down — iOS/
+              Android's native "save image" callout on a long-pressed <img>
+              directly fights that gesture. pointer-events:none (in CSS)
+              keeps the image from ever being the touch target at all, this
+              is just the belt-and-suspenders backup for browsers that
+              still try. The wrapper (overflow:hidden + the icon's own
+              slight overscale) crops out this particular PNG's own edge
+              anti-aliasing, which otherwise shows as a faint light fringe
+              around the circle. */}
+          <div className="hold-ring-icon-wrap">
+            <img className="hold-ring-icon" src="/icons/botc_head.png" alt="" draggable="false" onContextMenu={e => e.preventDefault()} />
+          </div>
         </div>
         <span>{label}</span>
       </button>

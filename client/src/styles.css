@@ -1,8 +1,8 @@
+@import 'theme.css';
 :root{
-  --void:#0a0806; --ash:#151009; --smoke:#241b12;
-  --bone:#e8dcc4; --bone-dim:#93866c;
-  --oxblood:#8e2226; --ember:#c4553a; --brass:#b8863f;
-  --good:#4c6d8f; --evil:#8e2226;
+  /* --evil is a player-only alias — the host never draws an "evil" pill,
+     it shows true team via --oxblood directly once revealed. */
+  --evil: var(--oxblood);
   /* The actual fill/text pair every good/evil badge uses (team pill, career
      win-rate chip) — previously duplicated as literal hex in two separate
      CSS rules instead of coming from --good/--evil above; centralized here
@@ -45,7 +45,7 @@ body{
   padding-left: calc(18px + env(safe-area-inset-left));
   padding-right: calc(18px + env(safe-area-inset-right));
   padding-bottom: calc(40px + env(safe-area-inset-bottom));
-  background-image:radial-gradient(ellipse at 50% -10%, #1b1209 0%, #0a0806 60%);
+  background-image:radial-gradient(ellipse at 50% -10%, #1b1209 0%, var(--void) 60%);
 }
 /* The Bluff — see BluffBeat.jsx/useBluffBeat.js. A rare, meaningless
    flicker shared with the host TV, so a player half-glancing up might
@@ -63,17 +63,17 @@ h1{margin:0; line-height:0; flex-shrink:0}
 .seated-head{display:flex; align-items:center; flex-wrap:wrap; gap:10px}
 .changebtn{
   width:auto; margin:0; padding:4px 10px; font-size:.72rem; border-radius:20px; flex-shrink:0;
-  background:none; border:1px solid #3d2c1c; color:var(--bone-dim);
+  background:none; border:1px solid var(--line); color:var(--bone-dim);
 }
 .changebtn:active{border-color:var(--brass); color:var(--brass)}
 .scriptbtn{
   width:auto; margin:0 0 0 auto; padding:8px 14px; font-size:.82rem; white-space:nowrap; flex-shrink:0;
-  background:#191009; border:1px solid #3d2c1c; color:var(--bone-dim);
+  background:var(--surface-2); border:1px solid var(--line); color:var(--bone-dim);
 }
 .scriptbtn:active{border-color:var(--brass); color:var(--brass)}
 .textscalebtn{
   width:auto; margin:0; padding:6px 12px; font-size:.9rem; font-weight:700; flex-shrink:0;
-  background:#191009; border:1px solid #3d2c1c; color:var(--bone-dim); border-radius:6px;
+  background:var(--surface-2); border:1px solid var(--line); color:var(--bone-dim); border-radius:6px;
 }
 .textscalebtn:active{border-color:var(--brass); color:var(--brass)}
 
@@ -83,7 +83,7 @@ h1{margin:0; line-height:0; flex-shrink:0}
 }
 .overlay-card{
   width:100%; max-width:520px; max-height:82vh;
-  background:var(--void); border:1px solid #3a2a1c; border-top-left-radius:14px; border-top-right-radius:14px;
+  background:var(--void); border:1px solid var(--line); border-top-left-radius:14px; border-top-right-radius:14px;
   box-shadow:0 -8px 30px rgba(0,0,0,.5);
   /* A real flex column instead of a sticky header inside a padded scroll
      box — Safari doesn't reliably respect a scroll container's own top
@@ -93,7 +93,7 @@ h1{margin:0; line-height:0; flex-shrink:0}
 }
 .overlay-head{
   display:flex; align-items:center; justify-content:space-between;
-  padding:18px 18px 12px; flex-shrink:0; border-bottom:1px solid #241b12;
+  padding:18px 18px 12px; flex-shrink:0; border-bottom:1px solid var(--line-soft);
 }
 .overlay-head h2{margin:0}
 .overlay-scroll{
@@ -108,22 +108,22 @@ h1{margin:0; line-height:0; flex-shrink:0}
 .scriptgroup{margin-bottom:16px}
 .scriptgroup-title{font-size:.7rem; text-transform:uppercase; letter-spacing:.18em; color:var(--bone-dim); margin-bottom:8px}
 .scriptchar{
-  display:flex; align-items:center; border:1px solid #2e2117; border-radius:4px;
-  overflow:hidden; margin-bottom:8px; background:#120d08;
+  display:flex; align-items:center; border:1px solid var(--line); border-radius:4px;
+  overflow:hidden; margin-bottom:8px; background:var(--surface);
 }
-.scriptchar-token{width:72px; height:72px; flex-shrink:0; object-fit:cover; display:block; border-right:1px solid #2e2117}
+.scriptchar-token{width:72px; height:72px; flex-shrink:0; object-fit:cover; display:block; border-right:1px solid var(--line)}
 .scriptchar-body{flex:1; min-width:0; padding:10px 12px; display:flex; flex-direction:column; justify-content:center; gap:4px}
 .scriptchar .cname{font-family:'Cormorant Garamond',Georgia,serif; font-weight:700; font-size:1.05rem}
 .scriptchar .ability{font-size:.88rem; color:var(--bone-dim)}
 h2{font-family:'Cormorant Garamond',Georgia,serif; font-size:1.5rem; margin:0 0 8px; text-wrap:balance}
 .dim{color:var(--bone-dim)}
 .small{font-size:.85rem}
-.card{border:1px solid #2e2117; background:#120d08; border-radius:4px; padding:18px; margin-bottom:14px}
+.card{border:1px solid var(--line); background:var(--surface); border-radius:4px; padding:18px; margin-bottom:14px}
 
 input,button,select{font-family:inherit; font-size:1.05rem}
 input[type=text],select{
-  width:100%; padding:14px; background:#0d0906; color:var(--bone);
-  border:1px solid #3a2a1c; border-radius:3px;
+  width:100%; padding:14px; background:var(--void); color:var(--bone);
+  border:1px solid var(--line); border-radius:3px;
 }
 /* LeaderControlsOverlay's nominator/nominee pair — the same shape as the
    host's own .nomrow, just narrower to fit a phone. */
@@ -131,13 +131,13 @@ input[type=text],select{
 .nomrow select{width:auto; flex:1; min-width:0}
 .nomrow span{color:var(--bone-dim); flex-shrink:0}
 textarea.freetext{
-  width:100%; padding:14px; background:#0d0906; color:var(--bone);
-  border:1px solid #3a2a1c; border-radius:3px; font-family:inherit; font-size:1rem;
+  width:100%; padding:14px; background:var(--void); color:var(--bone);
+  border:1px solid var(--line); border-radius:3px; font-family:inherit; font-size:1rem;
   resize:vertical; min-height:5.5em; margin-top:10px;
 }
 button{
   width:100%; padding:15px; margin-top:10px; cursor:pointer;
-  background:#191009; color:var(--bone); border:1px solid #3d2c1c; border-radius:3px;
+  background:var(--surface-2); color:var(--bone); border:1px solid var(--line); border-radius:3px;
   font-family:'Cormorant Garamond',Georgia,serif; font-weight:600; letter-spacing:.03em;
 }
 button.primary{background:var(--personal-accent); border-color:var(--personal-accent); color:#fff2e8}
@@ -153,7 +153,7 @@ a.linklike-a{
 
 .pickergrid{display:grid; grid-template-columns:repeat(auto-fill,minmax(128px,1fr)); gap:10px; margin:14px 0}
 .playercard{
-  border:1px solid #2e2117; background:#120d08; border-radius:6px; padding:14px 10px;
+  border:1px solid var(--line); background:var(--surface); border-radius:6px; padding:14px 10px;
   text-align:center; cursor:pointer; transition:border-color .15s, transform .1s;
 }
 .playercard:hover{border-color:var(--brass)}
@@ -182,7 +182,7 @@ a.linklike-a{
 
 .hold{
   display:block; width:100%; font:inherit;
-  border:1px dashed #4a3722; background:#0d0906; border-radius:4px; padding:34px 18px;
+  border:1px dashed var(--line-soft); background:var(--void); border-radius:4px; padding:34px 18px;
   text-align:center; color:var(--bone-dim); user-select:none; cursor:pointer;
 }
 /* The role-reveal ceremony's press-and-hold — a filling ring rather than an
@@ -199,7 +199,7 @@ a.linklike-a{
    .hold already does. */
 .hold-ring{
   width:64px; height:64px; border-radius:50%; flex-shrink:0;
-  background:conic-gradient(var(--bone) calc(var(--hold-progress,0) * 360deg), #3a2a1c 0);
+  background:conic-gradient(var(--bone) calc(var(--hold-progress,0) * 360deg), var(--line) 0);
   transition:background .05s linear;
   display:flex; align-items:center; justify-content:center;
   /* Leaves the progress fill visible as an actual ring around the icon,
@@ -210,9 +210,28 @@ a.linklike-a{
    branding, not a second unrelated image — inset on its own dark puck so
    it reads as a badge sitting inside the progress ring, not a flat photo
    filling the whole circle. */
+.hold-ring-icon-wrap{
+  width:100%; height:100%; border-radius:50%; overflow:hidden; position:relative;
+  background:var(--void);
+}
 .hold-ring-icon{
-  width:100%; height:100%; border-radius:50%; object-fit:cover;
-  background:#0d0906;
+  width:100%; height:100%; object-fit:cover; display:block;
+  /* This PNG's own edge anti-aliasing (palette-based transparency, not a
+     smooth alpha channel) leaves a faint light fringe right at the cutout
+     boundary — scaling up slightly pushes that fringe outside the visible
+     circle instead of showing it as a border. */
+  transform:scale(1.18);
+  /* The whole point of this element is being held down — none of these
+     should ever treat that hold as "pressing an image". */
+  pointer-events:none; -webkit-touch-callout:none;
+  -webkit-user-select:none; user-select:none;
+}
+/* Backstop for whatever fringe the crop above doesn't fully catch — blends
+   the very edge into the same dark puck rather than depending on an exact
+   crop percentage. */
+.hold-ring-icon-wrap::after{
+  content:''; position:absolute; inset:0; border-radius:50%; pointer-events:none;
+  box-shadow:inset 0 0 6px 2px var(--void);
 }
 .role{text-align:center; padding:22px 16px}
 /* A brief, team-colored beat on the moment of reveal itself — the same
@@ -245,7 +264,7 @@ a.linklike-a{
 }
 .token{
   width:150px; height:150px; border-radius:50%; object-fit:cover; display:block;
-  margin:0 auto 12px; border:2px solid #3d2c1c; background:#0d0906;
+  margin:0 auto 12px; border:2px solid var(--line); background:var(--void);
 }
 .role .name{font-family:'Cormorant Garamond',Georgia,serif; font-size:2rem; font-weight:700}
 .role .team{display:inline-block; font-size:.72rem; text-transform:uppercase; letter-spacing:.16em; padding:4px 12px; border-radius:20px; margin:8px 0}
@@ -255,7 +274,7 @@ a.linklike-a{
 
 .targets{display:flex; flex-direction:column; gap:8px; margin-top:14px}
 .target{
-  padding:14px 16px; border:2px solid #3a2a1c; border-radius:3px; background:#0d0906;
+  padding:14px 16px; border:2px solid var(--line); border-radius:3px; background:var(--void);
   text-align:left; margin:0; width:100%;
   display:flex; align-items:center; justify-content:space-between; gap:10px;
 }
@@ -290,7 +309,7 @@ a.linklike-a{
   display:inline-block; font-weight:700; font-size:.85rem; text-transform:uppercase;
   letter-spacing:.1em; padding:5px 16px; border-radius:20px; margin:4px 0 8px;
 }
-.result-yesno.yes{background:var(--brass); color:#1a1206}
+.result-yesno.yes{background:var(--brass); color:var(--surface-2)}
 .result-yesno.no{background:transparent; border:1px solid var(--bone-dim); color:var(--bone-dim)}
 /* Named players in a pointer-style reveal (Washerwoman/Librarian/
    Investigator) get their own pill each, instead of disappearing into a
@@ -298,7 +317,7 @@ a.linklike-a{
 .result-pointer{display:flex; flex-wrap:wrap; gap:8px; margin-top:10px}
 .result-pointer-name{
   font-weight:700; padding:6px 14px; border-radius:20px;
-  background:#1a1206; border:1px solid var(--brass); color:var(--bone);
+  background:var(--surface-2); border:1px solid var(--brass); color:var(--bone);
 }
 /* A full Grimoire dump is denser and more data-heavy than any other result
    shape — a compact row per player rather than the same loose bullet list
@@ -306,7 +325,7 @@ a.linklike-a{
 .result-grimoire{list-style:none; margin:10px 0 0; padding:0; display:flex; flex-direction:column; gap:6px}
 .result-grimoire li{
   display:flex; flex-wrap:wrap; align-items:baseline; gap:6px 10px;
-  padding:8px 10px; border-radius:4px; background:#1a1206; font-size:.88rem;
+  padding:8px 10px; border-radius:4px; background:var(--surface-2); font-size:.88rem;
 }
 .result-grimoire li.dead{opacity:.6}
 .result-grimoire .g-name{font-weight:700; color:var(--bone)}
@@ -314,7 +333,7 @@ a.linklike-a{
 .result-grimoire .g-tags{display:flex; gap:6px; margin-left:auto}
 .result-grimoire .g-tag{
   font-size:.68rem; text-transform:uppercase; letter-spacing:.06em;
-  padding:2px 8px; border-radius:10px; background:#0d0906; color:var(--ember);
+  padding:2px 8px; border-radius:10px; background:var(--void); color:var(--ember);
 }
 /* Newest-first stack of a player's own past results — deliberately plainer
    than the live .result card (no left brass rule) so it reads as an
@@ -325,13 +344,13 @@ a.linklike-a{
   font-size:.7rem; text-transform:uppercase; letter-spacing:.1em; color:var(--bone-dim); margin-bottom:2px;
 }
 .dead-banner{border:1px solid var(--brass); color:var(--brass); padding:12px; text-align:center; border-radius:3px; margin-bottom:14px}
-.dead-banner.spent{border-color:#3a2a1c; color:var(--bone-dim)}
+.dead-banner.spent{border-color:var(--line); color:var(--bone-dim)}
 
 .ghosttoggle{
   display:flex; align-items:center; gap:10px; padding:13px 14px; margin:14px 0 0;
-  border:1px solid #3a2a1c; border-radius:4px; background:#0d0906; cursor:pointer; color:var(--bone-dim);
+  border:1px solid var(--line); border-radius:4px; background:var(--void); cursor:pointer; color:var(--bone-dim);
 }
-.ghosttoggle.on{border-color:var(--brass); background:#1a1206; color:var(--brass)}
+.ghosttoggle.on{border-color:var(--brass); background:var(--surface-2); color:var(--brass)}
 .ghosttoggle svg{width:22px; height:22px; flex-shrink:0}
 .votebtns{display:flex; gap:10px; margin-top:14px}
 .votebtn{flex:1; padding:18px; font-size:1.1rem; margin-top:0}
@@ -350,7 +369,7 @@ a.linklike-a{
 .reveal-overlay .revealword{font-family:'Cinzel Decorative',Georgia,serif; font-size:2.6rem; letter-spacing:.06em}
 .reveal-overlay .revealsub{font-size:.95rem; opacity:.8}
 .watch-banner{
-  border:1px dashed #4a3722; color:var(--bone-dim); padding:10px 14px;
+  border:1px dashed var(--line-soft); color:var(--bone-dim); padding:10px 14px;
   text-align:center; border-radius:3px; margin-bottom:14px; font-size:.85rem;
 }
 /* A real call-to-action, not just a status line — brass border/text picks
@@ -360,6 +379,6 @@ a.linklike-a{
 .leader-banner{
   width:100%; margin:0 0 14px; padding:12px 14px;
   border:1px solid var(--brass); border-radius:3px;
-  background:#1a1206; color:var(--brass); font-weight:700; text-align:center;
+  background:var(--surface-2); color:var(--brass); font-weight:700; text-align:center;
 }
-.leader-banner:active{background:var(--brass); color:#1a1206}
+.leader-banner:active{background:var(--brass); color:var(--surface-2)}
