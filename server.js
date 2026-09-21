@@ -96,6 +96,33 @@ const VERDICT_SCHEMA = {
   additionalProperties: false,
 };
 
+/** Records every real LLM call (Observer-view only, never the host/player
+    screens — see /sim-events' own privacy comment) so a simulation run can
+    actually show what was sent and what came back, rather than the LLM
+    Storyteller being a black box that either works or silently degrades.
+    Kept on `game` itself, not a module-level array, so it resets with every
+    new game the same way the rest of game state does; lazily initialized
+    since `game` gets reassigned wholesale in several places (reset,
+    startSimulation) that don't otherwise know this field needs to exist.
+    Capped so an hours-long table doesn't grow this unbounded. */
+async function llmCall(kind, opts) {
+  const at = Date.now();
+  const result = await askStoryteller(opts);
+  if (!game.llmLog) game.llmLog = [];
+  const status = llmStatus();
+  game.llmLog.push({
+    at, kind, provider: status.provider, model: status.model,
+    system: opts.system, prompt: opts.prompt,
+    ok: result.ok,
+    data: result.ok ? result.data : null,
+    reason: result.ok ? null : result.reason,
+    durationMs: Date.now() - at,
+  });
+  if (game.llmLog.length > 40) game.llmLog.shift();
+  pushSim();
+  return result;
+}
+
 /** Sects & Violets' Gossip/Artist free-text path: judge a player's own words
     against the game's real ground truth. Returns 'true' | 'false' |
     'ambiguous', or null on any failure (missing key, network error, timeout,
@@ -104,7 +131,7 @@ const VERDICT_SCHEMA = {
     the way there is for Savant's statements below. */
 async function judgeFreeformClaim(game, claimText) {
   const context = await E.buildStorytellerContext(game);
-  const result = await askStoryteller({
+  const result = await llmCall('gossip-artist-claim', {
     system:
       'You are silently judging one claim made during a game of Blood on the Clocktower. ' +
       'You are given the true state of the game and a claim a player just made out loud. ' +
@@ -128,7 +155,7 @@ async function judgeFreeformClaim(game, claimText) {
     verbatim, so correctness is guaranteed by buildSavantStatements() alone,
     never by this call succeeding. */
 async function rephraseSavantStatements(statements) {
-  const result = await askStoryteller({
+  const result = await llmCall('savant-rephrase', {
     system:
       'You add flavor to a fortune-telling reveal in a game of Blood on the Clocktower. ' +
       'You will be given exactly two statements that have already been decided. Rephrase each ' +
@@ -218,7 +245,7 @@ async function llmWhimJudge(g, ctx) {
     return c && (c.team === 'townsfolk' || c.team === 'outsider');
   }).length;
   const evilAlive = living.length - goodAlive;
-  const result = await askStoryteller({
+  const result = await llmCall('whim:' + ctx.kind, {
     system: WHIM_SYSTEM[ctx.kind],
     prompt: `Night/day ${g.nightNumber}. Living players: ${living.length} total (${goodAlive} good, ${evilAlive} evil).`,
     schema: WHIM_SCHEMA,
@@ -258,6 +285,12 @@ const INTERNAL_ONLY_STATUSES = new Set([
 function simPayload() {
   return {
     table: hostState(),
+    // Never sent to /host-events or /events (the real host/player streams)
+    // — only this observer channel, which /sim-events itself already
+    // refuses to open for anything but a genuine simulation, so a real
+    // game's LLM traffic (which can carry a real player's free-text claim)
+    // never reaches this view either.
+    llmLog: game.llmLog || [],
     seats: game.players.map(p => {
       const submitted = game.pending[p.id];
       return {
@@ -1404,6 +1437,13 @@ async function requestHandler(req, res) {
       }
 
       if (route === '/api/sim-state') {
+        // Same rule /sim-events already enforces on its own SSE connection
+        // — this is that stream's one-shot polling fallback, and was
+        // missing the guard entirely: it returned full private state
+        // (every seat's true character, secret log lines, and now llmLog,
+        // which can carry a real player's free-text claim) for whatever
+        // game is running, simulation or not, to anyone who could reach it.
+        if (!game.simulation) return json(res, 403, { error: 'Observer view is only available for simulations.' });
         return json(res, 200, simPayload());
       }
 

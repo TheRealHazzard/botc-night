@@ -560,6 +560,93 @@
         text-align: center;
         grid-column: 1/-1;
       }
+
+      /* ---- LLM Storyteller traffic (observer view only) ---- */
+      .llmlog {
+        grid-column: 1/-1;
+        border: 1px solid var(--line);
+        border-radius: 5px;
+        background: var(--panel);
+        padding: 14px 18px;
+      }
+      .llmlog h3 {
+        font-family: "Cormorant Garamond", Georgia, serif;
+        margin: 0 0 4px;
+        font-size: 1.1rem;
+      }
+      .llmlog .sub {
+        font-size: 0.78rem;
+        color: var(--bone-dim);
+        margin-bottom: 10px;
+      }
+      .llmcall {
+        border-top: 1px solid #241a10;
+        padding: 10px 0;
+      }
+      .llmcall:first-of-type {
+        border-top: none;
+      }
+      .llmcall .head {
+        display: flex;
+        align-items: baseline;
+        gap: 10px;
+        flex-wrap: wrap;
+        font-size: 0.78rem;
+        color: var(--bone-dim);
+      }
+      .llmcall .kind {
+        font-weight: 700;
+        color: var(--brass);
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        font-size: 0.72rem;
+      }
+      .llmcall .badge {
+        font-size: 0.68rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        padding: 1px 7px;
+        border-radius: 8px;
+      }
+      .llmcall .badge.ok {
+        color: #9dbdd9;
+        background: #1c2c3c;
+      }
+      .llmcall .badge.fail {
+        color: #e0a09c;
+        background: #361316;
+      }
+      .llmcall .spacer {
+        flex: 1;
+      }
+      .llmcall .block {
+        margin-top: 6px;
+      }
+      .llmcall .block .label {
+        font-size: 0.68rem;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: var(--bone-dim);
+        display: block;
+        margin-bottom: 3px;
+      }
+      .llmcall pre {
+        white-space: pre-wrap;
+        word-break: break-word;
+        font-family: "Spectral", Georgia, serif;
+        font-size: 0.83rem;
+        background: #0d0906;
+        border: 1px solid #241a10;
+        border-radius: 3px;
+        padding: 8px 10px;
+        margin: 0;
+        max-height: 180px;
+        overflow: auto;
+      }
+      .llmcall pre.received.fail {
+        border-color: #4a1f1f;
+        color: var(--evil);
+      }
     </style>
   </head>
   <body>
@@ -1010,6 +1097,73 @@
         return wrap;
       }
 
+      /* -------------------------------------------------------------- LLM log */
+
+      /* What the LLM Storyteller was actually sent and actually sent back —
+   observer-view only (see server.js's simPayload/llmCall comments): a
+   simulation has no real secrets, so nothing here needs redacting the
+   way a real player's claim would. Newest first, same convention as the
+   event log below. */
+      function llmLogPanel(entries) {
+        const box = el("div", "llmlog");
+        box.append(el("h3", null, "LLM Storyteller traffic"));
+        if (!entries.length) {
+          box.append(
+            el(
+              "div",
+              "sub",
+              "Nothing sent yet — fires on a Gossip/Artist/Savant visit (a real player only, bots can't) or a Mayor/Recluse/Spy/Pacifist judgment call (bots included), and only once the toggle in Settings is on.",
+            ),
+          );
+          return box;
+        }
+        box.append(
+          el(
+            "div",
+            "sub",
+            `${entries.length} call${entries.length === 1 ? "" : "s"} this game — newest first.`,
+          ),
+        );
+        entries
+          .slice()
+          .reverse()
+          .forEach(c => {
+            const row = el("div", "llmcall");
+            const head = el("div", "head");
+            head.append(el("span", "kind", c.kind));
+            head.append(el("span", null, `${c.provider} · ${c.model}`));
+            head.append(el("span", "spacer"));
+            head.append(el("span", null, `${c.durationMs}ms`));
+            head.append(
+              el("span", "badge " + (c.ok ? "ok" : "fail"), c.ok ? "ok" : c.reason),
+            );
+            row.append(head);
+
+            const sent = el("div", "block");
+            sent.append(el("span", "label", "sent"));
+            const sentPre = el(
+              "pre",
+              null,
+              `SYSTEM: ${c.system}\n\nPROMPT: ${c.prompt}`,
+            );
+            sent.append(sentPre);
+            row.append(sent);
+
+            const recv = el("div", "block");
+            recv.append(el("span", "label", "received"));
+            const recvPre = el(
+              "pre",
+              "received" + (c.ok ? "" : " fail"),
+              c.ok ? JSON.stringify(c.data, null, 2) : `(${c.reason})`,
+            );
+            recv.append(recvPre);
+            row.append(recv);
+
+            box.append(row);
+          });
+        return box;
+      }
+
       /* -------------------------------------------------------------- render */
 
       function syncFocusOptions() {
@@ -1082,14 +1236,17 @@
             );
           });
         wrap.append(log);
+
+        wrap.append(llmLogPanel(S.llmLog || []));
       }
 
       /* ---------------------------------------------------------- connection */
 
       function pollSimState() {
         fetch("/api/sim-state")
-          .then(r => r.json())
+          .then(r => (r.ok ? r.json() : null))
           .then(data => {
+            if (!data) return; // not a simulation right now — nothing to show yet
             S = data;
             render();
           })
