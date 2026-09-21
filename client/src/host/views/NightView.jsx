@@ -32,6 +32,9 @@ export default function NightView({ players, nightNumber, wave, windowEndsAt, co
 
   const left = <GameLeftPanel scriptChars={scriptChars} activeScriptMeta={activeScriptMeta} />;
 
+  // Rendered twice on purpose (also inside ControlsDrawer below) — once
+  // plainly on the right, once in the collapsed drawer for a phone driving
+  // this same screen via the leader overlay.
   const right = (
     <div className="sidepanel">
       <SidepanelCard icon="clock" title={again ? 'Second window' : 'Night window'}>
@@ -43,6 +46,9 @@ export default function NightView({ players, nightNumber, wave, windowEndsAt, co
         <div className="sub">{acted} of {living} have answered.</div>
       </SidepanelCard>
       <TriviaLine scriptId={script} compact />
+      <SidepanelCard icon="gear" title="Storyteller controls">
+        <ControlPanelRow />
+      </SidepanelCard>
     </div>
   );
 

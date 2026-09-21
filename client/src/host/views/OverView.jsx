@@ -72,6 +72,12 @@ export default function OverView({ players, victory, gameSummary, log, actionLog
           {players.map(p => <RosterRow key={p.id} player={p} />)}
         </div>
       </SidepanelCard>
+      {/* Rendered twice on purpose (also inside ControlsDrawer below) —
+          once plainly on the right, once in the collapsed drawer for a
+          phone driving this same screen via the leader overlay. */}
+      <SidepanelCard icon="gear" title="Storyteller controls">
+        <ControlPanelRow />
+      </SidepanelCard>
     </div>
   );
 

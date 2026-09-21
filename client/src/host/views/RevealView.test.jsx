@@ -16,11 +16,21 @@ describe('RevealView', () => {
     expect(screen.getByText('Ada')).toBeInTheDocument();
   });
 
+  it('shows the controls plainly on the right, not just behind the collapsed drawer', () => {
+    render(<RevealView players={players} scriptChars={[]} activeScriptMeta={activeScriptMeta} />);
+    // The persistent right-side panel's copy is visible immediately — this
+    // is the fix, controls used to be reachable only by opening the
+    // drawer. The drawer's own copy isn't in the DOM until tapped open
+    // (still available there too, for a phone driving this same screen via
+    // the leader overlay), so there's exactly one match so far.
+    expect(screen.getAllByText(/night falls/i)).toHaveLength(1);
+    expect(screen.getByRole('button', { name: 'Storyteller controls' })).toBeInTheDocument();
+  });
+
   it('Night falls posts /api/table/night', async () => {
     const fetchMock = mockFetch({ '/api/tokens': {}, '/api/table/night': {} });
     render(<RevealView players={players} scriptChars={[]} activeScriptMeta={activeScriptMeta} />);
-    await userEvent.click(screen.getByText('Storyteller controls')); // open the drawer
-    await userEvent.click(screen.getByText(/night falls/i));
+    await userEvent.click(screen.getAllByText(/night falls/i)[0]);
     expect(fetchMock.calls.some(c => c.url.includes('/api/table/night'))).toBe(true);
   });
 
@@ -28,11 +38,10 @@ describe('RevealView', () => {
     const fetchMock = mockFetch({ '/api/tokens': {}, '/api/table/reveal': {} });
     window.confirm = vi.fn(() => false);
     render(<RevealView players={players} scriptChars={[]} activeScriptMeta={activeScriptMeta} />);
-    await userEvent.click(screen.getByText('Storyteller controls')); // open the drawer
-    await userEvent.click(screen.getByText('Reveal'));
+    await userEvent.click(screen.getAllByText('Reveal')[0]);
     expect(fetchMock.calls.some(c => c.url.includes('/api/table/reveal'))).toBe(false);
     window.confirm.mockReturnValue(true);
-    await userEvent.click(screen.getByText('Reveal'));
+    await userEvent.click(screen.getAllByText('Reveal')[0]);
     expect(fetchMock.calls.some(c => c.url.includes('/api/table/reveal'))).toBe(true);
   });
 });
