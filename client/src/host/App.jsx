@@ -6,8 +6,10 @@ import { useFullscreen } from "./hooks/useFullscreen.js";
 import { useScripts } from "./hooks/useScripts.js";
 import { useScriptRoster } from "./hooks/useScriptRoster.js";
 import { useWakeLock } from "../hooks/useWakeLock.js";
+import { useTextScale } from "../hooks/useTextScale.js";
 import { post } from "../lib/api.js";
 import { useWhimConfirm } from "./hooks/useWhimConfirm.js";
+import { useHostAnnouncement } from "./hooks/useHostAnnouncement.js";
 import { useBluffBeat } from "../hooks/useBluffBeat.js";
 import Icon from "./components/Icon.jsx";
 import ReclaimBanner from "./components/ReclaimBanner.jsx";
@@ -41,6 +43,11 @@ export default function App() {
   const scriptChars = useScriptRoster(displayS?.script);
   const { card: whimCard, dismiss: dismissWhimCard } = useWhimConfirm(displayS?.whimConfirmations);
   const bluffBeat = useBluffBeat(displayS?.bluffBeatAt);
+  // Off raw S, not displayS — an accessibility announcement should fire
+  // the moment the real state changes, not wait on usePhaseFade's own
+  // purely-visual transition delay.
+  const announcement = useHostAnnouncement(S);
+  const { scale: textScale, cycle: cycleTextScale } = useTextScale();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [buildingScript, setBuildingScript] = useState(false);
   // Independent of the BOTC phase machine below — switching tabs never
@@ -153,6 +160,7 @@ export default function App() {
 
   return (
     <>
+      <div className="sr-only" aria-live="polite">{announcement}</div>
       <Header
         muted={muted}
         setMuted={setMuted}
@@ -174,6 +182,8 @@ export default function App() {
         onOpenHistory={() => window.open("/games", "_blank")}
         onOpenHallOfFame={() => window.open("/hall-of-fame", "_blank")}
         onOpenCharacters={() => window.open("/characters", "_blank")}
+        textScale={textScale}
+        onCycleTextScale={cycleTextScale}
       />
 
       <ReclaimBanner pendingReclaims={S?.pendingReclaims} />
@@ -307,6 +317,8 @@ function Header({
   onOpenHistory,
   onOpenHallOfFame,
   onOpenCharacters,
+  textScale,
+  onCycleTextScale,
 }) {
   const locked = browsedMeta && browsedMeta.playable === false;
   const canStart = playerCount >= 5;
@@ -335,6 +347,14 @@ function Header({
             </button>
           </span>
         )}
+        <button
+          type="button"
+          className="mutebtn"
+          onClick={onCycleTextScale}
+          aria-label={`Text size: ${Math.round(textScale * 100)}%. Tap to change.`}
+        >
+          Aa
+        </button>
         <button
           type="button"
           className="mutebtn"

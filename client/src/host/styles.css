@@ -10,6 +10,29 @@
       * {
         box-sizing: border-box;
       }
+      /* Standard visually-hidden-but-announced pattern — present for
+   assistive tech, invisible and out of the way for everyone else. Mirrors
+   client/src/styles.css's own identical rule; the host build has no
+   access to the player stylesheet, so it needs its own copy. */
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+      }
+      html {
+        /* The one control that actually moves it — client/src/hooks/
+     useTextScale.js, the same hook and localStorage key the player app
+     already ships. Scales the root font-size (not body's) specifically
+     because this stylesheet sizes almost everything in rem, unlike the
+     player app's own body{font-size} approach. */
+        font-size: calc(100% * var(--text-scale, 1));
+      }
       html,
       body {
         height: 100%;

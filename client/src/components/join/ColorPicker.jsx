@@ -24,14 +24,16 @@ export default function ColorPicker({ name, onProceed }) {
       <p className="dim small">Yours alone — no two players share one. Change it later from your stats page.</p>
       <div className="colorgrid">
         {colors.map(c => (
-          <div
-            className={'swatch' + (c.takenBy ? ' taken' : '')}
+          <button
+            type="button"
+            className="swatch"
             key={c.id}
             style={{ background: c.hex }}
-            onClick={!c.takenBy && !picking ? () => pick(c) : undefined}
+            disabled={!!c.takenBy || picking}
+            onClick={() => pick(c)}
           >
             <span className="swatch-name">{c.takenBy ? `${c.name} — ${c.takenBy}'s` : c.name}</span>
-          </div>
+          </button>
         ))}
       </div>
       <button type="button" className="linklike" onClick={() => onProceed(null)}>Skip for now</button>

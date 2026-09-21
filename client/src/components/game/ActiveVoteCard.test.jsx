@@ -56,6 +56,16 @@ describe('ActiveVoteCard', () => {
     expect(setGhostVoteEnabled).toHaveBeenCalled();
   });
 
+  it('the ghost-vote toggle is a real button — keyboard-activatable, and reports its state via aria-pressed', async () => {
+    const setGhostVoteEnabled = vi.fn();
+    render(<ActiveVoteCard activeVote={baseVote({ isGhostVote: true })} castVote={() => {}} revealVote={() => {}} ghostVoteEnabled={false} setGhostVoteEnabled={setGhostVoteEnabled} />);
+    const toggle = screen.getByRole('button', { name: /use my one ghost vote/i });
+    expect(toggle).toHaveAttribute('aria-pressed', 'false');
+    toggle.focus();
+    await userEvent.keyboard('{Enter}');
+    expect(setGhostVoteEnabled).toHaveBeenCalled();
+  });
+
   it('an armed ghost vote enables Yes/No and shows the armed copy', () => {
     render(<ActiveVoteCard activeVote={baseVote({ isGhostVote: true })} castVote={() => {}} revealVote={() => {}} ghostVoteEnabled setGhostVoteEnabled={() => {}} />);
     expect(screen.getByText('Yes')).toBeEnabled();

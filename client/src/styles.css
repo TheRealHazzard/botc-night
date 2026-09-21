@@ -175,9 +175,10 @@ a.linklike-a{
 .swatch{
   border-radius:6px; padding:16px 6px; min-height:44px; text-align:center; cursor:pointer;
   border:2px solid rgba(255,255,255,.14); display:flex; align-items:center; justify-content:center;
+  font:inherit; width:100%;
 }
 .swatch-name{font-size:.68rem; font-weight:700; color:#fff; text-shadow:0 1px 3px rgba(0,0,0,.7); line-height:1.25}
-.swatch.taken{opacity:.3; cursor:not-allowed; filter:grayscale(.7)}
+.swatch:disabled{opacity:.3; cursor:not-allowed; filter:grayscale(.7)}
 :focus-visible{outline:2px solid var(--brass); outline-offset:2px}
 
 .hold{
@@ -361,6 +362,7 @@ a.linklike-a{
 .ghosttoggle{
   display:flex; align-items:center; gap:10px; padding:13px 14px; margin:14px 0 0;
   border:1px solid var(--line); border-radius:4px; background:var(--void); cursor:pointer; color:var(--bone-dim);
+  font:inherit; text-align:left; width:100%;
 }
 .ghosttoggle.on{border-color:var(--brass); background:var(--surface-2); color:var(--brass)}
 .ghosttoggle svg{width:22px; height:22px; flex-shrink:0}

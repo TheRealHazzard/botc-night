@@ -43,10 +43,15 @@ export default function ActiveVoteCard({ activeVote, castVote, revealVote, ghost
       <h2>Vote: {activeVote.nomineeName}</h2>
 
       {activeVote.isGhostVote && (
-        <div className={'ghosttoggle' + (ghostVoteEnabled ? ' on' : '')} onClick={() => setGhostVoteEnabled(v => !v)}>
+        <button
+          type="button"
+          className={'ghosttoggle' + (ghostVoteEnabled ? ' on' : '')}
+          aria-pressed={ghostVoteEnabled}
+          onClick={() => setGhostVoteEnabled(v => !v)}
+        >
           <GhostIcon />
           <span>{ghostVoteEnabled ? 'Ghost vote armed — this is your only one, ever.' : 'Use my one ghost vote to vote here'}</span>
-        </div>
+        </button>
       )}
 
       <div className="votebtns">

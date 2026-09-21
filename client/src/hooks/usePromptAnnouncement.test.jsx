@@ -38,4 +38,46 @@ describe('usePromptAnnouncement', () => {
     const { result } = renderHook(({ P }) => usePromptAnnouncement(P), { initialProps: { P: undefined } });
     expect(result.current).toBe('');
   });
+
+  it('announces a nomination opening, when there is no other result or prompt to announce instead', () => {
+    const P = { phase: 'day', voteRequest: { nominationId: 'n1', nomineeName: 'Bo' } };
+    const { result } = renderHook(({ P }) => usePromptAnnouncement(P), { initialProps: { P } });
+    expect(result.current).toBe('A nomination is open on Bo.');
+  });
+
+  it('re-announces once a NEW nomination opens after the last one closed, but not on every unrelated re-render of the same one', () => {
+    const { result, rerender } = renderHook(({ P }) => usePromptAnnouncement(P), {
+      initialProps: { P: { phase: 'day', voteRequest: { nominationId: 'n1', nomineeName: 'Bo' } } },
+    });
+    expect(result.current).toBe('A nomination is open on Bo.');
+
+    rerender({ P: { phase: 'day', voteRequest: { nominationId: 'n1', nomineeName: 'Bo' } } });
+    expect(result.current).toBe('A nomination is open on Bo.');
+
+    rerender({ P: { phase: 'day', voteRequest: { nominationId: 'n2', nomineeName: 'Cy' } } });
+    expect(result.current).toBe('A nomination is open on Cy.');
+  });
+
+  it('falls back to a plain phase beat when a player has nothing else to act on', () => {
+    const nightHook = renderHook(({ P }) => usePromptAnnouncement(P), {
+      initialProps: { P: { phase: 'night', prompt: null } },
+    });
+    expect(nightHook.result.current).toBe('Night falls.');
+
+    const dayHook = renderHook(({ P }) => usePromptAnnouncement(P), {
+      initialProps: { P: { phase: 'day' } },
+    });
+    expect(dayHook.result.current).toBe('Day begins.');
+
+    const revealHook = renderHook(({ P }) => usePromptAnnouncement(P), {
+      initialProps: { P: { phase: 'reveal' } },
+    });
+    expect(revealHook.result.current).toBe('The grimoire is revealed.');
+  });
+
+  it('a player who already submitted their real prompt does not get re-greeted with "Night falls" once submitted flips', () => {
+    const P = { phase: 'night', prompt: { text: 'Choose two players.' }, submitted: true, result: null };
+    const { result } = renderHook(({ P }) => usePromptAnnouncement(P), { initialProps: { P } });
+    expect(result.current).toBe('');
+  });
 });

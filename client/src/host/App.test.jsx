@@ -99,6 +99,7 @@ const SCRIPTS = [
 
 describe("App", () => {
   beforeEach(() => {
+    localStorage.clear(); // useTextScale persists here, same key/hook the player app already ships
     hostState.current = { S: null, patchConfig: vi.fn() };
     soundEngine.current = { muted: false, setMuted: vi.fn() };
     fullscreenState.current = {
@@ -124,6 +125,15 @@ describe("App", () => {
   it("shows the header even before any state has loaded", () => {
     render(<App />);
     expect(screen.getByAltText("Blood On The Clocktower")).toBeInTheDocument();
+  });
+
+  it("the Aa button cycles the host's own text size, available in every phase (not lobby-gated like history/hall of fame)", async () => {
+    hostState.current.S = baseS({ phase: "night", nightNumber: 1 });
+    render(<App />);
+    const btn = screen.getByText("Aa");
+    expect(btn).toHaveAccessibleName(/100%/);
+    await userEvent.click(btn);
+    expect(btn).toHaveAccessibleName(/115%/);
   });
 
   it("dispatches to the lobby view once state loads, showing the phase pill", () => {
