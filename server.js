@@ -351,6 +351,14 @@ function startNight() {
   // first reveal->night-1 transition, since game.phase is 'reveal' then and
   // no day has happened yet for anyone to have failed to claim in.
   if (game.phase === 'day') {
+    // The host clicking Night falls directly — without ever calling
+    // /api/table/execute at all — is a third way a day can end with nobody
+    // executed, alongside the explicit "No execution" choice and a
+    // blocked/survived attempt (both set this in recordExecution). None of
+    // those three routes are distinguishable to the town, and Vortox's/the
+    // Mayor's win conditions shouldn't care which one happened — only
+    // whether executedToday actually landed.
+    game.noExecutionToday = !game.executedToday;
     E.resolveMadness(game);
     if (finishIfOver()) return;
   }
@@ -537,6 +545,10 @@ async function recordExecution(playerId) {
     const blocked = E.checkKill(game, p, { executionAttack: true });
     delete p.statuses.pacifistSaved;
     if (blocked) {
+      // "No one was executed" is just as true here as the explicit p===null
+      // branch below — Vortox's and the Mayor's win conditions read the
+      // real-world outcome, not which button got clicked to reach it.
+      game.noExecutionToday = true;
       E.logEvent(game, `${p.name} was executed, but survives.`);
     } else {
       // Both of these only mean anything once the execution actually
