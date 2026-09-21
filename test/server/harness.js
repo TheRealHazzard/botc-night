@@ -91,9 +91,35 @@ async function startServer({ env = {} } = {}) {
   throw new Error(`server never became ready on ${baseUrl}: ${lastErr ? lastErr.message : 'no response'}\nstderr:\n${stderr}`);
 }
 
+/** Waits for the child to actually exit (not just for kill() to be called —
+    that only sends the signal) before removing its data directory, rather
+    than tearing both down at once. The fallback timer covers the unlikely
+    case the child never signals exit; it's unref'd and cleared on finish
+    so it can't itself become a dangling handle. (The real fix for an
+    intermittent Windows-only crash this surfaced — "Assertion failed:
+    !(handle->flags & UV_HANDLE_CLOSING)" appearing well after every real
+    check had already passed, corrupting an otherwise-passing run's exit
+    code — turned out to be in each test file's own teardown, not here:
+    calling process.exit() forces Node to tear down the event loop
+    immediately, racing whatever handles (this child, fetch's own
+    connection pool, ...) hadn't finished closing yet. Every test file now
+    sets process.exitCode and lets the process exit on its own instead.) */
 function stopServer(child, dataDir) {
-  child.kill();
-  fs.rmSync(dataDir, { recursive: true, force: true });
+  return new Promise(resolve => {
+    let done = false;
+    let fallback;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      clearTimeout(fallback);
+      fs.rmSync(dataDir, { recursive: true, force: true });
+      resolve();
+    };
+    child.once('exit', finish);
+    fallback = setTimeout(finish, 2000);
+    fallback.unref();
+    child.kill();
+  });
 }
 
 /** {status, json} — a thin wrapper over fetch, matching this project's own

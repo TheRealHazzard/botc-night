@@ -132,12 +132,12 @@ async function setupUpToExecutingTheDemon(baseUrl) {
       check('the bonus day is now cleared, not left dangling', state.json.mastermindExtraDay === false, state.json.mastermindExtraDay);
     }
   } finally {
-    server.stop();
+    await server.stop();
   }
 
   console.log(`\n${failures ? failures + ' FAILURES' : 'All checks passed'}\n`);
-  process.exit(failures ? 1 : 0);
+  process.exitCode = failures ? 1 : 0;
 })().catch(e => {
   console.error('FAILED:', e.message);
-  process.exit(1);
+  process.exitCode = 1;
 });

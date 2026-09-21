@@ -81,13 +81,20 @@ async function waitUntil(fn, timeoutMs, intervalMs = 200) {
     // their own within a few seconds, exactly the "real players optional"
     // goal this was built for.
     {
-      await setupMixedTableToDay1(server.baseUrl);
-
-      const nomAppeared = await waitUntil(async () => {
-        const { json } = await request(server.baseUrl, '/api/host-state');
-        return json.nominations.some(n => n.day === json.nightNumber) ? json : null;
-      }, 6000);
-      check('(A) a bot opens a nomination on its own within a few seconds of day beginning', !!nomAppeared, 'no nomination appeared within 6s');
+      // botsNominate() only fires ~78% of days by design (mirrors
+      // chooseExecution()'s own "most days end in a decision, some don't"
+      // philosophy) — a real, intentional outcome this test has to accept
+      // rather than treat as a failure. Retry a fresh day rather than
+      // waiting forever for something that correctly isn't going to happen.
+      let nomAppeared = null;
+      for (let attempt = 1; attempt <= 8 && !nomAppeared; attempt++) {
+        await setupMixedTableToDay1(server.baseUrl);
+        nomAppeared = await waitUntil(async () => {
+          const { json } = await request(server.baseUrl, '/api/host-state');
+          return json.nominations.some(n => n.day === json.nightNumber) ? json : null;
+        }, 6000);
+      }
+      check('(A) a bot opens a nomination on its own within a few seconds of day beginning', !!nomAppeared, 'no nomination appeared across 8 fresh days in a row');
 
       if (nomAppeared) {
         const nom = nomAppeared.nominations.find(n => n.day === nomAppeared.nightNumber);
@@ -135,12 +142,12 @@ async function waitUntil(fn, timeoutMs, intervalMs = 200) {
       check('(B) bots still vote on the real player\'s own nomination', !!votesOnHumanNom, 'no bot votes appeared on the human-created nomination');
     }
   } finally {
-    server.stop();
+    await server.stop();
   }
 
   console.log(`\n${failures ? failures + ' FAILURES' : 'All checks passed'}\n`);
-  process.exit(failures ? 1 : 0);
+  process.exitCode = failures ? 1 : 0;
 })().catch(e => {
   console.error('FAILED:', e.message);
-  process.exit(1);
+  process.exitCode = 1;
 });
