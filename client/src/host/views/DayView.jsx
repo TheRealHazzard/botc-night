@@ -21,7 +21,7 @@ import { useRoomPacing } from '../hooks/useRoomPacing.js';
 import { post } from '../../lib/api.js';
 import { leadingNominee } from '../../lib/leadingNominee.js';
 
-export default function DayView({ players, nightNumber, deaths, mastermindExtraDay, nominations, config, script, scriptChars, activeScriptMeta, muted, log = [], dayStartedAt }) {
+export default function DayView({ players, nightNumber, deaths, nominations, config, script, scriptChars, activeScriptMeta, muted, log = [], dayStartedAt }) {
   const lastNight = deaths.filter(d => d.night === nightNumber && d.cause !== 'execution');
   const line = lastNight.length ? `${lastNight.map(d => d.name).join(' and ')} did not wake.` : 'Everyone wakes. That should worry you.';
   useSpeak(line, { dread: !!lastNight.length, muted });
@@ -53,14 +53,13 @@ export default function DayView({ players, nightNumber, deaths, mastermindExtraD
         {lastNight.length > 0 && <Icon name="skull" size={18} />}
         <span>{line}</span>
       </div>
+      {/* No Mastermind hint here on purpose — the wiki is explicit: "Add a
+          shroud as normal. Do not say that the Demon has died." The bonus
+          day has to look exactly like any other day, including the fully
+          ordinary possibility that night just falls with nobody executed
+          (see server.js's resolveMastermindBonusDay). */}
       {whim && <WhimBeat />}
       <RoomPacingNudge level={pacing} />
-      {mastermindExtraDay && (
-        <div className="hint">
-          <Icon name="bolt" size={16} />
-          <span>The Demon has fallen — but the Mastermind's power lingers. Play one more day. If a good player is executed now, evil wins. If evil is, good does.</span>
-        </div>
-      )}
       <RingSeats players={players} />
     </div>
   );
@@ -82,7 +81,7 @@ export default function DayView({ players, nightNumber, deaths, mastermindExtraD
       <ControlsDrawer forceClosed={!!minorBeat}>
         <ControlPanelRow />
         <NominateAction nominations={nominations} nightNumber={nightNumber} players={players} />
-        <DayActions players={players} nominations={nominations} nightNumber={nightNumber} anyOpen={anyOpen} mastermindExtraDay={mastermindExtraDay} />
+        <DayActions players={players} nominations={nominations} nightNumber={nightNumber} anyOpen={anyOpen} />
       </ControlsDrawer>
     </>
   );
@@ -104,7 +103,7 @@ function useLeaderChanged(winnerId) {
   return changed;
 }
 
-function DayActions({ players, nominations, nightNumber, anyOpen, mastermindExtraDay }) {
+function DayActions({ players, nominations, nightNumber, anyOpen }) {
   const alive = players.filter(p => p.alive);
   // null = "follow the computed leader" — the moment the host actually
   // touches the dropdown, their choice sticks instead, same as any other
@@ -148,7 +147,11 @@ function DayActions({ players, nominations, nightNumber, anyOpen, mastermindExtr
       >
         <Icon name="skull" size={15} /> Kick Player
       </button>
-      <button type="button" disabled={anyOpen || mastermindExtraDay} onClick={nightFalls}>
+      {/* No mastermindExtraDay check here — see DayView.jsx's own note:
+          Night falls has to behave identically during the Mastermind's
+          bonus day, right down to being a perfectly normal way for that
+          day to end with nobody executed. */}
+      <button type="button" disabled={anyOpen} onClick={nightFalls}>
         <Icon name="moon" size={15} /> Night falls
       </button>
     </div>

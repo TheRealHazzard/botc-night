@@ -26,7 +26,7 @@ describe('DayView', () => {
 
   it('shows the death narration for last night, with a skull', () => {
     const { container } = render(
-      <DayView players={players} nightNumber={2} deaths={[{ night: 2, name: 'Bo', cause: 'demon' }]} mastermindExtraDay={false} nominations={[]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
+      <DayView players={players} nightNumber={2} deaths={[{ night: 2, name: 'Bo', cause: 'demon' }]} nominations={[]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
     );
     expect(screen.getByText('Bo did not wake.')).toBeInTheDocument();
     expect(container.querySelector('.deaths svg.icon')).toBeTruthy();
@@ -34,25 +34,25 @@ describe('DayView', () => {
 
   it('a night with nobody killed shows the "should worry you" line, no skull', () => {
     const { container } = render(
-      <DayView players={players} nightNumber={1} deaths={[]} mastermindExtraDay={false} nominations={[]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
+      <DayView players={players} nightNumber={1} deaths={[]} nominations={[]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
     );
     expect(screen.getByText('Everyone wakes. That should worry you.')).toBeInTheDocument();
     expect(container.querySelector('.deaths svg.icon')).toBeFalsy();
   });
 
-  it('shows the Mastermind hint only when mastermindExtraDay is true', () => {
-    const { rerender } = render(
-      <DayView players={players} nightNumber={1} deaths={[]} mastermindExtraDay={false} nominations={[]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
+  // The wiki is explicit: "Add a shroud as normal. Do not say that the
+  // Demon has died." DayView never even receives a mastermindExtraDay
+  // prop any more — nothing here should announce or otherwise reveal it.
+  it('never mentions the Mastermind, on any day', () => {
+    render(
+      <DayView players={players} nightNumber={1} deaths={[]} nominations={[]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
     );
-    expect(screen.queryByText(/mastermind's power lingers/i)).not.toBeInTheDocument();
-
-    rerender(<DayView players={players} nightNumber={1} deaths={[]} mastermindExtraDay nominations={[]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />);
-    expect(screen.getByText(/mastermind's power lingers/i)).toBeInTheDocument();
+    expect(screen.queryByText(/mastermind/i)).not.toBeInTheDocument();
   });
 
   it('the Storyteller controls drawer is closed by default', () => {
     render(
-      <DayView players={players} nightNumber={1} deaths={[]} mastermindExtraDay={false} nominations={[]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
+      <DayView players={players} nightNumber={1} deaths={[]} nominations={[]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
     );
     expect(screen.queryByText(/kick player/i)).not.toBeInTheDocument();
     expect(screen.getByText('Storyteller controls')).toBeInTheDocument();
@@ -61,7 +61,7 @@ describe('DayView', () => {
   it('Kick Player/Night falls are disabled while a vote is open', async () => {
     const openNom = { day: 1, nominatorName: 'Ada', nomineeName: 'Bo', closed: false, windowEndsAt: Date.now() + 20000, votes: [] };
     render(
-      <DayView players={players} nightNumber={1} deaths={[]} mastermindExtraDay={false} nominations={[openNom]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
+      <DayView players={players} nightNumber={1} deaths={[]} nominations={[openNom]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
     );
     await openDrawer();
     expect(screen.getByText(/kick player/i)).toBeDisabled();
@@ -70,7 +70,7 @@ describe('DayView', () => {
 
   it('the execute select lists only living players', async () => {
     render(
-      <DayView players={players} nightNumber={1} deaths={[]} mastermindExtraDay={false} nominations={[]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
+      <DayView players={players} nightNumber={1} deaths={[]} nominations={[]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
     );
     await openDrawer();
     const select = screen.getByText('No execution').closest('select');
@@ -80,7 +80,7 @@ describe('DayView', () => {
   it('the execute select auto-populates with the qualifying nomination\'s leading nominee', async () => {
     const closedNom = { day: 1, nominatorName: 'Bo', nomineeName: 'Ada', nomineeId: 'p1', closed: true, yesCount: 1, votes: [] };
     render(
-      <DayView players={players} nightNumber={1} deaths={[]} mastermindExtraDay={false} nominations={[closedNom]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
+      <DayView players={players} nightNumber={1} deaths={[]} nominations={[closedNom]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
     );
     await openDrawer();
     const select = screen.getByText('No execution').closest('select');
@@ -90,7 +90,7 @@ describe('DayView', () => {
   it('a manual pick in the select overrides the auto-populated leader', async () => {
     const closedNom = { day: 1, nominatorName: 'Bo', nomineeName: 'Ada', nomineeId: 'p1', closed: true, yesCount: 1, votes: [] };
     render(
-      <DayView players={players} nightNumber={1} deaths={[]} mastermindExtraDay={false} nominations={[closedNom]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
+      <DayView players={players} nightNumber={1} deaths={[]} nominations={[closedNom]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
     );
     await openDrawer();
     const select = screen.getByText('No execution').closest('select');
@@ -106,7 +106,7 @@ describe('DayView', () => {
 
   it('Kick Player flashes when the auto-populated leader changes to someone new', async () => {
     const { rerender } = render(
-      <DayView players={threeAlive} nightNumber={1} deaths={[]} mastermindExtraDay={false} nominations={[]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
+      <DayView players={threeAlive} nightNumber={1} deaths={[]} nominations={[]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
     );
     await openDrawer();
     const kickButton = () => screen.getByText(/kick player/i).closest('button');
@@ -114,7 +114,7 @@ describe('DayView', () => {
 
     const nomP1 = { day: 1, nominatorName: 'Cy', nomineeName: 'Ada', nomineeId: 'p1', closed: true, yesCount: 2, votes: [] };
     rerender(
-      <DayView players={threeAlive} nightNumber={1} deaths={[]} mastermindExtraDay={false} nominations={[nomP1]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
+      <DayView players={threeAlive} nightNumber={1} deaths={[]} nominations={[nomP1]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
     );
     expect(kickButton()).toHaveClass('leader-changed');
   });
@@ -122,7 +122,7 @@ describe('DayView', () => {
   it('does not flash a leader change once the host has manually overridden the pick', async () => {
     const nomP1 = { day: 1, nominatorName: 'Cy', nomineeName: 'Ada', nomineeId: 'p1', closed: true, yesCount: 2, votes: [] };
     const { rerender } = render(
-      <DayView players={threeAlive} nightNumber={1} deaths={[]} mastermindExtraDay={false} nominations={[nomP1]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
+      <DayView players={threeAlive} nightNumber={1} deaths={[]} nominations={[nomP1]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
     );
     await openDrawer();
     const select = screen.getByText('No execution').closest('select');
@@ -130,7 +130,7 @@ describe('DayView', () => {
 
     const nomP3 = { day: 1, nominatorName: 'Ada', nomineeName: 'Evy', nomineeId: 'p3', closed: true, yesCount: 3, votes: [] };
     rerender(
-      <DayView players={threeAlive} nightNumber={1} deaths={[]} mastermindExtraDay={false} nominations={[nomP1, nomP3]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
+      <DayView players={threeAlive} nightNumber={1} deaths={[]} nominations={[nomP1, nomP3]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
     );
     expect(screen.getByText(/kick player/i).closest('button')).not.toHaveClass('leader-changed');
   });
@@ -138,7 +138,7 @@ describe('DayView', () => {
   it('a manual execute override snaps back to the auto-computed leader if that player dies from an unrelated cause first', async () => {
     const nomP1 = { day: 1, nominatorName: 'Cy', nomineeName: 'Ada', nomineeId: 'p1', closed: true, yesCount: 2, votes: [] };
     const { rerender } = render(
-      <DayView players={threeAlive} nightNumber={1} deaths={[]} mastermindExtraDay={false} nominations={[nomP1]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
+      <DayView players={threeAlive} nightNumber={1} deaths={[]} nominations={[nomP1]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
     );
     await openDrawer();
     const select = () => screen.getByText('No execution').closest('select');
@@ -149,7 +149,7 @@ describe('DayView', () => {
     // the stale override should fall back to following the leader again.
     const cyDead = threeAlive.map(p => (p.id === 'p2' ? { ...p, alive: false } : p));
     rerender(
-      <DayView players={cyDead} nightNumber={1} deaths={[]} mastermindExtraDay={false} nominations={[nomP1]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
+      <DayView players={cyDead} nightNumber={1} deaths={[]} nominations={[nomP1]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
     );
     expect(select().value).toBe('p1');
   });
@@ -157,7 +157,7 @@ describe('DayView', () => {
   it('an explicit "No execution" choice is not disturbed by an unrelated player dying', async () => {
     const nomP1 = { day: 1, nominatorName: 'Cy', nomineeName: 'Ada', nomineeId: 'p1', closed: true, yesCount: 2, votes: [] };
     const { rerender } = render(
-      <DayView players={threeAlive} nightNumber={1} deaths={[]} mastermindExtraDay={false} nominations={[nomP1]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
+      <DayView players={threeAlive} nightNumber={1} deaths={[]} nominations={[nomP1]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
     );
     await openDrawer();
     const select = () => screen.getByText('No execution').closest('select');
@@ -166,53 +166,53 @@ describe('DayView', () => {
 
     const evyDead = threeAlive.map(p => (p.id === 'p3' ? { ...p, alive: false } : p));
     rerender(
-      <DayView players={evyDead} nightNumber={1} deaths={[]} mastermindExtraDay={false} nominations={[nomP1]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
+      <DayView players={evyDead} nightNumber={1} deaths={[]} nominations={[nomP1]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
     );
     expect(select().value).toBe('');
   });
 
   it('a fresh whim-roll log line shows the beat during the day too', () => {
     const { rerender } = render(
-      <DayView players={players} nightNumber={1} deaths={[]} mastermindExtraDay={false} nominations={[]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} log={[]} />
+      <DayView players={players} nightNumber={1} deaths={[]} nominations={[]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} log={[]} />
     );
     expect(screen.queryByText('A quiet decision, unseen.')).not.toBeInTheDocument();
 
     const whimLog = [{ night: 1, phase: 'day', text: 'A quiet decision was made, unseen.', secret: false }];
-    rerender(<DayView players={players} nightNumber={1} deaths={[]} mastermindExtraDay={false} nominations={[]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} log={whimLog} />);
+    rerender(<DayView players={players} nightNumber={1} deaths={[]} nominations={[]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} log={whimLog} />);
     expect(screen.getByText('A quiet decision, unseen.')).toBeInTheDocument();
   });
 
   it('a fresh execution shows the minor-beat overlay; a pre-existing one on mount does not', () => {
     const { rerender } = render(
-      <DayView players={players} nightNumber={1} deaths={[]} mastermindExtraDay={false} nominations={[]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
+      <DayView players={players} nightNumber={1} deaths={[]} nominations={[]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
     );
     expect(screen.queryByText('Ada is executed.')).not.toBeInTheDocument();
 
     rerender(
-      <DayView players={players} nightNumber={1} deaths={[{ name: 'Ada', night: 1, cause: 'execution' }]} mastermindExtraDay={false} nominations={[]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
+      <DayView players={players} nightNumber={1} deaths={[{ name: 'Ada', night: 1, cause: 'execution' }]} nominations={[]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
     );
     expect(screen.getByText('Ada is executed.')).toBeInTheDocument();
   });
 
   it('a fresh night-kill death does not show the minor-beat overlay', () => {
     const { rerender } = render(
-      <DayView players={players} nightNumber={1} deaths={[]} mastermindExtraDay={false} nominations={[]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
+      <DayView players={players} nightNumber={1} deaths={[]} nominations={[]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
     );
     rerender(
-      <DayView players={players} nightNumber={1} deaths={[{ name: 'Bo', night: 1, cause: 'demon' }]} mastermindExtraDay={false} nominations={[]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
+      <DayView players={players} nightNumber={1} deaths={[{ name: 'Bo', night: 1, cause: 'demon' }]} nominations={[]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
     );
     expect(screen.queryByText('Bo is executed.')).not.toBeInTheDocument();
   });
 
   it('the minor-beat overlay playing forces the drawer shut', async () => {
     const { rerender } = render(
-      <DayView players={players} nightNumber={1} deaths={[]} mastermindExtraDay={false} nominations={[]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
+      <DayView players={players} nightNumber={1} deaths={[]} nominations={[]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
     );
     await openDrawer();
     expect(screen.getByText(/kick player/i)).toBeInTheDocument();
 
     rerender(
-      <DayView players={players} nightNumber={1} deaths={[{ name: 'Ada', night: 1, cause: 'execution' }]} mastermindExtraDay={false} nominations={[]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
+      <DayView players={players} nightNumber={1} deaths={[{ name: 'Ada', night: 1, cause: 'execution' }]} nominations={[]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
     );
     expect(screen.queryByText(/kick player/i)).not.toBeInTheDocument();
   });
@@ -221,7 +221,7 @@ describe('DayView', () => {
     const nomP1 = { day: 1, nominatorName: 'Cy', nomineeName: 'Ada', nomineeId: 'p1', closed: true, yesCount: 2, votes: [] };
     const adaDead = threeAlive.map(p => (p.id === 'p1' ? { ...p, alive: false } : p));
     render(
-      <DayView players={adaDead} nightNumber={1} deaths={[]} mastermindExtraDay={false} nominations={[nomP1]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
+      <DayView players={adaDead} nightNumber={1} deaths={[]} nominations={[nomP1]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
     );
     await openDrawer();
     const select = screen.getByText('No execution').closest('select');

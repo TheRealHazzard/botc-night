@@ -112,18 +112,13 @@ function DayControls({ S, busy, run }) {
 
   return (
     <>
-      {/* The real rule (and the host TV's own DayView) announces this
-          outright — the town does observe the game continuing past an
-          apparent game-ending execution, it's not secret. Stated plainly
-          here too, not just left as an unexplained disabled button below:
-          on the leader's own phone, a silently-disabled "Night falls"
-          would otherwise be a private, inferable leak of the exact same
-          fact the TV already says out loud to the whole table. */}
-      {S.mastermindExtraDay && (
-        <p className="dim small">
-          The Demon has fallen — but the Mastermind's power lingers. Play one more day. If a good player is executed now, evil wins. If evil is, good does.
-        </p>
-      )}
+      {/* No Mastermind announcement here — corrected after checking the
+          actual wiki text: "Add a shroud as normal. Do not say that the
+          Demon has died." The bonus day has to look exactly like any other
+          day, including Night falls being a perfectly normal, unremarkable
+          way for it to end with nobody executed — see
+          server.js's resolveMastermindBonusDay. (An earlier version of
+          this file said the opposite — that was wrong.) */}
       {!anyOpen && alive.length >= 2 && (
         <div className="card">
           <div className="nomrow">
@@ -163,7 +158,7 @@ function DayControls({ S, busy, run }) {
         >
           Kick player
         </button>
-        <button type="button" disabled={busy || anyOpen || S.mastermindExtraDay} onClick={() => run('/api/table/night', {})}>
+        <button type="button" disabled={busy || anyOpen} onClick={() => run('/api/table/night', {})}>
           Night falls
         </button>
       </div>

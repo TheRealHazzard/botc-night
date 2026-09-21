@@ -223,7 +223,6 @@ export default function App() {
                 players={displayS.players}
                 nightNumber={displayS.nightNumber}
                 deaths={displayS.deaths}
-                mastermindExtraDay={displayS.mastermindExtraDay}
                 nominations={displayS.nominations}
                 config={displayS.config}
                 script={displayS.script}

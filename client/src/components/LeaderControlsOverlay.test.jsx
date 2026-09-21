@@ -157,18 +157,29 @@ describe('LeaderControlsOverlay', () => {
       expect(fetchMock.calls.some(c => c.url.includes('/api/table/night'))).toBe(true);
     });
 
-    // A silently-disabled Night falls, with no stated reason, would be a
-    // private leak on the leader's own phone of exactly the fact the host
-    // TV already announces out loud to the whole table — see DayView.jsx's
-    // own mastermindExtraDay hint. The leader gets the same statement, not
-    // just a mystery disabled button.
-    it('explains the Mastermind\'s bonus day out loud, same as the host TV, instead of a silently-disabled button', () => {
+    // The wiki is explicit: "Add a shroud as normal. Do not say that the
+    // Demon has died." The bonus day has to look exactly like any other
+    // day — no announcement, and Night falls stays a perfectly ordinary,
+    // enabled way for it to end with nobody executed (see server.js's
+    // resolveMastermindBonusDay).
+    it('never announces or disables anything for the Mastermind\'s bonus day — it has to look like an ordinary day', () => {
       FakeEventSource.instances = [];
       vi.stubGlobal('EventSource', FakeEventSource);
       render(<LeaderControlsOverlay open={true} onClose={() => {}} />);
       push(dayState({ mastermindExtraDay: true }));
-      expect(screen.getByText(/mastermind's power lingers/i)).toBeInTheDocument();
-      expect(screen.getByText('Night falls')).toBeDisabled();
+      expect(screen.queryByText(/mastermind/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/demon has fallen/i)).not.toBeInTheDocument();
+      expect(screen.getByText('Night falls')).not.toBeDisabled();
+    });
+
+    it('Night falls during the bonus day posts to /api/table/night exactly like any other day', async () => {
+      FakeEventSource.instances = [];
+      vi.stubGlobal('EventSource', FakeEventSource);
+      const fetchMock = mockFetch({ '/api/table/night': { ok: true } });
+      render(<LeaderControlsOverlay open={true} onClose={() => {}} />);
+      push(dayState({ mastermindExtraDay: true }));
+      await userEvent.click(screen.getByText('Night falls'));
+      expect(fetchMock.calls.some(c => c.url.includes('/api/table/night'))).toBe(true);
     });
   });
 

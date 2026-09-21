@@ -331,11 +331,15 @@ function maybeBluffBeat() {
 }
 
 function startNight() {
-  // The Mastermind's bonus day isn't over until its own execution (or an
-  // explicit no-execution) actually happens — recordExecution() is the only
-  // thing allowed to end it. Refuse to skip straight to night out from
-  // under it (a stray /api/table/night call, or the sim loop below).
-  if (game.mastermindExtraDay) return;
+  // The Mastermind's bonus day: "Night falls" with nobody executed is
+  // itself one of the wiki's own two outcomes ("if... no player is
+  // executed, declare that the game ends and good wins"), not a dead end
+  // to be silently refused — see resolveMastermindBonusDay's own comment
+  // for why this has to behave exactly like an ordinary day ending.
+  if (game.mastermindExtraDay) {
+    resolveMastermindBonusDay(null);
+    return;
+  }
   clearTimeout(windowTimer);
   clearTimeout(voteTimer);
   // Sects & Violets' "madness" (Mutant/Cerenovus): checked at dusk, right as
@@ -442,6 +446,31 @@ function closeNomination() {
   pushAll();
 }
 
+// The wiki is explicit: "Add a shroud as normal. Do not say that the Demon
+// has died." — the bonus day is meant to look, to the town, exactly like
+// any other day, right down to the ordinary possibility that nobody gets
+// executed and night just falls. That's why this is reachable from BOTH an
+// explicit execution decision (recordExecution below) AND a plain "Night
+// falls" during the bonus day (startNight) — the wiki's own two outcomes
+// ("if a good player is executed... if an evil player or no player is
+// executed...") are exactly "an execution happened" vs. "the day simply
+// ended," and neither should be a dead end or look any different from a
+// normal day's ending.
+function resolveMastermindBonusDay(executedPlayer) {
+  game.mastermindExtraDay = false;
+  const result = E.applyPoliticianFlip(game, E.resolveMastermindDay(game, executedPlayer));
+  clearTimeout(windowTimer);
+  clearTimeout(voteTimer);
+  clearTimeout(simTimer);
+  game.victory = result;
+  game.phase = 'over';
+  game.revealed = true;
+  game.windowEndsAt = null;
+  E.logEvent(game, `${result.winner === 'good' ? 'Good' : 'Evil'} wins. ${result.reason}`);
+  recordGameHistory();
+  pushAll();
+}
+
 async function recordExecution(playerId) {
   const p = playerId ? E.byId(game, playerId) : null;
 
@@ -450,7 +479,6 @@ async function recordExecution(playerId) {
   // "one more day" the Mastermind bought. It resolves the game outright and
   // never falls through to the normal logic below.
   if (game.mastermindExtraDay) {
-    game.mastermindExtraDay = false;
     let executedPlayer = null;
     if (p) {
       const blocked = E.checkKill(game, p, { executionAttack: true });
@@ -468,17 +496,7 @@ async function recordExecution(playerId) {
     } else {
       E.logEvent(game, 'No execution today.');
     }
-    const result = E.applyPoliticianFlip(game, E.resolveMastermindDay(game, executedPlayer));
-    clearTimeout(windowTimer);
-    clearTimeout(voteTimer);
-    clearTimeout(simTimer);
-    game.victory = result;
-    game.phase = 'over';
-    game.revealed = true;
-    game.windowEndsAt = null;
-    E.logEvent(game, `${result.winner === 'good' ? 'Good' : 'Evil'} wins. ${result.reason}`);
-    recordGameHistory();
-    pushAll();
+    resolveMastermindBonusDay(executedPlayer);
     return true;
   }
 
