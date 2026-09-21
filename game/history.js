@@ -490,4 +490,9 @@ module.exports = {
   listGames, getGame, votingLeaderboard, characterWinRates, sessionStats,
   closestVote, biggestSwing, longestSurvivingEvil, recapNarration, recapFor,
   aggregate, normalizeName,
+  // The isolated-per-test-run override (see this file's own DATA_DIR
+  // comment) is exactly what any other data server.js writes at runtime —
+  // bug reports included — should sit under too, not a second hardcoded
+  // path that a test harness's override would silently miss.
+  DATA_DIR,
 };

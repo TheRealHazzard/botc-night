@@ -2224,6 +2224,31 @@ async function requestHandler(req, res) {
         return json(res, 200, { ok: true, answer });
       }
 
+      if (route === '/api/flag-bug') {
+        // Any player, any phase, no gate at all — deliberately not
+        // restricted to the leader or day phase, since the whole point is
+        // a beta tester catching something odd without needing to
+        // interrupt the table to explain it out loud first. Captures the
+        // FULL current game state, secrets included: this is a debug
+        // artifact meant for the table operator to read afterward from
+        // disk, never shown back to any player, so it doesn't need
+        // privateState()/publicState()'s own privacy boundary at all.
+        const p = body.token ? E.byToken(game, body.token) : null;
+        const note = typeof body.note === 'string' ? body.note.trim().slice(0, 500) : '';
+        const dir = path.join(H.DATA_DIR, 'bug-reports');
+        fs.mkdirSync(dir, { recursive: true });
+        const filename = `${new Date().toISOString().replace(/[:.]/g, '-')}-${crypto.randomBytes(3).toString('hex')}.json`;
+        fs.writeFileSync(path.join(dir, filename), JSON.stringify({
+          at: new Date().toISOString(),
+          flaggedBy: p ? p.name : null,
+          note,
+          game,
+        }, null, 2));
+        E.logEvent(game, `${p ? p.name : 'Someone'} flagged a problem.`, true);
+        pushHost();
+        return json(res, 200, { ok: true });
+      }
+
       if (route === '/api/mad-claim') {
         // Sects & Violets' Mutant/Cerenovus "madness" — a public claim made
         // out loud at the table, with nothing structured to validate beyond

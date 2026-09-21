@@ -6,6 +6,7 @@ import ScriptOverlay from './components/ScriptOverlay.jsx';
 import LeaderControlsOverlay from './components/LeaderControlsOverlay.jsx';
 import JoinFlow from './components/join/JoinFlow.jsx';
 import PlayerApp from './components/PlayerApp.jsx';
+import FlagBugButton from './components/FlagBugButton.jsx';
 
 export default function App() {
   const { P, token, setToken, forgetToken } = useTableState();
@@ -66,6 +67,7 @@ export default function App() {
           ? <PlayerApp P={P} token={token} onChangeUser={changeUser} onOpenLeaderControls={() => setLeaderControlsOpen(true)} />
           : <JoinFlow onJoined={setToken} />}
       </div>
+      {P && <FlagBugButton token={token} />}
       <ScriptOverlay open={scriptOpen} onClose={() => setScriptOpen(false)} script={P?.script} />
       <LeaderControlsOverlay
         open={leaderControlsOpen}

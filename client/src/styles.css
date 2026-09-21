@@ -394,3 +394,31 @@ a.linklike-a{
   background:var(--surface-2); color:var(--brass); font-weight:700; text-align:center;
 }
 .leader-banner:active{background:var(--brass); color:var(--surface-2)}
+
+/* "Something wrong?" — fixed, deliberately quiet (low-contrast until
+   tapped) so it never competes with the actual game for attention, same
+   spirit as the Storyteller-controls drawer tab on the host screen. */
+.flag-bug{
+  position:fixed; left:12px;
+  bottom:calc(12px + env(safe-area-inset-bottom, 0px));
+  z-index:20;
+}
+button.flag-bug-link{
+  width:auto; margin:0; padding:7px 13px;
+  font-family:'Spectral',Georgia,serif; font-weight:400; font-size:.72rem;
+  color:var(--bone-faint); background:var(--void); border:1px solid var(--line-soft);
+  border-radius:20px; opacity:.65;
+}
+button.flag-bug-link:active{opacity:1}
+.flag-bug-open{
+  width:min(88vw,320px);
+  padding:12px; border:1px solid var(--line); border-radius:6px;
+  background:var(--void); box-shadow:0 8px 24px rgba(0,0,0,.4);
+}
+.flag-bug-open .freetext{margin-top:0; min-height:4em; font-size:.9rem}
+.flag-bug-actions{display:flex; gap:8px}
+.flag-bug-actions button{margin-top:8px}
+.flag-bug-sent{
+  padding:9px 14px; border:1px solid var(--good); border-radius:20px;
+  background:var(--void); color:var(--good); font-size:.78rem;
+}
