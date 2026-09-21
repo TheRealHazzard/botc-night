@@ -11,7 +11,7 @@ describe('ResultHistoryCard', () => {
     expect(missing).toBeEmptyDOMElement();
   });
 
-  it('is hidden behind hold-to-reveal, and lists newest night first', async () => {
+  it('is hidden behind tap-to-reveal, and lists newest night first', async () => {
     const history = [
       { night: 1, title: 'Empath', kind: 'count', count: 1, body: 'Evil living neighbours: 1' },
       { night: 2, title: 'Ravenkeeper', body: 'Ada is the Soldier.' },
@@ -19,7 +19,7 @@ describe('ResultHistoryCard', () => {
     render(<ResultHistoryCard history={history} />);
     expect(screen.queryByText('Empath')).not.toBeInTheDocument();
 
-    await userEvent.click(screen.getByText(/hold to see information given/i));
+    await userEvent.click(screen.getByText(/tap to see past information given/i));
     const nights = screen.getAllByText(/^Night \d$/);
     expect(nights.map((n) => n.textContent)).toEqual(['Night 2', 'Night 1']);
     expect(screen.getByText('Evil living neighbours: 1')).toBeInTheDocument();
@@ -28,8 +28,8 @@ describe('ResultHistoryCard', () => {
 
   it('still shows a single entry — the point is confirming it actually registered, even if it duplicates the live card', async () => {
     render(<ResultHistoryCard history={[{ night: 1, title: 'Soldier', body: 'You cannot be killed by the Demon at night.' }]} />);
-    expect(screen.getByText('Hold to see information given')).toBeInTheDocument();
-    await userEvent.click(screen.getByText('Hold to see information given'));
+    expect(screen.getByText('Tap to see past information given to you')).toBeInTheDocument();
+    await userEvent.click(screen.getByText('Tap to see past information given to you'));
     expect(screen.getByText('Night 1')).toBeInTheDocument();
     expect(screen.getByText('You cannot be killed by the Demon at night.')).toBeInTheDocument();
   });
@@ -43,7 +43,7 @@ describe('ResultHistoryCard', () => {
       grimoire: [{ name: 'Ada', character: 'Empath', alive: true, believedCharacter: null, statuses: [] }],
     }];
     render(<ResultHistoryCard history={history} />);
-    await userEvent.click(screen.getByText(/hold to see information given/i));
+    await userEvent.click(screen.getByText(/tap to see past information given/i));
     expect(document.querySelector('.result-grimoire')).toBeInTheDocument();
     expect(screen.getByText('Ada')).toBeInTheDocument();
   });

@@ -1,5 +1,5 @@
-import HoldToReveal from '../HoldToReveal.jsx';
-import { ResultBody } from './ResultCard.jsx';
+import HoldToReveal from "../HoldToReveal.jsx";
+import { ResultBody } from "./ResultCard.jsx";
 
 // A player's own full history, straight from the server, not from anything
 // this phone happened to render successfully. If a result ever silently
@@ -12,13 +12,10 @@ export default function ResultHistoryCard({ history }) {
   if (!history || history.length === 0) return null;
 
   const sorted = [...history].sort((a, b) => b.night - a.night);
-  const label = history.length === 1
-    ? 'Hold to see information given'
-    : `Hold to see information given (${history.length} nights)`;
 
   return (
     <div className="card">
-      <HoldToReveal label={label}>
+      <HoldToReveal label={"Tap to see past information given to you"}>
         {() => (
           <div className="result-history">
             {sorted.map((r, i) => (
