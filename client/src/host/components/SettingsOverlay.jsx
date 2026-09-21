@@ -5,7 +5,7 @@ import WhimSection from './settings/WhimSection.jsx';
 import RosterSection from './settings/RosterSection.jsx';
 import LlmSection from './settings/LlmSection.jsx';
 
-export default function SettingsOverlay({ config, phase, llmConfigured, patchConfig, onClose }) {
+export default function SettingsOverlay({ config, phase, llmConfigured, llmProvider, llmModel, patchConfig, onClose }) {
   // None of the 6 call sites across the 5 sections below ever handled a
   // failed PATCH — the input's own display state already updates
   // optimistically on every keystroke/drag tick (see useCommittedInput.js),
@@ -32,7 +32,7 @@ export default function SettingsOverlay({ config, phase, llmConfigured, patchCon
         </div>
         <div className="settings-col">
           <WhimSection config={config} patch={patch} />
-          <LlmSection config={config} llmConfigured={llmConfigured} patch={patch} />
+          <LlmSection config={config} llmConfigured={llmConfigured} llmProvider={llmProvider} llmModel={llmModel} patch={patch} />
         </div>
       </div>
     </div>

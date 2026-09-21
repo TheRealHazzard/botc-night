@@ -1,4 +1,4 @@
-export default function LlmSection({ config, llmConfigured, patch }) {
+export default function LlmSection({ config, llmConfigured, llmProvider, llmModel, patch }) {
   return (
     <div className="settings-section">
       <h3>LLM Storyteller (experimental)</h3>
@@ -20,8 +20,10 @@ export default function LlmSection({ config, llmConfigured, patch }) {
       </div>
       <p className={'llm-status ' + (llmConfigured ? 'ok' : 'off')}>
         {llmConfigured
-          ? 'Connected — ANTHROPIC_API_KEY is set on the server.'
-          : 'Not configured — set ANTHROPIC_API_KEY on the server to actually use this.'}
+          ? llmProvider === 'ollama'
+            ? `Connected — running locally via Ollama (${llmModel}). No API key, nothing leaves this machine.`
+            : 'Connected — ANTHROPIC_API_KEY is set on the server.'
+          : 'Not configured — set ANTHROPIC_API_KEY on the server (or LLM_PROVIDER=ollama for a local model) to actually use this.'}
       </p>
     </div>
   );

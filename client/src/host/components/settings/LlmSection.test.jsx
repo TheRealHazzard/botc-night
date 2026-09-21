@@ -9,9 +9,16 @@ describe('LlmSection', () => {
     expect(screen.getByText(/not configured/i)).toHaveClass('llm-status', 'off');
   });
 
-  it('shows "Connected" when llmConfigured is true', () => {
+  it('shows "Connected" via Anthropic when llmConfigured is true and no provider is given', () => {
     render(<LlmSection config={{}} llmConfigured patch={() => {}} />);
-    expect(screen.getByText(/connected/i)).toHaveClass('llm-status', 'ok');
+    expect(screen.getByText(/connected.*ANTHROPIC_API_KEY/i)).toHaveClass('llm-status', 'ok');
+  });
+
+  it('shows the local model name when connected via Ollama', () => {
+    render(<LlmSection config={{}} llmConfigured llmProvider="ollama" llmModel="phi4" patch={() => {}} />);
+    const status = screen.getByText(/connected.*locally via ollama/i);
+    expect(status).toHaveClass('llm-status', 'ok');
+    expect(status).toHaveTextContent('phi4');
   });
 
   it('toggling posts llmStorytellerEnabled', async () => {

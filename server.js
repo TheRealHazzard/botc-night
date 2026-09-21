@@ -10,7 +10,7 @@ const crypto = require('crypto');
 const E = require('./game/engine');
 const H = require('./game/history');
 const { COLOR_PALETTE } = require('./game/colors');
-const { askStoryteller } = require('./game/llmStoryteller');
+const { askStoryteller, status: llmStatus } = require('./game/llmStoryteller');
 
 const PORT = process.env.PORT || 3000;
 // A second, HTTPS listener alongside the plain one above — installability
@@ -58,15 +58,19 @@ function write(res, payload) {
 // Whether the server process actually has a key configured — distinct from
 // game.config.llmStorytellerEnabled (the per-table toggle), read fresh each
 // time rather than cached at module load, so an operator can set/rotate it
-// between games without the code caching a stale absence.
+// (or switch providers entirely) between games without the code caching a
+// stale absence.
 function llmConfigured() {
-  return !!process.env.ANTHROPIC_API_KEY;
+  return llmStatus().configured;
 }
 
-/** E.publicState() plus the one field that's a server-environment fact, not
-    game state — engine.js stays free of process.env entirely. */
+/** E.publicState() plus a few server-environment facts, not game state —
+    engine.js stays free of process.env entirely. provider/model let the
+    Settings panel say WHAT is connected (a local Ollama model vs. the
+    Anthropic API), not just whether something is. */
 function hostState() {
-  return { ...E.publicState(game), llmConfigured: llmConfigured() };
+  const s = llmStatus();
+  return { ...E.publicState(game), llmConfigured: s.configured, llmProvider: s.provider, llmModel: s.model };
 }
 
 /** E.privateState() plus whether this player's phone should actually offer

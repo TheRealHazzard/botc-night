@@ -267,6 +267,8 @@ export default function App() {
           // even briefly.
           phase={S?.phase}
           llmConfigured={displayS.llmConfigured}
+          llmProvider={displayS.llmProvider}
+          llmModel={displayS.llmModel}
           patchConfig={patchConfig}
           onClose={() => setSettingsOpen(false)}
         />
