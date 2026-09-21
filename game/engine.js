@@ -110,6 +110,11 @@ function newGame() {
     whimConfirmations: [],
     // The Mercy — at most once ever per game (see maybeMercy in helpers.js).
     mercyUsed: false,
+    // The Bluff — a rare, deliberately meaningless flicker rolled in
+    // server.js (never derived from any real game fact — see
+    // client/src/hooks/useBluffBeat.js), visible to the host and every
+    // player alike, unlike everything else The Whim's family surfaces.
+    bluffBeatAt: null,
     revealed: false,
     pendingReclaims: [],
     historyRecorded: false, // guards against writing the same completed game twice
@@ -1276,6 +1281,10 @@ function publicState(g) {
       night: w.night, fired: w.fired, helpsGood: w.helpsGood,
       livingCount: w.livingCount, goodAlive: w.goodAlive, evilAlive: w.evilAlive, at: w.at,
     })),
+    // The Bluff — unlike everything else above, safe to show exactly as-is
+    // at every stage of the game, revealed or not: it's a bare timestamp
+    // that never encoded anything about who's evil or what happened.
+    bluffBeatAt: g.bluffBeatAt,
   };
 }
 
@@ -1306,6 +1315,10 @@ function privateState(g, playerId) {
     nightNumber: g.nightNumber,
     wave: g.wave,
     windowEndsAt: g.windowEndsAt,
+    // The Bluff — the one thing on this screen meant to be seen by
+    // everyone at once, host and every player alike (see
+    // client/src/hooks/useBluffBeat.js).
+    bluffBeatAt: g.bluffBeatAt,
     prompt: g.phase === 'night' ? promptFor(g, p) : null,
     submitted: !!g.pending[p.id],
     result: g.results[p.id] || null,

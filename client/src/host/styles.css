@@ -1183,6 +1183,22 @@
         color: var(--oxblood-hi);
       }
 
+      /* The Bluff — see BluffBeat.jsx. Deliberately not a color shift or
+   anything that could read as "something happened to X" — just the whole
+   screen guttering once, like a candle, and settling back exactly as it
+   was. */
+      body.bluff-beat-active {
+        animation: bluff-flicker 1.4s ease-in-out;
+      }
+      @keyframes bluff-flicker {
+        0% { opacity: 1; }
+        10% { opacity: 0.55; }
+        20% { opacity: 1; }
+        30% { opacity: 0.72; }
+        42% { opacity: 1; }
+        100% { opacity: 1; }
+      }
+
       /* ---------------------------------------------------------- the dashboard
    Center is always the ring — the one thing everyone at the table actually
    watches — with contextual side panels for whatever info/controls that

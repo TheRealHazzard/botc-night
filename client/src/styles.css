@@ -47,6 +47,16 @@ body{
   padding-bottom: calc(40px + env(safe-area-inset-bottom));
   background-image:radial-gradient(ellipse at 50% -10%, #1b1209 0%, #0a0806 60%);
 }
+/* The Bluff — see BluffBeat.jsx/useBluffBeat.js. A rare, meaningless
+   flicker shared with the host TV, so a player half-glancing up might
+   catch the exact same moment everyone else at the table did — not a
+   color shift or anything that could read as "something happened to me." */
+body.bluff-beat-active{
+  animation: bluff-flicker 1.4s ease-in-out;
+}
+@keyframes bluff-flicker{
+  0%{opacity:1} 10%{opacity:.55} 20%{opacity:1} 30%{opacity:.72} 42%{opacity:1} 100%{opacity:1}
+}
 .topbar{display:flex; align-items:center; gap:8px; margin-bottom:22px}
 h1{margin:0; line-height:0; flex-shrink:0}
 .wordmark{height:40px; width:auto; max-width:100%; display:block}

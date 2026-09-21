@@ -11,8 +11,10 @@ import ArtistQuestion from './game/ArtistQuestion.jsx';
 import JugglerGuess from './game/JugglerGuess.jsx';
 import ActiveVoteCard from './game/ActiveVoteCard.jsx';
 import VoteRevealOverlay from './VoteRevealOverlay.jsx';
+import BluffBeat from './BluffBeat.jsx';
 import { useActiveVote } from '../hooks/useActiveVote.js';
 import { usePromptAnnouncement } from '../hooks/usePromptAnnouncement.js';
+import { useBluffBeat } from '../hooks/useBluffBeat.js';
 
 /** Mirrors the vanilla render() function's composition exactly: several
     independent cards can be visible at once (a role hold-to-reveal, a
@@ -24,6 +26,7 @@ import { usePromptAnnouncement } from '../hooks/usePromptAnnouncement.js';
 export default function PlayerApp({ P, token, onChangeUser }) {
   const { activeVote, castVote, revealVote, ghostVoteEnabled, setGhostVoteEnabled } = useActiveVote(P, token);
   const announcement = usePromptAnnouncement(P);
+  const bluffBeat = useBluffBeat(P.bluffBeatAt);
 
   // Nominating is the one day-phase prompt that isn't server-pushed — a
   // player opts into it themselves from DaylightCard, so it needs its own
@@ -45,6 +48,7 @@ export default function PlayerApp({ P, token, onChangeUser }) {
   return (
     <>
       <div className="sr-only" aria-live="polite">{announcement}</div>
+      <BluffBeat active={bluffBeat} />
 
       {P.watching && (
         <div className="watch-banner">

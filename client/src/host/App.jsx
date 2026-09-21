@@ -8,10 +8,12 @@ import { useScriptRoster } from "./hooks/useScriptRoster.js";
 import { useWakeLock } from "../hooks/useWakeLock.js";
 import { post } from "../lib/api.js";
 import { useWhimConfirm } from "./hooks/useWhimConfirm.js";
+import { useBluffBeat } from "../hooks/useBluffBeat.js";
 import Icon from "./components/Icon.jsx";
 import ReclaimBanner from "./components/ReclaimBanner.jsx";
 import FatalFlashOverlay from "./components/FatalFlashOverlay.jsx";
 import WhimConfirmCard from "./components/WhimConfirmCard.jsx";
+import BluffBeat from "../components/BluffBeat.jsx";
 import SettingsOverlay from "./components/SettingsOverlay.jsx";
 import ScriptBuilderOverlay from "./components/ScriptBuilderOverlay.jsx";
 import LobbyView from "./views/LobbyView.jsx";
@@ -38,6 +40,7 @@ export default function App() {
   const scripts = useScripts();
   const scriptChars = useScriptRoster(displayS?.script);
   const { card: whimCard, dismiss: dismissWhimCard } = useWhimConfirm(displayS?.whimConfirmations);
+  const bluffBeat = useBluffBeat(displayS?.bluffBeatAt);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [buildingScript, setBuildingScript] = useState(false);
   // Independent of the BOTC phase machine below — switching tabs never
@@ -252,6 +255,7 @@ export default function App() {
       )}
 
       <WhimConfirmCard card={whimCard} onDismiss={dismissWhimCard} />
+      <BluffBeat active={bluffBeat} />
 
       {settingsOpen && displayS.config && (
         <SettingsOverlay

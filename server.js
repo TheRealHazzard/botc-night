@@ -316,6 +316,20 @@ function flushNightResults() {
   }
 }
 
+// The Bluff — pure theater, deliberately never derived from any real game
+// fact (not a character, not a team, not a living count) — the one hard
+// rule the roadmap states for this. A human Storyteller sells a bluff
+// partly by visibly moving a token at the Grimoire, ambiguous the whole
+// table half-sees and nobody can read anything real into; this is the
+// closest digital stand-in. Rolled on every phase transition rather than
+// on a timer, so it can never land mid-action in a way that looks tied to
+// what a player just did. ~1 in 6 keeps it a genuine rare surprise instead
+// of background noise the table starts tuning out or over-interpreting as
+// a pattern.
+function maybeBluffBeat() {
+  if (Math.random() < 1 / 6) game.bluffBeatAt = Date.now();
+}
+
 function startNight() {
   // The Mastermind's bonus day isn't over until its own execution (or an
   // explicit no-execution) actually happens — recordExecution() is the only
@@ -341,6 +355,7 @@ function startNight() {
   game.executedToday = game.executedToday || null;
   game.hint = null;
   game.windowEndsAt = Date.now() + game.config.windowSeconds * 1000;
+  maybeBluffBeat();
   E.logEvent(game, `Night ${game.nightNumber} begins.`);
   pushAll();
   windowTimer = setTimeout(closeWindow, game.config.windowSeconds * 1000);
@@ -389,6 +404,7 @@ function endNight() {
   game.executedToday = null;
   game.noExecutionToday = false; // cleared fresh each dawn, set for real once today's day resolves
   game.executionAttemptedToday = false;
+  maybeBluffBeat();
   game.hint = E.generateHint(game);
   if (game.hint) E.logEvent(game, `The dead speak: "${game.hint}"`);
   if (finishIfOver()) return;
