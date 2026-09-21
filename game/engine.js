@@ -104,6 +104,23 @@ function newGame() {
     // publicState). Info-only abilities (Empath, Chef, ...) don't appear
     // here at all; only real "choose a player" moments do.
     actionLog: [],
+    // Every acting player's actual submitted night action, real or
+    // bot-decided -- see the two logPrivateAction() call sites in
+    // resolveNight() below, both reading the same g.pending object a real
+    // /api/action submission and botsAnswer()'s own decision both write
+    // through, so this can never see one path but miss the other. Kept
+    // for a future replay tool: unlike resultsLog/deaths (what an info
+    // role was told, what visibly happened), nothing else records what a
+    // player actually chose.
+    privateActionLog: [],
+    // A handful of genuinely untraceable rolls that don't already surface
+    // through resultsLog/deaths/log/privateActionLog — currently just
+    // every Bucket-1 whim roll outside logWhimConfirm's own <=5-living
+    // gate (see resolveWhim in helpers.js), which otherwise leaves no
+    // trace at all when it doesn't fire. Never read by live gameplay,
+    // only by history/replay — nothing here should ever change what a
+    // real table sees.
+    decisionLog: [],
     // The Confirm — host-facing, advisory-only records of a whim decision
     // (see resolveWhim/logWhimConfirm in helpers.js) close enough to the
     // game's outcome to be worth surfacing live, not just after reveal.
@@ -544,6 +561,23 @@ function triggerDeathHooks(g, player, { killedByDemon = false, results } = {}) {
   }
 }
 
+/** Permanently records what a player's night action actually resolved to —
+    the one thing resultsLog/deaths don't capture (they show what was told
+    or what happened, not what was chosen). `submitted` is a raw
+    g.pending[id] entry (or undefined, if nobody/nothing acted for them). */
+function logPrivateAction(g, player, submitted) {
+  const action = submitted && !submitted.decoy ? submitted : null;
+  g.privateActionLog.push({
+    night: g.nightNumber,
+    playerId: player.id,
+    playerName: player.name,
+    characterId: player.characterId,
+    targets: (action && action.targets) || [],
+    characterGuess: (action && action.characterGuess) || null,
+    decoy: !!(submitted && submitted.decoy),
+  });
+}
+
 /**
  * Resolve one wave of the night. Wave 2 exists only for abilities that depend
  * on what wave 1 did (the Ravenkeeper dying), so it must not re-run the night:
@@ -597,6 +631,7 @@ async function resolveNight(g, wave = 1) {
     if (deaths.some(d => d.player.id === p.id)) continue;
 
     const submitted = g.pending[p.id];
+    logPrivateAction(g, p, submitted);
     // A decoy submission is never allowed to drive a real ability.
     const action = submitted && !submitted.decoy ? submitted : null;
     const broken = impaired(p);
@@ -754,6 +789,7 @@ async function resolveNight(g, wave = 1) {
     for (const demon of alive(g).filter(x => x.statuses.barberSwapPending)) {
       demon.statuses.barberSwapPending = false; // one-shot, whether or not they chose anyone
       const submitted = g.pending[demon.id];
+      logPrivateAction(g, demon, submitted);
       const action = submitted && !submitted.decoy ? submitted : null;
       const chosen = ((action && action.targets) || []).map(id => byId(g, id)).filter(Boolean);
       if (chosen.length === 2 && !impaired(demon)) {

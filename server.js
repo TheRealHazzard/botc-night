@@ -834,6 +834,14 @@ function recordGameHistory() {
         diedPhase: death ? (death.cause === 'execution' ? 'execution' : (death.phase || 'night')) : null,
         diedNight: death ? death.night : null,
         won: game.victory ? (game.victory.winner === 'good') === isGood : null,
+        // Setup-time secrets dealRoles() computed for this seat (the
+        // Drunk/Lunatic/Marionette's false belief, the Fortune Teller's red
+        // herring, Grandmother's link, Evil Twin's twin...) — kept whole
+        // rather than picked apart field by field, so a future replay tool
+        // (or a new character added later in Act III) never needs this
+        // list updated by hand to stay complete.
+        believedId: p.believedId,
+        statuses: p.statuses,
       };
     }),
     // Kept in full so a later "in-depth game view" can replay the whole day
@@ -842,11 +850,32 @@ function recordGameHistory() {
     nominations: game.nominations,
     log: game.log,
     actionLog: game.actionLog,
+    // What each player actually chose on their own private night prompt,
+    // real or bot-decided — see logPrivateAction() in game/engine.js.
+    // Nothing else recorded here captures the *choice* itself, only its
+    // effect (resultsLog) or its visible consequence (deaths/log).
+    privateActionLog: game.privateActionLog || [],
+    // The one game-level (not per-seat) setup secret dealRoles() computes —
+    // see game/engine.js's own dealRoles().
+    puzzlemasterDrunkId: game.puzzlemasterDrunkId || null,
+    // Every real LLM call this game made, prompt and response — already
+    // built for the Dry Run observer's own "LLM Storyteller traffic"
+    // panel (see the push site above), just never saved past the live
+    // game object until now.
+    llmLog: game.llmLog || [],
     // Every info role's actual result, every night — see
     // flushNightResults() above. Persisted so "what was X actually told"
     // survives long after game.results itself (and the live game object
     // entirely) is gone.
     resultsLog: game.resultsLog || [],
+    // Every Bucket-1 whim roll, fired or not — see resolveWhim in
+    // game/helpers.js. Broader than whimConfirmations below (which only
+    // fires past its own <=5-living gate): this is the one always-on
+    // record for a roll that otherwise leaves no trace at all.
+    decisionLog: game.decisionLog || [],
+    // The same whim rolls, in the richer host-facing shape (helpsGood,
+    // livingCount breakdown) — kept too since it's already built and free.
+    whimConfirmations: game.whimConfirmations || [],
   };
   H.appendGameRecord(record);
 }

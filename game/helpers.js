@@ -363,6 +363,10 @@ async function resolveWhim(g, ctx) {
   if (fired === undefined) {
     fired = Math.random() < WHIM_LEGACY_CHANCE[ctx.kind](g);
   }
+  // Unconditional, unlike logWhimConfirm below — a whim that doesn't fire
+  // outside the <=5-living window otherwise leaves no trace anywhere a
+  // replay could read back. Never shown live, only ever read from history.
+  g.decisionLog.push({ night: g.nightNumber, tag: `whim:${ctx.kind}`, value: { fired, reason } });
   if (alive(g).length <= 5) logWhimConfirm(g, { kind: ctx.kind, fired, reason });
   if (fired) logWhim(g);
   return fired;
