@@ -1263,6 +1263,20 @@ function privateState(g, playerId) {
     prompt: g.phase === 'night' ? promptFor(g, p) : null,
     submitted: !!g.pending[p.id],
     result: g.results[p.id] || null,
+    // Only ever this player's own entries — resultsLog holds every
+    // player's results, so this is the one place that needs to filter,
+    // never just spread the whole thing. Lets a player check their own
+    // past nights themselves (e.g. "did I actually get told anything as
+    // the Ravenkeeper?") without needing the host to peek at anyone's
+    // info, and without waiting for the game to end: resultsLog only ever
+    // holds already-flushed nights (see flushNightResults in server.js),
+    // so tonight's own not-yet-flushed result is appended here too, or a
+    // still-open night that already produced one would be invisible to
+    // its own owner until the night ends.
+    resultHistory: [
+      ...g.resultsLog.filter(r => r.playerId === p.id),
+      ...(g.results[p.id] ? [{ night: g.nightNumber, playerId: p.id, playerName: p.name, ...g.results[p.id] }] : []),
+    ],
     // Every living player's own action, not a character ability — no
     // x.id !== p.id exclusion the way slayerShot/jugglerGuess have below,
     // since nominating yourself is legal. Rarer per-day limits (already

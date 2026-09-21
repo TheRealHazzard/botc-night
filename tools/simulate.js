@@ -2801,6 +2801,33 @@ console.log('\nCarousel: Politician (checkVictory)');
   check('still flips it even dead — "even if dead" is in the card text', v3 && v3.winner === 'good', JSON.stringify(v3));
 }
 
+console.log('\nresultHistory (a player checking their own past results)');
+{
+  const mk = (id, characterId, alive = true) => ({ id, name: id, characterId, believedId: characterId, alive, statuses: {} });
+
+  const g = E.newGame();
+  g.nightNumber = 3;
+  g.players = [mk('rk1', 'ravenkeeper'), mk('t1', 'soldier'), mk('imp1', 'imp')];
+  // Simulate what flushNightResults() (server.js) would already have
+  // written for two earlier nights, plus a live, not-yet-flushed result
+  // for tonight — privateState() has to stitch both sources together.
+  g.resultsLog = [
+    { night: 1, playerId: 'rk1', playerName: 'rk1', characterId: 'ravenkeeper', characterName: 'Ravenkeeper', title: 'Empath', body: 'Evil living neighbours: 0' },
+    { night: 2, playerId: 't1', playerName: 't1', characterId: 'soldier', characterName: 'Soldier', title: 'Something', body: 'not this player' },
+  ];
+  g.results = { rk1: { title: 'Ravenkeeper', body: 'imp1 is the Imp.' } };
+
+  const history = E.privateState(g, 'rk1').resultHistory;
+  check('includes this player\'s own already-flushed nights', history.some(r => r.night === 1 && r.body === 'Evil living neighbours: 0'));
+  check('never includes another player\'s entries', !history.some(r => r.playerId === 't1'));
+  check('includes tonight\'s own not-yet-flushed result, tagged with the current night', history.some(r => r.night === 3 && r.body === 'imp1 is the Imp.'));
+  check('exactly 2 entries — nothing duplicated, nothing missing', history.length === 2, JSON.stringify(history));
+
+  const gEmpty = E.newGame();
+  gEmpty.players = [mk('rk1', 'ravenkeeper')];
+  check('a player with no results at all yet gets an empty array, not undefined/null', Array.isArray(E.privateState(gEmpty, 'rk1').resultHistory) && E.privateState(gEmpty, 'rk1').resultHistory.length === 0);
+}
+
 console.log('\nResult kind metadata (Phase 6: differentiated result cards)');
 {
   const mk = (id, characterId, alive = true) => ({ id, name: id, characterId, believedId: characterId, alive, statuses: {} });

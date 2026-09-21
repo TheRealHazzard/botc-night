@@ -28,34 +28,46 @@ function GrimoireList({ grimoire }) {
   );
 }
 
+// Shared with ResultHistoryCard.jsx — the same kind-aware rendering for a
+// single result, without the outer card/hold-to-reveal chrome, so "your
+// current result" and "your past results" never risk quietly drifting
+// into two different visual treatments for the same shapes.
+export function ResultBody({ result }) {
+  return (
+    <>
+      <div className="title">{result.title}</div>
+
+      {result.kind === 'count' && (
+        <div className="result-count">{result.count}</div>
+      )}
+      {result.kind === 'yesno' && (
+        <div className={'result-yesno ' + (result.yes ? 'yes' : 'no')}>{result.yes ? 'Yes' : 'No'}</div>
+      )}
+
+      <p>{result.body}</p>
+
+      {result.names && result.names.length > 0 && (
+        result.kind === 'pointer' ? (
+          <div className="result-pointer">
+            {result.names.map((n, i) => <span className="result-pointer-name" key={i}>{n}</span>)}
+          </div>
+        ) : (
+          <ul>{result.names.map((n, i) => <li key={i}>{n}</li>)}</ul>
+        )
+      )}
+
+      {result.kind === 'grimoire' && result.grimoire && <GrimoireList grimoire={result.grimoire} />}
+    </>
+  );
+}
+
 export default function ResultCard({ result }) {
   return (
     <div className="card">
       <HoldToReveal label="Hold to read what you were told">
         {() => (
           <div className="result">
-            <div className="title">{result.title}</div>
-
-            {result.kind === 'count' && (
-              <div className="result-count">{result.count}</div>
-            )}
-            {result.kind === 'yesno' && (
-              <div className={'result-yesno ' + (result.yes ? 'yes' : 'no')}>{result.yes ? 'Yes' : 'No'}</div>
-            )}
-
-            <p>{result.body}</p>
-
-            {result.names && result.names.length > 0 && (
-              result.kind === 'pointer' ? (
-                <div className="result-pointer">
-                  {result.names.map((n, i) => <span className="result-pointer-name" key={i}>{n}</span>)}
-                </div>
-              ) : (
-                <ul>{result.names.map((n, i) => <li key={i}>{n}</li>)}</ul>
-              )
-            )}
-
-            {result.kind === 'grimoire' && result.grimoire && <GrimoireList grimoire={result.grimoire} />}
+            <ResultBody result={result} />
           </div>
         )}
       </HoldToReveal>

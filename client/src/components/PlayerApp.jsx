@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import RoleCard from './game/RoleCard.jsx';
 import ResultCard from './game/ResultCard.jsx';
+import ResultHistoryCard from './game/ResultHistoryCard.jsx';
 import { LobbyCard, RevealCard, NightWaitingCard, DaylightCard } from './game/SimpleCards.jsx';
 import NightPromptCard from './game/NightPromptCard.jsx';
 import SingleTargetChoice from './game/SingleTargetChoice.jsx';
@@ -70,6 +71,7 @@ export default function PlayerApp({ P, token, onChangeUser }) {
       {P.phase === 'night' && !P.prompt && P.you.alive && <NightWaitingCard />}
 
       {P.result && <ResultCard result={P.result} />}
+      <ResultHistoryCard history={P.resultHistory} />
 
       {P.moonchildChoice && (
         <SingleTargetChoice

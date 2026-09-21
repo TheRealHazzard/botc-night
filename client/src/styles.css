@@ -284,6 +284,14 @@ a.linklike-a{
   font-size:.68rem; text-transform:uppercase; letter-spacing:.06em;
   padding:2px 8px; border-radius:10px; background:#0d0906; color:var(--ember);
 }
+/* Newest-first stack of a player's own past results — deliberately plainer
+   than the live .result card (no left brass rule) so it reads as an
+   archive to check, not a second copy of tonight's prompt. */
+.result-history{display:flex; flex-direction:column; gap:10px}
+.result-history-entry .result{border-left-color:var(--bone-dim)}
+.result-history-night{
+  font-size:.7rem; text-transform:uppercase; letter-spacing:.1em; color:var(--bone-dim); margin-bottom:2px;
+}
 .dead-banner{border:1px solid var(--brass); color:var(--brass); padding:12px; text-align:center; border-radius:3px; margin-bottom:14px}
 .dead-banner.spent{border-color:#3a2a1c; color:var(--bone-dim)}
 
