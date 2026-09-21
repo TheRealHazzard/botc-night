@@ -12,6 +12,13 @@ describe('RoleReveal', () => {
     expect(document.querySelector('.hold-ring')).toBeInTheDocument();
   });
 
+  it('the ring shows the same demon-head icon already used for the favicon — decorative, not double-announced', () => {
+    render(<RoleReveal label="Hold me">{() => <p>Secret</p>}</RoleReveal>);
+    const icon = document.querySelector('.hold-ring-icon');
+    expect(icon).toHaveAttribute('src', '/icons/botc_head.png');
+    expect(icon).toHaveAttribute('alt', '');
+  });
+
   it('a full hold reveals the content', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });

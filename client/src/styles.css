@@ -201,6 +201,18 @@ a.linklike-a{
   width:64px; height:64px; border-radius:50%; flex-shrink:0;
   background:conic-gradient(var(--bone) calc(var(--hold-progress,0) * 360deg), #3a2a1c 0);
   transition:background .05s linear;
+  display:flex; align-items:center; justify-content:center;
+  /* Leaves the progress fill visible as an actual ring around the icon,
+     rather than the icon covering the whole circle and hiding it. */
+  padding:5px;
+}
+/* The same demon-head door-knocker already used for the favicon — same
+   branding, not a second unrelated image — inset on its own dark puck so
+   it reads as a badge sitting inside the progress ring, not a flat photo
+   filling the whole circle. */
+.hold-ring-icon{
+  width:100%; height:100%; border-radius:50%; object-fit:cover;
+  background:#0d0906;
 }
 .role{text-align:center; padding:22px 16px}
 /* A brief, team-colored beat on the moment of reveal itself — the same

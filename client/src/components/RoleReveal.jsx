@@ -68,7 +68,9 @@ export default function RoleReveal({ label, children }) {
         onKeyDown={onKeyDown}
         onKeyUp={onKeyUp}
       >
-        <div className="hold-ring" style={{ '--hold-progress': progress }} />
+        <div className="hold-ring" style={{ '--hold-progress': progress }}>
+          <img className="hold-ring-icon" src="/icons/botc_head.png" alt="" />
+        </div>
         <span>{label}</span>
       </button>
     );
