@@ -284,6 +284,10 @@ const WHIM_LEGACY_CHANCE = {
   'mayor-redirect': g => g.config.mayorRedirectChance,
   'registration-ambiguity': g => g.config.recluseRegistersEvil,
   'pacifist-save': g => g.config.pacifistSaveChance,
+  // The Mercy is a brand-new mechanic, not a replaced roll, so there's no
+  // pre-existing host slider to read here — this flat 0.5 only ever
+  // matters when no judge is attached at all (tools/simulate.js).
+  'mercy': () => 0.5,
 };
 
 // Whether firing a given whim kind serves good or evil, once it actually
@@ -297,6 +301,7 @@ const WHIM_FIRING_HELPS_GOOD = {
   'mayor-redirect': true,
   'pacifist-save': true,
   'registration-ambiguity': false,
+  'mercy': true,
 };
 
 /** The Confirm — a host-facing, advisory-only record of a whim decision
@@ -361,6 +366,45 @@ async function resolveWhim(g, ctx) {
   if (alive(g).length <= 5) logWhimConfirm(g, { kind: ctx.kind, fired, reason });
   if (fired) logWhim(g);
   return fired;
+}
+
+// The Mercy — real-world guidance's own example (a drunk Empath quietly
+// getting a correct count) is exactly what a shipped community tool calls
+// "Fisherman Advice": one calibrated piece of help for the side that's
+// actually behind, aimed at info delivery, never at who lives or dies.
+// Scoped to Trouble Brewing's core info suite for now — not the Spy, whose
+// broken treatment shuffles the whole grimoire as one unit rather than
+// falsifying a single value, so "less wrong" doesn't map cleanly onto it.
+// A stated, deliberate limitation, not an oversight: extending this to
+// more info roles needs no other change, since resolveNight's loop (the
+// only caller of maybeMercy) is the one place `broken` is computed for
+// every character, regardless of script.
+const MERCY_ELIGIBLE_IDS = new Set([
+  'fortuneteller', 'washerwoman', 'librarian', 'investigator', 'chef', 'empath', 'undertaker', 'ravenkeeper',
+]);
+
+/**
+ * At most once a game, and only when good is clearly losing (more evil
+ * alive than good — a stricter bar than The Whim's endgame stakes check),
+ * quietly let one impaired good player's info come through right instead
+ * of guaranteed-wrong. Returns false immediately for anyone not eligible,
+ * so calling this for every acting player every night is cheap and safe —
+ * resolveNight does exactly that, unconditionally, via its own `broken`
+ * computation, which is what makes this need zero changes to any
+ * individual ability's resolve() function.
+ */
+async function maybeMercy(g, p) {
+  if (g.mercyUsed) return false;
+  if (!MERCY_ELIGIBLE_IDS.has(p.characterId)) return false;
+  const tc = trueChar(p);
+  if (!tc || (tc.team !== 'townsfolk' && tc.team !== 'outsider')) return false;
+  const living = alive(g);
+  const goodAlive = living.filter(x => !isEvil(g, x)).length;
+  const evilAlive = living.length - goodAlive;
+  if (evilAlive <= goodAlive) return false; // not clearly losing
+  const granted = await resolveWhim(g, { kind: 'mercy', target: p });
+  if (granted) g.mercyUsed = true;
+  return granted;
 }
 
 /** Registration-aware team read for one player — the async sibling of
@@ -748,7 +792,7 @@ module.exports = {
   shuffle, pick, take, excludingPick,
   byId, byToken, alive, seatIndex, actingChar, trueChar, impaired, impairedFlip, publiclyAlive,
   livingNeighbors, tealadyProtects, wouldBlockKill, randomKiller, checkKill, isEvil, isEvilRegistration,
-  resolveWhim, setWhimJudge, heuristicWhim, triggerMoonchildIfNeeded,
+  resolveWhim, setWhimJudge, heuristicWhim, maybeMercy, triggerMoonchildIfNeeded,
   triggerPixieIfNeeded, applyCannibalTransform,
   reassignCharacter, flagAbnormal,
   logEvent, logWhim, outsiderDiedToday, minionDiedToday, somebodyDiedYesterday,

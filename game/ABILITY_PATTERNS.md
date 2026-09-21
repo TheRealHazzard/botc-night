@@ -54,6 +54,33 @@ Tinker's death roll and Shabaloth's regurgitate stayed plain
 about — so they're the two "Bucket 1" examples that are still exactly a
 flat rate.
 
+**Two things build on top of `resolveWhim`, both from the same roadmap:**
+
+- **The Confirm**: whenever the game is close enough that a whim decision
+  could plausibly matter (`alive(g).length <= 5`), `resolveWhim` also calls
+  `logWhimConfirm` — a host-facing, advisory-only record (`g.whimConfirmations`)
+  of what was decided and why. Advisory only, deliberately: by the time a
+  night's results reach the host, players may already have seen the
+  consequence, so there's no reversal, just transparency. `kind` and
+  `reason` can each name a character, so `publicState()` withholds those
+  two fields until `g.revealed` — same "the Storyteller stays blind until
+  reveal" principle as everywhere else, but *not* resultsLog/actionLog's
+  all-or-nothing gate, since this needs to stay usable live.
+- **The Mercy** (`maybeMercy` in `helpers.js`): at most once a game, only
+  when good is clearly losing (more evil alive than good), quietly lets one
+  impaired good player's info come through right instead of guaranteed-
+  wrong — the community "Fisherman Advice" pattern the official guidance's
+  own examples describe. The entire mechanism is one line in `resolveNight`
+  (`broken: broken && !mercied`), so it needed zero changes to any
+  individual ability's `resolve()` — `MERCY_ELIGIBLE_IDS` is the one place
+  that decides which characters it can touch, deliberately scoped to
+  Trouble Brewing's core info suite for now (not the Spy, whose broken
+  treatment shuffles the whole grimoire rather than falsifying one value).
+  Never touches an active/protective ability (Monk, Poisoner, Butler, ...)
+  — those aren't in `MERCY_ELIGIBLE_IDS`, so `mercied` is always `false`
+  for them, which is the actual guarantee behind "never touching who lives
+  or dies," not just a design intention.
+
 ## Bucket 2 — Real knowledge, fully derivable from game state
 
 The Storyteller isn't judging anything — they're just reading off a fact the

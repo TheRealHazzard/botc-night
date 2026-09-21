@@ -9,7 +9,7 @@ const {
   shuffle, pick, take, excludingPick,
   byId, byToken, alive, actingChar, trueChar, impaired, impairedFlip, publiclyAlive,
   wouldBlockKill, randomKiller, checkKill, isEvil, isEvilRegistration, resolveWhim, setWhimJudge,
-  heuristicWhim, triggerMoonchildIfNeeded, flagAbnormal,
+  heuristicWhim, maybeMercy, triggerMoonchildIfNeeded, flagAbnormal,
   triggerPixieIfNeeded, applyCannibalTransform,
   logEvent, outsiderDiedToday, minionDiedToday, somebodyDiedYesterday,
   numberSignal, falseNumber, evilNeighbourCount, evilPairCount, pairInfo,
@@ -102,6 +102,8 @@ function newGame() {
     // (see resolveWhim/logWhimConfirm in helpers.js) close enough to the
     // game's outcome to be worth surfacing live, not just after reveal.
     whimConfirmations: [],
+    // The Mercy — at most once ever per game (see maybeMercy in helpers.js).
+    mercyUsed: false,
     revealed: false,
     pendingReclaims: [],
     historyRecorded: false, // guards against writing the same completed game twice
@@ -580,6 +582,13 @@ async function resolveNight(g, wave = 1) {
     // A decoy submission is never allowed to drive a real ability.
     const action = submitted && !submitted.decoy ? submitted : null;
     const broken = impaired(p);
+    // The Mercy — checked for every acting player, every night, but a cheap
+    // no-op for anyone not both impaired and eligible (see maybeMercy's own
+    // early-outs), so this needs no per-character wiring anywhere else:
+    // every info role's resolve() already treats `broken` as "show wrong
+    // info," and mercied quietly cancels just that, for this one player,
+    // this one time, this one game.
+    const mercied = broken && await maybeMercy(g, p);
     const target = ids => (ids || []).map(id => byId(g, id)).filter(Boolean);
 
     // The Lunatic's *believed* character is deliberately set to the real
@@ -653,7 +662,9 @@ async function resolveNight(g, wave = 1) {
       // sync or async — only the handful that actually need a whim
       // decision (randomKiller/isEvilRegistration/pairInfo) are async; the
       // rest just resolve on the next microtask tick, same net effect.
-      await entry.resolve(g, p, action, { broken, target, deaths, results, order });
+      // `broken && !mercied` here, not `broken`, is The Mercy's entire
+      // mechanism — see maybeMercy's own comment in helpers.js.
+      await entry.resolve(g, p, action, { broken: broken && !mercied, target, deaths, results, order });
     }
   }
 
@@ -1420,7 +1431,7 @@ module.exports = {
   generateHint, logEvent, publicState, privateState,
   checkVictory, applyPoliticianFlip, succeedDemon, trueChar, impaired, impairedFlip,
   checkKill, wouldBlockKill, publiclyAlive, randomKiller,
-  isEvil, isEvilRegistration, resolveWhim, setWhimJudge, heuristicWhim,
+  isEvil, isEvilRegistration, resolveWhim, setWhimJudge, heuristicWhim, maybeMercy,
   minionDiedToday, triggerMoonchildIfNeeded, triggerDeathHooks, resolveMastermindDay,
   resolveDayVote, gameSummary, resolveMadness, buildSavantStatements, evaluateClaim,
   activeScriptPool, applyConfigPatch, buildStorytellerContext, BUCKET4_IDS,

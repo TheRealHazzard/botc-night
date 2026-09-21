@@ -2986,6 +2986,76 @@ console.log('\nThe Whim: judge injection (setWhimJudge/resolveWhim)');
   E.setWhimJudge(null);
 }
 
+console.log('\nThe Mercy: at most once, only when good is clearly losing, info roles only');
+{
+  const mk = (id, characterId) => ({ id, name: id, characterId, believedId: characterId, alive: true, statuses: {} });
+
+  E.setWhimJudge(async () => ({ fire: true, reason: 'good is nearly out of the game' }));
+
+  const goodLosing = () => {
+    const g = E.newGame();
+    g.players = [mk('imp1', 'imp'), mk('poi1', 'poisoner'), mk('emp1', 'empath')]; // 2 evil, 1 good
+    return g;
+  };
+  const evenlyMatched = () => {
+    const g = E.newGame();
+    g.players = [mk('imp1', 'imp'), mk('emp1', 'empath')]; // 1 evil, 1 good — not "clearly" losing
+    return g;
+  };
+
+  const empathOf = g => g.players.find(p => p.characterId === 'empath');
+
+  {
+    const g = evenlyMatched();
+    check('not granted when good is only evenly matched, not clearly losing',
+      !(await E.maybeMercy(g, empathOf(g))));
+  }
+
+  check('not granted for a character outside MERCY_ELIGIBLE_IDS (e.g. the Spy — a full grimoire shuffle, not a single value)',
+    !(await E.maybeMercy(goodLosing(), { characterId: 'spy' })));
+
+  {
+    const g = goodLosing();
+    const granted = await E.maybeMercy(g, empathOf(g));
+    check('granted once good is clearly losing, the character is eligible, and the judge says yes', granted === true);
+    check('mercyUsed is set the moment it is granted', g.mercyUsed === true);
+
+    const secondGrant = await E.maybeMercy(g, empathOf(g));
+    check('never granted twice in the same game, even asking again immediately after', secondGrant === false);
+  }
+
+  // End-to-end: a poisoned, eligible Empath in a clearly-losing game gets
+  // the TRUE count once Mercy fires — not the guaranteed-wrong one her own
+  // poison would otherwise force.
+  {
+    const g = goodLosing();
+    g.nightNumber = 1; g.phase = 'night'; g.wave = 1;
+    empathOf(g).statuses.poisoned = true;
+    await E.resolveNight(g, 1);
+    // 3-seat ring: the Empath's only two neighbors are the Imp and the
+    // Poisoner, so her true count is exactly 2.
+    check('a poisoned Empath granted Mercy sees her real result, not a falsified one',
+      g.results.emp1.count === 2, JSON.stringify(g.results.emp1));
+  }
+
+  // A non-eligible impaired character (Monk — an active protection, not
+  // pure info) is never touched by Mercy, even when every other condition
+  // holds — this is the "never touching who lives or dies" guarantee.
+  {
+    const g = E.newGame();
+    g.players = [mk('imp1', 'imp'), mk('poi1', 'poisoner'), mk('monk1', 'monk'), mk('sol1', 'soldier')]; // 2 evil, 2 good
+    g.nightNumber = 2; g.phase = 'night'; g.wave = 1; // Monk doesn't act night 1
+    const monk = g.players.find(p => p.characterId === 'monk');
+    monk.statuses.poisoned = true;
+    g.pending = { monk1: { targets: ['sol1'] } };
+    await E.resolveNight(g, 1);
+    check('a poisoned Monk\'s protection still silently fails — Mercy never reaches active/protective abilities',
+      !g.players.find(p => p.id === 'sol1').statuses.protected);
+  }
+
+  E.setWhimJudge(null);
+}
+
 console.log('\nheuristicWhim (Option 1: the non-LLM judgment)');
 {
   const mk = (id, characterId) => ({ id, name: id, characterId, believedId: characterId, alive: true, statuses: {} });
