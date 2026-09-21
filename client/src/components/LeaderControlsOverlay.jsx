@@ -69,6 +69,7 @@ export default function LeaderControlsOverlay({ open, onClose, token, myId }) {
             </p>
           )}
           {S && S.phase === 'lobby' && <LobbyControls S={S} busy={busy} run={run} />}
+          {S && S.phase === 'reveal' && <RevealControls busy={busy} run={run} />}
           {S && S.phase === 'day' && <DayControls S={S} busy={busy} run={run} />}
           {S && <AlwaysControls busy={busy} run={run} />}
           {S && <HandOffControl S={S} myId={myId} busy={busy} handOff={handOff} />}
@@ -92,6 +93,20 @@ function LobbyControls({ S, busy, run }) {
         onClick={() => run('/api/table/clear-lobby', {}, `Remove all ${count} seated player${count === 1 ? '' : 's'} and start the count over?`)}
       >
         Clear the lobby
+      </button>
+    </div>
+  );
+}
+
+/** The host TV's RevealView has its own "Night falls" button reachable the
+    moment roles are dealt — this overlay had no equivalent at all, so a
+    leader running the table entirely from their phone (the whole point of
+    this feature) had no way to start night 1 once past the lobby. */
+function RevealControls({ busy, run }) {
+  return (
+    <div className="card">
+      <button type="button" className="primary" disabled={busy} onClick={() => run('/api/table/night', {})}>
+        Night falls
       </button>
     </div>
   );

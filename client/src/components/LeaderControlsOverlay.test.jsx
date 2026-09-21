@@ -108,6 +108,18 @@ describe('LeaderControlsOverlay', () => {
     });
   });
 
+  describe('reveal', () => {
+    it('offers Night falls during the reveal phase — the host TV\'s RevealView has this button too, and a phone-only leader had no equivalent at all', async () => {
+      FakeEventSource.instances = [];
+      vi.stubGlobal('EventSource', FakeEventSource);
+      const fetchMock = mockFetch({ '/api/table/night': { ok: true } });
+      render(<LeaderControlsOverlay open={true} onClose={() => {}} />);
+      push({ phase: 'reveal', nightNumber: 0, wave: 0, nominations: [], mastermindExtraDay: false, players: [{ id: 'p1', name: 'Ada', alive: true }] });
+      await userEvent.click(screen.getByText('Night falls'));
+      expect(fetchMock.calls.some(c => c.url.includes('/api/table/night'))).toBe(true);
+    });
+  });
+
   describe('day', () => {
     it('posts nominatorId/nomineeId, defaulting both to the first living player (same as the host\'s own NominateAction)', async () => {
       FakeEventSource.instances = [];

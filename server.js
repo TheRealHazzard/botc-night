@@ -367,6 +367,13 @@ function startNight() {
   E.logEvent(game, `Night ${game.nightNumber} begins.`);
   pushAll();
   windowTimer = setTimeout(closeWindow, game.config.windowSeconds * 1000);
+  // beginSimNight() schedules this too for a full simulation (harmless to
+  // double-schedule — botsAnswer() skips seats already answered) — this
+  // covers the other case, a real game carrying bot seats added via
+  // /api/table/add-bots, which has no such wrapper of its own.
+  if (game.players.some(p => p.bot)) {
+    setTimeout(botsAnswer, Math.max(400, game.config.windowSeconds * 400));
+  }
 }
 
 // Every living player gets a real prompt or a decoy one every night (see
@@ -393,7 +400,7 @@ async function closeWindow() {
       game.wave = 2;
       game.windowEndsAt = Date.now() + game.config.wave2Seconds * 1000;
       pushAll();
-      if (game.simulation) setTimeout(botsAnswer, Math.max(300, game.config.wave2Seconds * 400));
+      if (game.players.some(p => p.bot)) setTimeout(botsAnswer, Math.max(300, game.config.wave2Seconds * 400));
       windowTimer = setTimeout(closeWindow, game.config.wave2Seconds * 1000);
       return;
     }
@@ -741,8 +748,12 @@ function chooseExecution() {
   return weighted[weighted.length - 1].p;
 }
 
+// Gated on actual bot seats being present, not on game.simulation — a real
+// game padded with bots via /api/table/add-bots needs its bots answered
+// too, without taking on simulation's much broader meaning (see that
+// route's own comment, and /sim-events', on why those stay separate).
 function botsAnswer() {
-  if (!game.simulation || game.phase !== 'night') return;
+  if (game.phase !== 'night' || !game.players.some(p => p.bot)) return;
   for (const p of game.players) {
     const prompt = E.promptFor(game, p);
     if (!prompt || game.pending[p.id]) continue;
@@ -2193,6 +2204,57 @@ async function requestHandler(req, res) {
         pushPlayer(requester.id);
         pushPlayer(target.id);
         return json(res, 200, { ok: true });
+      }
+
+      if (route === '/api/table/add-bots') {
+        // Padding a REAL lobby with bot seats for beta testing — distinct
+        // from /api/sim/start, which always builds a fresh, fully-synthetic
+        // game (see startSimulation's own game = E.newGame()). This instead
+        // tops up whoever's already actually joined, so a real player can
+        // get dealt Gossip/Savant/Artist and exercise the free-text LLM
+        // path directly (those routes explicitly refuse bot-controlled
+        // seats — see the p.bot checks on /api/gossip-claim,
+        // /api/artist-question, /api/savant-visit — so there is no way to
+        // reach them through a pure /api/sim/start run at all).
+        //
+        // Deliberately never sets game.simulation — that flag is a real
+        // privacy boundary (see /sim-events' own comment: its observer
+        // stream broadcasts every player's private state on the assumption
+        // nothing behind it is a real secret). A mixed game keeps
+        // game.simulation false, so a real player's actual hidden role
+        // stays exactly as private as it would in any other real game;
+        // bot seats get their night prompts auto-filled by the same
+        // botsAnswer() the real simulation path uses, now gated on bot
+        // seats being present rather than on game.simulation (see
+        // startNight/closeWindow/botsAnswer below).
+        if (game.phase !== 'lobby') return json(res, 409, { error: 'Roles are already dealt.' });
+        const cap = SCRIPT_MAX_PLAYERS[game.script] || 15;
+        const room = cap - game.players.length;
+        const count = Math.max(0, Math.min(room, Number(body.count) || 0));
+
+        const usedNames = new Set(game.players.map(p => p.name));
+        const colors = [...COLOR_PALETTE];
+        for (let i = colors.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [colors[i], colors[j]] = [colors[j], colors[i]];
+        }
+
+        let added = 0;
+        for (const name of BOT_NAMES) {
+          if (added >= count) break;
+          if (usedNames.has(name)) continue; // never shadow an already-seated real player's name
+          game.players.push({
+            id: 'bot' + crypto.randomBytes(4).toString('hex'), name, characterId: null, believedId: null,
+            alive: true, statuses: {}, connected: true, bot: true,
+            color: colors[added % colors.length],
+            token: crypto.randomBytes(16).toString('hex'),
+          });
+          usedNames.add(name);
+          added++;
+        }
+        E.logEvent(game, `${added} bot${added === 1 ? '' : 's'} joined the lobby.`);
+        pushHost();
+        return json(res, 200, { ok: true, added });
       }
 
       if (route === '/api/table/deal') {
