@@ -2,8 +2,13 @@
   "name": "botc-night",
   "version": "0.1.0",
   "private": true,
+  "license": "MIT",
   "description": "An AI Storyteller for Blood on the Clocktower — runs the night, leaves the day to the humans.",
   "main": "server.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/TheRealHazzard/botc-night.git"
+  },
   "scripts": {
     "start": "node server.js",
     "cert:lan": "node tools/gen-lan-cert.js",
@@ -16,6 +21,7 @@
     "dev:player": "vite",
     "build:player": "vite build",
     "build:host": "vite build --mode host",
+    "build": "npm run build:player && npm run build:host",
     "test:player": "vitest run"
   },
   "engines": {

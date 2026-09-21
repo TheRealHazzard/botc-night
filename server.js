@@ -898,7 +898,13 @@ function recordGameHistory() {
 
 /* ---------------------------------------------------------- simulation */
 
-const BOT_NAMES = ['Aakanksha', 'Riya', 'Ritu', 'Ishaan', 'Rob', 'Shru', 'Shanks', 'Advaith', 'Sai', 'Surya', 'Hal', 'Ivy', 'Jos', 'Kit', 'Lou'];
+// Generic placeholder names, deliberately — up to 15 (SETUP_TABLE's max
+// table size), used for both /api/sim/start's full-bot simulations and
+// /api/table/add-bots' seats. Not tied to anyone real: this used to carry
+// actual beta testers' own first names, fine for a private table but not
+// something that belongs sitting in committed source once this repo is
+// public.
+const BOT_NAMES = ['Ava', 'Marcus', 'Priya', 'Diego', 'Freya', 'Kenji', 'Nadia', 'Omar', 'Lucia', 'Theo', 'Sana', 'Felix', 'Amara', 'Leo', 'Zara'];
 let simTimer = null;
 
 const pickOne = arr => arr[Math.floor(Math.random() * arr.length)];

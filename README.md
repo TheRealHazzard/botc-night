@@ -18,10 +18,13 @@ One device (a laptop, a TV) runs the host/Storyteller screen. Everyone else join
 
 ```bash
 npm install
-npm start          # http://localhost:3000
+npm run build       # builds the player and host React apps into public/dist/ — needed once, and again after pulling client/ changes
+npm start           # http://localhost:3000
 ```
 
 Open `/host` on the screen running the game. Players join at the LAN URL printed on startup, or by scanning the QR code shown on the host screen.
+
+(`public/dist/` is gitignored and build output, not checked in — `npm start` alone serves a 404 at `/` and `/host` until `npm run build` has been run at least once.)
 
 **Optional — real HTTPS on the LAN** (needed for a phone to install the app as a PWA):
 
@@ -58,6 +61,22 @@ This project treats both the rules engine *and* the server built on top of it as
 
 Every rules or reliability bug found this way gets a permanent regression test alongside its fix — see the commit history for several rounds of systematic, independently-verified audits across the engine, the server, and the client.
 
+## Security notes
+
+A few things that look like gaps on a first read are deliberate, not missed — worth knowing before you self-host or fork this:
+
+- **`TABLE_CODE`/`HOST_CODE` are off by default.** A plain `npm start` with neither set has no access gate at all — anyone who can reach the port can join or drive the table, same trust model as "whoever's on the same Wi-Fi." That's fine for a LAN game and becomes a real boundary only once the table is reachable from the open internet (see `npm run host:public`); set both env vars in that case. See `server.js`'s own comment right above `TABLE_CODE`'s definition for the full reasoning, and the rate limiter a few lines below it guarding against brute-forcing a short code.
+- **`/recap` and `/api/recap` skip the access gate on purpose.** Both routes are structurally incapable of reading a live game — they only ever read `data/games.jsonl`, appended to once, after a game has already ended and been revealed. There's no code path from either route back to the live `game` object, so gating them adds no real protection, only friction for sharing a finished game's recap link. See `GATE_EXEMPT`'s own comment in `server.js`.
+- **No accounts, no passwords, no server-side secrets beyond the two optional codes above.** Player "login" is just typing a name back in (`game/history.js`'s own comment: "no password, same trust the reclaim system already runs on") — appropriate for a table of people who know each other, not a substitute for real auth if this ever needs one.
+
 ## Status
 
 Single-table, no accounts, no database — built for one physical table at a time. Player history/stats live in `data/` (gitignored) on whichever machine hosts the game.
+
+## Contributing
+
+See [`CONTRIBUTING.md`](CONTRIBUTING.md) — the short version: read [`game/ABILITY_PATTERNS.md`](game/ABILITY_PATTERNS.md) and [`game/abilities/README.md`](game/abilities/README.md) before adding a character, and run the full test table above before opening a PR.
+
+## License
+
+[MIT](LICENSE).
