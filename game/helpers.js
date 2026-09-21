@@ -792,7 +792,7 @@ module.exports = {
   shuffle, pick, take, excludingPick,
   byId, byToken, alive, seatIndex, actingChar, trueChar, impaired, impairedFlip, publiclyAlive,
   livingNeighbors, tealadyProtects, wouldBlockKill, randomKiller, checkKill, isEvil, isEvilRegistration,
-  resolveWhim, setWhimJudge, heuristicWhim, maybeMercy, triggerMoonchildIfNeeded,
+  resolveWhim, setWhimJudge, heuristicWhim, WHIM_FIRING_HELPS_GOOD, maybeMercy, triggerMoonchildIfNeeded,
   triggerPixieIfNeeded, applyCannibalTransform,
   reassignCharacter, flagAbnormal,
   logEvent, logWhim, outsiderDiedToday, minionDiedToday, somebodyDiedYesterday,

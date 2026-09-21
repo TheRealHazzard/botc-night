@@ -245,11 +245,35 @@ async function llmWhimJudge(g, ctx) {
     return c && (c.team === 'townsfolk' || c.team === 'outsider');
   }).length;
   const evilAlive = living.length - goodAlive;
+  // Same "who's actually behind" computation heuristicWhim() itself trusts
+  // (game/helpers.js) — handing the model raw counts and asking it to both
+  // infer the comparison AND apply the contrarian "help whoever's behind"
+  // instruction in one step is exactly where it kept going wrong live (see
+  // the Dry Run screen's LLM traffic log): evil is the minority by BOTC's
+  // own setup table, so "10 good, 4 evil" reads as a landslide even when
+  // it's a perfectly ordinary starting split. Stating the comparison
+  // outright leaves the model's actual job as just the judgment call itself
+  // — still real work, since firing or not is never automatic here.
+  const margin = goodAlive - evilAlive;
+  const helpsGood = E.WHIM_FIRING_HELPS_GOOD[ctx.kind] !== false;
+  const sideNeedsHelp = helpsGood ? margin <= 0 : margin >= 0;
+  const trailingSide = sideNeedsHelp ? (helpsGood ? 'good' : 'evil') : null;
+  const comparison = trailingSide
+    ? `By living count, ${trailingSide} is currently behind.`
+    : 'By living count, the two sides are roughly even.';
+  const stakes = living.length <= 5 ? ' Few players remain — this decision could settle the game.' : '';
   const result = await llmCall('whim:' + ctx.kind, {
     system: WHIM_SYSTEM[ctx.kind],
-    prompt: `Night/day ${g.nightNumber}. Living players: ${living.length} total (${goodAlive} good, ${evilAlive} evil).`,
+    prompt: `Night/day ${g.nightNumber}. ${living.length} living: ${goodAlive} good, ${evilAlive} evil. ${comparison}${stakes}`,
     schema: WHIM_SCHEMA,
-    maxTokens: 40,
+    // Was 40 — measured live on the Dry Run screen's LLM traffic log:
+    // qwen2.5 was hitting this cap on the majority of real calls (truncated,
+    // silently falling back to heuristicWhim), and the ones that *did* fit
+    // were visibly rushed — reasoning that argued one way while `fire` came
+    // out the other. 90 eliminated truncation entirely and fixed most of
+    // that incoherence in the same test. Local inference has no per-token
+    // cost, so there's no reason to keep this tight.
+    maxTokens: 90,
   });
   if (!result.ok) return E.heuristicWhim(g, ctx);
   return { fire: !!(result.data && result.data.fire), reason: (result.data && result.data.reason) || null };
