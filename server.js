@@ -591,6 +591,11 @@ function endNight() {
   if (finishIfOver()) return;
   pushAll();
   if (game.simulation) scheduleSim(game.simSpeed * 700);
+  // A real player still gets first crack at nominating — same "watchable,
+  // not instant" head-start botsAnswer's own night-window delay already
+  // gives a real device. botsNominate() itself no-ops for a true
+  // simulation (that keeps its own faster path in runSimStep below).
+  else if (game.players.some(p => p.bot)) setTimeout(botsNominate, 3000);
 }
 
 /** A nomination's voting window has run out — lock in whoever voted, apply
@@ -889,6 +894,161 @@ function botChoice(p, prompt) {
   }
 }
 
+/** The actual logic behind /api/table/nominate, extracted so botsNominate()
+    below can create a real nomination through the exact same path a real
+    player's own tap does — Virgin/Golem/Witch triggers, finishIfOver, the
+    vote-window timer, all identical — rather than a parallel
+    reimplementation that could quietly drift from it. Returns {status,
+    payload} instead of calling json(res, ...) directly, so the route
+    handler and a bot caller can each do what they need with the result. */
+function nominateHandler(body) {
+  // Players nominate themselves now (a token identifies them, same as
+  // every other player action route) — the host's own two-dropdown
+  // fallback in NominationPanel is kept for a dead phone/no signal, still
+  // posting nominatorId directly, so both paths land here unchanged below.
+  // A bot caller posts nominatorId the same way the host fallback does —
+  // bots have no token of their own being held by anyone to authenticate
+  // with. Voting itself happens live on each player's own phone over a
+  // timed window; this just opens that window.
+  if (game.phase !== 'day') return { status: 409, payload: { error: 'Not day.' } };
+  const nominator = body.token ? E.byToken(game, body.token) : E.byId(game, body.nominatorId);
+  const nominee = E.byId(game, body.nomineeId || body.targetId);
+  if (!nominator || !nominee) return { status: 404, payload: { error: 'Unknown player.' } };
+  if (!E.publiclyAlive(nominator)) return { status: 400, payload: { error: 'Only living players may nominate.' } };
+  if (!E.publiclyAlive(nominee)) return { status: 400, payload: { error: 'Cannot nominate a dead player.' } };
+
+  const today = game.nominations.filter(n => n.day === game.nightNumber);
+  if (today.some(n => !n.closed)) return { status: 409, payload: { error: 'A nomination is still being voted on.' } };
+  if (today.some(n => n.nomineeId === nominee.id)) return { status: 409, payload: { error: `${nominee.name} has already been nominated today.` } };
+  if (today.some(n => n.nominatorId === nominator.id)) return { status: 409, payload: { error: `${nominator.name} has already nominated someone today.` } };
+  const nominatorChar = E.trueChar(nominator);
+  if (nominatorChar && nominatorChar.id === 'golem' && nominator.statuses.golemUsed) {
+    return { status: 409, payload: { error: 'The Golem may only nominate once per game.' } };
+  }
+
+  let virginFired = false;
+  const nomineeChar = E.trueChar(nominee);
+  if (nomineeChar && nomineeChar.id === 'virgin' && !nominee.statuses.virginTriggered) {
+    nominee.statuses.virginTriggered = true; // the *first* nomination is spent either way
+    if (!E.impaired(nominee) && E.trueChar(nominator).team === 'townsfolk') {
+      // "Executed immediately" — routed through the same protections an
+      // execution gets, so a Fool or a saved Saint still applies.
+      const blocked = E.checkKill(game, nominator, { executionAttack: true });
+      virginFired = true;
+      if (blocked) {
+        E.logEvent(game, `${nominator.name} nominated the Virgin and should have been executed immediately, but survives.`);
+      } else {
+        nominator.alive = false;
+        game.deaths.push({ night: game.nightNumber, name: nominator.name, cause: 'virgin', killedByDemon: false, phase: 'day' });
+        E.logEvent(game, `${nominator.name} nominated the Virgin and was executed immediately.`);
+        E.triggerDeathHooks(game, nominator, { killedByDemon: false });
+        E.succeedDemon(game, nominator);
+      }
+    }
+  }
+
+  // Witch: a player cursed at night who nominates tomorrow dies for it —
+  // same shape as the Virgin's trigger above, opposite polarity (checked
+  // on the nominator instead of the nominee). The nomination itself still
+  // proceeds either way, same as the Virgin's does — nothing in the
+  // ability says otherwise.
+  if (nominator.statuses.witchCursed) {
+    nominator.statuses.witchCursed = false;
+    const blocked = E.checkKill(game, nominator, {});
+    if (blocked) {
+      E.logEvent(game, `${nominator.name} nominates despite the Witch's curse, and somehow survives.`);
+    } else {
+      nominator.alive = false;
+      game.deaths.push({ night: game.nightNumber, name: nominator.name, cause: 'witch', killedByDemon: false, phase: 'day' });
+      E.logEvent(game, `${nominator.name} nominates despite the Witch's curse, and dies for it.`);
+      E.triggerDeathHooks(game, nominator, { killedByDemon: false });
+      E.succeedDemon(game, nominator);
+    }
+  }
+
+  // Golem: the one nomination they ever get is spent right here, regardless
+  // of what it does — a poisoned/drunk Golem still nominates, it just
+  // doesn't kill. Not modeled as a demon or execution attack (it's
+  // neither), so only the universal protections apply — same
+  // `checkKill(game, x, {})` shape the Witch's curse above uses. Kills the
+  // nominee directly instead of opening a vote — there's nothing left to
+  // vote on once they're already dead.
+  let golemKilled = false;
+  if (nominatorChar && nominatorChar.id === 'golem') {
+    nominator.statuses.golemUsed = true;
+    if (!E.impaired(nominator) && (!nomineeChar || nomineeChar.team !== 'demon')) {
+      const blocked = E.checkKill(game, nominee, {});
+      if (blocked) {
+        E.logEvent(game, `${nominator.name} (the Golem) nominated ${nominee.name}, who should have died, but survives (${blocked}).`);
+      } else {
+        nominee.alive = false;
+        golemKilled = true;
+        game.deaths.push({ night: game.nightNumber, name: nominee.name, cause: 'golem', killedByDemon: false, phase: 'day' });
+        E.logEvent(game, `${nominator.name} (the Golem) nominated ${nominee.name} — not the Demon, and they die.`);
+        E.triggerDeathHooks(game, nominee, { killedByDemon: false });
+        E.succeedDemon(game, nominee);
+      }
+    } else {
+      E.logEvent(game, `${nominator.name} (the Golem) nominated ${nominee.name} — nothing happens.`);
+    }
+  }
+
+  const nom = {
+    id: crypto.randomBytes(6).toString('hex'),
+    day: game.nightNumber, nominatorId: nominator.id, nominatorName: nominator.name,
+    nomineeId: nominee.id, nomineeName: nominee.name, virginFired,
+    windowEndsAt: Date.now() + game.config.voteWindowSeconds * 1000,
+    closed: golemKilled, votes: [], yesCount: 0,
+  };
+  game.nominations.push(nom);
+  E.logEvent(game, `${nominator.name} nominated ${nominee.name}.`);
+
+  if (finishIfOver()) {
+    nom.closed = true; // the virgin firing (or the Golem's kill) just ended the game — nothing left to vote on
+    return { status: 200, payload: { ok: true, virginFired } };
+  }
+  if (golemKilled) {
+    // The game continues, but this specific nomination doesn't — the
+    // nominee is already dead, so there's nothing left to vote on.
+    pushAll();
+    return { status: 200, payload: { ok: true, virginFired } };
+  }
+  clearTimeout(voteTimer);
+  voteTimer = setTimeout(closeNomination, game.config.voteWindowSeconds * 1000);
+  // Bots vote a beat after the window opens — a real player in the game
+  // still gets first crack at casting a vote before any bot does, same
+  // "watchable, not instant" spirit as botsAnswer's own night-window delay.
+  if (game.players.some(p => p.bot)) setTimeout(botsVote, Math.max(400, game.config.voteWindowSeconds * 200));
+  pushAll();
+  return { status: 200, payload: { ok: true, virginFired } };
+}
+
+/** The actual logic behind /api/table/vote, extracted for the same reason
+    as nominateHandler above — botsVote() casts a real vote through this
+    exact path, not a parallel one. */
+function voteHandler(body) {
+  // Live, phone-only — no host fallback. Casting a vote while dead spends
+  // that player's one lifetime ghost vote in the same request; if they
+  // never cast one, "not voting" falls out on its own.
+  const p = E.byToken(game, body.token) || E.byId(game, body.playerId);
+  if (!p) return { status: 404, payload: { error: 'Unknown player.' } };
+  if (game.phase !== 'day') return { status: 409, payload: { error: 'Not day.' } };
+  if (!['yes', 'no'].includes(body.vote)) return { status: 400, payload: { error: 'Vote must be yes or no.' } };
+  const nom = game.nominations.find(n => n.day === game.nightNumber && !n.closed);
+  if (!nom) return { status: 409, payload: { error: 'No open nomination.' } };
+
+  const isGhostVote = !p.alive;
+  if (isGhostVote && p.ghostVoteUsed) return { status: 409, payload: { error: 'You have already used your one vote.' } };
+
+  const existing = nom.votes.find(v => v.playerId === p.id);
+  if (existing) existing.vote = body.vote;
+  else nom.votes.push({ playerId: p.id, playerName: p.name, profileId: p.profileId || null, vote: body.vote });
+  if (isGhostVote) p.ghostVoteUsed = true;
+
+  pushAll();
+  return { status: 200, payload: { ok: true } };
+}
+
 /**
  * Bots have no discussion to reason from, so a uniform random execution finds
  * the Demon on day one far more often than a real table does. Weight it: evil
@@ -936,6 +1096,71 @@ function botsAnswer() {
   }
   pushAll();
   if (allSubmitted()) closeWindow();
+}
+
+// The probability a bot votes yes on a given player — same spirit as
+// chooseExecution()'s own weighting (evil hides well early, worse as
+// information accumulates; a claimed/true Saint is protected), but as a
+// per-target yes-probability for a vote already underway, not a selection
+// weight among candidates competing to be nominated at all.
+function botVoteWeight(target, day) {
+  const c = E.trueChar(target);
+  const evil = c && (c.team === 'minion' || c.team === 'demon');
+  if (c && c.id === 'saint') return 0.1;
+  if (evil) return Math.min(0.85, 0.35 + 0.12 * (day - 1));
+  return 0.25;
+}
+
+// Gated on real bot seats in a real game, not game.simulation — same
+// reasoning as botsAnswer()'s own gate: /api/sim/start's own games already
+// have their own faster chooseExecution()+direct-execute path (see
+// runSimStep below), untouched by this. This is specifically for
+// /api/table/add-bots' mixed real-player-plus-bots tables, where day phase
+// otherwise still needed a human to manually nominate and vote for every
+// bot seat even though night was already automated.
+//
+// Exactly one bot-initiated nomination per day, only if nobody (bot or
+// real player) already opened one — mirrors chooseExecution()'s own
+// "most days end in one execution decision, some don't" simplicity, not
+// multi-round nomination logic nothing else in this app's bot behavior
+// models either. Reuses nominateHandler() directly, so Virgin/Golem/Witch
+// triggers and the vote-window timer all work exactly as they would for a
+// real player's own nomination.
+function botsNominate() {
+  if (game.phase !== 'day' || game.simulation || !game.players.some(p => p.bot)) return;
+  const today = game.nominations.filter(n => n.day === game.nightNumber);
+  if (today.length) return; // someone already nominated today — bot or real player
+  if (Math.random() >= 0.78) return;
+
+  const living = E.alive(game);
+  const bots = living.filter(p => p.bot);
+  if (!bots.length || living.length < 2) return;
+  const nominator = pickOne(bots);
+  const candidates = living.filter(p => p.id !== nominator.id);
+  if (!candidates.length) return;
+  const day = game.nightNumber;
+  const nominee = candidates.reduce((best, p) => (botVoteWeight(p, day) > botVoteWeight(best, day) ? p : best), candidates[0]);
+
+  nominateHandler({ nominatorId: nominator.id, nomineeId: nominee.id });
+}
+
+// Fires whenever a nomination is actually open, regardless of who created
+// it — unlike nomination itself (one exclusive slot per day, see
+// botsNominate above), casting a vote isn't something to race a real
+// player for, so every living bot just votes shortly after the window
+// opens (scheduled from nominateHandler itself).
+function botsVote() {
+  if (game.phase !== 'day' || !game.players.some(p => p.bot)) return;
+  const nom = game.nominations.find(n => n.day === game.nightNumber && !n.closed);
+  if (!nom) return;
+  const nominee = E.byId(game, nom.nomineeId);
+  if (!nominee) return;
+  const day = game.nightNumber;
+  const yesChance = botVoteWeight(nominee, day);
+  for (const p of E.alive(game)) {
+    if (!p.bot || nom.votes.some(v => v.playerId === p.id)) continue;
+    voteHandler({ playerId: p.id, vote: Math.random() < yesChance ? 'yes' : 'no' });
+  }
 }
 
 function startSimulation({ players = 9, speed = 5, script = 'tb', config } = {}) {
@@ -2181,143 +2406,13 @@ async function requestHandler(req, res) {
       /* ---- table controls: hold no secrets, so anyone at the table may use them ---- */
 
       if (route === '/api/table/nominate') {
-        // Players nominate themselves now (a token identifies them, same
-        // as every other player action route) — the host's own two-
-        // dropdown fallback in NominationPanel is kept for a dead phone/no
-        // signal, still posting nominatorId directly, so both paths land
-        // here unchanged below. Voting itself happens live on each
-        // player's own phone over a timed window; this just opens that
-        // window.
-        if (game.phase !== 'day') return json(res, 409, { error: 'Not day.' });
-        const nominator = body.token ? E.byToken(game, body.token) : E.byId(game, body.nominatorId);
-        const nominee = E.byId(game, body.nomineeId || body.targetId);
-        if (!nominator || !nominee) return json(res, 404, { error: 'Unknown player.' });
-        if (!E.publiclyAlive(nominator)) return json(res, 400, { error: 'Only living players may nominate.' });
-        if (!E.publiclyAlive(nominee)) return json(res, 400, { error: 'Cannot nominate a dead player.' });
-
-        const today = game.nominations.filter(n => n.day === game.nightNumber);
-        if (today.some(n => !n.closed)) return json(res, 409, { error: 'A nomination is still being voted on.' });
-        if (today.some(n => n.nomineeId === nominee.id)) return json(res, 409, { error: `${nominee.name} has already been nominated today.` });
-        if (today.some(n => n.nominatorId === nominator.id)) return json(res, 409, { error: `${nominator.name} has already nominated someone today.` });
-        const nominatorChar = E.trueChar(nominator);
-        if (nominatorChar && nominatorChar.id === 'golem' && nominator.statuses.golemUsed) {
-          return json(res, 409, { error: 'The Golem may only nominate once per game.' });
-        }
-
-        let virginFired = false;
-        const nomineeChar = E.trueChar(nominee);
-        if (nomineeChar && nomineeChar.id === 'virgin' && !nominee.statuses.virginTriggered) {
-          nominee.statuses.virginTriggered = true; // the *first* nomination is spent either way
-          if (!E.impaired(nominee) && E.trueChar(nominator).team === 'townsfolk') {
-            // "Executed immediately" — routed through the same protections
-            // an execution gets, so a Fool or a saved Saint still applies.
-            const blocked = E.checkKill(game, nominator, { executionAttack: true });
-            virginFired = true;
-            if (blocked) {
-              E.logEvent(game, `${nominator.name} nominated the Virgin and should have been executed immediately, but survives.`);
-            } else {
-              nominator.alive = false;
-              game.deaths.push({ night: game.nightNumber, name: nominator.name, cause: 'virgin', killedByDemon: false, phase: 'day' });
-              E.logEvent(game, `${nominator.name} nominated the Virgin and was executed immediately.`);
-              E.triggerDeathHooks(game, nominator, { killedByDemon: false });
-              E.succeedDemon(game, nominator);
-            }
-          }
-        }
-
-        // Witch: a player cursed at night who nominates tomorrow dies for
-        // it — same shape as the Virgin's trigger above, opposite polarity
-        // (checked on the nominator instead of the nominee). The
-        // nomination itself still proceeds either way, same as the
-        // Virgin's does — nothing in the ability says otherwise.
-        if (nominator.statuses.witchCursed) {
-          nominator.statuses.witchCursed = false;
-          const blocked = E.checkKill(game, nominator, {});
-          if (blocked) {
-            E.logEvent(game, `${nominator.name} nominates despite the Witch's curse, and somehow survives.`);
-          } else {
-            nominator.alive = false;
-            game.deaths.push({ night: game.nightNumber, name: nominator.name, cause: 'witch', killedByDemon: false, phase: 'day' });
-            E.logEvent(game, `${nominator.name} nominates despite the Witch's curse, and dies for it.`);
-            E.triggerDeathHooks(game, nominator, { killedByDemon: false });
-            E.succeedDemon(game, nominator);
-          }
-        }
-
-        // Golem: the one nomination they ever get is spent right here,
-        // regardless of what it does — a poisoned/drunk Golem still nominates,
-        // it just doesn't kill. Not modeled as a demon or execution attack
-        // (it's neither), so only the universal protections apply — same
-        // `checkKill(game, x, {})` shape the Witch's curse above uses.
-        // Kills the nominee directly instead of opening a vote — there's
-        // nothing left to vote on once they're already dead.
-        let golemKilled = false;
-        if (nominatorChar && nominatorChar.id === 'golem') {
-          nominator.statuses.golemUsed = true;
-          if (!E.impaired(nominator) && (!nomineeChar || nomineeChar.team !== 'demon')) {
-            const blocked = E.checkKill(game, nominee, {});
-            if (blocked) {
-              E.logEvent(game, `${nominator.name} (the Golem) nominated ${nominee.name}, who should have died, but survives (${blocked}).`);
-            } else {
-              nominee.alive = false;
-              golemKilled = true;
-              game.deaths.push({ night: game.nightNumber, name: nominee.name, cause: 'golem', killedByDemon: false, phase: 'day' });
-              E.logEvent(game, `${nominator.name} (the Golem) nominated ${nominee.name} — not the Demon, and they die.`);
-              E.triggerDeathHooks(game, nominee, { killedByDemon: false });
-              E.succeedDemon(game, nominee);
-            }
-          } else {
-            E.logEvent(game, `${nominator.name} (the Golem) nominated ${nominee.name} — nothing happens.`);
-          }
-        }
-
-        const nom = {
-          id: crypto.randomBytes(6).toString('hex'),
-          day: game.nightNumber, nominatorId: nominator.id, nominatorName: nominator.name,
-          nomineeId: nominee.id, nomineeName: nominee.name, virginFired,
-          windowEndsAt: Date.now() + game.config.voteWindowSeconds * 1000,
-          closed: golemKilled, votes: [], yesCount: 0,
-        };
-        game.nominations.push(nom);
-        E.logEvent(game, `${nominator.name} nominated ${nominee.name}.`);
-
-        if (finishIfOver()) {
-          nom.closed = true; // the virgin firing (or the Golem's kill) just ended the game — nothing left to vote on
-          return json(res, 200, { ok: true, virginFired });
-        }
-        if (golemKilled) {
-          // The game continues, but this specific nomination doesn't — the
-          // nominee is already dead, so there's nothing left to vote on.
-          pushAll();
-          return json(res, 200, { ok: true, virginFired });
-        }
-        clearTimeout(voteTimer);
-        voteTimer = setTimeout(closeNomination, game.config.voteWindowSeconds * 1000);
-        pushAll();
-        return json(res, 200, { ok: true, virginFired });
+        const { status, payload } = nominateHandler(body);
+        return json(res, status, payload);
       }
 
       if (route === '/api/table/vote') {
-        // Live, phone-only — no host fallback. Casting a vote while dead
-        // spends that player's one lifetime ghost vote in the same request;
-        // if they never cast one, "not voting" falls out on its own.
-        const p = E.byToken(game, body.token);
-        if (!p) return json(res, 404, { error: 'Unknown player.' });
-        if (game.phase !== 'day') return json(res, 409, { error: 'Not day.' });
-        if (!['yes', 'no'].includes(body.vote)) return json(res, 400, { error: 'Vote must be yes or no.' });
-        const nom = game.nominations.find(n => n.day === game.nightNumber && !n.closed);
-        if (!nom) return json(res, 409, { error: 'No open nomination.' });
-
-        const isGhostVote = !p.alive;
-        if (isGhostVote && p.ghostVoteUsed) return json(res, 409, { error: 'You have already used your one vote.' });
-
-        const existing = nom.votes.find(v => v.playerId === p.id);
-        if (existing) existing.vote = body.vote;
-        else nom.votes.push({ playerId: p.id, playerName: p.name, profileId: p.profileId || null, vote: body.vote });
-        if (isGhostVote) p.ghostVoteUsed = true;
-
-        pushAll();
-        return json(res, 200, { ok: true });
+        const { status, payload } = voteHandler(body);
+        return json(res, status, payload);
       }
 
       if (route === '/api/table/tally') {
