@@ -144,7 +144,7 @@ function jsonResponse(status, body) {
     delete process.env.OLLAMA_MODEL;
     const s = status();
     check('provider switches to ollama via LLM_PROVIDER', s.provider === 'ollama');
-    check('ollama is always "configured" (no key needed) and defaults to phi4', s.configured === true && s.model === 'phi4');
+    check('ollama is always "configured" (no key needed) and defaults to qwen2.5:14b-instruct-q4_K_M', s.configured === true && s.model === 'qwen2.5:14b-instruct-q4_K_M');
     process.env.OLLAMA_MODEL = 'llama3.1:8b';
     check('OLLAMA_MODEL overrides the default', status().model === 'llama3.1:8b');
     delete process.env.OLLAMA_MODEL;

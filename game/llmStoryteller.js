@@ -39,7 +39,13 @@ const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
 const ANTHROPIC_VERSION = '2023-06-01';
 
 const DEFAULT_OLLAMA_HOST = 'http://localhost:11434';
-const DEFAULT_OLLAMA_MODEL = 'phi4';
+// Picked over phi4 (same footprint, ~9GB, comparable warm latency) after a
+// live head-to-head on the same whim-judgment prompt: qwen2.5 landed on the
+// strategically consistent call in 4 of 5 trials against phi4's ~2 of 5 —
+// phi4 kept defaulting to "protecting the good-aligned Mayor helps good,"
+// missing the contrarian "help whoever's currently losing" instruction the
+// system prompt actually asks for. Override with OLLAMA_MODEL for either.
+const DEFAULT_OLLAMA_MODEL = 'qwen2.5:14b-instruct-q4_K_M';
 
 // Read fresh on every call, never cached at module load (unlike PORT in
 // server.js) — an operator can set/rotate/switch providers between games
