@@ -385,6 +385,7 @@ function endNight() {
   game.phase = 'day';
   game.wave = 0;
   game.windowEndsAt = null;
+  game.dayStartedAt = Date.now(); // The Read — see useRoomPacing.js
   game.executedToday = null;
   game.noExecutionToday = false; // cleared fresh each dawn, set for real once today's day resolves
   game.executionAttemptedToday = false;

@@ -54,6 +54,12 @@ function newGame() {
     nightNumber: 0,
     wave: 0,
     windowEndsAt: null,
+    // The Read — when today's day phase actually began (server.js's
+    // endNight() sets this), so the host client can judge pacing (see
+    // client/src/host/hooks/useRoomPacing.js) purely from elapsed real
+    // time, without polling. Host-only: never in privateState(), since a
+    // player doesn't need a pacing nudge, only the host does.
+    dayStartedAt: null,
     config: {
       windowSeconds: 60,
       wave2Seconds: 20,
@@ -1204,6 +1210,7 @@ function publicState(g) {
     nightNumber: g.nightNumber,
     wave: g.wave,
     windowEndsAt: g.windowEndsAt,
+    dayStartedAt: g.dayStartedAt,
     script: g.script,
     hint: g.hint,
     config: g.config,

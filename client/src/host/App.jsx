@@ -228,6 +228,7 @@ export default function App() {
                 activeScriptMeta={activeScriptMeta}
                 muted={muted}
                 log={displayS.log}
+                dayStartedAt={displayS.dayStartedAt}
               />
             )}
             {(displayS.phase === "over" || displayS.revealed) && (

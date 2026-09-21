@@ -1154,6 +1154,35 @@
         .whim-confirm { animation: none; }
       }
 
+      /* The Read — a nudge, not a timer: quiet by design (italic, no
+   border, no background) so it reads as a suggestion easy to keep ignoring,
+   the same way .whim-beat does. The "pressure" escalation drops the italic
+   and switches to oxblood, matching .hint's own way of asking for more
+   attention without becoming a full alert. */
+      .room-pacing {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: var(--bone-dim);
+        font-size: 0.85rem;
+        font-style: italic;
+        letter-spacing: 0.02em;
+        margin-top: 4px;
+      }
+      .room-pacing .icon {
+        width: 14px;
+        height: 14px;
+        flex-shrink: 0;
+        color: var(--brass);
+      }
+      .room-pacing.pressure {
+        color: var(--oxblood-hi);
+        font-style: normal;
+      }
+      .room-pacing.pressure .icon {
+        color: var(--oxblood-hi);
+      }
+
       /* ---------------------------------------------------------- the dashboard
    Center is always the ring — the one thing everyone at the table actually
    watches — with contextual side panels for whatever info/controls that

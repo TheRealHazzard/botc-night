@@ -12,13 +12,15 @@ import DayReport from '../components/DayReport.jsx';
 import Icon from '../components/Icon.jsx';
 import WhimBeat from '../components/WhimBeat.jsx';
 import MinorBeatOverlay from '../components/MinorBeatOverlay.jsx';
+import RoomPacingNudge from '../components/RoomPacingNudge.jsx';
 import { useSpeak } from '../hooks/useSpeak.js';
 import { useWhimBeat } from '../hooks/useWhimBeat.js';
 import { useMinorBeat } from '../hooks/useMinorBeat.js';
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion.js';
+import { useRoomPacing } from '../hooks/useRoomPacing.js';
 import { post } from '../../lib/api.js';
 
-export default function DayView({ players, nightNumber, deaths, mastermindExtraDay, nominations, config, script, scriptChars, activeScriptMeta, muted, log = [] }) {
+export default function DayView({ players, nightNumber, deaths, mastermindExtraDay, nominations, config, script, scriptChars, activeScriptMeta, muted, log = [], dayStartedAt }) {
   const lastNight = deaths.filter(d => d.night === nightNumber && d.cause !== 'execution');
   const line = lastNight.length ? `${lastNight.map(d => d.name).join(' and ')} did not wake.` : 'Everyone wakes. That should worry you.';
   useSpeak(line, { dread: !!lastNight.length, muted });
@@ -37,6 +39,10 @@ export default function DayView({ players, nightNumber, deaths, mastermindExtraD
   useSpeak(executionLine, { dread: !!executedToday, muted });
 
   const anyOpen = nominations.some(n => n.day === nightNumber && !n.closed);
+  const livingCount = players.filter(p => p.alive).length;
+  // DayView only ever mounts while phase === 'day' (App.jsx's own
+  // conditional render), so that's passed as a literal rather than a prop.
+  const pacing = useRoomPacing('day', dayStartedAt, nightNumber, livingCount, anyOpen);
 
   const main = (
     <div className="stage-main">
@@ -47,6 +53,7 @@ export default function DayView({ players, nightNumber, deaths, mastermindExtraD
         <span>{line}</span>
       </div>
       {whim && <WhimBeat />}
+      <RoomPacingNudge level={pacing} />
       {mastermindExtraDay && (
         <div className="hint">
           <Icon name="bolt" size={16} />
