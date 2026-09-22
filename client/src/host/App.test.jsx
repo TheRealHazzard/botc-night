@@ -431,12 +431,12 @@ describe("App", () => {
         "/api/scripts": SCRIPTS,
         "/api/table/deal": {},
       });
-      vi.spyOn(window, "confirm").mockReturnValue(true);
       hostState.current.S = baseS({ players });
       render(<App />);
       const start = screen.getByTitle("Start Game");
       expect(start).toBeEnabled();
       await userEvent.click(start);
+      await userEvent.click(screen.getByRole("button", { name: "Deal & start" }));
       await vi.waitFor(() =>
         expect(
           fetchMock.calls.some(c => c.url.includes("/api/table/deal")),
@@ -458,13 +458,14 @@ describe("App", () => {
         "/api/scripts": SCRIPTS,
         "/api/table/deal": {},
       });
-      vi.spyOn(window, "confirm").mockReturnValue(false);
       hostState.current.S = baseS({ players });
       render(<App />);
       await userEvent.click(screen.getByTitle("Start Game"));
+      await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
       expect(
         fetchMock.calls.some(c => c.url.includes("/api/table/deal")),
       ).toBe(false);
+      expect(screen.queryByRole("button", { name: "Cancel" })).not.toBeInTheDocument();
     });
 
     it("Clear the lobby confirms, and only posts on accept", async () => {
@@ -477,15 +478,16 @@ describe("App", () => {
         "/api/scripts": SCRIPTS,
         "/api/table/clear-lobby": {},
       });
-      const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
       hostState.current.S = baseS({ players });
       render(<App />);
       await userEvent.click(screen.getByTitle(/clear the lobby/i));
+      await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
       expect(
         fetchMock.calls.some(c => c.url.includes("/api/table/clear-lobby")),
       ).toBe(false);
-      confirmSpy.mockReturnValue(true);
+
       await userEvent.click(screen.getByTitle(/clear the lobby/i));
+      await userEvent.click(screen.getByRole("button", { name: "Clear lobby" }));
       await vi.waitFor(() =>
         expect(
           fetchMock.calls.some(c => c.url.includes("/api/table/clear-lobby")),
@@ -569,14 +571,14 @@ describe("App", () => {
         "/api/scripts": SCRIPTS,
         "/api/table/reveal": {},
       });
-      const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
       hostState.current.S = baseS({ phase: "over", nightNumber: 1 });
       render(<App />);
       await userEvent.click(screen.getByTitle(/reveal every role/i));
+      await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
       expect(fetchMock.calls.some(c => c.url.includes("/api/table/reveal"))).toBe(false);
 
-      confirmSpy.mockReturnValue(true);
       await userEvent.click(screen.getByTitle(/reveal every role/i));
+      await userEvent.click(screen.getByRole("button", { name: "Reveal", exact: true }));
       await vi.waitFor(() =>
         expect(fetchMock.calls.some(c => c.url.includes("/api/table/reveal"))).toBe(true),
       );
@@ -595,15 +597,15 @@ describe("App", () => {
         configurable: true,
         value: { ...originalLocation, reload: reloadSpy },
       });
-      const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
       hostState.current.S = baseS({ phase: "over", nightNumber: 1 });
       render(<App />);
       await userEvent.click(screen.getByTitle(/start a new game/i));
+      await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
       expect(fetchMock.calls.some(c => c.url.includes("/api/table/reset"))).toBe(false);
       expect(reloadSpy).not.toHaveBeenCalled();
 
-      confirmSpy.mockReturnValue(true);
       await userEvent.click(screen.getByTitle(/start a new game/i));
+      await userEvent.click(screen.getByRole("button", { name: "Start over" }));
       await vi.waitFor(() =>
         expect(fetchMock.calls.some(c => c.url.includes("/api/table/reset"))).toBe(true),
       );

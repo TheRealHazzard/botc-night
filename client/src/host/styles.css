@@ -1925,6 +1925,52 @@
         .minor-beat { animation: none; opacity: 0; }
       }
 
+      /* A themed stand-in for window.confirm() — see ConfirmModal.jsx. A
+   small centered card, not a full-bleed overlay like Settings/Power log
+   below: this is a yes/no gate, not a screen of its own. z-index above
+   every other overlay (45) since it can, in principle, be triggered from
+   the header regardless of what else is open. */
+      .confirm-modal-backdrop {
+        position: fixed;
+        inset: 0;
+        z-index: 60;
+        background: rgba(0, 0, 0, 0.6);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+      }
+      .confirm-modal-card {
+        max-width: 420px;
+        width: 100%;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 24px 26px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+      }
+      .confirm-modal-card.animate {
+        animation: confirm-modal-in 0.18s ease-out;
+      }
+      @keyframes confirm-modal-in {
+        from { opacity: 0; transform: scale(0.96) translateY(6px); }
+        to { opacity: 1; transform: scale(1) translateY(0); }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .confirm-modal-card.animate { animation: none; }
+      }
+      .confirm-modal-message {
+        margin: 0 0 20px;
+        font-size: 1.05rem;
+        line-height: 1.5;
+        color: var(--bone);
+      }
+      .confirm-modal-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+      }
+
       /* A wide/tall grid like this scrolls in its own full-screen layer instead
    of squeezing into a sidepanel column or risking the dashboard's own
    fixed-height, no-page-scroll layout (main has overflow:hidden on

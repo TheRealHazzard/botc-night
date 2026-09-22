@@ -20,6 +20,7 @@ import ToastStack from "./components/ToastStack.jsx";
 import BluffBeat from "../components/BluffBeat.jsx";
 import SettingsOverlay from "./components/SettingsOverlay.jsx";
 import ScriptBuilderOverlay from "./components/ScriptBuilderOverlay.jsx";
+import ConfirmModal from "./components/ConfirmModal.jsx";
 import LobbyView from "./views/LobbyView.jsx";
 import RevealView from "./views/RevealView.jsx";
 import NightView from "./views/NightView.jsx";
@@ -52,6 +53,10 @@ export default function App() {
   const { scale: textScale, cycle: cycleTextScale } = useTextScale();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [buildingScript, setBuildingScript] = useState(false);
+  // One generic slot, not four booleans — only one of the app's
+  // irreversible actions can ever be mid-confirm at a time. { message,
+  // confirmLabel, onConfirm } | null; see ConfirmModal.jsx.
+  const [pendingConfirm, setPendingConfirm] = useState(null);
   // Independent of the BOTC phase machine below — switching tabs never
   // touches `game` state, so an in-progress night is never at risk from a
   // peek at the toolkit, and the underlying phase/SSE stream keeps running
@@ -150,13 +155,25 @@ export default function App() {
   // at all before, backwards from Clear the lobby having one for a far
   // less consequential action.
   const startGame = () => {
-    if (!confirm("Deal roles and start the game? This can't be undone.")) return;
-    post("/api/table/deal").then(r => r.error && showToast(r.error));
+    setPendingConfirm({
+      message: "Deal roles and start the game? This can't be undone.",
+      confirmLabel: "Deal & start",
+      onConfirm: () => {
+        setPendingConfirm(null);
+        post("/api/table/deal").then(r => r.error && showToast(r.error));
+      },
+    });
   };
   const clearLobby = () => {
     const n = displayS.players.length;
-    if (!confirm(`Remove all ${n} seated player${n === 1 ? "" : "s"} and start the count over?`)) return;
-    post("/api/table/clear-lobby").then(r => r.error && showToast(r.error));
+    setPendingConfirm({
+      message: `Remove all ${n} seated player${n === 1 ? "" : "s"} and start the count over?`,
+      confirmLabel: "Clear lobby",
+      onConfirm: () => {
+        setPendingConfirm(null);
+        post("/api/table/clear-lobby").then(r => r.error && showToast(r.error));
+      },
+    });
   };
 
   // Reveal/New game used to also live in a per-phase sidepanel card, plus a
@@ -165,12 +182,24 @@ export default function App() {
   // so the drawer copy never actually bought any privacy. One copy, in the
   // header, alongside every other table-wide action.
   const revealAll = () => {
-    if (!confirm("End the game and reveal every role?")) return;
-    post("/api/table/reveal");
+    setPendingConfirm({
+      message: "End the game and reveal every role?",
+      confirmLabel: "Reveal",
+      onConfirm: () => {
+        setPendingConfirm(null);
+        post("/api/table/reveal");
+      },
+    });
   };
   const newGame = () => {
-    if (!confirm("Clear the table and start over?")) return;
-    post("/api/table/reset").then(() => location.reload());
+    setPendingConfirm({
+      message: "Clear the table and start over?",
+      confirmLabel: "Start over",
+      onConfirm: () => {
+        setPendingConfirm(null);
+        post("/api/table/reset").then(() => location.reload());
+      },
+    });
   };
 
   const phaseLabel =
@@ -326,6 +355,15 @@ export default function App() {
           playerCount={displayS.players.length}
           onClose={() => setBuildingScript(false)}
           onCommitted={() => setBuildingScript(false)}
+        />
+      )}
+
+      {pendingConfirm && (
+        <ConfirmModal
+          message={pendingConfirm.message}
+          confirmLabel={pendingConfirm.confirmLabel}
+          onConfirm={pendingConfirm.onConfirm}
+          onCancel={() => setPendingConfirm(null)}
         />
       )}
     </>
