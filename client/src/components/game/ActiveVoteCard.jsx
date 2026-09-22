@@ -58,6 +58,17 @@ export default function ActiveVoteCard({ activeVote, castVote, revealVote, ghost
         <button type="button" className={'votebtn yes' + (activeVote.myChoice === 'yes' ? ' on' : '')} disabled={locked} onClick={() => castVote('yes')}>Yes</button>
         <button type="button" className={'votebtn no' + (activeVote.myChoice === 'no' ? ' on' : '')} disabled={locked} onClick={() => castVote('no')}>No</button>
       </div>
+      {/* The button's own .on color is real feedback, but it's the ONLY
+          feedback a tap registered — indistinguishable from a silently
+          failed request until a toast eventually appears (see
+          useActiveVote.js's castVote). A ghost vote never lands here: it
+          locks immediately (see castVote's own wasGhost branch), so
+          there's nothing to confirm mid-window for it. */}
+      {activeVote.myChoice && (
+        <p className="dim small votecast-confirm">
+          Vote received: {activeVote.myChoice === 'yes' ? 'Yes' : 'No'}. You can change it until the window closes.
+        </p>
+      )}
     </div>
   );
 }

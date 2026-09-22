@@ -46,6 +46,16 @@ describe('ActiveVoteCard', () => {
     expect(castVote).toHaveBeenCalledWith('no');
   });
 
+  it('a cast vote gets its own confirmation line, distinct from the button\'s own color change', () => {
+    render(<ActiveVoteCard activeVote={baseVote({ myChoice: 'yes' })} castVote={() => {}} revealVote={() => {}} ghostVoteEnabled={false} setGhostVoteEnabled={() => {}} />);
+    expect(screen.getByText(/vote received: yes/i)).toBeInTheDocument();
+  });
+
+  it('no confirmation line before a choice has been made', () => {
+    render(<ActiveVoteCard activeVote={baseVote()} castVote={() => {}} revealVote={() => {}} ghostVoteEnabled={false} setGhostVoteEnabled={() => {}} />);
+    expect(screen.queryByText(/vote received/i)).not.toBeInTheDocument();
+  });
+
   it('a ghost vote disables Yes/No until armed via the toggle', async () => {
     const setGhostVoteEnabled = vi.fn();
     render(<ActiveVoteCard activeVote={baseVote({ isGhostVote: true })} castVote={() => {}} revealVote={() => {}} ghostVoteEnabled={false} setGhostVoteEnabled={setGhostVoteEnabled} />);

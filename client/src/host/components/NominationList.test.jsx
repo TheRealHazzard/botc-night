@@ -11,14 +11,27 @@ const players5 = [
 ];
 
 describe('NominationList', () => {
-  it('lists today\'s nominations, open ones as "voting…", closed ones with their yes count', () => {
+  it('lists today\'s nominations, open ones as "voting…", closed ones with their yes/threshold tally', () => {
     const nominations = [
       { day: 1, nominatorName: 'Ada', nomineeName: 'Bo', closed: true, yesCount: 3, votes: [] },
       { day: 1, nominatorName: 'Cy', nomineeName: 'Di', closed: false, votes: [{ vote: 'yes' }] },
     ];
     render(<NominationList nominations={nominations} nightNumber={1} players={players5} voteWindowSeconds={20} />);
-    expect(screen.getByText(/Ada → Bo — 3 yes/)).toBeInTheDocument();
+    // 4 alive -> threshold ceil(4/2) = 2; 3 yes clears it
+    expect(screen.getByText(/Ada → Bo —/)).toBeInTheDocument();
+    expect(screen.getByText('3 / 2 yes')).toBeInTheDocument();
     expect(screen.getByText(/Cy → Di — voting…/)).toBeInTheDocument();
+  });
+
+  it('a closed nomination that cleared the threshold is styled "met"; one that fell short isn\'t', () => {
+    const nominations = [
+      { day: 1, nominatorName: 'Ada', nomineeName: 'Bo', closed: true, yesCount: 2, votes: [] },
+      { day: 1, nominatorName: 'Cy', nomineeName: 'Ed', closed: true, yesCount: 1, votes: [] },
+    ];
+    render(<NominationList nominations={nominations} nightNumber={1} players={players5} voteWindowSeconds={20} />);
+    expect(screen.getByText('2 / 2 yes')).toHaveClass('tally', 'met');
+    expect(screen.getByText('1 / 2 yes')).toHaveClass('tally');
+    expect(screen.getByText('1 / 2 yes')).not.toHaveClass('met');
   });
 
   it('an open vote below threshold: correct label, no "met" class, proportional width', () => {

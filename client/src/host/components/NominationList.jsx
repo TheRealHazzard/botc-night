@@ -24,15 +24,24 @@ export default function NominationList({ nominations, nightNumber, players, vote
 
       {todays.length > 0 && (
         <div className="nomlist">
+          {/* The threshold below is today's CURRENT living count, same
+              basis OpenVote's own already used — not a snapshot of the
+              threshold as it stood the moment this particular nomination
+              actually closed, which a same-day death after close can
+              retroactively change. Good enough to answer "did this pass,"
+              not a promise this always matches what the table saw live. */}
           {todays.map(n => {
             const yesCount = n.closed ? n.yesCount : n.votes.filter(v => v.vote === 'yes').length;
-            const status = n.closed ? `${yesCount} yes` : 'voting…';
+            const threshold = Math.max(1, Math.ceil(players.filter(p => p.alive).length / 2));
+            const met = n.closed && yesCount >= threshold;
+            const status = n.closed ? `${yesCount} / ${threshold} yes` : 'voting…';
             const key = nomKey(n);
             return (
               <div className={'nomline' + (enteringKeys.has(key) ? ' entering' : '')} key={key}>
                 {n.virginFired && <Icon name="bolt" size={13} />}
                 <span>
-                  {n.nominatorName} → {n.nomineeName} — {status}
+                  {n.nominatorName} → {n.nomineeName} —{' '}
+                  {n.closed ? <span className={'tally' + (met ? ' met' : '')}>{status}</span> : status}
                   {n.virginFired ? '  —  Virgin fired, nominator executed' : ''}
                 </span>
               </div>

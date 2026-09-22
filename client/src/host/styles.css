@@ -1624,6 +1624,18 @@
       .nomline:last-child {
         border-bottom: none;
       }
+      /* Met/not-met at a glance for a closed nomination's own tally — the
+   same distinction .votebar-fill.met already draws for the live vote,
+   reused here so the table's own history doesn't need mental majority
+   math for every past nomination today. */
+      .nomline .tally {
+        font-variant-numeric: tabular-nums;
+        color: var(--brass);
+        font-weight: 600;
+      }
+      .nomline .tally.met {
+        color: var(--oxblood);
+      }
       /* A nomination that just landed gets one brief slide-and-flash so it
    reads as new, not just present — same "entering" convention a seat
    joining the ring already uses. */
