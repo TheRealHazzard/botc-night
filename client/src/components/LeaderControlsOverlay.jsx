@@ -9,7 +9,8 @@ import { showToast } from '../lib/toast.js';
 const PHASE_LABEL = { lobby: 'Lobby', reveal: 'Revealing roles', night: 'Night', day: 'Day', over: 'Game over' };
 
 /** The lobby leader's stand-in for the host TV's right-hand control panel
-    (ControlPanelRow/NominateAction/DayActions) — for a table with no
+    (Reveal/New game in the header, NominateAction/DayActions in the
+    sidepanel) — for a table with no
     designated Storyteller, someone still has to trigger these, and this
     lets whoever took the first seat do it from their own phone instead of
     walking up to the screen. Drives itself off the same /api/host-state
@@ -85,13 +86,12 @@ export default function LeaderControlsOverlay({ open, onClose, token, myId }) {
           {S && S.phase === 'lobby' && <LobbyControls S={S} busy={busy} run={run} />}
           {S && S.phase === 'reveal' && <RevealControls busy={busy} run={run} />}
           {S && S.phase === 'day' && <DayControls S={S} busy={busy} run={run} />}
-          {/* Reveal/New game — matches the host TV exactly: ControlPanelRow
-              (their real home) only ever mounts from RevealView/NightView/
-              DayView/OverView, never LobbyView, which has its own dedicated
-              Start game/Clear the lobby pair instead (LobbyControls above).
-              Reveal specifically also has its own server-side phase guard
-              now (/api/table/reveal), so this is UX clarity on top of a
-              real fix, not the only thing stopping it. */}
+          {/* Reveal/New game — matches the host TV exactly: on the TV these
+              live in the header, shown only outside the lobby phase, which
+              has its own dedicated Start game/Clear the lobby pair instead
+              (LobbyControls above). Reveal specifically also has its own
+              server-side phase guard now (/api/table/reveal), so this is UX
+              clarity on top of a real fix, not the only thing stopping it. */}
           {S && S.phase !== 'lobby' && <AlwaysControls busy={busy} run={run} />}
           {S && <SettingsCard S={S} run={run} />}
           {S && <HandOffControl S={S} myId={myId} busy={busy} handOff={handOff} />}

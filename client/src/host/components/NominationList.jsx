@@ -5,9 +5,10 @@ import { useEnteringSeatIds } from '../hooks/useEnteringSeatIds.js';
 
 // The presentational half of what used to be one NominationPanel — the
 // table's own eyes on today's nominations and the live vote tally. Who
-// nominates whom (NominateAction.jsx) is the Storyteller's own action, now
-// tucked behind ControlsDrawer; this half is exactly what's dramatic to
-// watch and stays on the main screen.
+// nominates whom (NominateAction.jsx) is the Storyteller's own action,
+// tucked into the sidepanel's own "Storyteller controls" card instead;
+// this half is exactly what's dramatic to watch and stays on the main
+// screen.
 export default function NominationList({ nominations, nightNumber, players, voteWindowSeconds }) {
   const todays = nominations.filter(n => n.day === nightNumber);
   const openNom = todays.find(n => !n.closed);

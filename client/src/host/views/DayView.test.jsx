@@ -12,15 +12,6 @@ const players = [
 const activeScriptMeta = { id: 'tb', name: 'Trouble Brewing', difficulty: 1, description: 'x', decidedGames: 0 };
 const config = { voteWindowSeconds: 20 };
 
-// The execute select / Kick Player / Night falls now render twice: once
-// plainly in the persistent right-side panel (visible immediately, no
-// interaction needed), and again inside ControlsDrawer, still closed by
-// default for a phone driving this screen via the leader overlay. Most
-// tests below just want the always-visible copy — getAllByText(...)[0]
-// picks it (DOM order: the persistent panel renders before the drawer).
-// openDrawer is only needed by tests specifically about drawer behavior.
-const openDrawer = () => userEvent.click(screen.getByRole('button', { name: 'Storyteller controls' }));
-
 describe('DayView', () => {
   beforeEach(() => {
     mockFetch({ '/api/tokens': {}, '/trivia.json': [] });
@@ -54,15 +45,11 @@ describe('DayView', () => {
     expect(screen.queryByText(/mastermind/i)).not.toBeInTheDocument();
   });
 
-  it('shows the controls plainly on the right; the drawer\'s own copy stays collapsed until tapped', () => {
+  it('shows the execution controls plainly on the right, with no duplicate copy anywhere else', () => {
     render(
       <DayView players={players} nightNumber={1} deaths={[]} nominations={[]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
     );
-    // The persistent panel's copy is visible immediately — the whole point
-    // of duplicating these controls — but the drawer's own copy underneath
-    // hasn't been opened yet, so there's exactly one of each so far.
     expect(screen.getAllByText(/kick player/i)).toHaveLength(1);
-    expect(screen.getByRole('button', { name: 'Storyteller controls' })).toBeInTheDocument();
   });
 
   it('Kick Player/Night falls are disabled while a vote is open', () => {
@@ -257,21 +244,6 @@ describe('DayView', () => {
       <DayView players={players} nightNumber={1} deaths={[{ name: 'Bo', night: 1, cause: 'demon' }]} nominations={[]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
     );
     expect(screen.queryByText('Bo is executed.')).not.toBeInTheDocument();
-  });
-
-  it('the minor-beat overlay playing forces the drawer shut (the persistent panel is unaffected)', async () => {
-    const { rerender } = render(
-      <DayView players={players} nightNumber={1} deaths={[]} nominations={[]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
-    );
-    await openDrawer();
-    // Two copies now — the persistent panel's and the newly-opened drawer's.
-    expect(screen.getAllByText(/kick player/i)).toHaveLength(2);
-
-    rerender(
-      <DayView players={players} nightNumber={1} deaths={[{ name: 'Ada', night: 1, cause: 'execution' }]} nominations={[]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
-    );
-    // Only the persistent panel's copy remains — the drawer's own copy is forced shut.
-    expect(screen.getAllByText(/kick player/i)).toHaveLength(1);
   });
 
   it('the auto-computed leader ignores a qualifying nominee who has since died', () => {

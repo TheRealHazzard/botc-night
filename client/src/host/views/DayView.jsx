@@ -4,8 +4,6 @@ import DayCounterLabel from '../components/DayCounterLabel.jsx';
 import RingSeats from '../components/RingSeats.jsx';
 import TriviaLine from '../components/TriviaLine.jsx';
 import GameLeftPanel from '../components/GameLeftPanel.jsx';
-import ControlPanelRow from '../components/ControlPanelRow.jsx';
-import ControlsDrawer from '../components/ControlsDrawer.jsx';
 import SidepanelCard from '../components/SidepanelCard.jsx';
 import NominationList from '../components/NominationList.jsx';
 import NominateAction from '../components/NominateAction.jsx';
@@ -68,11 +66,6 @@ export default function DayView({ players, nightNumber, deaths, nominations, con
 
   const left = <GameLeftPanel scriptChars={scriptChars} activeScriptMeta={activeScriptMeta} />;
 
-  // Rendered twice on purpose (also inside ControlsDrawer below) — once
-  // plainly on the right, once in the collapsed drawer for a phone driving
-  // this same screen via the leader overlay. Two independent widget
-  // instances, so a dropdown selection made in one copy doesn't reflect in
-  // the other — an accepted cost of true duplication, not synchronized.
   const right = (
     <div className="sidepanel">
       <NominationList nominations={nominations} nightNumber={nightNumber} players={players} voteWindowSeconds={config.voteWindowSeconds} />
@@ -80,7 +73,6 @@ export default function DayView({ players, nightNumber, deaths, nominations, con
       {anyOpen && <TriviaLine scriptId={script} compact />}
       <SidepanelCard icon="gear" title="Storyteller controls">
         <div className="sidepanel-card-stack">
-          <ControlPanelRow />
           <NominateAction nominations={nominations} nightNumber={nightNumber} players={players} />
           <DayActions players={players} nominations={nominations} nightNumber={nightNumber} anyOpen={anyOpen} />
         </div>
@@ -92,11 +84,6 @@ export default function DayView({ players, nightNumber, deaths, nominations, con
     <>
       <DashboardLayout left={left} main={main} right={right} />
       {minorBeat && <MinorBeatOverlay name={minorBeat.name} />}
-      <ControlsDrawer forceClosed={!!minorBeat}>
-        <ControlPanelRow />
-        <NominateAction nominations={nominations} nightNumber={nightNumber} players={players} />
-        <DayActions players={players} nominations={nominations} nightNumber={nightNumber} anyOpen={anyOpen} />
-      </ControlsDrawer>
     </>
   );
 }

@@ -159,6 +159,20 @@ export default function App() {
     post("/api/table/clear-lobby").then(r => r.error && showToast(r.error));
   };
 
+  // Reveal/New game used to also live in a per-phase sidepanel card, plus a
+  // second, fully redundant copy behind a floating "Storyteller controls"
+  // drawer tab — both on the same shared screen the table already watches,
+  // so the drawer copy never actually bought any privacy. One copy, in the
+  // header, alongside every other table-wide action.
+  const revealAll = () => {
+    if (!confirm("End the game and reveal every role?")) return;
+    post("/api/table/reveal");
+  };
+  const newGame = () => {
+    if (!confirm("Clear the table and start over?")) return;
+    post("/api/table/reset").then(() => location.reload());
+  };
+
   const phaseLabel =
     displayS.phase === "night"
       ? `Night ${displayS.nightNumber}${displayS.wave === 2 ? " — again" : ""}`
@@ -189,6 +203,16 @@ export default function App() {
         playerCount={displayS.players.length}
         onStartGame={startGame}
         onClearLobby={clearLobby}
+        showGameControls={
+          section === "game" &&
+          (displayS.phase === "reveal" ||
+            displayS.phase === "night" ||
+            displayS.phase === "day" ||
+            displayS.phase === "over" ||
+            displayS.revealed)
+        }
+        onReveal={revealAll}
+        onNewGame={newGame}
         onOpenHistory={() => window.open("/games", "_blank")}
         onOpenHallOfFame={() => window.open("/hall-of-fame", "_blank")}
         onOpenCharacters={() => window.open("/characters", "_blank")}
@@ -326,6 +350,9 @@ function Header({
   playerCount,
   onStartGame,
   onClearLobby,
+  showGameControls,
+  onReveal,
+  onNewGame,
   onOpenHistory,
   onOpenHallOfFame,
   onOpenCharacters,
@@ -464,6 +491,26 @@ function Header({
               onClick={onCancelBrowse}
             >
               <Icon name="close" size={17} />
+            </button>
+          </>
+        )}
+        {showGameControls && (
+          <>
+            <button
+              type="button"
+              className="mutebtn"
+              title="Reveal every role and end the game"
+              onClick={onReveal}
+            >
+              <Icon name="eye" size={17} />
+            </button>
+            <button
+              type="button"
+              className="mutebtn"
+              title="Clear the table and start a new game"
+              onClick={onNewGame}
+            >
+              <Icon name="refresh" size={17} />
             </button>
           </>
         )}

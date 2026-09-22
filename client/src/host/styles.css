@@ -1294,65 +1294,6 @@
         align-self: stretch;
         min-height: 0;
       }
-      /* Reveal / New game used to float as a quiet corner link, visually
-   disconnected from the bordered buttons below — now it's just the first
-   row in the same stack, same border, same weight, same gap rhythm. */
-      .control-panel {
-        display: flex;
-        gap: 8px;
-      }
-      .control-panel button {
-        flex: 1;
-        margin: 0;
-      }
-
-      /* The Storyteller's own controls — not part of the dashboard grid, so
-   they float over whatever's underneath instead of claiming a permanent
-   column. Bottom-right, out of the way of the ring everyone's actually
-   watching; the tab alone is the resting state (closed by default, per
-   ControlsDrawer.jsx), the panel only exists in the DOM while open. */
-      .controls-drawer {
-        position: fixed;
-        right: 20px;
-        bottom: 20px;
-        z-index: 30;
-        display: flex;
-        flex-direction: column;
-        align-items: flex-end;
-        gap: 10px;
-      }
-      .controls-drawer-tab {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        font-size: 0.72rem;
-        letter-spacing: 0.04em;
-        color: var(--bone-faint);
-        background: var(--surface);
-        border: 1px solid var(--line);
-        border-radius: 999px;
-        padding: 7px 14px;
-        opacity: 0.55;
-        transition: opacity 0.15s ease;
-      }
-      .controls-drawer-tab:hover,
-      .controls-drawer.open .controls-drawer-tab {
-        opacity: 1;
-      }
-      .controls-drawer-panel {
-        width: 280px;
-        max-height: min(60vh, 520px);
-        overflow-y: auto;
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-        border: 1px solid var(--line);
-        border-radius: 12px;
-        padding: 16px;
-        background: var(--surface);
-        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
-      }
-
       .roster-group-title {
         display: flex;
         align-items: center;
@@ -1419,12 +1360,9 @@
         background: var(--surface);
         padding: 18px 20px;
       }
-      /* Multiple control blocks stacked inside a single SidepanelCard (the
-   persistent right-panel copy of the Storyteller controls) need the same
-   breathing room between them the drawer's own .controls-drawer-panel
-   already gives its children via flex+gap — SidepanelCard itself is a
-   plain block container, so without this its children (ControlPanelRow,
-   NominateAction, the execute row) touched edge-to-edge. */
+      /* Multiple control blocks stacked inside a single SidepanelCard —
+   SidepanelCard itself is a plain block container, so without this its
+   children (NominateAction, the execute row) touched edge-to-edge. */
       .sidepanel-card-stack {
         display: flex;
         flex-direction: column;

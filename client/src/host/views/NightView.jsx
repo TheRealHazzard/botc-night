@@ -3,8 +3,6 @@ import DayCounterLabel from '../components/DayCounterLabel.jsx';
 import RingSeats from '../components/RingSeats.jsx';
 import TriviaLine from '../components/TriviaLine.jsx';
 import GameLeftPanel from '../components/GameLeftPanel.jsx';
-import ControlPanelRow from '../components/ControlPanelRow.jsx';
-import ControlsDrawer from '../components/ControlsDrawer.jsx';
 import SidepanelCard from '../components/SidepanelCard.jsx';
 import Countdown from '../components/Countdown.jsx';
 import WhimBeat from '../components/WhimBeat.jsx';
@@ -32,9 +30,6 @@ export default function NightView({ players, nightNumber, wave, windowEndsAt, wi
 
   const left = <GameLeftPanel scriptChars={scriptChars} activeScriptMeta={activeScriptMeta} />;
 
-  // Rendered twice on purpose (also inside ControlsDrawer below) — once
-  // plainly on the right, once in the collapsed drawer for a phone driving
-  // this same screen via the leader overlay.
   const right = (
     <div className="sidepanel">
       <SidepanelCard icon="clock" title={again ? 'Second window' : 'Night window'}>
@@ -49,18 +44,8 @@ export default function NightView({ players, nightNumber, wave, windowEndsAt, wi
         <div className="sub">{acted} of {living} have answered.</div>
       </SidepanelCard>
       <TriviaLine scriptId={script} compact />
-      <SidepanelCard icon="gear" title="Storyteller controls">
-        <ControlPanelRow />
-      </SidepanelCard>
     </div>
   );
 
-  return (
-    <>
-      <DashboardLayout left={left} main={main} right={right} />
-      <ControlsDrawer>
-        <ControlPanelRow />
-      </ControlsDrawer>
-    </>
-  );
+  return <DashboardLayout left={left} main={main} right={right} />;
 }

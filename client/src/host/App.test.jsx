@@ -536,6 +536,82 @@ describe("App", () => {
     });
   });
 
+  // Reveal/New game used to also live in a per-phase sidepanel card, plus a
+  // second, fully redundant copy behind a floating drawer tab — both on the
+  // same shared screen already showing the header. One copy now, here.
+  describe("Reveal/New game live in the header during an in-progress game, not the lobby", () => {
+    it("hidden during the lobby phase", () => {
+      render(<App />);
+      expect(screen.queryByTitle(/reveal every role/i)).not.toBeInTheDocument();
+      expect(screen.queryByTitle(/start a new game/i)).not.toBeInTheDocument();
+    });
+
+    it("shown during night/day/reveal/over", () => {
+      for (const phase of ["reveal", "night", "day", "over"]) {
+        hostState.current.S = baseS({ phase, nightNumber: 1 });
+        const { unmount } = render(<App />);
+        expect(screen.getByTitle(/reveal every role/i)).toBeInTheDocument();
+        expect(screen.getByTitle(/start a new game/i)).toBeInTheDocument();
+        unmount();
+      }
+    });
+
+    it("also shown once revealed, even if phase somehow isn't literally 'over'", () => {
+      hostState.current.S = baseS({ phase: "day", nightNumber: 1, revealed: true });
+      render(<App />);
+      expect(screen.getByTitle(/reveal every role/i)).toBeInTheDocument();
+    });
+
+    it("Reveal confirms, and only posts /api/table/reveal on accept", async () => {
+      const fetchMock = mockFetch({
+        "/api/tokens": {},
+        "/trivia.json": [],
+        "/api/scripts": SCRIPTS,
+        "/api/table/reveal": {},
+      });
+      const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
+      hostState.current.S = baseS({ phase: "over", nightNumber: 1 });
+      render(<App />);
+      await userEvent.click(screen.getByTitle(/reveal every role/i));
+      expect(fetchMock.calls.some(c => c.url.includes("/api/table/reveal"))).toBe(false);
+
+      confirmSpy.mockReturnValue(true);
+      await userEvent.click(screen.getByTitle(/reveal every role/i));
+      await vi.waitFor(() =>
+        expect(fetchMock.calls.some(c => c.url.includes("/api/table/reveal"))).toBe(true),
+      );
+    });
+
+    it("New game confirms, and only posts /api/table/reset + reloads on accept", async () => {
+      const fetchMock = mockFetch({
+        "/api/tokens": {},
+        "/trivia.json": [],
+        "/api/scripts": SCRIPTS,
+        "/api/table/reset": {},
+      });
+      const reloadSpy = vi.fn();
+      const originalLocation = window.location;
+      Object.defineProperty(window, "location", {
+        configurable: true,
+        value: { ...originalLocation, reload: reloadSpy },
+      });
+      const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
+      hostState.current.S = baseS({ phase: "over", nightNumber: 1 });
+      render(<App />);
+      await userEvent.click(screen.getByTitle(/start a new game/i));
+      expect(fetchMock.calls.some(c => c.url.includes("/api/table/reset"))).toBe(false);
+      expect(reloadSpy).not.toHaveBeenCalled();
+
+      confirmSpy.mockReturnValue(true);
+      await userEvent.click(screen.getByTitle(/start a new game/i));
+      await vi.waitFor(() =>
+        expect(fetchMock.calls.some(c => c.url.includes("/api/table/reset"))).toBe(true),
+      );
+      await vi.waitFor(() => expect(reloadSpy).toHaveBeenCalled());
+      Object.defineProperty(window, "location", { configurable: true, value: originalLocation });
+    });
+  });
+
   describe("the Game/Toolkit header switch", () => {
     it("is absent before any state has loaded — the toolkit only appears once the header's real controls do", () => {
       render(<App />);

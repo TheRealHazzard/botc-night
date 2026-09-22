@@ -354,12 +354,12 @@ describe('LeaderControlsOverlay', () => {
       expect(fetchMock.calls.some(c => c.url.includes('/api/table/reveal'))).toBe(true);
     });
 
-    // Nothing here to reveal or reset over yet — the host TV's own
-    // ControlPanelRow (where these two live) never mounts during the
-    // lobby either; LobbyControls' own Start game/Clear the lobby pair is
-    // the lobby's real equivalent. Reveal also has its own server-side
-    // phase guard now, but this is what keeps a leader from ever seeing
-    // (and tapping) a button that would just 409.
+    // Nothing here to reveal or reset over yet — the host TV's own header
+    // buttons (where these two live) are hidden during the lobby either;
+    // LobbyControls' own Start game/Clear the lobby pair is the lobby's
+    // real equivalent. Reveal also has its own server-side phase guard
+    // now, but this is what keeps a leader from ever seeing (and tapping)
+    // a button that would just 409.
     it('hides Reveal and New game entirely during the lobby', () => {
       FakeEventSource.instances = [];
       vi.stubGlobal('EventSource', FakeEventSource);

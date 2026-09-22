@@ -3,8 +3,6 @@ import DashboardLayout from '../components/DashboardLayout.jsx';
 import RingSeats from '../components/RingSeats.jsx';
 import GameSummaryCard from '../components/GameSummaryCard.jsx';
 import SidepanelCard from '../components/SidepanelCard.jsx';
-import ControlPanelRow from '../components/ControlPanelRow.jsx';
-import ControlsDrawer from '../components/ControlsDrawer.jsx';
 import SessionStatsCard from '../components/SessionStatsCard.jsx';
 import PowerLogOverlay from '../components/PowerLogOverlay.jsx';
 import Icon from '../components/Icon.jsx';
@@ -98,12 +96,6 @@ export default function OverView({ players, victory, gameSummary, log, actionLog
           {players.map(p => <RosterRow key={p.id} player={p} />)}
         </div>
       </SidepanelCard>
-      {/* Rendered twice on purpose (also inside ControlsDrawer below) —
-          once plainly on the right, once in the collapsed drawer for a
-          phone driving this same screen via the leader overlay. */}
-      <SidepanelCard icon="gear" title="Storyteller controls">
-        <ControlPanelRow />
-      </SidepanelCard>
     </div>
   );
 
@@ -113,9 +105,6 @@ export default function OverView({ players, victory, gameSummary, log, actionLog
       {showPowerLog && (
         <PowerLogOverlay players={players} actionLog={actionLog} resultsLog={resultsLog} nightNumber={nightNumber} onClose={() => setShowPowerLog(false)} />
       )}
-      <ControlsDrawer>
-        <ControlPanelRow />
-      </ControlsDrawer>
     </>
   );
 }

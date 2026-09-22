@@ -1,8 +1,6 @@
 import DashboardLayout from '../components/DashboardLayout.jsx';
 import RingSeats from '../components/RingSeats.jsx';
 import GameLeftPanel from '../components/GameLeftPanel.jsx';
-import ControlPanelRow from '../components/ControlPanelRow.jsx';
-import ControlsDrawer from '../components/ControlsDrawer.jsx';
 import SidepanelCard from '../components/SidepanelCard.jsx';
 import Icon from '../components/Icon.jsx';
 import { useSpeak } from '../hooks/useSpeak.js';
@@ -21,33 +19,17 @@ export default function RevealView({ players, scriptChars, activeScriptMeta, mut
 
   const left = <GameLeftPanel scriptChars={scriptChars} activeScriptMeta={activeScriptMeta} />;
 
-  const controls = (
-    <>
-      <ControlPanelRow />
-      <div className="sidepanel-actions">
-        <button type="button" className="primary" onClick={() => post('/api/table/night')}>
-          <Icon name="moon" size={15} /> Night falls
-        </button>
-      </div>
-    </>
-  );
-
-  // Same controls appear twice on purpose: once plainly on the right, once
-  // in the collapsed drawer below (for a phone driving this same screen via
-  // the leader overlay, the drawer stays the reachable copy at arm's length
-  // from the table's own view of the ring).
   const right = (
     <div className="sidepanel">
       <SidepanelCard icon="gear" title="Storyteller controls">
-        <div className="sidepanel-card-stack">{controls}</div>
+        <div className="sidepanel-actions">
+          <button type="button" className="primary" onClick={() => post('/api/table/night')}>
+            <Icon name="moon" size={15} /> Night falls
+          </button>
+        </div>
       </SidepanelCard>
     </div>
   );
 
-  return (
-    <>
-      <DashboardLayout left={left} main={main} right={right} />
-      <ControlsDrawer>{controls}</ControlsDrawer>
-    </>
-  );
+  return <DashboardLayout left={left} main={main} right={right} />;
 }
