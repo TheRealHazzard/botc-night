@@ -1,12 +1,15 @@
 import RingSeat from './RingSeat.jsx';
-import DayCountdownRing from './DayCountdownRing.jsx';
 
-export default function RingSeats({ players, revealed = false, enteringIds = null, glow = null, countdown = null }) {
+export default function RingSeats({ players, revealed = false, enteringIds = null, glow = null, pace = null }) {
   return (
-    <div className={'ring' + (players.length > 10 ? ' dense' : '') + (glow ? ` glow-${glow}` : '')}>
-      {/* First, so seat avatars stack visually on top of the fill rather
-          than under it. */}
-      {countdown && <DayCountdownRing startedAt={countdown.startedAt} totalMs={countdown.totalMs} />}
+    <div
+      className={
+        'ring' +
+        (players.length > 10 ? ' dense' : '') +
+        (glow ? ` glow-${glow}` : '') +
+        (pace ? ` pace-${pace}` : '')
+      }
+    >
       {players.map((p, i) => (
         <RingSeat
           key={p.id}

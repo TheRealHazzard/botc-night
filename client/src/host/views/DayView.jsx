@@ -17,14 +17,15 @@ import { useWhimBeat } from '../hooks/useWhimBeat.js';
 import { useMinorBeat } from '../hooks/useMinorBeat.js';
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion.js';
 import { useRoomPacing } from '../hooks/useRoomPacing.js';
+import { useDayPace } from '../hooks/useDayPace.js';
 import { post } from '../../lib/api.js';
 import { showToast } from '../../lib/toast.js';
 import { leadingNominee } from '../../lib/leadingNominee.js';
 
 // Fixed for now, not a Settings value yet — atmospheric only, no phase
-// effect (see DayCountdownRing.jsx). Revisit if it ever needs tuning per
-// table rather than once here.
-const DAY_COUNTDOWN_MS = 5 * 60_000;
+// effect (see useDayPace.js). Revisit if it ever needs tuning per table
+// rather than once here.
+const DAY_PACE_TOTAL_MS = 5 * 60_000;
 
 export default function DayView({ players, nightNumber, deaths, nominations, config, script, scriptChars, activeScriptMeta, muted, log = [], dayStartedAt }) {
   const lastNight = deaths.filter(d => d.night === nightNumber && d.cause !== 'execution');
@@ -49,6 +50,7 @@ export default function DayView({ players, nightNumber, deaths, nominations, con
   // DayView only ever mounts while phase === 'day' (App.jsx's own
   // conditional render), so that's passed as a literal rather than a prop.
   const pacing = useRoomPacing('day', dayStartedAt, nightNumber, livingCount, anyOpen);
+  const pace = useDayPace(dayStartedAt, DAY_PACE_TOTAL_MS);
 
   const main = (
     <div className="stage-main">
@@ -65,10 +67,7 @@ export default function DayView({ players, nightNumber, deaths, nominations, con
           (see server.js's resolveMastermindBonusDay). */}
       {whim && <WhimBeat />}
       <RoomPacingNudge level={pacing} />
-      <RingSeats
-        players={players}
-        countdown={dayStartedAt ? { startedAt: dayStartedAt, totalMs: DAY_COUNTDOWN_MS } : null}
-      />
+      <RingSeats players={players} pace={pace} />
     </div>
   );
 

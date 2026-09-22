@@ -256,15 +256,15 @@ describe('DayView', () => {
     expect(select.value).toBe('');
   });
 
-  it('shows the day-countdown ring once dayStartedAt is known, not before', () => {
+  it('the ring glows pace-green once dayStartedAt is known, no pace class before', () => {
     const { container, rerender } = render(
       <DayView players={players} nightNumber={1} deaths={[]} nominations={[]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
     );
-    expect(container.querySelector('.day-countdown-ring')).not.toBeInTheDocument();
+    expect(container.querySelector('.ring')).not.toHaveClass('pace-green', 'pace-yellow', 'pace-red');
 
     rerender(
       <DayView players={players} nightNumber={1} deaths={[]} nominations={[]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} dayStartedAt={Date.now()} />
     );
-    expect(container.querySelector('.day-countdown-ring')).toBeInTheDocument();
+    expect(container.querySelector('.ring')).toHaveClass('pace-green');
   });
 });

@@ -78,12 +78,16 @@ describe('RingSeats', () => {
     expect(container.querySelector('.ring')).not.toHaveClass('glow-good');
   });
 
-  it('renders no day-countdown ring by default, and one when given a countdown prop', () => {
+  it('has no pace class by default, and takes pace-green/yellow/red from the pace prop', () => {
     const { container, rerender } = render(<RingSeats players={[alive]} />);
-    expect(container.querySelector('.day-countdown-ring')).not.toBeInTheDocument();
+    expect(container.querySelector('.ring')).not.toHaveClass('pace-green', 'pace-yellow', 'pace-red');
 
-    rerender(<RingSeats players={[alive]} countdown={{ startedAt: Date.now(), totalMs: 5 * 60_000 }} />);
-    expect(container.querySelector('.day-countdown-ring')).toBeInTheDocument();
+    rerender(<RingSeats players={[alive]} pace="green" />);
+    expect(container.querySelector('.ring')).toHaveClass('pace-green');
+
+    rerender(<RingSeats players={[alive]} pace="red" />);
+    expect(container.querySelector('.ring')).toHaveClass('pace-red');
+    expect(container.querySelector('.ring')).not.toHaveClass('pace-green');
   });
 
   it('applies the entering class only to ids in enteringIds', () => {
