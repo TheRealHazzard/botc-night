@@ -212,7 +212,12 @@ export default function App() {
       confirmLabel: "Start over",
       onConfirm: () => {
         setPendingConfirm(null);
-        post("/api/table/reset").then(() => location.reload());
+        // No location.reload() — a full page reload always exits
+        // fullscreen (a hard browser constraint, not overridable), and
+        // it was never actually needed: /api/table/reset already
+        // pushes the reset state over the same /host-events stream
+        // useHostState() is already subscribed to.
+        post("/api/table/reset");
       },
     });
   };

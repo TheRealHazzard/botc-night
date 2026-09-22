@@ -596,13 +596,16 @@ describe("App", () => {
       );
     });
 
-    it("New game confirms, and only posts /api/table/reset + reloads on accept", async () => {
+    it("New game confirms, and only posts /api/table/reset on accept — no page reload (that would drop fullscreen)", async () => {
       const fetchMock = mockFetch({
         "/api/tokens": {},
         "/trivia.json": [],
         "/api/scripts": SCRIPTS,
         "/api/table/reset": {},
       });
+      // window.location.reload can't be spied on directly in this jsdom
+      // setup (it isn't configurable) — swap the whole location object,
+      // same workaround this test used before the fix this now verifies.
       const reloadSpy = vi.fn();
       const originalLocation = window.location;
       Object.defineProperty(window, "location", {
@@ -614,14 +617,13 @@ describe("App", () => {
       await userEvent.click(screen.getByTitle(/start a new game/i));
       await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
       expect(fetchMock.calls.some(c => c.url.includes("/api/table/reset"))).toBe(false);
-      expect(reloadSpy).not.toHaveBeenCalled();
 
       await userEvent.click(screen.getByTitle(/start a new game/i));
       await userEvent.click(screen.getByRole("button", { name: "Start over" }));
       await vi.waitFor(() =>
         expect(fetchMock.calls.some(c => c.url.includes("/api/table/reset"))).toBe(true),
       );
-      await vi.waitFor(() => expect(reloadSpy).toHaveBeenCalled());
+      expect(reloadSpy).not.toHaveBeenCalled();
       Object.defineProperty(window, "location", { configurable: true, value: originalLocation });
     });
   });
