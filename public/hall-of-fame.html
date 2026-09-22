@@ -37,10 +37,12 @@
 }
 
 *{box-sizing:border-box}
-html,body{height:100%}
 /* Centers a short report vertically on a big TV screen instead of
-   pinning it to the top — see games.html's own copy of this comment for
-   why min-height (not height) makes this safe against overflow. */
+   pinning it to the top. min-height, not height — html/body get no
+   explicit height at all here, so body is always free to grow past the
+   viewport and the page scrolls normally once content actually does;
+   pairing this with a fixed height (an earlier version of this rule
+   accidentally did) traps overflow behind an un-scrollable clip instead. */
 body{margin:0; min-height:100vh; min-height:100dvh; display:flex; flex-direction:column; justify-content:center; background:var(--bg); color:var(--text); font-family:'Spectral',Georgia,serif; font-size:16px; line-height:1.55}
 h1,h2,h3{font-family:'Cormorant Garamond',Georgia,serif; font-weight:600; margin:0 0 .4em; text-wrap:balance}
 .mono{font-family:'Space Mono',monospace; font-variant-numeric:tabular-nums}

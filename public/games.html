@@ -42,14 +42,14 @@
 }
 
 *{box-sizing:border-box}
-html,body{height:100%}
 /* min-height (not height) + a flex column that centers its one child
    (.app) — on a short report (few games, few players) this centers the
-   whole page instead of pinning it to the top of a big empty TV screen;
-   once .app's own content grows taller than the viewport, min-height
-   just lets body grow with it and the page scrolls normally, so there's
-   no fixed-height/overflow combination for centering to ever clip
-   against. */
+   whole page instead of pinning it to the top of a big empty TV screen.
+   html/body get no explicit height at all, so once .app's own content
+   grows taller than the viewport, body is always free to grow past it
+   and the page scrolls normally — pairing this with a fixed height
+   (an earlier version of this rule accidentally did, via html,body{
+   height:100%}) traps the overflow behind an un-scrollable clip instead. */
 body{margin:0; min-height:100vh; min-height:100dvh; display:flex; flex-direction:column; justify-content:center; background:var(--bg); color:var(--text); font-family:'Spectral',Georgia,serif; font-size:16px; line-height:1.55}
 h1,h2,h3{font-family:'Cormorant Garamond',Georgia,serif; font-weight:600; margin:0 0 .4em; text-wrap:balance}
 .mono{font-family:'Space Mono',monospace; font-variant-numeric:tabular-nums}

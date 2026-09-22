@@ -29,16 +29,14 @@
       * {
         box-sizing: border-box;
       }
-      html, body {
-        height: 100%;
-      }
       body {
         margin: 0;
         /* Centers the header+content stack vertically on a big TV screen
            when it's short (an early or quiet dry run) instead of pinning
-           it to the top — see games.html's own copy of this comment for
-           why min-height (not height) makes this safe once the event log
-           grows past the viewport. */
+           it to the top. html/body get no explicit height at all here —
+           min-height only — so body is always free to grow past the
+           viewport once the event log actually does, and the page
+           scrolls normally instead of clipping behind a fixed height. */
         min-height: 100vh;
         min-height: 100dvh;
         display: flex;

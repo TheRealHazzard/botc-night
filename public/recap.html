@@ -38,12 +38,12 @@
 }
 
 *{box-sizing:border-box}
-html,body{height:100%}
 /* Same shape as games.html/hall-of-fame.html/stats.html/characters.html
    (identical .app{max-width} report layout) — centers a short recap
    vertically instead of pinning it to the top, on whatever screen this
-   shared link actually gets opened on. min-height (not height) keeps it
-   safe against overflow once content grows past the viewport. */
+   shared link actually gets opened on. html/body get no explicit height
+   here (min-height only), so body is always free to grow past the
+   viewport and the page scrolls normally once content actually does. */
 body{margin:0; min-height:100vh; min-height:100dvh; display:flex; flex-direction:column; justify-content:center; background:var(--bg); color:var(--text); font-family:'Spectral',Georgia,serif; font-size:16px; line-height:1.6}
 h1,h2{font-family:'Cormorant Garamond',Georgia,serif; font-weight:600; margin:0 0 .3em; text-wrap:balance}
 .mono{font-family:'Space Mono',monospace; font-variant-numeric:tabular-nums}
