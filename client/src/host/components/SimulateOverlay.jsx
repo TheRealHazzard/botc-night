@@ -49,7 +49,7 @@ export default function SimulateOverlay({ onClose, realPhase, realPlayerCount })
         )}
         <button type="button" className="ghostbtn" onClick={onClose}>Close</button>
       </div>
-      <div className="powerlog-body">
+      <div className={'powerlog-body' + (!payload ? ' sim-start-wrap' : '')}>
         {!payload ? (
           <SimStartForm realPhase={realPhase} realPlayerCount={realPlayerCount} onStarted={reconnect} />
         ) : (

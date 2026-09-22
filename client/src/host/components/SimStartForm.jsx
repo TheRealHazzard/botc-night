@@ -40,7 +40,7 @@ export default function SimStartForm({ realPhase, realPlayerCount, onStarted }) 
   };
 
   return (
-    <div className="sim-start">
+    <div className="lb-panel sim-start">
       <p className="sub">Press Run a game to watch a table of bots play a full game, start to finish.</p>
       {tableBusy && (
         <p className="sub sim-start-warning">

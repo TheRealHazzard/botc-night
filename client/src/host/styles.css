@@ -127,7 +127,7 @@
         font-size: 0.62rem;
         text-transform: uppercase;
         letter-spacing: 0.14em;
-        color: var(--bone-faint);
+        color: var(--bone-dim);
         margin-right: 4px;
         white-space: nowrap;
       }
@@ -285,7 +285,7 @@
         flex-shrink: 0;
       }
       .setup-ratio {
-        color: var(--bone-faint);
+        color: var(--bone-dim);
         font-size: 0.85rem;
       }
 
@@ -596,7 +596,7 @@
         border-color: var(--line-soft) !important;
       }
       .rseat.dead .rseat-name {
-        color: var(--bone-faint);
+        color: var(--bone-dim);
         text-decoration: line-through;
       }
       .rseat.offline .rseat-avatar {
@@ -949,7 +949,7 @@
         color: var(--bone-dim);
       }
       .detail-stat-panel-count {
-        color: var(--bone-faint);
+        color: var(--bone-dim);
         font-family: "Space Mono", monospace;
         letter-spacing: 0;
       }
@@ -1393,7 +1393,7 @@
         flex-shrink: 0;
       }
       .roster-group-count {
-        color: var(--bone-faint);
+        color: var(--bone-dim);
         font-family: "Space Mono", monospace;
         letter-spacing: 0;
       }
@@ -1544,7 +1544,7 @@
       }
       button.ghost.spent {
         border-color: var(--line-soft);
-        color: var(--bone-faint);
+        color: var(--bone-dim);
         text-decoration: line-through;
         background: var(--surface);
       }
@@ -2165,7 +2165,7 @@
         font-size: 0.7rem;
         letter-spacing: 0.14em;
         text-transform: uppercase;
-        color: var(--bone-faint);
+        color: var(--bone-dim);
         margin: 0 0 14px;
         padding-bottom: 8px;
         border-bottom: 1px solid var(--line);
@@ -2299,7 +2299,7 @@
       }
       .settings-row .lbl span {
         font-size: 0.78rem;
-        color: var(--bone-faint);
+        color: var(--bone-dim);
       }
       .settings-row input[type="range"] {
         width: 150px;
@@ -2442,7 +2442,7 @@
         color: var(--verdigris, #6b9b7c);
       }
       .llm-status.off {
-        color: var(--bone-faint);
+        color: var(--bone-dim);
       }
 
       /* -------------------------------------------------------------- footer */
@@ -2553,7 +2553,7 @@
         flex-shrink: 0;
       }
       .deadname {
-        color: var(--bone-faint);
+        color: var(--bone-dim);
         text-decoration: line-through;
       }
       .log {
@@ -2657,7 +2657,7 @@
         font-size: 0.7rem;
         letter-spacing: 0;
         text-transform: none;
-        color: var(--bone-faint);
+        color: var(--bone-dim);
       }
       .checklist-row {
         display: flex;
@@ -2701,7 +2701,7 @@
       }
       .checklist-stat {
         font-size: 0.85rem;
-        color: var(--bone-faint);
+        color: var(--bone-dim);
         white-space: nowrap;
         font-family: "Space Mono", monospace;
       }
@@ -2736,7 +2736,7 @@
         border-bottom: none;
       }
       .lb-rank {
-        color: var(--bone-faint);
+        color: var(--bone-dim);
         font-family: "Space Mono", monospace;
         margin-right: 8px;
       }
@@ -2746,7 +2746,7 @@
         flex-shrink: 0;
       }
       .hof-rank {
-        color: var(--bone-faint);
+        color: var(--bone-dim);
         width: 2em;
       }
       .hof-namecell {
@@ -2855,7 +2855,7 @@
         border-bottom: none;
       }
       .gh-tally {
-        color: var(--bone-faint);
+        color: var(--bone-dim);
         white-space: nowrap;
         font-family: "Space Mono", monospace;
       }
@@ -2887,9 +2887,20 @@
          SimulateOverlay.jsx and friends — an in-app port of simulate.html.
          Reuses .lb-panel/.powerlog-body/.sub/.narration/.log from the Hall
          of Fame/Game History ports rather than new panel chrome. */
+      /* The start form used to just sit top-left in an otherwise empty
+   black overlay body — the same wasted-canvas problem Act VIII already
+   fixed for the other static-page overlays, just missed here since this
+   one was built after that pass. .sim-start-wrap centers the one card
+   this state actually has, both axes, instead of leaving it stranded. */
+      .sim-start-wrap {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100%;
+      }
       .sim-start {
         max-width: 520px;
-        margin: 0 auto;
+        width: 100%;
       }
       .sim-start-warning {
         color: var(--brass);
@@ -2910,9 +2921,23 @@
         font-size: 0.82rem;
         color: var(--bone-dim);
       }
-      .sim-start-fields input,
-      .sim-start-fields select {
+      /* Neither plain <input> nor a <select> outside .settings-row had
+   any themed styling anywhere in this file — .settings-row input[type=
+   number] only ever covered Settings' own fields, so these fell back to
+   the browser's native (light) chrome. Explicit here rather than
+   widening that existing rule's scope, since a bare global `input`
+   selector would also catch inputs this app deliberately leaves native
+   (e.g. checkboxes use their own OS control on purpose). */
+      .sim-start-fields select,
+      .sim-start-fields input[type="number"] {
         width: auto;
+        background: var(--surface-2);
+        color: var(--bone);
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        padding: 8px 10px;
+        font-family: inherit;
+        font-size: 0.92rem;
       }
       .sim-start-checkbox {
         flex-direction: row !important;
@@ -2940,7 +2965,7 @@
         margin: 10px auto;
       }
       .sim-stage-hint {
-        color: var(--bone-faint);
+        color: var(--bone-dim);
         font-size: 0.85rem;
       }
       .sim-stage-verdict {
@@ -2957,13 +2982,18 @@
       }
       .sim-stage-alive {
         margin-top: 10px;
-        color: var(--bone-faint);
+        color: var(--bone-dim);
         font-size: 0.8rem;
       }
 
       .sim-seats {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+        /* Grid's default stretch made every card in a row match the
+   tallest one (a seat with a prompt+answer towers over one with just a
+   name/role) — the exact empty-space-inside-short-cards look reported
+   live. align-items:start lets each card size to its own content. */
+        align-items: start;
         gap: 14px;
         margin: 20px 0;
       }
@@ -3035,7 +3065,7 @@
         color: var(--brass);
       }
       .sim-seat-ghost.spent {
-        color: var(--bone-faint);
+        color: var(--bone-dim);
       }
       .sim-seat-prompt {
         font-size: 0.82rem;
@@ -3055,7 +3085,7 @@
         text-transform: uppercase;
         letter-spacing: 0.06em;
         font-size: 0.66rem;
-        color: var(--bone-faint);
+        color: var(--bone-dim);
         margin-bottom: 2px;
       }
       .sim-seat-answer {
@@ -3238,7 +3268,7 @@
         font-size: 0.68rem;
         text-transform: uppercase;
         letter-spacing: 0.06em;
-        color: var(--bone-faint);
+        color: var(--bone-dim);
         margin-bottom: 4px;
       }
       .sim-llmcall-block pre {
