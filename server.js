@@ -1159,7 +1159,15 @@ function chooseExecution() {
 // route's own comment, and /sim-events', on why those stay separate).
 function botsAnswer() {
   if (game.phase !== 'night' || !game.players.some(p => p.bot)) return;
+  // Missing the same `!p.bot` guard botsVote() already has below — this
+  // used to process every player, real seats included. In a mixed
+  // real+bot table (the whole point of /api/table/add-bots), a real
+  // player who took longer than this function's own scheduled delay to
+  // decide could have their actual choice silently overwritten by a
+  // random bot-style guess, which could also trigger allSubmitted() and
+  // cut the window off early for everyone else.
   for (const p of game.players) {
+    if (!p.bot) continue;
     const prompt = E.promptFor(game, p);
     if (!prompt || game.pending[p.id]) continue;
     const targets = botChoice(p, prompt);
