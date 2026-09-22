@@ -3,6 +3,9 @@ import { StrictMode } from 'react';
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { useActiveVote } from './useActiveVote.js';
 import { mockFetch, lastBody } from '../../test/fetchMock.js';
+import { showToast } from '../lib/toast.js';
+
+vi.mock('../lib/toast.js', () => ({ showToast: vi.fn() }));
 
 function wrapper({ children }) {
   return <StrictMode>{children}</StrictMode>;
@@ -66,6 +69,19 @@ describe('useActiveVote', () => {
     const voteCalls = fetchMock.calls.filter(c => c.url.includes('/api/table/vote'));
     expect(voteCalls).toHaveLength(1);
     expect(lastBody(fetchMock, '/api/table/vote')).toEqual({ token: 'tok-1', vote: 'yes' });
+  });
+
+  it('a failed vote cast toasts the error instead of a blocking alert, and never records a choice', async () => {
+    mockFetch({ '/api/table/vote': { error: 'Vote window has closed.' } });
+    const P = { phase: 'day', voteRequest: { nominationId: 'n1', nomineeName: 'Bo', windowEndsAt: Date.now() + 60000, isGhostVote: false } };
+    const { result } = renderHook(({ P, token }) => useActiveVote(P, token), {
+      initialProps: { P, token: 'tok-1' },
+      wrapper,
+    });
+
+    await act(async () => { result.current.castVote('yes'); });
+    await waitFor(() => expect(showToast).toHaveBeenCalledWith('Vote window has closed.'));
+    expect(result.current.activeVote.myChoice).toBeNull();
   });
 
   it('a ghost vote locks immediately after casting', async () => {

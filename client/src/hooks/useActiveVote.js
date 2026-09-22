@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { post } from '../lib/api.js';
+import { showToast } from '../lib/toast.js';
 
 /** The vote UI outlives the server's own voteRequest field — once the
     window closes (or a ghost's one vote is spent), the server correctly
@@ -62,7 +63,7 @@ export function useActiveVote(P, token) {
     if (!activeVote) return;
     const wasGhost = activeVote.isGhostVote;
     post('/api/table/vote', { token, vote: choice }).then(r => {
-      if (r.error) { alert(r.error); return; }
+      if (r.error) { showToast(r.error); return; }
       // A spent ghost vote can't be changed again — locks immediately
       // rather than waiting for the window's own countdown.
       setActiveVote(v => v && { ...v, myChoice: choice, stage: wasGhost ? 'locked' : v.stage });
