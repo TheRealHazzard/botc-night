@@ -1,8 +1,12 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import { render, screen, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import OverView from './OverView.jsx';
 import { mockFetch } from '../../../test/fetchMock.js';
+
+function stubReducedMotion(matches) {
+  vi.stubGlobal('matchMedia', () => ({ matches, addEventListener: () => {}, removeEventListener: () => {} }));
+}
 
 const players = [
   { id: 'p1', name: 'Ada', alive: true, connected: true, character: 'Empath', color: { hex: '#8e2226' } },
@@ -21,6 +25,27 @@ function baseMocks(overrides = {}) {
 }
 
 describe('OverView', () => {
+  afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); });
+
+  it('the victory banner starts hidden and reveals itself after a beat, not immediately', () => {
+    stubReducedMotion(false);
+    vi.useFakeTimers();
+    baseMocks();
+    render(<OverView players={players} victory={{ winner: 'good', reason: 'The Demon fell.' }} gameSummary={gameSummary} log={log} actionLog={[]} nightNumber={2} />);
+    const banner = () => screen.getByText('Good wins').closest('.victory-banner');
+    expect(banner()).not.toHaveClass('show');
+
+    act(() => { vi.advanceTimersByTime(550); });
+    expect(banner()).toHaveClass('show');
+  });
+
+  it('reveals the banner immediately, no delay, under reduced motion', () => {
+    stubReducedMotion(true);
+    baseMocks();
+    render(<OverView players={players} victory={{ winner: 'good', reason: 'The Demon fell.' }} gameSummary={gameSummary} log={log} actionLog={[]} nightNumber={2} />);
+    expect(screen.getByText('Good wins').closest('.victory-banner')).toHaveClass('show');
+  });
+
   it('a good win shows the sun-badged banner and reason', () => {
     baseMocks();
     render(<OverView players={players} victory={{ winner: 'good', reason: 'The Demon fell.' }} gameSummary={gameSummary} log={log} actionLog={[]} nightNumber={2} />);

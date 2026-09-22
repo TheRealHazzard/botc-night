@@ -9,6 +9,7 @@ import SessionStatsCard from '../components/SessionStatsCard.jsx';
 import PowerLogOverlay from '../components/PowerLogOverlay.jsx';
 import Icon from '../components/Icon.jsx';
 import { useSpeak } from '../hooks/useSpeak.js';
+import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion.js';
 
 // A day commonly has execution/nomination log lines mixed in with the
 // night's own — every entry used to render "Night N" regardless, including
@@ -24,15 +25,37 @@ function logLabel(l) {
 
 export default function OverView({ players, victory, gameSummary, log, actionLog, resultsLog, nightNumber, muted }) {
   const [showPowerLog, setShowPowerLog] = useState(false);
+  const reduceMotion = usePrefersReducedMotion();
 
   const victoryLine = victory ? `${victory.winner === 'good' ? 'Good wins.' : 'Evil wins.'} ${victory.reason}` : '';
   useSpeak(victoryLine, { dread: !!victory && victory.winner !== 'good', muted });
+
+  // "The truth, then." lands first, on its own; the actual verdict gets a
+  // beat of pause before it animates in — the one line every game has
+  // been building toward deserves to land as a moment, not pop in flat
+  // alongside the narration above it. Skips straight to shown, no delay,
+  // under reduced motion — same as every other staged reveal in this app
+  // (FatalFlashOverlay, the phase-fade transitions).
+  const [bannerShown, setBannerShown] = useState(reduceMotion);
+  useEffect(() => {
+    if (!victory || reduceMotion) return;
+    setBannerShown(false);
+    const t = setTimeout(() => setBannerShown(true), 550);
+    return () => clearTimeout(t);
+    // victory?.winner/reason, not the victory object itself — OverView can
+    // re-render after the game's already over (a Power Log view, a late
+    // reclaim, anything else that pushes a fresh game-state object) with a
+    // brand-new victory reference carrying the identical outcome; keying
+    // off the object would restart this delay and re-hide an already-shown
+    // banner on every one of those, not just the real first reveal.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [victory?.winner, victory?.reason, reduceMotion]);
 
   const main = (
     <div className="stage-main">
       <div className="narration">The truth, then.</div>
       {victory && (
-        <div className="victory-banner">
+        <div className={'victory-banner' + (bannerShown ? ' show' : '')}>
           <div className="icon-badge"><Icon name={victory.winner === 'good' ? 'sun' : 'skull'} size={24} /></div>
           <div>
             <div className="who">{victory.winner === 'good' ? 'Good wins' : 'Evil wins'}</div>

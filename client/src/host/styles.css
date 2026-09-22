@@ -1749,6 +1749,41 @@
         align-items: center;
         gap: 16px;
         text-align: left;
+        /* Held out of view until OverView.jsx flips .show, a beat after
+   "The truth, then." lands alone above it — the one line every game's
+   been building toward gets its own moment instead of popping in flat
+   alongside the narration. */
+        opacity: 0;
+        transform: translateY(14px) scale(0.96);
+      }
+      .victory-banner.show {
+        animation: victory-reveal 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      }
+      /* Same "flare/overshoot, then settle" character as .rseat's own
+   seat-dawn keyframe below — a small overshoot past the resting position
+   reads as real weight landing, not just a linear fade-up. */
+      @keyframes victory-reveal {
+        0% {
+          opacity: 0;
+          transform: translateY(14px) scale(0.96);
+        }
+        60% {
+          opacity: 1;
+          transform: translateY(-3px) scale(1.015);
+        }
+        100% {
+          opacity: 1;
+          transform: translateY(0) scale(1);
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .victory-banner {
+          opacity: 1;
+          transform: none;
+        }
+        .victory-banner.show {
+          animation: none;
+        }
       }
       .victory-banner .icon-badge {
         width: 52px;
