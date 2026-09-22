@@ -75,6 +75,7 @@ button{background:var(--accent); color:var(--accent-text); border:none; border-r
 .swatch-name{font-size:.66rem; font-weight:700; color:#fff; text-shadow:0 1px 3px rgba(0,0,0,.7); line-height:1.25}
 .swatch.taken{opacity:.3; cursor:not-allowed; filter:grayscale(.7)}
 .swatch.mine{border-color:var(--accent); cursor:default}
+.colorerr{color:var(--oxblood); min-height:1.1em; margin-top:6px}
 
 .split{display:flex; gap:10px; margin-top:10px}
 .chip{flex:1; border-radius:5px; padding:10px 14px; font-size:.88rem; text-align:center}
@@ -205,7 +206,8 @@ function colorPanel(name, currentColor) {
     : "You haven't picked one yet. Nobody else can hold it while you do."));
 
   const grid = el('div', 'colorgrid');
-  panel.append(grid);
+  const err = el('p', 'small colorerr');
+  panel.append(grid, err);
   fetch('/api/colors?name=' + encodeURIComponent(name)).then(r => r.json()).then(colors => {
     colors.forEach(c => {
       const mine = currentColor && currentColor.id === c.id;
@@ -214,13 +216,14 @@ function colorPanel(name, currentColor) {
       sw.append(el('span', 'swatch-name', c.takenBy ? `${c.name} — ${c.takenBy}'s` : c.name));
       if (!c.takenBy && !mine) {
         sw.onclick = () => {
+          err.textContent = '';
           fetch('/api/profile/color', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ name, colorId: c.id }),
           }).then(r2 => r2.json()).then(r2 => {
-            if (r2.error) { alert(r2.error); return; }
+            if (r2.error) { err.textContent = r2.error; return; }
             lookup();
-          });
+          }).catch(() => { err.textContent = 'Could not reach the server — try again.'; });
         };
       }
       grid.append(sw);
