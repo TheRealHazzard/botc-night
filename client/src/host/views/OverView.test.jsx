@@ -27,26 +27,28 @@ function baseMocks(overrides = {}) {
 describe('OverView', () => {
   afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); });
 
+  // The ring itself (and its glow) no longer lives inside OverView — it's
+  // rendered once, permanently, by App.jsx and portaled into this view's
+  // ring-slot (see App.jsx's ring-persistence wiring). App.jsx calls the
+  // same useVictoryReveal hook independently to time the ring's glow to
+  // this same beat — that timing is covered in App.test.jsx instead.
   it('the win-condition line starts hidden and reveals itself after a beat, not immediately', () => {
     stubReducedMotion(false);
     vi.useFakeTimers();
     baseMocks();
-    const { container } = render(<OverView players={players} victory={{ winner: 'good', reason: 'The Demon fell.' }} gameSummary={gameSummary} log={log} actionLog={[]} nightNumber={2} />);
+    render(<OverView players={players} victory={{ winner: 'good', reason: 'The Demon fell.' }} gameSummary={gameSummary} log={log} actionLog={[]} nightNumber={2} />);
     const line = () => screen.getByText('The Demon fell.');
     expect(line()).not.toHaveClass('show');
-    expect(container.querySelector('.ring')).not.toHaveClass('glow-good');
 
     act(() => { vi.advanceTimersByTime(550); });
     expect(line()).toHaveClass('show');
-    expect(container.querySelector('.ring')).toHaveClass('glow-good');
   });
 
-  it('reveals the win-condition line and the ring glow immediately, no delay, under reduced motion', () => {
+  it('reveals the win-condition line immediately, no delay, under reduced motion', () => {
     stubReducedMotion(true);
     baseMocks();
-    const { container } = render(<OverView players={players} victory={{ winner: 'evil', reason: 'The town executed a Townsfolk.' }} gameSummary={gameSummary} log={log} actionLog={[]} nightNumber={2} />);
+    render(<OverView players={players} victory={{ winner: 'evil', reason: 'The town executed a Townsfolk.' }} gameSummary={gameSummary} log={log} actionLog={[]} nightNumber={2} />);
     expect(screen.getByText('The town executed a Townsfolk.')).toHaveClass('show');
-    expect(container.querySelector('.ring')).toHaveClass('glow-evil');
   });
 
   it('a good win shows the win-condition text with no "dread" styling', () => {

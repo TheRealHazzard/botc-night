@@ -191,41 +191,68 @@
    quick and warm, dusk a little slower and dipping dark, the game's end
    heavier still, a fresh reveal a bright quick flash. Plain opacity-only
    for anything else (e.g. into the lobby).
-   This targeted #stage/#controls until now — leftover ids from the
-   pre-React vanilla version that never existed on this element (it's
-   always been .view, the React rebuild's own single wrapper for both
-   halves of the old two-region layout). The class toggling in
-   usePhaseFade.js was always correct; this selector just never matched
-   anything, so every phase change has been a hard cut with no fade at
-   all since the rebuild — dead CSS, not a deliberate no-op. */
+   This used to target .view itself, but the ring now lives permanently
+   outside the React tree that unmounts per phase (see App.jsx's portal),
+   and a parent's opacity can't be countermanded by a child's own CSS —
+   so .view keeps the fading/trans-* classes (the seat-sweep rules below
+   still key off them) but no longer applies opacity/filter itself.
+   .fade-wrap is the actual fade target now: each view wraps its own
+   narration in it, and DashboardLayout wraps left/right in it, leaving
+   the ring-slot as an unwrapped sibling that never fades. */
       .view {
         transition-property: opacity, filter;
         transition-duration: 0.38s;
         transition-timing-function: ease;
       }
-      .view.fading {
+      .fade-wrap {
+        transition-property: opacity, filter;
+        transition-duration: 0.38s;
+        transition-timing-function: ease;
+      }
+      .fade-wrap.fading {
         opacity: 0;
       }
-      .view.trans-dawn.fading {
+      .fade-wrap.trans-dawn.fading {
         transition-duration: 0.28s;
         filter: brightness(1.18) saturate(1.08);
       }
-      .view.trans-dusk.fading {
+      .fade-wrap.trans-dusk.fading {
         transition-duration: 0.46s;
         filter: brightness(0.5);
       }
-      .view.trans-over.fading {
+      .fade-wrap.trans-over.fading {
         transition-duration: 0.56s;
         filter: brightness(0.32) saturate(0.75);
       }
-      .view.trans-reveal.fading {
+      .fade-wrap.trans-reveal.fading {
         transition-duration: 0.3s;
         filter: brightness(1.3);
       }
       @media (prefers-reduced-motion: reduce) {
-        .view {
+        .view,
+        .fade-wrap {
           transition: none;
         }
+      }
+      /* Reproduces .stage-main's own flex-column/gap for the narration
+         content specifically — needed because that content is now wrapped
+         in .fade-wrap (a real box, unlike .ring-slot) instead of sitting
+         as direct children of .stage-main. */
+      .stage-narration {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 14px;
+        width: 100%;
+        min-width: 0;
+      }
+      /* Makes the portaled .ring behave as a direct flex child of
+         .stage-main, exactly where <RingSeats/> used to render inline —
+         so no manual position/size alignment is needed. opacity/filter
+         don't reliably apply to display:contents elements, which is
+         exactly why this can't also carry the fade treatment above. */
+      .ring-slot {
+        display: contents;
       }
 
       /* Dusk/dawn get a second, ring-local layer on top of the stage-wide

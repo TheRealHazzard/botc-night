@@ -1,10 +1,14 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { useHostState } from "./hooks/useHostState.js";
 import { useSoundEngine } from "./hooks/useSoundEngine.js";
 import { usePhaseFade } from "./hooks/usePhaseFade.js";
 import { useFullscreen } from "./hooks/useFullscreen.js";
 import { useScripts } from "./hooks/useScripts.js";
 import { useScriptRoster } from "./hooks/useScriptRoster.js";
+import { useEnteringSeatIds } from "./hooks/useEnteringSeatIds.js";
+import { useDayPace } from "./hooks/useDayPace.js";
+import { useVictoryReveal } from "./hooks/useVictoryReveal.js";
 import { useWakeLock } from "../hooks/useWakeLock.js";
 import { useTextScale } from "../hooks/useTextScale.js";
 import { post } from "../lib/api.js";
@@ -13,6 +17,7 @@ import { useWhimConfirm } from "./hooks/useWhimConfirm.js";
 import { useHostAnnouncement } from "./hooks/useHostAnnouncement.js";
 import { useBluffBeat } from "../hooks/useBluffBeat.js";
 import Icon from "./components/Icon.jsx";
+import RingSeats from "./components/RingSeats.jsx";
 import ReclaimBanner from "./components/ReclaimBanner.jsx";
 import FatalFlashOverlay from "./components/FatalFlashOverlay.jsx";
 import WhimConfirmCard from "./components/WhimConfirmCard.jsx";
@@ -34,6 +39,12 @@ import ToolkitView from "./views/ToolkitView.jsx";
 
 const PHASE_ICON = { night: "moon", day: "sun" };
 
+// Green from the moment the day starts, yellow under 3 minutes
+// remaining, red under 1 — see useDayPace.js. Lives here, not DayView,
+// now that the ring (the thing this actually colors) is rendered once
+// in App.jsx rather than per-view.
+const DAY_PACE_TOTAL_MS = 5 * 60_000;
+
 export default function App() {
   const { S, patchConfig } = useHostState();
   const { muted, setMuted } = useSoundEngine();
@@ -54,6 +65,32 @@ export default function App() {
   // the moment the real state changes, not wait on usePhaseFade's own
   // purely-visual transition delay.
   const announcement = useHostAnnouncement(S);
+
+  // The ring itself: a single element that lives here, permanently
+  // mounted, and is portaled into whichever phase view is currently
+  // showing a ring-slot placeholder — see each view's own "ring-slot"
+  // div. React calls this ref with null on the old slot's unmount and
+  // the new node on the new slot's mount, both within the same commit,
+  // so there's no visible gap. useCallback keeps its identity stable
+  // across renders — a changing ref callback would itself trigger a
+  // spurious detach/attach every render.
+  const [ringSlot, setRingSlot] = useState(null);
+  const registerRingSlot = useCallback(node => setRingSlot(node), []);
+
+  // All three of these run unconditionally (Rules of Hooks — this is
+  // above the `!displayS` early return below), but are only ever
+  // *consumed* for the phase they're actually meaningful in:
+  // - enteringIds is phase-agnostic in itself, but only means "a player
+  //   just took a seat" during the lobby — gated below so it doesn't
+  //   fire "entering" animations for mid-game reconnects.
+  // - dayStartedAt is set once per day and never cleared when night
+  //   starts (server.js), so it's stale all night — gated to day only.
+  // - bannerShown/victory only matter once the game is actually over.
+  const allEnteringIds = useEnteringSeatIds(
+    displayS ? displayS.players.map(p => p.id) : [],
+  );
+  const dayPace = useDayPace(displayS?.dayStartedAt, DAY_PACE_TOTAL_MS);
+  const bannerShown = useVictoryReveal(displayS?.victory);
   const { scale: textScale, cycle: cycleTextScale } = useTextScale();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [buildingScript, setBuildingScript] = useState(false);
@@ -230,6 +267,19 @@ export default function App() {
         : displayS.phase;
 
   const stageClass = "view" + (fading ? " fading trans-" + transClass : "");
+  // Same state, applied to the narrower fade-wrap elements each view
+  // wraps its own narration in (and DashboardLayout wraps left/right
+  // in) — kept separate from stageClass since .view itself no longer
+  // carries the opacity/filter fade (see styles.css's .fade-wrap).
+  const fadeClass = fading ? "fading trans-" + transClass : "";
+
+  const revealedForRing = displayS.phase === "over" || displayS.revealed;
+  const enteringIds = displayS.phase === "lobby" ? allEnteringIds : null;
+  const pace = displayS.phase === "day" ? dayPace : null;
+  const glow =
+    revealedForRing && displayS.victory && bannerShown
+      ? displayS.victory.winner
+      : null;
 
   return (
     <>
@@ -290,14 +340,17 @@ export default function App() {
                 onBrowse={setBrowseIndex}
                 onEnterBrowse={enterBrowse}
                 onBuildScript={() => setBuildingScript(true)}
+                ringSlotRef={registerRingSlot}
+                fadeClass={fadeClass}
               />
             )}
             {displayS.phase === "reveal" && (
               <RevealView
-                players={displayS.players}
                 scriptChars={scriptChars}
                 activeScriptMeta={activeScriptMeta}
                 muted={muted}
+                ringSlotRef={registerRingSlot}
+                fadeClass={fadeClass}
               />
             )}
             {displayS.phase === "night" && (
@@ -313,6 +366,8 @@ export default function App() {
                 activeScriptMeta={activeScriptMeta}
                 muted={muted}
                 log={displayS.log}
+                ringSlotRef={registerRingSlot}
+                fadeClass={fadeClass}
               />
             )}
             {displayS.phase === "day" && (
@@ -328,6 +383,8 @@ export default function App() {
                 muted={muted}
                 log={displayS.log}
                 dayStartedAt={displayS.dayStartedAt}
+                ringSlotRef={registerRingSlot}
+                fadeClass={fadeClass}
               />
             )}
             {(displayS.phase === "over" || displayS.revealed) && (
@@ -340,11 +397,29 @@ export default function App() {
                 resultsLog={displayS.resultsLog}
                 nightNumber={displayS.nightNumber}
                 muted={muted}
+                ringSlotRef={registerRingSlot}
+                fadeClass={fadeClass}
               />
             )}
           </div>
         )}
       </main>
+
+      {/* Permanently mounted — never unmounts on a phase change, unlike
+          the views above. Portaled into whichever view's ring-slot node
+          is currently registered; renders nothing once no slot is
+          registered (e.g. the toolkit tab, or ToolkitView's section). */}
+      {ringSlot &&
+        createPortal(
+          <RingSeats
+            players={displayS.players}
+            revealed={revealedForRing}
+            enteringIds={enteringIds}
+            glow={glow}
+            pace={pace}
+          />,
+          ringSlot,
+        )}
 
       {fatalFlashing && (
         <FatalFlashOverlay blow={blow} onDone={onFatalFlashDone} />

@@ -658,6 +658,77 @@ describe("App", () => {
     });
   });
 
+  // The seating ring used to live inside each phase view and fully
+  // unmount/remount on every phase change (RingSeats.jsx had zero
+  // mount-only effects, so nothing was actually lost, but it visibly
+  // disappeared and reappeared). It now lives permanently in App.jsx and
+  // is portaled into whichever view's ring-slot is currently registered
+  // — see App.jsx's ringSlot/registerRingSlot wiring.
+  describe("the seating ring persists across phase changes (portal, not remount)", () => {
+    const onePlayer = [
+      { id: "p1", name: "Ada", alive: true, connected: true, ghostVoteUsed: false, color: null },
+    ];
+
+    it("stays the same DOM node across a phase change — a remount would produce a brand new one", () => {
+      hostState.current.S = baseS({ phase: "night", nightNumber: 1, players: onePlayer });
+      const { container, rerender } = render(<App />);
+      const ringBefore = container.querySelector(".ring");
+      expect(ringBefore).toBeTruthy();
+
+      hostState.current.S = baseS({ phase: "day", nightNumber: 1, players: onePlayer });
+      rerender(<App />);
+      const ringAfter = container.querySelector(".ring");
+      expect(ringAfter).toBeTruthy();
+      expect(ringAfter).toBe(ringBefore);
+    });
+
+    it("a newly-seated player animates in during the lobby, but not on a reconnect mid-game", () => {
+      hostState.current.S = baseS({ phase: "lobby", players: onePlayer });
+      const { container, rerender } = render(<App />);
+
+      const p2 = { id: "p2", name: "Bo", alive: true, connected: true, ghostVoteUsed: false, color: null };
+      hostState.current.S = baseS({ phase: "lobby", players: [...onePlayer, p2] });
+      rerender(<App />);
+      expect(container.querySelector('.rseat[style*="--seat-i: 1"]')).toHaveClass("entering");
+
+      // Same "a new id just appeared" shape, but mid-game — a reconnect,
+      // not a fresh arrival — should not replay the entering animation.
+      hostState.current.S = baseS({ phase: "night", nightNumber: 1, players: onePlayer });
+      rerender(<App />);
+      const p3 = { id: "p3", name: "Cy", alive: true, connected: true, ghostVoteUsed: false, color: null };
+      hostState.current.S = baseS({ phase: "night", nightNumber: 1, players: [...onePlayer, p3] });
+      rerender(<App />);
+      expect(container.querySelector('.rseat[style*="--seat-i: 1"]')).not.toHaveClass("entering");
+    });
+
+    it("the day-pace glow never leaks into night, even with a stale dayStartedAt left over from the previous day", () => {
+      // dayStartedAt is only ever cleared once per day server-side (see
+      // server.js) — a leftover value from the prior day is expected to
+      // still be sitting on state once night falls again.
+      hostState.current.S = baseS({
+        phase: "night",
+        nightNumber: 2,
+        players: onePlayer,
+        dayStartedAt: Date.now(),
+      });
+      const { container } = render(<App />);
+      expect(container.querySelector(".ring")).not.toHaveClass(
+        "pace-green", "pace-yellow", "pace-red",
+      );
+    });
+
+    it("the day-pace glow does apply during an actual day", () => {
+      hostState.current.S = baseS({
+        phase: "day",
+        nightNumber: 1,
+        players: onePlayer,
+        dayStartedAt: Date.now(),
+      });
+      const { container } = render(<App />);
+      expect(container.querySelector(".ring")).toHaveClass("pace-green");
+    });
+  });
+
   describe("the Game/Toolkit header switch", () => {
     it("is absent before any state has loaded — the toolkit only appears once the header's real controls do", () => {
       render(<App />);

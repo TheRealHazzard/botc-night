@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import DashboardLayout from '../components/DashboardLayout.jsx';
 import DayCounterLabel from '../components/DayCounterLabel.jsx';
-import RingSeats from '../components/RingSeats.jsx';
 import TriviaLine from '../components/TriviaLine.jsx';
 import GameLeftPanel from '../components/GameLeftPanel.jsx';
 import SidepanelCard from '../components/SidepanelCard.jsx';
@@ -17,17 +16,11 @@ import { useWhimBeat } from '../hooks/useWhimBeat.js';
 import { useMinorBeat } from '../hooks/useMinorBeat.js';
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion.js';
 import { useRoomPacing } from '../hooks/useRoomPacing.js';
-import { useDayPace } from '../hooks/useDayPace.js';
 import { post } from '../../lib/api.js';
 import { showToast } from '../../lib/toast.js';
 import { leadingNominee } from '../../lib/leadingNominee.js';
 
-// Fixed for now, not a Settings value yet — atmospheric only, no phase
-// effect (see useDayPace.js). Revisit if it ever needs tuning per table
-// rather than once here.
-const DAY_PACE_TOTAL_MS = 5 * 60_000;
-
-export default function DayView({ players, nightNumber, deaths, nominations, config, script, scriptChars, activeScriptMeta, muted, log = [], dayStartedAt }) {
+export default function DayView({ players, nightNumber, deaths, nominations, config, script, scriptChars, activeScriptMeta, muted, log = [], dayStartedAt, ringSlotRef, fadeClass = '' }) {
   const lastNight = deaths.filter(d => d.night === nightNumber && d.cause !== 'execution');
   const line = lastNight.length ? `${lastNight.map(d => d.name).join(' and ')} did not wake.` : 'Everyone wakes. That should worry you.';
   useSpeak(line, { dread: !!lastNight.length, muted });
@@ -50,24 +43,28 @@ export default function DayView({ players, nightNumber, deaths, nominations, con
   // DayView only ever mounts while phase === 'day' (App.jsx's own
   // conditional render), so that's passed as a literal rather than a prop.
   const pacing = useRoomPacing('day', dayStartedAt, nightNumber, livingCount, anyOpen);
-  const pace = useDayPace(dayStartedAt, DAY_PACE_TOTAL_MS);
 
   const main = (
     <div className="stage-main">
-      <DayCounterLabel text={`Day ${nightNumber}`} />
-      <div className="narration">Dawn.</div>
-      <div className="deaths">
-        {lastNight.length > 0 && <Icon name="skull" size={18} />}
-        <span>{line}</span>
+      <div className={`fade-wrap stage-narration ${fadeClass}`}>
+        <DayCounterLabel text={`Day ${nightNumber}`} />
+        <div className="narration">Dawn.</div>
+        <div className="deaths">
+          {lastNight.length > 0 && <Icon name="skull" size={18} />}
+          <span>{line}</span>
+        </div>
+        {/* No Mastermind hint here on purpose — the wiki is explicit: "Add a
+            shroud as normal. Do not say that the Demon has died." The bonus
+            day has to look exactly like any other day, including the fully
+            ordinary possibility that night just falls with nobody executed
+            (see server.js's resolveMastermindBonusDay). */}
+        {whim && <WhimBeat />}
+        <RoomPacingNudge level={pacing} />
       </div>
-      {/* No Mastermind hint here on purpose — the wiki is explicit: "Add a
-          shroud as normal. Do not say that the Demon has died." The bonus
-          day has to look exactly like any other day, including the fully
-          ordinary possibility that night just falls with nobody executed
-          (see server.js's resolveMastermindBonusDay). */}
-      {whim && <WhimBeat />}
-      <RoomPacingNudge level={pacing} />
-      <RingSeats players={players} pace={pace} />
+      {/* The ring itself lives outside this view now (App.jsx renders it
+          permanently via a portal, exempt from fade-wrap's fade) — this
+          slot is where it visually lands. */}
+      <div className="ring-slot" ref={ringSlotRef} />
     </div>
   );
 
@@ -89,7 +86,7 @@ export default function DayView({ players, nightNumber, deaths, nominations, con
 
   return (
     <>
-      <DashboardLayout left={left} main={main} right={right} />
+      <DashboardLayout left={left} main={main} right={right} fadeClass={`fade-wrap ${fadeClass}`} />
       {minorBeat && <MinorBeatOverlay name={minorBeat.name} />}
     </>
   );

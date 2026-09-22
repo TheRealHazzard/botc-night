@@ -1,13 +1,12 @@
 import { useEffect, useState } from 'react';
 import DashboardLayout from '../components/DashboardLayout.jsx';
-import RingSeats from '../components/RingSeats.jsx';
 import GameSummaryCard from '../components/GameSummaryCard.jsx';
 import SidepanelCard from '../components/SidepanelCard.jsx';
 import SessionStatsCard from '../components/SessionStatsCard.jsx';
 import PowerLogOverlay from '../components/PowerLogOverlay.jsx';
 import Icon from '../components/Icon.jsx';
 import { useSpeak } from '../hooks/useSpeak.js';
-import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion.js';
+import { useVictoryReveal } from '../hooks/useVictoryReveal.js';
 
 // A day commonly has execution/nomination log lines mixed in with the
 // night's own — every entry used to render "Night N" regardless, including
@@ -21,52 +20,34 @@ function logLabel(l) {
   return ''; // lobby/reveal/over, or older data with no recorded phase
 }
 
-export default function OverView({ players, victory, gameSummary, log, actionLog, resultsLog, nightNumber, muted }) {
+export default function OverView({ players, victory, gameSummary, log, actionLog, resultsLog, nightNumber, muted, ringSlotRef, fadeClass = '' }) {
   const [showPowerLog, setShowPowerLog] = useState(false);
-  const reduceMotion = usePrefersReducedMotion();
 
   const victoryLine = victory ? `${victory.winner === 'good' ? 'Good wins.' : 'Evil wins.'} ${victory.reason}` : '';
   useSpeak(victoryLine, { dread: !!victory && victory.winner !== 'good', muted });
 
-  // The win condition text gets a beat of pause before it animates in —
-  // the one line every game has been building toward deserves to land as
-  // a moment, not pop in flat the instant this view mounts. Skips
-  // straight to shown, no delay, under reduced motion — same as every
-  // other staged reveal in this app (FatalFlashOverlay, the phase-fade
-  // transitions).
-  const [bannerShown, setBannerShown] = useState(reduceMotion);
-  useEffect(() => {
-    if (!victory || reduceMotion) return;
-    setBannerShown(false);
-    const t = setTimeout(() => setBannerShown(true), 550);
-    return () => clearTimeout(t);
-    // victory?.winner/reason, not the victory object itself — OverView can
-    // re-render after the game's already over (a Power Log view, a late
-    // reclaim, anything else that pushes a fresh game-state object) with a
-    // brand-new victory reference carrying the identical outcome; keying
-    // off the object would restart this delay and re-hide an already-shown
-    // banner on every one of those, not just the real first reveal.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [victory?.winner, victory?.reason, reduceMotion]);
+  // Also drives the ring's own verdict glow — see App.jsx, which calls
+  // this same hook independently to time the glow to the same beat.
+  const bannerShown = useVictoryReveal(victory);
 
   const main = (
     <div className="stage-main">
       {/* No "Good wins"/"Evil wins" label and no separate banner box — the
-          ring's border glow (below) already says who won, so this line only
-          has to carry the win condition itself, e.g. "Only the Demon and one
-          other live." */}
+          ring's border glow (rendered by App.jsx now — see ringSlotRef)
+          already says who won, so this line only has to carry the win
+          condition itself, e.g. "Only the Demon and one other live." */}
       {victory && (
-        <div className={'narration reveal' + (victory.winner !== 'good' ? ' dread' : '') + (bannerShown ? ' show' : '')}>
-          {victory.reason}
+        <div className={'fade-wrap stage-narration ' + fadeClass}>
+          <div className={'narration reveal' + (victory.winner !== 'good' ? ' dread' : '') + (bannerShown ? ' show' : '')}>
+            {victory.reason}
+          </div>
         </div>
       )}
-      {/* Same ring the table's watched all game — avatars swap for the real
-          token art now that it's revealed, with a shroud over anyone who died.
-          The dashed circle connecting the seats is the one thing every player
-          has been staring at all night, so the verdict lands there too: it
-          lights up blue for good, red for evil, on the same beat as the
-          text above. */}
-      <RingSeats players={players} revealed glow={victory && bannerShown ? victory.winner : null} />
+      {/* The ring itself lives outside this view now (App.jsx renders it
+          permanently, via a portal, so it never unmounts on a phase
+          change) — this slot is where it visually lands. See
+          RingSeats.jsx's own comment and App.jsx's ring-slot wiring. */}
+      <div className="ring-slot" ref={ringSlotRef} />
     </div>
   );
 
@@ -101,7 +82,7 @@ export default function OverView({ players, victory, gameSummary, log, actionLog
 
   return (
     <>
-      <DashboardLayout left={left} main={main} right={right} />
+      <DashboardLayout left={left} main={main} right={right} fadeClass={`fade-wrap ${fadeClass}`} />
       {showPowerLog && (
         <PowerLogOverlay players={players} actionLog={actionLog} resultsLog={resultsLog} nightNumber={nightNumber} onClose={() => setShowPowerLog(false)} />
       )}

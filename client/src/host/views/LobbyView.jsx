@@ -1,5 +1,4 @@
 import DashboardLayout from '../components/DashboardLayout.jsx';
-import RingSeats from '../components/RingSeats.jsx';
 import TriviaLine from '../components/TriviaLine.jsx';
 import ScriptViewPanel from '../components/script/ScriptViewPanel.jsx';
 import ScriptSelectorList from '../components/script/ScriptSelectorList.jsx';
@@ -8,7 +7,6 @@ import ScriptBrowseRoster from '../components/script/ScriptBrowseRoster.jsx';
 import SidepanelCard from '../components/SidepanelCard.jsx';
 import QRCode from '../components/QRCode.jsx';
 import Icon from '../components/Icon.jsx';
-import { useEnteringSeatIds } from '../hooks/useEnteringSeatIds.js';
 import { useJoinAddress } from '../hooks/useJoinAddress.js';
 
 /** Browsing scripts takes over all three dashboard columns, not just the
@@ -21,9 +19,8 @@ import { useJoinAddress } from '../hooks/useJoinAddress.js';
     header too (same App.jsx), for the same reason: a taskbar full of
     icon buttons reads as one coherent toolbar, not a pile of buttons
     competing with the QR code for the same narrow column. */
-export default function LobbyView({ players, script, scripts, setupRatio, browsing, browseIndex, browsedMeta, onBrowse, onEnterBrowse, onBuildScript }) {
+export default function LobbyView({ players, script, scripts, setupRatio, browsing, browseIndex, browsedMeta, onBrowse, onEnterBrowse, onBuildScript, ringSlotRef, fadeClass = '' }) {
   const joinAddr = useJoinAddress();
-  const enteringIds = useEnteringSeatIds(players.map(p => p.id));
 
   const activeMeta = scripts && (scripts.find(m => m.id === script) || scripts[0]);
   const hasQrEncoder = typeof window !== 'undefined' && !!window.QRCodeGen;
@@ -45,13 +42,13 @@ export default function LobbyView({ players, script, scripts, setupRatio, browsi
 
   const main = (
     <div className="stage-main">
-      {browsedMeta ? (
-        <ScriptBrowsePreview meta={browsedMeta} />
-      ) : (
-        <>
-          <div className="narration">{players.length ? 'The town gathers.' : 'The town is still empty.'}</div>
-          {players.length > 0 ? (
-            <>
+      <div className={`fade-wrap stage-narration ${fadeClass}`}>
+        {browsedMeta ? (
+          <ScriptBrowsePreview meta={browsedMeta} />
+        ) : (
+          <>
+            <div className="narration">{players.length ? 'The town gathers.' : 'The town is still empty.'}</div>
+            {players.length > 0 ? (
               <div className="sub">
                 {players.length} seated
                 {setupRatio && (
@@ -61,13 +58,16 @@ export default function LobbyView({ players, script, scripts, setupRatio, browsi
                   </span>
                 )}
               </div>
-              <RingSeats players={players} enteringIds={enteringIds} />
-            </>
-          ) : (
-            <div className="sub">Open that address on your phone to take a seat.</div>
-          )}
-        </>
-      )}
+            ) : (
+              <div className="sub">Open that address on your phone to take a seat.</div>
+            )}
+          </>
+        )}
+      </div>
+      {/* Same condition RingSeats used to render under, before the ring
+          moved into App.jsx's portal — no seats to show while browsing
+          scripts (the preview takes over main) or before anyone's seated. */}
+      {!browsedMeta && players.length > 0 && <div className="ring-slot" ref={ringSlotRef} />}
     </div>
   );
 
@@ -88,5 +88,5 @@ export default function LobbyView({ players, script, scripts, setupRatio, browsi
     </div>
   );
 
-  return <DashboardLayout left={left} main={main} right={right} />;
+  return <DashboardLayout left={left} main={main} right={right} fadeClass={`fade-wrap ${fadeClass}`} />;
 }

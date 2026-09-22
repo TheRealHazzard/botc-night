@@ -255,16 +255,8 @@ describe('DayView', () => {
     const select = screen.getAllByText('No execution')[0].closest('select');
     expect(select.value).toBe('');
   });
-
-  it('the ring glows pace-green once dayStartedAt is known, no pace class before', () => {
-    const { container, rerender } = render(
-      <DayView players={players} nightNumber={1} deaths={[]} nominations={[]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
-    );
-    expect(container.querySelector('.ring')).not.toHaveClass('pace-green', 'pace-yellow', 'pace-red');
-
-    rerender(
-      <DayView players={players} nightNumber={1} deaths={[]} nominations={[]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} dayStartedAt={Date.now()} />
-    );
-    expect(container.querySelector('.ring')).toHaveClass('pace-green');
-  });
 });
+
+// The ring's pace glow moved to App.jsx (it now computes useDayPace and
+// gates it to phase === 'day' itself, since dayStartedAt is stale outside
+// day phase — see App.jsx) — pace-glow coverage lives in App.test.jsx now.

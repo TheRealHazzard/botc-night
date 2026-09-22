@@ -1,19 +1,20 @@
 import DashboardLayout from '../components/DashboardLayout.jsx';
-import RingSeats from '../components/RingSeats.jsx';
 import GameLeftPanel from '../components/GameLeftPanel.jsx';
 import SidepanelCard from '../components/SidepanelCard.jsx';
 import Icon from '../components/Icon.jsx';
 import { useSpeak } from '../hooks/useSpeak.js';
 import { post } from '../../lib/api.js';
 
-export default function RevealView({ players, scriptChars, activeScriptMeta, muted }) {
+export default function RevealView({ scriptChars, activeScriptMeta, muted, ringSlotRef, fadeClass = '' }) {
   useSpeak('Look at your hands. Learn what you are.', { dread: true, muted });
 
   const main = (
     <div className="stage-main">
-      <div className="narration dread">Look at your hands.</div>
-      <div className="sub">Each of you now knows only yourself. No one in this room knows the rest.</div>
-      <RingSeats players={players} />
+      <div className={`fade-wrap stage-narration ${fadeClass}`}>
+        <div className="narration dread">Look at your hands.</div>
+        <div className="sub">Each of you now knows only yourself. No one in this room knows the rest.</div>
+      </div>
+      <div className="ring-slot" ref={ringSlotRef} />
     </div>
   );
 
@@ -31,5 +32,5 @@ export default function RevealView({ players, scriptChars, activeScriptMeta, mut
     </div>
   );
 
-  return <DashboardLayout left={left} main={main} right={right} />;
+  return <DashboardLayout left={left} main={main} right={right} fadeClass={`fade-wrap ${fadeClass}`} />;
 }
