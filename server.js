@@ -2597,6 +2597,14 @@ async function requestHandler(req, res) {
         if (game.phase !== 'lobby') return json(res, 409, { error: 'Roles are already dealt.' });
         game.players = [];
         game.leaderId = null; // the next person to join becomes leader again
+        // /api/table/reset clears this implicitly (it replaces the whole
+        // game object via E.newGame()) — this lighter reset didn't, so a
+        // reclaim request pending at the moment of a clear used to keep
+        // showing up in the host's ReclaimBanner referencing a seat id
+        // that no longer exists: approving it told the host "reconnected"
+        // while the actual requester's own poll fell through to "denied,"
+        // two contradictory outcomes for the same tap.
+        game.pendingReclaims = [];
         playerStreams.clear();
         E.logEvent(game, 'The lobby was cleared.');
         pushHost();
