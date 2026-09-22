@@ -41,9 +41,14 @@ function GameList({ onSelect }) {
   const [failed, setFailed] = useState(false);
   const [voting, setVoting] = useState([]);
   const [charWinRates, setCharWinRates] = useState([]);
+  // Off by default — a game a bot filled a seat in
+  // (/api/table/add-bots) is real, but not what browsing "what have we
+  // actually played" wants cluttering the list. Still one tap away for
+  // testing. See game/history.js's own listGames() comment.
+  const [includeBots, setIncludeBots] = useState(false);
 
-  function loadPage(before) {
-    const qs = '?limit=20' + (before ? '&before=' + before : '');
+  function loadPage(before, withBots) {
+    const qs = '?limit=20' + (before ? '&before=' + before : '') + (withBots ? '&includeBots=1' : '');
     fetch('/api/games' + qs)
       .then(r => r.json())
       .then(data => {
@@ -57,12 +62,22 @@ function GameList({ onSelect }) {
   useEffect(() => {
     fetch('/api/leaderboard/voting').then(r => r.json()).then(setVoting).catch(() => {});
     fetch('/api/leaderboard/characters').then(r => r.json()).then(setCharWinRates).catch(() => {});
-    loadPage();
+    loadPage(undefined, false);
     // Mount-once, matching games.html's own single initial loadPage() call
     // — loadPage's "before" cursor param is threaded explicitly by the
     // Load More button, not by a dependency here.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // The underlying page set changes with the filter, so this starts a
+  // fresh first page rather than trying to patch the existing list/cursor.
+  function toggleIncludeBots() {
+    const next = !includeBots;
+    setIncludeBots(next);
+    setLoaded(false);
+    setFailed(false);
+    loadPage(undefined, next);
+  }
 
   return (
     <>
@@ -85,7 +100,13 @@ function GameList({ onSelect }) {
       />
 
       <div className="lb-panel">
-        <h3>Past games</h3>
+        <div className="gh-list-head">
+          <h3>Past games</h3>
+          <label className="gh-bot-toggle">
+            <input type="checkbox" checked={includeBots} onChange={toggleIncludeBots} />
+            Show bot-test games
+          </label>
+        </div>
         {!loaded && !failed && <p className="sub">Loading…</p>}
         {failed && <p className="sub">Could not load game history.</p>}
         {loaded && !failed && games.length === 0 && (
@@ -111,7 +132,7 @@ function GameList({ onSelect }) {
               </tbody>
             </table>
             {nextBefore && (
-              <button type="button" className="gh-loadmore" onClick={() => loadPage(nextBefore)}>Load more</button>
+              <button type="button" className="gh-loadmore" onClick={() => loadPage(nextBefore, includeBots)}>Load more</button>
             )}
           </>
         )}

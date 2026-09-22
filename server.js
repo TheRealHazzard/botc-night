@@ -1832,6 +1832,7 @@ async function requestHandler(req, res) {
         return json(res, 200, H.listGames({
           limit: Math.min(50, Number(url.searchParams.get('limit')) || 20),
           before: before ? Number(before) : undefined,
+          includeBotGames: url.searchParams.get('includeBots') === '1',
         }));
       }
 

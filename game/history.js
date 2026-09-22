@@ -107,9 +107,15 @@ function readAllGames() {
 
 /** A page of past games, newest first, for the history list — lightweight
     summaries only, never the full nominations/log a list view has no use
-    for. `before` (an endedAt timestamp) pages backward from there. */
-function listGames({ limit = 20, before } = {}) {
+    for. `before` (an endedAt timestamp) pages backward from there.
+    `includeBotGames` (default false) hides any game where a seat filling
+    out the table (/api/table/add-bots) played — real games, real winners,
+    but not what a host browsing "what have we actually played" wants
+    cluttering the list by default. Still there for testing, one query
+    param away. */
+function listGames({ limit = 20, before, includeBotGames = false } = {}) {
   let games = readAllGames().slice().sort((a, b) => b.endedAt - a.endedAt);
+  if (!includeBotGames) games = games.filter(g => !(g.players || []).some(p => p.bot));
   if (before) games = games.filter(g => g.endedAt < before);
   const page = games.slice(0, limit);
   return {

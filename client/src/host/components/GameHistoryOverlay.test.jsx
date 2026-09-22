@@ -73,6 +73,23 @@ describe('GameHistoryOverlay', () => {
     expect(screen.queryByRole('button', { name: 'Load more' })).not.toBeInTheDocument();
   });
 
+  it('"Show bot-test games" is off by default, and toggling it refetches with the bot-inclusive flag', async () => {
+    const botsPage = { games: [{ id: 'gbot', endedAt: Date.UTC(2026, 8, 21, 10, 0), edition: 'custom', playerCount: 5, winner: 'evil' }], nextBefore: null };
+    mockFetch({
+      '/api/leaderboard/voting': [], '/api/leaderboard/characters': [],
+      '/api/games?': url => (url.includes('includeBots=1') ? botsPage : page1),
+    });
+    render(<GameHistoryOverlay onClose={() => {}} />);
+    await screen.findByText('Trouble Brewing');
+    const toggle = screen.getByRole('checkbox', { name: /show bot-test games/i });
+    expect(toggle).not.toBeChecked();
+    expect(screen.queryByText('Custom script')).not.toBeInTheDocument();
+
+    await userEvent.click(toggle);
+    expect(toggle).toBeChecked();
+    expect(await screen.findByText('Custom script')).toBeInTheDocument();
+  });
+
   it('shows an empty state when there are no games at all', async () => {
     mockFetch({ '/api/leaderboard/voting': [], '/api/leaderboard/characters': [], '/api/games?': { games: [], nextBefore: null } });
     render(<GameHistoryOverlay onClose={() => {}} />);

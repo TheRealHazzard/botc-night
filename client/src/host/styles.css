@@ -2815,6 +2815,21 @@
         color: var(--bone-dim);
         margin: 3px 0;
       }
+      .gh-list-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 6px;
+      }
+      .gh-bot-toggle {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 0.78rem;
+        color: var(--bone-dim);
+        cursor: pointer;
+      }
 
       /* ---------------------------------------------------------------
          Game-night toolkit — the header's Game/Toolkit switch, and the
