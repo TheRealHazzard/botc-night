@@ -20,21 +20,28 @@
   --text:#2a2015; --text-dim:#6b5f4c; --accent: var(--oxblood); --accent-text:#fff8ef;
   --shadow: 0 2px 10px rgba(30,20,10,.10);
 }
+/* Dark-mode surfaces/text/accent realigned to client/src/theme.css's
+   canonical void/surface/line/bone/brass — see games.html's own copy of
+   this comment for why. Light mode (above) is untouched. */
 @media (prefers-color-scheme: dark){
   :root:not([data-theme="light"]){
-    --bg: var(--ink); --bg-2: var(--ink-2); --panel-border: var(--ink-3);
-    --text:#ece2ce; --text-dim:#ab9d86; --accent: var(--brass-bright); --accent-text:#241a0c;
+    --bg:#0d0811; --bg-2:#160e1a; --panel-border:#2e1d34;
+    --text:#e8dcc4; --text-dim:#95886e; --accent:#b8863f; --accent-text:#241a0c;
     --shadow: 0 2px 14px rgba(0,0,0,.45);
   }
 }
 :root[data-theme="dark"]{
-  --bg: var(--ink); --bg-2: var(--ink-2); --panel-border: var(--ink-3);
-  --text:#ece2ce; --text-dim:#ab9d86; --accent: var(--brass-bright); --accent-text:#241a0c;
+  --bg:#0d0811; --bg-2:#160e1a; --panel-border:#2e1d34;
+  --text:#e8dcc4; --text-dim:#95886e; --accent:#b8863f; --accent-text:#241a0c;
   --shadow: 0 2px 14px rgba(0,0,0,.45);
 }
 
 *{box-sizing:border-box}
-body{margin:0; background:var(--bg); color:var(--text); font-family:'Spectral',Georgia,serif; font-size:16px; line-height:1.55}
+html,body{height:100%}
+/* Centers a short report vertically on a big TV screen instead of
+   pinning it to the top — see games.html's own copy of this comment for
+   why min-height (not height) makes this safe against overflow. */
+body{margin:0; min-height:100vh; min-height:100dvh; display:flex; flex-direction:column; justify-content:center; background:var(--bg); color:var(--text); font-family:'Spectral',Georgia,serif; font-size:16px; line-height:1.55}
 h1,h2,h3{font-family:'Cormorant Garamond',Georgia,serif; font-weight:600; margin:0 0 .4em; text-wrap:balance}
 .mono{font-family:'Space Mono',monospace; font-variant-numeric:tabular-nums}
 button{font-family:inherit; font-size:1rem; color:inherit; cursor:pointer}

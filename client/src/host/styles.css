@@ -2138,7 +2138,15 @@
         width: 100%;
         display: flex;
         gap: 64px;
-        align-items: start;
+        /* Vertically centers the two-column content within whatever
+   height .settings-overlay's fixed-viewport flex:1 actually gives this —
+   with `start` (the old value), five short settings sections just
+   clumped at the top of an already-full-height box on any screen taller
+   than the content itself, which a TV always is. `overflow:auto` still
+   takes over exactly as before if the content ever does grow past the
+   viewport (more sections, a tall help string) — centering only matters
+   while there's real slack to center within. */
+        align-items: center;
       }
       .settings-col {
         flex: 1;

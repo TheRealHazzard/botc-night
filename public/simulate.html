@@ -12,7 +12,10 @@
     />
     <style>
       :root {
-        --void: #0a0806;
+        /* Nudged to client/src/theme.css's own canonical --void so this
+           page's background can't silently drift from the live game's —
+           everything else here already matches theme.css closely. */
+        --void: #0d0811;
         --panel: #120d08;
         --line: #2c2016;
         --bone: #e8dcc4;
@@ -26,8 +29,21 @@
       * {
         box-sizing: border-box;
       }
+      html, body {
+        height: 100%;
+      }
       body {
         margin: 0;
+        /* Centers the header+content stack vertically on a big TV screen
+           when it's short (an early or quiet dry run) instead of pinning
+           it to the top — see games.html's own copy of this comment for
+           why min-height (not height) makes this safe once the event log
+           grows past the viewport. */
+        min-height: 100vh;
+        min-height: 100dvh;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
         background: var(--void);
         color: var(--bone);
         font-family: "Spectral", Georgia, serif;
@@ -35,8 +51,8 @@
         line-height: 1.45;
         background-image: radial-gradient(
           ellipse at 50% -10%,
-          #17100a 0%,
-          #0a0806 55%
+          #1a1120 0%,
+          #0d0811 55%
         );
       }
       header {
