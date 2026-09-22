@@ -297,7 +297,18 @@ function characterWinRates() {
   const tally = {};
   for (const g of readAllGames()) {
     for (const p of g.players || []) {
-      if (!p.characterId || p.won == null) continue;
+      // Same bot exclusion statsForAll()/votingLeaderboard() already use —
+      // /api/join always resolves a real profileId (findOrCreateProfile
+      // only ever returns null for an empty name, which /api/join already
+      // rejects before calling it), so a null profileId reliably means a
+      // seat /api/table/add-bots filled, never a real player. Without
+      // this, a bot-padded game (deliberately not game.simulation, so a
+      // real player can exercise Bucket 4 against real bot seats)
+      // silently counted every bot's dealt character toward this
+      // checklist/leaderboard — contradicting the checklist's own
+      // documented claim that a character counts once it's been dealt to
+      // a real player, specifically.
+      if (!p.profileId || !p.characterId || p.won == null) continue;
       const entry = tally[p.characterId] = tally[p.characterId] || { name: p.characterName, wins: 0, total: 0 };
       entry.total++;
       if (p.won) entry.wins++;

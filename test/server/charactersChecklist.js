@@ -36,8 +36,13 @@ function check(label, ok, detail) {
       id: 'fake-game-1', endedAt: Date.now(), edition: 'tb', playerCount: 5,
       winner: 'good', reason: 'test fixture',
       players: [
-        { characterId: 'washerwoman', characterName: 'Washerwoman', team: 'townsfolk', alive: true, won: true },
-        { characterId: 'poisoner', characterName: 'Poisoner', team: 'minion', alive: false, won: false },
+        { profileId: 'ada', characterId: 'washerwoman', characterName: 'Washerwoman', team: 'townsfolk', alive: true, won: true },
+        { profileId: 'bo', characterId: 'poisoner', characterName: 'Poisoner', team: 'minion', alive: false, won: false },
+        // A bot seat (/api/table/add-bots never sets profileId, unlike a
+        // real /api/join) — must not count toward this character's own
+        // "dealt to a real player" total, even though it otherwise looks
+        // like a perfectly normal winning deal.
+        { profileId: null, characterId: 'empath', characterName: 'Empath', team: 'townsfolk', alive: true, won: true },
       ],
       nominations: [],
     });
@@ -45,6 +50,7 @@ function check(label, ok, detail) {
     const { json: after } = await request(server.baseUrl, '/api/characters/checklist');
     const washerwoman = after.find(c => c.id === 'washerwoman');
     const poisoner = after.find(c => c.id === 'poisoner');
+    const empath = after.find(c => c.id === 'empath');
     const untouched = after.find(c => c.id === 'imp'); // never appears in the fake record above
 
     check('a character with a recorded win shows timesPlayed 1, wins 1, winRate 1',
@@ -56,6 +62,9 @@ function check(label, ok, detail) {
     check('a character never dealt still reads as untested (winRate null, not 0)',
       untouched && untouched.timesPlayed === 0 && untouched.winRate === null,
       JSON.stringify(untouched));
+    check('a character only ever dealt to a bot seat (no profileId) still reads as untested to a real player',
+      empath && empath.timesPlayed === 0 && empath.winRate === null,
+      JSON.stringify(empath));
     check('no duplicate characters in the list', new Set(after.map(c => c.id)).size === after.length);
     check('team:special grimoire-only entries are excluded', !after.some(c => c.team === 'special'));
   } finally {
