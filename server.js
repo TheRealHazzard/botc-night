@@ -2784,6 +2784,15 @@ async function requestHandler(req, res) {
       }
 
       if (route === '/api/sim/start') {
+        // game is one global singleton — startSimulation() below fully
+        // replaces it (E.newGame() + simulation:true), which would
+        // silently overwrite a real table's current game if one's
+        // actually in progress. The client already disables this button
+        // for the same reason; this is the real enforcement underneath
+        // it, same as every other lobby-only action in this file.
+        if (game.phase !== 'lobby' || game.players.length > 0) {
+          return json(res, 409, { error: 'Clear the table before starting a Dry Run.' });
+        }
         startSimulation({ players: Number(body.players) || 9, speed: Number(body.speed) || 5, script: body.script, config: body.config });
         return json(res, 200, { ok: true });
       }

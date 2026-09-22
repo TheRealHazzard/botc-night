@@ -24,6 +24,7 @@ import ConfirmModal from "./components/ConfirmModal.jsx";
 import CharactersOverlay from "./components/CharactersOverlay.jsx";
 import HallOfFameOverlay from "./components/HallOfFameOverlay.jsx";
 import GameHistoryOverlay from "./components/GameHistoryOverlay.jsx";
+import SimulateOverlay from "./components/SimulateOverlay.jsx";
 import LobbyView from "./views/LobbyView.jsx";
 import RevealView from "./views/RevealView.jsx";
 import NightView from "./views/NightView.jsx";
@@ -65,6 +66,12 @@ export default function App() {
   const [viewingCharacters, setViewingCharacters] = useState(false);
   const [viewingHallOfFame, setViewingHallOfFame] = useState(false);
   const [viewingHistory, setViewingHistory] = useState(false);
+  // Always reachable, not gated to the idle lobby like the three above —
+  // starting a sim overwrites `game` itself (see server.js's own guard on
+  // /api/sim/start), so a *running* sim is what the main dashboard is
+  // already showing on Night/Day/Over; a host observing one needs this
+  // reachable in any phase, not just an idle lobby.
+  const [viewingSimulate, setViewingSimulate] = useState(false);
   // Independent of the BOTC phase machine below — switching tabs never
   // touches `game` state, so an in-progress night is never at risk from a
   // peek at the toolkit, and the underlying phase/SSE stream keeps running
@@ -253,6 +260,7 @@ export default function App() {
         onOpenHistory={() => setViewingHistory(true)}
         onOpenHallOfFame={() => setViewingHallOfFame(true)}
         onOpenCharacters={() => setViewingCharacters(true)}
+        onOpenSimulate={() => setViewingSimulate(true)}
         textScale={textScale}
         onCycleTextScale={cycleTextScale}
       />
@@ -386,6 +394,14 @@ export default function App() {
       {viewingHistory && (
         <GameHistoryOverlay onClose={() => setViewingHistory(false)} />
       )}
+
+      {viewingSimulate && (
+        <SimulateOverlay
+          onClose={() => setViewingSimulate(false)}
+          realPhase={displayS.phase}
+          realPlayerCount={displayS.players.length}
+        />
+      )}
     </>
   );
 }
@@ -414,6 +430,7 @@ function Header({
   onOpenHistory,
   onOpenHallOfFame,
   onOpenCharacters,
+  onOpenSimulate,
   textScale,
   onCycleTextScale,
 }) {
@@ -598,6 +615,22 @@ function Header({
             </span>
           </>
         )}
+        <span className="header-divider" aria-hidden="true" />
+        {/* Always visible, not gated to lobbyIdle like Reference above —
+            starting a sim overwrites `game` itself, so a running sim is
+            what Night/Day/Over are already showing; this has to stay
+            reachable in any phase, not just an idle lobby. */}
+        <span className="header-group">
+          <span className="header-group-label">Testing</span>
+          <button
+            type="button"
+            className="mutebtn"
+            title="Dry Run — watch a table of bots play a full game"
+            onClick={onOpenSimulate}
+          >
+            <Icon name="dice" size={17} />
+          </button>
+        </span>
         <span className="header-divider" aria-hidden="true" />
         <span className="phase">
           <Icon name={phaseIcon} size={14} />

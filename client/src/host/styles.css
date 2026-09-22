@@ -2879,6 +2879,382 @@
         color: var(--bone-dim);
         cursor: pointer;
       }
+      .log p.secret {
+        color: var(--oxblood-hi);
+      }
+
+      /* -------------------------------------------------------------- dry run
+         SimulateOverlay.jsx and friends — an in-app port of simulate.html.
+         Reuses .lb-panel/.powerlog-body/.sub/.narration/.log from the Hall
+         of Fame/Game History ports rather than new panel chrome. */
+      .sim-start {
+        max-width: 520px;
+        margin: 0 auto;
+      }
+      .sim-start-warning {
+        color: var(--brass);
+      }
+      .sim-start-error {
+        color: var(--oxblood-hi);
+      }
+      .sim-start-fields {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+        margin: 18px 0;
+      }
+      .sim-start-fields label {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        font-size: 0.82rem;
+        color: var(--bone-dim);
+      }
+      .sim-start-fields input,
+      .sim-start-fields select {
+        width: auto;
+      }
+      .sim-start-checkbox {
+        flex-direction: row !important;
+        align-items: center;
+        gap: 8px !important;
+      }
+      .sim-start-unit {
+        margin-left: -10px;
+        align-self: center;
+      }
+
+      .sim-stage {
+        text-align: center;
+      }
+      .sim-stage-phase {
+        font-family: "Cinzel Decorative", Georgia, serif;
+        font-size: 1.1rem;
+        color: var(--brass);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        margin-bottom: 8px;
+      }
+      .sim-stage .clockwrap {
+        width: 90px;
+        margin: 10px auto;
+      }
+      .sim-stage-hint {
+        color: var(--bone-faint);
+        font-size: 0.85rem;
+      }
+      .sim-stage-verdict {
+        margin-top: 12px;
+        padding: 12px 16px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--surface-2);
+      }
+      .sim-stage-who {
+        font-family: "Cinzel Decorative", Georgia, serif;
+        color: var(--primary);
+        font-size: 1.2rem;
+      }
+      .sim-stage-alive {
+        margin-top: 10px;
+        color: var(--bone-faint);
+        font-size: 0.8rem;
+      }
+
+      .sim-seats {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+        gap: 14px;
+        margin: 20px 0;
+      }
+      .sim-seat {
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: var(--surface);
+        padding: 14px 16px;
+        cursor: pointer;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .sim-seat:hover {
+        border-color: var(--brass);
+      }
+      .sim-seat.focus {
+        border-color: var(--brass);
+        box-shadow: 0 0 0 1px var(--brass);
+      }
+      .sim-seat.dead {
+        opacity: 0.6;
+      }
+      .sim-seat-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+      }
+      .sim-seat-name {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 600;
+      }
+      .sim-seat-token {
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        object-fit: cover;
+      }
+      .sim-seat-role {
+        font-size: 0.82rem;
+      }
+      .sim-seat-role.good {
+        color: var(--good);
+      }
+      .sim-seat-role.evil {
+        color: var(--oxblood-hi);
+      }
+      .sim-seat-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      .sim-tag {
+        font-size: 0.7rem;
+        padding: 2px 8px;
+        border-radius: 20px;
+        background: var(--surface-2);
+        color: var(--bone-dim);
+      }
+      .sim-tag-believes {
+        background: var(--surface-2);
+        color: var(--brass);
+      }
+      .sim-seat-ghost {
+        font-size: 0.78rem;
+        color: var(--brass);
+      }
+      .sim-seat-ghost.spent {
+        color: var(--bone-faint);
+      }
+      .sim-seat-prompt {
+        font-size: 0.82rem;
+        padding: 8px 10px;
+        border-radius: 6px;
+        background: var(--void);
+        border-left: 2px solid var(--line);
+      }
+      .sim-seat-prompt.real {
+        border-left-color: var(--good);
+      }
+      .sim-seat-prompt.decoy {
+        border-left-color: var(--bone-faint);
+      }
+      .sim-seat-prompt-kind {
+        display: block;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        font-size: 0.66rem;
+        color: var(--bone-faint);
+        margin-bottom: 2px;
+      }
+      .sim-seat-answer {
+        margin-top: 4px;
+        color: var(--bone-dim);
+      }
+      .sim-seat-result {
+        font-size: 0.82rem;
+        padding: 8px 10px;
+        border-radius: 6px;
+        background: var(--surface-2);
+      }
+      .sim-seat-result-title {
+        font-weight: 600;
+        color: var(--bone);
+      }
+
+      .sim-focus-picker {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        justify-content: center;
+        margin-bottom: 12px;
+        font-size: 0.85rem;
+        color: var(--bone-dim);
+      }
+      .sim-phonewrap {
+        display: flex;
+        gap: 24px;
+        justify-content: center;
+        flex-wrap: wrap;
+        margin: 20px 0;
+      }
+      .sim-phone {
+        width: 300px;
+        border: 1px solid var(--line);
+        border-radius: 20px;
+        background: var(--surface);
+        padding: 20px 16px;
+        text-align: center;
+      }
+      .sim-phone h1 {
+        font-size: 0.9rem;
+        font-family: "Cinzel Decorative", Georgia, serif;
+        color: var(--brass);
+        margin: 0 0 14px;
+      }
+      .sim-pdead {
+        font-size: 0.82rem;
+        color: var(--oxblood-hi);
+        margin-bottom: 12px;
+      }
+      .sim-pdead.hasvote {
+        color: var(--brass);
+      }
+      .sim-pcard {
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 14px;
+        margin-bottom: 12px;
+        background: var(--surface-2);
+      }
+      .sim-ptoken {
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        object-fit: cover;
+        margin-bottom: 8px;
+      }
+      .sim-pname {
+        font-family: "Cinzel Decorative", Georgia, serif;
+        color: var(--bone);
+      }
+      .sim-pteam {
+        font-size: 0.78rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+      }
+      .sim-pteam.good {
+        color: var(--good);
+      }
+      .sim-pteam.evil {
+        color: var(--oxblood-hi);
+      }
+      .sim-pability {
+        margin-top: 6px;
+        font-size: 0.8rem;
+        color: var(--bone-dim);
+      }
+      .sim-pclock {
+        font-family: "Space Mono", monospace;
+        font-size: 1.8rem;
+        color: var(--brass);
+      }
+      .sim-pask {
+        font-weight: 600;
+        margin: 6px 0;
+      }
+      .sim-ptargets {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        justify-content: center;
+        margin-top: 10px;
+      }
+      .sim-ptarget {
+        padding: 5px 12px;
+        border: 1px solid var(--line);
+        border-radius: 20px;
+        font-size: 0.8rem;
+      }
+      .sim-ptarget.on {
+        border-color: var(--brass);
+        color: var(--brass);
+      }
+      .sim-presult-title {
+        font-weight: 600;
+        margin-bottom: 4px;
+      }
+      .sim-aside {
+        width: 240px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .sim-aside-note {
+        font-size: 0.82rem;
+        padding: 10px 12px;
+        border-radius: 8px;
+        background: var(--surface-2);
+        color: var(--bone-dim);
+      }
+      .sim-aside-note.lie {
+        border-left: 2px solid var(--oxblood-hi);
+      }
+      .sim-aside-note.truth {
+        border-left: 2px solid var(--good);
+      }
+
+      .sim-llmcall {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 12px 14px;
+        margin-bottom: 12px;
+        background: var(--surface-2);
+      }
+      .sim-llmcall-head {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 0.8rem;
+        color: var(--bone-dim);
+        margin-bottom: 8px;
+      }
+      .sim-llmcall-kind {
+        font-weight: 600;
+        color: var(--bone);
+      }
+      .sim-llmcall-spacer {
+        flex: 1;
+      }
+      .sim-llmcall-badge {
+        padding: 2px 8px;
+        border-radius: 20px;
+        font-size: 0.7rem;
+      }
+      .sim-llmcall-badge.ok {
+        background: rgba(92, 156, 104, 0.2);
+        color: #5c9c68;
+      }
+      .sim-llmcall-badge.fail {
+        background: rgba(169, 44, 47, 0.2);
+        color: var(--oxblood-hi);
+      }
+      .sim-llmcall-block {
+        margin-top: 8px;
+      }
+      .sim-llmcall-label {
+        display: block;
+        font-size: 0.68rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--bone-faint);
+        margin-bottom: 4px;
+      }
+      .sim-llmcall-block pre {
+        white-space: pre-wrap;
+        word-break: break-word;
+        font-size: 0.78rem;
+        background: var(--void);
+        border: 1px solid var(--line-soft);
+        border-radius: 6px;
+        padding: 10px;
+        margin: 0;
+        color: var(--bone-dim);
+      }
+      .sim-llmcall-block pre.fail {
+        color: var(--oxblood-hi);
+      }
 
       /* ---------------------------------------------------------------
          Game-night toolkit — the header's Game/Toolkit switch, and the
