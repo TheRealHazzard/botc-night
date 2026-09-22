@@ -2722,6 +2722,100 @@
         font-weight: 600;
       }
 
+      /* ------------------------------------------------------------ game history
+         GameHistoryOverlay.jsx — an in-app port of games.html. The old
+         ?id= URL param becomes a plain selectedGameId useState inside the
+         overlay; everything else (the paginated list, the detail view's
+         roster/timeline) is a direct port. Reuses .lb-panel/.powerlog-table
+         from the Hall of Fame port above rather than new panel/table CSS. */
+      .gh-clickable {
+        cursor: pointer;
+      }
+      .gh-clickable:hover td {
+        background: var(--surface-2);
+      }
+      .gh-win {
+        color: var(--good);
+      }
+      .gh-loss {
+        color: var(--oxblood-hi);
+      }
+      .gh-loadmore {
+        width: 100%;
+        margin-top: 12px;
+      }
+      .gh-back {
+        margin-bottom: 16px;
+      }
+      .gh-victory {
+        display: flex;
+        align-items: baseline;
+        gap: 10px;
+        margin-bottom: 4px;
+        flex-wrap: wrap;
+      }
+      .gh-who {
+        font-family: "Cinzel Decorative", Georgia, serif;
+        font-size: 1.3rem;
+        color: var(--primary);
+      }
+      .gh-role-good {
+        color: var(--good);
+      }
+      .gh-role-evil {
+        color: var(--oxblood-hi);
+      }
+      .gh-align-dot {
+        display: inline-block;
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        margin-right: 7px;
+        vertical-align: middle;
+      }
+      .gh-align-dot.good {
+        background: var(--good);
+      }
+      .gh-align-dot.evil {
+        background: var(--oxblood-hi);
+      }
+      .gh-timeline {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+      .gh-dayblock {
+        border-left: 2px solid var(--line);
+        padding-left: 14px;
+      }
+      .gh-dayblock h3 {
+        margin: 0 0 8px;
+        font-family: "Cinzel Decorative", Georgia, serif;
+        font-size: 1.05rem;
+        color: var(--bone);
+      }
+      .gh-nomline {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        font-size: 0.9rem;
+        padding: 5px 0;
+        border-bottom: 1px dashed var(--line-soft);
+      }
+      .gh-nomline:last-child {
+        border-bottom: none;
+      }
+      .gh-tally {
+        color: var(--bone-faint);
+        white-space: nowrap;
+        font-family: "Space Mono", monospace;
+      }
+      .gh-logline {
+        font-size: 0.85rem;
+        color: var(--bone-dim);
+        margin: 3px 0;
+      }
+
       /* ---------------------------------------------------------------
          Game-night toolkit — the header's Game/Toolkit switch, and the
          Timer/Randomizer/Trivia/Scoreboard tools themselves. Built on the

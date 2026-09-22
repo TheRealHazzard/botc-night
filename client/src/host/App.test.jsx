@@ -495,11 +495,16 @@ describe("App", () => {
       );
     });
 
-    it("Game history opens /games in a new tab", async () => {
+    it("Game history opens the in-app overlay, not a new tab", async () => {
       const openSpy = vi.spyOn(window, "open").mockImplementation(() => {});
+      mockFetch({
+        "/api/tokens": {}, "/trivia.json": [], "/api/scripts": SCRIPTS,
+        "/api/leaderboard/voting": [], "/api/leaderboard/characters": [], "/api/games?": { games: [], nextBefore: null },
+      });
       render(<App />);
       await userEvent.click(screen.getByTitle("Game history"));
-      expect(openSpy).toHaveBeenCalledWith("/games", "_blank");
+      expect(openSpy).not.toHaveBeenCalled();
+      expect(await screen.findByRole("heading", { name: "Game history" })).toBeInTheDocument();
     });
 
     it("Hall of Fame opens the in-app overlay, not a new tab", async () => {
