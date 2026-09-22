@@ -24,15 +24,17 @@ export default function NominationList({ nominations, nightNumber, players, vote
 
       {todays.length > 0 && (
         <div className="nomlist">
-          {/* The threshold below is today's CURRENT living count, same
-              basis OpenVote's own already used — not a snapshot of the
-              threshold as it stood the moment this particular nomination
-              actually closed, which a same-day death after close can
-              retroactively change. Good enough to answer "did this pass,"
-              not a promise this always matches what the table saw live. */}
+          {/* threshold is n.threshold — the majority as it stood the moment
+              THIS nomination actually closed (see closeNomination() in
+              server.js), not today's current living count. A same-day
+              death after close (Virgin, Witch, Golem, a Slayer shot)
+              shrinks the living count but can't retroactively change
+              whether an already-decided nomination passed. The live
+              recompute only kicks in as a fallback for a nomination closed
+              before this field existed. */}
           {todays.map(n => {
             const yesCount = n.closed ? n.yesCount : n.votes.filter(v => v.vote === 'yes').length;
-            const threshold = Math.max(1, Math.ceil(players.filter(p => p.alive).length / 2));
+            const threshold = typeof n.threshold === 'number' ? n.threshold : Math.max(1, Math.ceil(players.filter(p => p.alive).length / 2));
             const met = n.closed && yesCount >= threshold;
             const status = n.closed ? `${yesCount} / ${threshold} yes` : 'voting…';
             const key = nomKey(n);

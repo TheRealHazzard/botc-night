@@ -612,12 +612,20 @@ function endNight() {
     the Butler exclusion once (not just a warning: since the town's tally
     now drives the execution itself, an unenforced Butler vote has to
     actually not count, not just be flagged), and cache the final yes count
-    for resolveDayVote() to read later without recomputing it. */
+    *and* the majority threshold for resolveDayVote() to read later without
+    recomputing either. The threshold specifically has to be captured here,
+    not recomputed from whoever's still alive when the day actually ends —
+    the real majority rule is half of the living players *at the moment
+    this vote closed*; a same-day death after that (Virgin, Witch, Golem, a
+    Slayer shot) shrinks the living count and would otherwise shrink the
+    threshold retroactively, potentially making a nomination that
+    legitimately fell short look like it qualifies after all. */
 function closeNomination() {
   clearTimeout(voteTimer);
   const nom = game.nominations.find(n => n.day === game.nightNumber && !n.closed);
   if (!nom) return;
   nom.closed = true;
+  nom.threshold = Math.ceil(E.alive(game).length / 2);
 
   const butler = game.players.find(x => x.alive && E.trueChar(x) && E.trueChar(x).id === 'butler');
   const master = butler && game.players.find(x => x.statuses.master);
@@ -1049,7 +1057,11 @@ function nominateHandler(body) {
     day: game.nightNumber, nominatorId: nominator.id, nominatorName: nominator.name,
     nomineeId: nominee.id, nomineeName: nominee.name, virginFired,
     windowEndsAt: Date.now() + game.config.voteWindowSeconds * 1000,
-    closed: golemKilled, votes: [], yesCount: 0,
+    // Only ever read once closed, but seeded here too (not just in
+    // closeNomination() below) since a Golem kill or a game-ending Virgin
+    // firing closes this nomination instantly, at creation, with no vote
+    // window and no later call to closeNomination() to set it.
+    closed: golemKilled, votes: [], yesCount: 0, threshold: Math.ceil(E.alive(game).length / 2),
   };
   game.nominations.push(nom);
   E.logEvent(game, `${nominator.name} nominated ${nominee.name}.`);

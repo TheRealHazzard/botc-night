@@ -8,6 +8,16 @@
 // LeaderControlsOverlay.jsx specifically so there's only ever one copy of
 // this math to keep in sync with engine.js.
 //
+// Each nomination's own `threshold` (snapshotted server-side at the exact
+// moment IT closed — see closeNomination() in server.js) is used instead
+// of recomputing one shared threshold from `alivePlayers.length` here. A
+// same-day death after a nomination closes (Virgin, Witch, Golem, a Slayer
+// shot) shrinks the living count, and recomputing fresh would shrink the
+// threshold right along with it — retroactively making a nomination that
+// legitimately fell short look like it now qualifies. The live recompute
+// below only serves as a fallback for a nomination closed before that
+// field existed.
+//
 // Returns {id, tied} rather than a plain id — both "nobody's ever
 // qualified today" and "two qualifying nominees are tied for the lead"
 // used to collapse to the same bare null, which is exactly why a tie was
@@ -17,13 +27,16 @@
 // value for a caller that only cares whether someone's leading.
 export function leadingNominee(nominations, nightNumber, alivePlayers) {
   const today = nominations.filter(n => n.day === nightNumber && n.closed);
-  const threshold = Math.max(1, Math.ceil(alivePlayers.length / 2));
+  const fallbackThreshold = Math.max(1, Math.ceil(alivePlayers.length / 2));
   // A day commonly has more than one nomination — a qualifying nominee from
   // earlier today can die from an unrelated cause (Virgin, Witch, Golem, a
   // Slayer shot) before anyone acts on this, so "closed and met threshold"
   // alone isn't enough; they also have to still be alive now.
   const aliveIds = new Set(alivePlayers.map(p => p.id));
-  const qualifying = today.filter(n => (n.yesCount || 0) >= threshold && aliveIds.has(n.nomineeId));
+  const qualifying = today.filter(n => {
+    const threshold = typeof n.threshold === 'number' ? n.threshold : fallbackThreshold;
+    return (n.yesCount || 0) >= threshold && aliveIds.has(n.nomineeId);
+  });
   if (!qualifying.length) return { id: null, tied: false };
   const max = Math.max(...qualifying.map(n => n.yesCount));
   const top = qualifying.filter(n => n.yesCount === max);

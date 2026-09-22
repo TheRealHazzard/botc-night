@@ -1683,6 +1683,34 @@ console.log('\nVoting: resolveDayVote');
     g2.nominations = [nomOf('p0', 4)];
     check('...and one vote short of that (4 of 10) still fails', E.resolveDayVote(g2) === null);
   }
+  {
+    // The threshold snapshot itself — closeNomination() (server.js) now
+    // freezes each nomination's own threshold at the moment IT closed. A
+    // same-day death afterward (Virgin, Witch, Golem, a Slayer shot)
+    // shrinks the living count, but can't retroactively change whether a
+    // nomination that already closed actually passed.
+    const g = base(); // 7 living at close time -> the real threshold was 4
+    g.nominations = [{ day: 2, nomineeId: 'p0', closed: true, yesCount: 3, threshold: 4 }]; // fell short of its own real threshold
+    g.players = g.players.slice(0, 4); // 3 died afterward, same day -> naive live recompute would be ceil(4/2) = 2
+    check('a nomination that fell short of its OWN snapshotted threshold stays a non-execution, even after a later same-day death shrinks the living count',
+      E.resolveDayVote(g) === null);
+  }
+  {
+    const g = base();
+    g.nominations = [{ day: 2, nomineeId: 'p0', closed: true, yesCount: 4, threshold: 4 }]; // met its own real threshold
+    g.players = [g.players[0], g.players[1]]; // even a big same-day drop in living count afterward
+    check('a nomination that met its own snapshotted threshold still executes regardless of a later same-day change in living count',
+      E.resolveDayVote(g) === 'p0');
+  }
+  {
+    // Pre-existing data with no `threshold` field at all (a nomination
+    // closed before this feature existed) still falls back to a live
+    // recompute rather than silently never qualifying.
+    const g = base();
+    g.nominations = [{ day: 2, nomineeId: 'p0', closed: true, yesCount: 4 }];
+    check('a nomination with no snapshotted threshold falls back to a live recompute',
+      E.resolveDayVote(g) === 'p0');
+  }
 }
 
 console.log('\nSV: Clockmaker');

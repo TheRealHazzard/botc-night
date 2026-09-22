@@ -23,6 +23,20 @@ describe('NominationList', () => {
     expect(screen.getByText(/Cy → Di — voting…/)).toBeInTheDocument();
   });
 
+  it('a closed nomination shows and honors ITS OWN snapshotted threshold, not one recomputed from today\'s current living count', () => {
+    // players5 has 4 currently alive -> a live recompute would be ceil(4/2) = 2.
+    // This nomination closed back when 7 were alive (threshold 4) and fell
+    // short with 3 yes — a same-day death afterward (Virgin/Witch/Golem/a
+    // Slayer shot) can't retroactively pass it just because the table's
+    // current count would have produced a lower threshold.
+    const nominations = [
+      { day: 1, nominatorName: 'Ada', nomineeName: 'Bo', closed: true, yesCount: 3, threshold: 4, votes: [] },
+    ];
+    render(<NominationList nominations={nominations} nightNumber={1} players={players5} voteWindowSeconds={20} />);
+    expect(screen.getByText('3 / 4 yes')).toBeInTheDocument();
+    expect(screen.getByText('3 / 4 yes')).not.toHaveClass('met');
+  });
+
   it('a closed nomination that cleared the threshold is styled "met"; one that fell short isn\'t', () => {
     const nominations = [
       { day: 1, nominatorName: 'Ada', nomineeName: 'Bo', closed: true, yesCount: 2, votes: [] },

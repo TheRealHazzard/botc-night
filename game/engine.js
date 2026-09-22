@@ -1077,17 +1077,23 @@ function applyConfigPatch(g, patch) {
 /**
  * Which nominee (if any) the town actually executes today, from every
  * *closed* nomination's already-final `yesCount` (the Butler exclusion is
- * baked in there at close time — this just applies the real majority rule:
- * at least half of the living, rounded up — and a tie at the qualifying top
- * means no execution, same as an in-person vote would). Math.ceil(n/2), not
- * floor(n/2)+1 — the two only agree when the living count is odd; for an
- * even count (e.g. 10 alive) the real threshold is 5, not 6.
+ * baked in there at close time) weighed against ITS OWN `threshold` —
+ * closeNomination() (server.js) snapshots that as half the living, rounded
+ * up, *at the moment that specific nomination closed*, not recomputed here
+ * from whoever's still alive now. A same-day death after a nomination
+ * closes (Virgin, Witch, Golem, a Slayer shot) shrinks the living count,
+ * and recomputing fresh here would shrink the threshold right along with
+ * it — retroactively passing a nomination that legitimately fell short
+ * when the town actually voted on it. A tie at the qualifying top means no
+ * execution, same as an in-person vote would. The live fallback
+ * (Math.ceil, not floor+1 — the two only agree when the living count is
+ * odd) only matters for a nomination closed before `threshold` existed.
  */
 function resolveDayVote(g) {
   const today = g.nominations.filter(n => n.day === g.nightNumber && n.closed);
   if (!today.length) return null;
-  const threshold = Math.ceil(alive(g).length / 2);
-  const qualifying = today.filter(n => (n.yesCount || 0) >= threshold);
+  const fallbackThreshold = Math.ceil(alive(g).length / 2);
+  const qualifying = today.filter(n => (n.yesCount || 0) >= (typeof n.threshold === 'number' ? n.threshold : fallbackThreshold));
   if (!qualifying.length) return null;
   const max = Math.max(...qualifying.map(n => n.yesCount));
   const top = qualifying.filter(n => n.yesCount === max);
