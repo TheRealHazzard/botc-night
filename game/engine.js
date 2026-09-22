@@ -195,6 +195,26 @@ function dealRoles(g, presetAssignment, puzzlemasterId) {
 
   let counts = { ...table };
 
+  // take(pool, n) (game/helpers.js) silently returns fewer than n when the
+  // pool is short — a custom roster built for one player count, then
+  // dealt at a different (larger, or short a team) one, used to reach
+  // this completely unchecked: the bag ends up shorter than g.players,
+  // and seats.forEach's `bag[i]` runs off the end into `undefined`,
+  // throwing a bare "Cannot read properties of undefined" — with
+  // whichever seats came before the crash already mutated in place,
+  // leaving the game half-dealt. Fail loudly, before touching any player,
+  // instead. Demon/minion counts never change after this point (only
+  // Outsider/Townsfolk do, from the Baron/Godfather/Fang Gu/Vigormortis
+  // adjustments below), so those two are safe to check immediately.
+  const requireEnough = (team, wanted) => {
+    const have = of(team).length;
+    if (have < wanted) {
+      throw new Error(`This roster doesn't have enough ${team} characters for ${n} players — needs ${wanted}, only has ${have}.`);
+    }
+  };
+  requireEnough('demon', counts.demon);
+  requireEnough('minion', counts.minion);
+
   const demons = take(of('demon'), counts.demon);
   const minions = take(of('minion'), counts.minion);
 
@@ -223,6 +243,12 @@ function dealRoles(g, presetAssignment, puzzlemasterId) {
   if (demons.some(c => c.id === 'fanggu')) adjustOutsiders(1);
   // Vigormortis: [-1 Outsider]
   if (demons.some(c => c.id === 'vigormortis')) adjustOutsiders(-1);
+
+  // counts.outsider is already clamped against outsiderPoolSize above, so
+  // it can never outrun the pool — only Townsfolk needs the same check
+  // requireEnough gave demon/minion earlier, now that adjustOutsiders has
+  // finished moving players between the two counts.
+  requireEnough('townsfolk', counts.townsfolk);
 
   const outsiders = take(of('outsider'), counts.outsider);
   const townsfolk = take(of('townsfolk'), counts.townsfolk);

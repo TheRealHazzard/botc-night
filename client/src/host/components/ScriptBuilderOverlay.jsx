@@ -40,6 +40,14 @@ export default function ScriptBuilderOverlay({ playerCount, onClose, onCommitted
 
   const wanted = playerCount && setupTable ? setupTable[String(playerCount)] : null;
   const haveCount = team => (grouped[team] || []).filter(c => selected.has(c.id)).length;
+  // dealRoles() (game/engine.js) now refuses to deal a roster that falls
+  // short of a team's real requirement rather than crashing — this is
+  // just the earlier, friendlier version of that same check, catching it
+  // at build time instead of leaving the host to hit a 400 at deal time.
+  // Best-effort only: playerCount is whoever's seated right now, and more
+  // could join before Deal is actually clicked — dealRoles() itself stays
+  // the real, authoritative check regardless of what this shows.
+  const shortTeam = wanted && TEAM_ORDER.find(team => haveCount(team) < wanted[team]);
 
   const commit = () => {
     setSaving(true);
@@ -86,8 +94,13 @@ export default function ScriptBuilderOverlay({ playerCount, onClose, onCommitted
                 {selected.size} character{selected.size === 1 ? '' : 's'} selected
                 {playerCount ? ` for ${playerCount} seated player${playerCount === 1 ? '' : 's'}` : ''}.
               </div>
+              {shortTeam && (
+                <div className="script-builder-error">
+                  Not enough {TEAM_LABEL[shortTeam].toLowerCase()} for {playerCount} players — needs {wanted[shortTeam]}, has {haveCount(shortTeam)}.
+                </div>
+              )}
               {error && <div className="script-builder-error">{error}</div>}
-              <button type="button" className="primary" disabled={saving || selected.size < 5} onClick={commit}>
+              <button type="button" className="primary" disabled={saving || selected.size < 5 || !!shortTeam} onClick={commit}>
                 <Icon name="check" size={15} /> Use this roster
               </button>
             </div>
