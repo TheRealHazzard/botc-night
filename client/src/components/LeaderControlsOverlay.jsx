@@ -71,6 +71,17 @@ export default function LeaderControlsOverlay({ open, onClose, token, myId }) {
               {' · '}{S.players.length} seated{S.phase !== 'lobby' ? `, ${S.players.filter(p => p.alive).length} living` : ''}
             </p>
           )}
+          {/* Independent of whatever phase view is showing underneath, same
+              reasoning as the host TV's own ReclaimBanner.jsx — a reconnect
+              request can land mid-night and someone needs to see it
+              immediately, not after the next phase change. Previously had
+              no equivalent here at all: the exact table this overlay
+              exists for (no dedicated Storyteller device) was the one
+              table where a reconnecting player's request could never be
+              approved — stuck on "Waiting…" forever. */}
+          {S && S.pendingReclaims && S.pendingReclaims.length > 0 && (
+            <ReclaimCard pendingReclaims={S.pendingReclaims} run={run} />
+          )}
           {S && S.phase === 'lobby' && <LobbyControls S={S} busy={busy} run={run} />}
           {S && S.phase === 'reveal' && <RevealControls busy={busy} run={run} />}
           {S && S.phase === 'day' && <DayControls S={S} busy={busy} run={run} />}
@@ -86,6 +97,32 @@ export default function LeaderControlsOverlay({ open, onClose, token, myId }) {
           {S && <HandOffControl S={S} myId={myId} busy={busy} handOff={handOff} />}
         </div>
       </div>
+    </div>
+  );
+}
+
+/** Port of the host TV's own ReclaimBanner.jsx — same data (S.pendingReclaims,
+    already on the shared /api/host-state payload this overlay already
+    drives itself off), same two routes, same run() helper everything else
+    here already uses. No confirm on either button: approving/denying a
+    reconnect is exactly as low-stakes here as it already is on the host
+    screen, which has never asked for one either. */
+function ReclaimCard({ pendingReclaims, run }) {
+  return (
+    <div className="card">
+      {pendingReclaims.map(r => (
+        <div className="reclaim-row" key={r.requestId}>
+          <p className="dim small">A new device wants to reconnect as {r.name}.</p>
+          <div className="reclaim-row-btns">
+            <button type="button" className="primary" onClick={() => run('/api/table/reclaim/approve', { requestId: r.requestId })}>
+              Approve
+            </button>
+            <button type="button" onClick={() => run('/api/table/reclaim/deny', { requestId: r.requestId })}>
+              Deny
+            </button>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

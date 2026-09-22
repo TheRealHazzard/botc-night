@@ -141,6 +141,12 @@ input[type=text],select{
 .settings-toggle-row{display:flex; align-items:flex-start; gap:10px; margin-top:6px; cursor:pointer}
 .settings-toggle-row input[type=checkbox]{margin-top:3px; flex-shrink:0}
 .settings-toggle-row input[type=checkbox]:disabled + span{color:var(--bone-dim)}
+/* LeaderControlsOverlay's reclaim approve/deny — a port of the host TV's
+   own #reclaimBanner .reclaim, narrower to fit a phone card. */
+.reclaim-row{padding-block:8px}
+.reclaim-row:not(:last-child){border-bottom:1px solid var(--line)}
+.reclaim-row-btns{display:flex; gap:8px; margin-top:8px}
+.reclaim-row-btns button{flex:1}
 textarea.freetext{
   width:100%; padding:14px; background:var(--void); color:var(--bone);
   border:1px solid var(--line); border-radius:3px; font-family:inherit; font-size:1rem;

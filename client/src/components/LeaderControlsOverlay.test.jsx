@@ -370,6 +370,60 @@ describe('LeaderControlsOverlay', () => {
     });
   });
 
+  describe('reclaim requests', () => {
+    it('shows nothing when there are no pending reclaims', () => {
+      FakeEventSource.instances = [];
+      vi.stubGlobal('EventSource', FakeEventSource);
+      render(<LeaderControlsOverlay open={true} onClose={() => {}} />);
+      push(dayState());
+      expect(screen.queryByText(/wants to reconnect/i)).not.toBeInTheDocument();
+    });
+
+    it('shows a pending reclaim in every phase, not just one', () => {
+      FakeEventSource.instances = [];
+      vi.stubGlobal('EventSource', FakeEventSource);
+      render(<LeaderControlsOverlay open={true} onClose={() => {}} />);
+      push(lobbyState(3));
+      // No pendingReclaims field on this fixture at all yet.
+      expect(screen.queryByText(/wants to reconnect/i)).not.toBeInTheDocument();
+
+      push({ ...lobbyState(3), pendingReclaims: [{ requestId: 'r1', name: 'Ada' }] });
+      expect(screen.getByText(/a new device wants to reconnect as ada/i)).toBeInTheDocument();
+    });
+
+    it('Approve posts the requestId to /api/table/reclaim/approve', async () => {
+      FakeEventSource.instances = [];
+      vi.stubGlobal('EventSource', FakeEventSource);
+      const fetchMock = mockFetch({ '/api/table/reclaim/approve': { ok: true } });
+      render(<LeaderControlsOverlay open={true} onClose={() => {}} />);
+      push({ ...dayState(), pendingReclaims: [{ requestId: 'r1', name: 'Ada' }] });
+      await userEvent.click(screen.getByText('Approve'));
+      expect(lastBody(fetchMock, '/api/table/reclaim/approve')).toEqual({ requestId: 'r1' });
+    });
+
+    it('Deny posts the requestId to /api/table/reclaim/deny', async () => {
+      FakeEventSource.instances = [];
+      vi.stubGlobal('EventSource', FakeEventSource);
+      const fetchMock = mockFetch({ '/api/table/reclaim/deny': { ok: true } });
+      render(<LeaderControlsOverlay open={true} onClose={() => {}} />);
+      push({ ...dayState(), pendingReclaims: [{ requestId: 'r1', name: 'Ada' }] });
+      await userEvent.click(screen.getByText('Deny'));
+      expect(lastBody(fetchMock, '/api/table/reclaim/deny')).toEqual({ requestId: 'r1' });
+    });
+
+    it('shows more than one pending reclaim at once, each with its own buttons', async () => {
+      FakeEventSource.instances = [];
+      vi.stubGlobal('EventSource', FakeEventSource);
+      const fetchMock = mockFetch({ '/api/table/reclaim/approve': { ok: true } });
+      render(<LeaderControlsOverlay open={true} onClose={() => {}} />);
+      push({ ...dayState(), pendingReclaims: [{ requestId: 'r1', name: 'Ada' }, { requestId: 'r2', name: 'Bo' }] });
+      expect(screen.getByText(/reconnect as ada/i)).toBeInTheDocument();
+      expect(screen.getByText(/reconnect as bo/i)).toBeInTheDocument();
+      await userEvent.click(screen.getAllByText('Approve')[1]);
+      expect(lastBody(fetchMock, '/api/table/reclaim/approve')).toEqual({ requestId: 'r2' });
+    });
+  });
+
   describe('hand off', () => {
     it('is hidden when no one else is seated', () => {
       FakeEventSource.instances = [];
