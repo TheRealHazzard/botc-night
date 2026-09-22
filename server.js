@@ -539,6 +539,7 @@ function startNight() {
   game.executedToday = game.executedToday || null;
   game.hint = null;
   game.windowEndsAt = Date.now() + game.config.windowSeconds * 1000;
+  game.windowTotalSeconds = game.config.windowSeconds;
   maybeBluffBeat();
   E.logEvent(game, `Night ${game.nightNumber} begins.`);
   pushAll();
@@ -575,6 +576,7 @@ async function closeWindow() {
     if (E.needsWaveTwo(game)) {
       game.wave = 2;
       game.windowEndsAt = Date.now() + game.config.wave2Seconds * 1000;
+      game.windowTotalSeconds = game.config.wave2Seconds;
       pushAll();
       if (game.players.some(p => p.bot)) setTimeout(botsAnswer, Math.max(300, game.config.wave2Seconds * 400));
       windowTimer = setTimeout(closeWindow, game.config.wave2Seconds * 1000);
@@ -591,6 +593,7 @@ function endNight() {
   game.phase = 'day';
   game.wave = 0;
   game.windowEndsAt = null;
+  game.windowTotalSeconds = null;
   game.dayStartedAt = Date.now(); // The Read — see useRoomPacing.js
   game.executedToday = null;
   game.noExecutionToday = false; // cleared fresh each dawn, set for real once today's day resolves
@@ -666,6 +669,7 @@ function resolveMastermindBonusDay(executedPlayer) {
   game.phase = 'over';
   game.revealed = true;
   game.windowEndsAt = null;
+  game.windowTotalSeconds = null;
   E.logEvent(game, `${result.winner === 'good' ? 'Good' : 'Evil'} wins. ${result.reason}`);
   recordGameHistory();
   pushAll();
@@ -807,6 +811,7 @@ function finishIfOver() {
   game.phase = 'over';
   game.revealed = true;
   game.windowEndsAt = null;
+  game.windowTotalSeconds = null;
   E.logEvent(game, `${result.winner === 'good' ? 'Good' : 'Evil'} wins. ${result.reason}`);
   // The game can end mid-night (a kill decides it) or mid-day (an
   // execution does) with no later startNight() ever coming along to flush
@@ -1057,6 +1062,13 @@ function nominateHandler(body) {
     day: game.nightNumber, nominatorId: nominator.id, nominatorName: nominator.name,
     nomineeId: nominee.id, nomineeName: nominee.name, virginFired,
     windowEndsAt: Date.now() + game.config.voteWindowSeconds * 1000,
+    // Same reasoning as game.windowTotalSeconds (see publicState()): the
+    // countdown ring on NominationList.jsx's OpenVote needs the seconds
+    // THIS vote actually opened for, not a live re-read of
+    // config.voteWindowSeconds — a host adjusting Timing settings mid-vote
+    // would otherwise desync the ring's fullness the same way a night
+    // window's could.
+    windowTotalSeconds: game.config.voteWindowSeconds,
     // Only ever read once closed, but seeded here too (not just in
     // closeNomination() below) since a Golem kill or a game-ending Virgin
     // firing closes this nomination instantly, at creation, with no vote
@@ -2413,6 +2425,7 @@ async function requestHandler(req, res) {
           game.phase = 'over';
           game.revealed = true;
           game.windowEndsAt = null;
+          game.windowTotalSeconds = null;
           recordGameHistory();
           pushAll();
           return json(res, 200, { ok: true });
@@ -2464,6 +2477,7 @@ async function requestHandler(req, res) {
           game.phase = 'over';
           game.revealed = true;
           game.windowEndsAt = null;
+          game.windowTotalSeconds = null;
           recordGameHistory();
           pushAll();
           return json(res, 200, { ok: true, correct: true });

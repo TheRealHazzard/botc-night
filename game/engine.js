@@ -55,6 +55,10 @@ function newGame() {
     nightNumber: 0,
     wave: 0,
     windowEndsAt: null,
+    // The exact seconds this window was opened for, snapshotted the moment
+    // it opens — see the same field's own comment in publicState() below
+    // for why this can't just be read live off g.config at render time.
+    windowTotalSeconds: null,
     // The Read — when today's day phase actually began (server.js's
     // endNight() sets this), so the host client can judge pacing (see
     // client/src/host/hooks/useRoomPacing.js) purely from elapsed real
@@ -1306,6 +1310,15 @@ function publicState(g) {
     nightNumber: g.nightNumber,
     wave: g.wave,
     windowEndsAt: g.windowEndsAt,
+    // The countdown ring's fill fraction needs the seconds this window was
+    // actually opened for, not whatever g.config.windowSeconds/wave2Seconds
+    // happens to read right now — a host adjusting Timing settings mid-
+    // window (nothing stops that; SettingsOverlay has no phase gate) used
+    // to desync the ring's fullness from the real time left, since the
+    // number-of-seconds-left digit is computed fresh from windowEndsAt but
+    // the fraction was computed against live config instead of the total
+    // this specific window actually started from.
+    windowTotalSeconds: g.windowTotalSeconds,
     dayStartedAt: g.dayStartedAt,
     script: g.script,
     hint: g.hint,

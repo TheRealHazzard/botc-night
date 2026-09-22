@@ -224,6 +224,7 @@ export default function App() {
                 nightNumber={displayS.nightNumber}
                 wave={displayS.wave}
                 windowEndsAt={displayS.windowEndsAt}
+                windowTotalSeconds={displayS.windowTotalSeconds}
                 config={displayS.config}
                 script={displayS.script}
                 scriptChars={scriptChars}

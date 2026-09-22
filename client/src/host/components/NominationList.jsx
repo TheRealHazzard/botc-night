@@ -68,7 +68,13 @@ function OpenVote({ nomination, players, voteWindowSeconds }) {
 
   return (
     <>
-      <Countdown windowEndsAt={nomination.windowEndsAt} total={voteWindowSeconds} />
+      {/* nomination.windowTotalSeconds — the seconds THIS vote actually
+          opened for, snapshotted server-side at nominateHandler (see
+          server.js) — not a live re-read of voteWindowSeconds, which a
+          host adjusting Timing settings mid-vote would otherwise desync
+          the ring's fullness from the real time left. The prop stays as a
+          fallback for a nomination that predates this field. */}
+      <Countdown windowEndsAt={nomination.windowEndsAt} total={nomination.windowTotalSeconds ?? voteWindowSeconds} />
       <VoteBar yes={yes} threshold={threshold} />
       <div className="sub">{no} no · {eligible - nomination.votes.length} not yet voted</div>
     </>

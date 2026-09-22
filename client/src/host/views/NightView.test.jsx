@@ -37,6 +37,48 @@ describe('NightView', () => {
     expect(container.querySelector('.clockwrap')).not.toBeInTheDocument();
   });
 
+  // Same expected-value math Countdown.jsx itself uses for the ring's fill
+  // fraction — recomputed here (not hardcoded) so the assertion tracks the
+  // real formula rather than a magic number that could quietly drift.
+  const expectedDashoffset = (left, total) => {
+    const frac = Math.max(0, Math.min(1, left / (total || 1)));
+    const size = 200, stroke = 10, r = (size - stroke) / 2, c = 2 * Math.PI * r;
+    return (c * (1 - frac)).toFixed(1);
+  };
+  const ringDashoffset = container => container.querySelectorAll('.ring-svg circle')[1].getAttribute('stroke-dashoffset');
+
+  it('the ring reads windowTotalSeconds, not live config — a host changing Timing settings mid-window does not desync it', () => {
+    const windowEndsAt = Date.now() + 8000;
+    const { container, rerender } = render(
+      <NightView players={players} nightNumber={1} wave={1} windowEndsAt={windowEndsAt} windowTotalSeconds={20} config={{ windowSeconds: 20, wave2Seconds: 20 }} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
+    );
+    expect(ringDashoffset(container)).toBe(expectedDashoffset(8, 20));
+
+    // The host adjusts Timing settings mid-window (SettingsOverlay has no
+    // phase gate) — config.windowSeconds changes, but windowTotalSeconds
+    // (what this window actually started from) does not.
+    rerender(
+      <NightView players={players} nightNumber={1} wave={1} windowEndsAt={windowEndsAt} windowTotalSeconds={20} config={{ windowSeconds: 90, wave2Seconds: 20 }} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
+    );
+    expect(ringDashoffset(container)).toBe(expectedDashoffset(8, 20));
+  });
+
+  it('falls back to a live config recompute only when windowTotalSeconds is absent (a window opened before this field existed)', () => {
+    const windowEndsAt = Date.now() + 8000;
+    const { container } = render(
+      <NightView players={players} nightNumber={1} wave={1} windowEndsAt={windowEndsAt} config={{ windowSeconds: 90, wave2Seconds: 20 }} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
+    );
+    expect(ringDashoffset(container)).toBe(expectedDashoffset(8, 90));
+  });
+
+  it('wave 2 falls back to config.wave2Seconds, not windowSeconds, when windowTotalSeconds is absent', () => {
+    const windowEndsAt = Date.now() + 8000;
+    const { container } = render(
+      <NightView players={players} nightNumber={1} wave={2} windowEndsAt={windowEndsAt} config={{ windowSeconds: 90, wave2Seconds: 20 }} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
+    );
+    expect(ringDashoffset(container)).toBe(expectedDashoffset(8, 20));
+  });
+
   it('a fresh whim-roll log line shows the beat; nothing shows on the initial mount', () => {
     const { rerender } = render(
       <NightView players={players} nightNumber={2} wave={1} windowEndsAt={null} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} log={[]} />

@@ -11,7 +11,7 @@ import WhimBeat from '../components/WhimBeat.jsx';
 import { useSpeak } from '../hooks/useSpeak.js';
 import { useWhimBeat } from '../hooks/useWhimBeat.js';
 
-export default function NightView({ players, nightNumber, wave, windowEndsAt, config, script, scriptChars, activeScriptMeta, muted, log }) {
+export default function NightView({ players, nightNumber, wave, windowEndsAt, windowTotalSeconds, config, script, scriptChars, activeScriptMeta, muted, log }) {
   const again = wave === 2;
   const line = again ? 'Something is not finished.' : 'Close your eyes. The town sleeps.';
   useSpeak(line, { dread: again, muted });
@@ -40,7 +40,10 @@ export default function NightView({ players, nightNumber, wave, windowEndsAt, co
       <SidepanelCard icon="clock" title={again ? 'Second window' : 'Night window'}>
         {windowEndsAt && (
           <div className="timerbox">
-            <Countdown windowEndsAt={windowEndsAt} total={again ? config.wave2Seconds : config.windowSeconds} />
+            <Countdown
+              windowEndsAt={windowEndsAt}
+              total={windowTotalSeconds ?? (again ? config.wave2Seconds : config.windowSeconds)}
+            />
           </div>
         )}
         <div className="sub">{acted} of {living} have answered.</div>

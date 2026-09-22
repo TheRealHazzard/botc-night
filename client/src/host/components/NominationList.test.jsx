@@ -73,6 +73,29 @@ describe('NominationList', () => {
     expect(screen.getByText(/0 no · 4 not yet voted/)).toBeInTheDocument();
   });
 
+  // Same math Countdown.jsx itself uses for the ring's fill fraction.
+  const expectedDashoffset = (left, total) => {
+    const frac = Math.max(0, Math.min(1, left / (total || 1)));
+    const size = 200, stroke = 10, r = (size - stroke) / 2, c = 2 * Math.PI * r;
+    return (c * (1 - frac)).toFixed(1);
+  };
+  const ringDashoffset = container => container.querySelectorAll('.ring-svg circle')[1].getAttribute('stroke-dashoffset');
+
+  it('the ring reads the nomination\'s own snapshotted windowTotalSeconds, not the live voteWindowSeconds prop', () => {
+    const openNom = { day: 1, nominatorName: 'Ada', nomineeName: 'Bo', closed: false, windowEndsAt: Date.now() + 8000, windowTotalSeconds: 20, votes: [{ vote: 'yes' }] };
+    // A host who adjusted Timing settings mid-vote would make this prop
+    // stale (say, config.voteWindowSeconds is now 90) — the ring must
+    // still reflect the 20s this specific vote actually opened for.
+    const { container } = render(<NominationList nominations={[openNom]} nightNumber={1} players={players5} voteWindowSeconds={90} />);
+    expect(ringDashoffset(container)).toBe(expectedDashoffset(8, 20));
+  });
+
+  it('falls back to the live voteWindowSeconds prop only when windowTotalSeconds is absent (a vote opened before this field existed)', () => {
+    const openNom = { day: 1, nominatorName: 'Ada', nomineeName: 'Bo', closed: false, windowEndsAt: Date.now() + 8000, votes: [{ vote: 'yes' }] };
+    const { container } = render(<NominationList nominations={[openNom]} nightNumber={1} players={players5} voteWindowSeconds={90} />);
+    expect(ringDashoffset(container)).toBe(expectedDashoffset(8, 90));
+  });
+
   it('no nomination list or vote tally when nothing has happened today', () => {
     const { container } = render(<NominationList nominations={[]} nightNumber={1} players={players5} voteWindowSeconds={20} />);
     expect(container.querySelector('.nomlist')).not.toBeInTheDocument();
