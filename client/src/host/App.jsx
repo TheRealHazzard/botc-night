@@ -21,6 +21,7 @@ import BluffBeat from "../components/BluffBeat.jsx";
 import SettingsOverlay from "./components/SettingsOverlay.jsx";
 import ScriptBuilderOverlay from "./components/ScriptBuilderOverlay.jsx";
 import ConfirmModal from "./components/ConfirmModal.jsx";
+import CharactersOverlay from "./components/CharactersOverlay.jsx";
 import LobbyView from "./views/LobbyView.jsx";
 import RevealView from "./views/RevealView.jsx";
 import NightView from "./views/NightView.jsx";
@@ -57,6 +58,9 @@ export default function App() {
   // irreversible actions can ever be mid-confirm at a time. { message,
   // confirmLabel, onConfirm } | null; see ConfirmModal.jsx.
   const [pendingConfirm, setPendingConfirm] = useState(null);
+  // In-app stand-ins for what used to be window.open(url, "_blank") — see
+  // each overlay's own header comment for why.
+  const [viewingCharacters, setViewingCharacters] = useState(false);
   // Independent of the BOTC phase machine below — switching tabs never
   // touches `game` state, so an in-progress night is never at risk from a
   // peek at the toolkit, and the underlying phase/SSE stream keeps running
@@ -244,7 +248,7 @@ export default function App() {
         onNewGame={newGame}
         onOpenHistory={() => window.open("/games", "_blank")}
         onOpenHallOfFame={() => window.open("/hall-of-fame", "_blank")}
-        onOpenCharacters={() => window.open("/characters", "_blank")}
+        onOpenCharacters={() => setViewingCharacters(true)}
         textScale={textScale}
         onCycleTextScale={cycleTextScale}
       />
@@ -365,6 +369,10 @@ export default function App() {
           onConfirm={pendingConfirm.onConfirm}
           onCancel={() => setPendingConfirm(null)}
         />
+      )}
+
+      {viewingCharacters && (
+        <CharactersOverlay onClose={() => setViewingCharacters(false)} />
       )}
     </>
   );

@@ -509,11 +509,13 @@ describe("App", () => {
       expect(openSpy).toHaveBeenCalledWith("/hall-of-fame", "_blank");
     });
 
-    it("Character checklist opens /characters in a new tab", async () => {
+    it("Character checklist opens the in-app overlay, not a new tab", async () => {
       const openSpy = vi.spyOn(window, "open").mockImplementation(() => {});
+      mockFetch({ "/api/tokens": {}, "/trivia.json": [], "/api/scripts": SCRIPTS, "/api/characters/checklist": [] });
       render(<App />);
       await userEvent.click(screen.getByTitle("Character checklist"));
-      expect(openSpy).toHaveBeenCalledWith("/characters", "_blank");
+      expect(openSpy).not.toHaveBeenCalled();
+      expect(await screen.findByRole("heading", { name: "Character checklist" })).toBeInTheDocument();
     });
 
     it("Start/Clear/History are hidden while browsing scripts, and reappear on Close", async () => {

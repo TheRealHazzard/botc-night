@@ -2523,6 +2523,140 @@
         margin: 0.3em 0;
       }
 
+      /* ------------------------------------------------------- character checklist
+         CharactersOverlay.jsx — an in-app port of characters.html, reusing
+         .settings-overlay/.settings-header for the shell and .powerlog-body
+         for the scrollable content area (see App.jsx's own comment on why:
+         .settings-body is a two-column layout built for Settings
+         specifically, wrong shape for a plain list). */
+      .checklist-progress {
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: var(--surface);
+        padding: 18px 20px;
+        margin-bottom: 20px;
+      }
+      .checklist-progress-row {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 10px;
+        margin-bottom: 10px;
+      }
+      .checklist-progress-row h3 {
+        margin: 0;
+        font-family: "Cinzel Decorative", Georgia, serif;
+        font-size: 1.05rem;
+        color: var(--bone);
+      }
+      .checklist-progress-count {
+        font-family: "Cinzel Decorative", Georgia, serif;
+        font-size: 1.2rem;
+        color: var(--brass);
+        font-variant-numeric: tabular-nums;
+      }
+      .checklist-progress-track {
+        height: 8px;
+        border-radius: 4px;
+        background: var(--void);
+        border: 1px solid var(--line);
+        overflow: hidden;
+      }
+      .checklist-progress-fill {
+        height: 100%;
+        background: var(--brass);
+        border-radius: 4px 0 0 4px;
+      }
+      .checklist-filters {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 20px;
+      }
+      .checklist-filters button {
+        width: auto;
+        margin: 0;
+        padding: 7px 16px;
+        font-size: 0.82rem;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        color: var(--bone-dim);
+        border-radius: 20px;
+      }
+      .checklist-filters button.on {
+        border-color: var(--brass);
+        color: var(--brass);
+        background: var(--surface-2);
+      }
+      .checklist-team-group {
+        margin-bottom: 22px;
+      }
+      .checklist-team-group h3 {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+        color: var(--bone-dim);
+        font-size: 0.9rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        border-bottom: 1px solid var(--line);
+        padding-bottom: 6px;
+        margin: 0 0 4px;
+        font-family: "Cinzel Decorative", Georgia, serif;
+      }
+      .checklist-team-n {
+        font-family: "Space Mono", monospace;
+        font-size: 0.7rem;
+        letter-spacing: 0;
+        text-transform: none;
+        color: var(--bone-faint);
+      }
+      .checklist-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 9px 2px;
+        border-bottom: 1px dashed var(--line-soft);
+      }
+      .checklist-row:last-child {
+        border-bottom: none;
+      }
+      .checklist-row.untested {
+        opacity: 0.6;
+      }
+      .checklist-charname {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+      }
+      .checklist-mark {
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .checklist-mark .icon {
+        width: 11px;
+        height: 11px;
+        color: var(--void);
+      }
+      .checklist-mark.tested {
+        background: var(--good);
+      }
+      .checklist-mark.untested {
+        background: none;
+        border: 1.5px dashed var(--line);
+      }
+      .checklist-stat {
+        font-size: 0.85rem;
+        color: var(--bone-faint);
+        white-space: nowrap;
+        font-family: "Space Mono", monospace;
+      }
+
       /* ---------------------------------------------------------------
          Game-night toolkit — the header's Game/Toolkit switch, and the
          Timer/Randomizer/Trivia/Scoreboard tools themselves. Built on the
