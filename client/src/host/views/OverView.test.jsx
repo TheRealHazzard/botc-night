@@ -27,39 +27,40 @@ function baseMocks(overrides = {}) {
 describe('OverView', () => {
   afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); });
 
-  it('the victory banner starts hidden and reveals itself after a beat, not immediately', () => {
+  it('the win-condition line starts hidden and reveals itself after a beat, not immediately', () => {
     stubReducedMotion(false);
     vi.useFakeTimers();
     baseMocks();
     const { container } = render(<OverView players={players} victory={{ winner: 'good', reason: 'The Demon fell.' }} gameSummary={gameSummary} log={log} actionLog={[]} nightNumber={2} />);
-    const banner = () => screen.getByText('Good wins').closest('.victory-banner');
-    expect(banner()).not.toHaveClass('show');
+    const line = () => screen.getByText('The Demon fell.');
+    expect(line()).not.toHaveClass('show');
     expect(container.querySelector('.ring')).not.toHaveClass('glow-good');
 
     act(() => { vi.advanceTimersByTime(550); });
-    expect(banner()).toHaveClass('show');
+    expect(line()).toHaveClass('show');
     expect(container.querySelector('.ring')).toHaveClass('glow-good');
   });
 
-  it('reveals the banner and the ring glow immediately, no delay, under reduced motion', () => {
+  it('reveals the win-condition line and the ring glow immediately, no delay, under reduced motion', () => {
     stubReducedMotion(true);
     baseMocks();
     const { container } = render(<OverView players={players} victory={{ winner: 'evil', reason: 'The town executed a Townsfolk.' }} gameSummary={gameSummary} log={log} actionLog={[]} nightNumber={2} />);
-    expect(screen.getByText('Evil wins').closest('.victory-banner')).toHaveClass('show');
+    expect(screen.getByText('The town executed a Townsfolk.')).toHaveClass('show');
     expect(container.querySelector('.ring')).toHaveClass('glow-evil');
   });
 
-  it('a good win shows the sun-badged banner and reason', () => {
+  it('a good win shows the win-condition text with no "dread" styling', () => {
     baseMocks();
     render(<OverView players={players} victory={{ winner: 'good', reason: 'The Demon fell.' }} gameSummary={gameSummary} log={log} actionLog={[]} nightNumber={2} />);
-    expect(screen.getByText('Good wins')).toBeInTheDocument();
-    expect(screen.getByText('The Demon fell.')).toBeInTheDocument();
+    expect(screen.getByText('The Demon fell.')).not.toHaveClass('dread');
   });
 
-  it('an evil win shows the skull-badged banner', () => {
+  it('an evil win shows the win-condition text with "dread" styling — no separate "Evil wins" label needed, the ring glow already says who won', () => {
     baseMocks();
     render(<OverView players={players} victory={{ winner: 'evil', reason: 'The town executed a Townsfolk.' }} gameSummary={gameSummary} log={log} actionLog={[]} nightNumber={2} />);
-    expect(screen.getByText('Evil wins')).toBeInTheDocument();
+    expect(screen.getByText('The town executed a Townsfolk.')).toHaveClass('dread');
+    expect(screen.queryByText('Evil wins')).not.toBeInTheDocument();
+    expect(screen.queryByText('Good wins')).not.toBeInTheDocument();
   });
 
   it('shows the game log and game summary', () => {

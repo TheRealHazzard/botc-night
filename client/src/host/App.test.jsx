@@ -250,7 +250,7 @@ describe("App", () => {
   // here (no deaths) so this is the plain "over, no blow" path — the
   // fatal-blow-flash path itself is covered separately and in depth by
   // usePhaseFade.test.jsx and useFatalBlowSequencer.test.jsx.
-  it('a full evil-win reveal: skull badge + "Evil wins" copy + oxblood CSS vars + the victory sound cue, all together', () => {
+  it('a full evil-win reveal: win-condition text in "dread" styling + the ring glowing oxblood + oxblood CSS vars + the victory sound cue, all together', () => {
     vi.stubGlobal("matchMedia", () => ({
       matches: true,
       addEventListener: () => {},
@@ -284,13 +284,10 @@ describe("App", () => {
     });
     rerender(<App />);
 
-    expect(screen.getByText("Evil wins")).toBeInTheDocument();
     expect(
       screen.getByText("The town executed a Townsfolk."),
-    ).toBeInTheDocument();
-    expect(
-      document.querySelector(".victory-banner svg.icon").innerHTML,
-    ).toContain("M12 3a7 7 0"); // skull path
+    ).toHaveClass("dread");
+    expect(document.querySelector(".ring")).toHaveClass("glow-evil");
 
     expect(document.documentElement.style.getPropertyValue("--primary")).toBe(
       "var(--oxblood-hi)",

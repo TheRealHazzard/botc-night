@@ -30,12 +30,12 @@ export default function OverView({ players, victory, gameSummary, log, actionLog
   const victoryLine = victory ? `${victory.winner === 'good' ? 'Good wins.' : 'Evil wins.'} ${victory.reason}` : '';
   useSpeak(victoryLine, { dread: !!victory && victory.winner !== 'good', muted });
 
-  // "The truth, then." lands first, on its own; the actual verdict gets a
-  // beat of pause before it animates in — the one line every game has
-  // been building toward deserves to land as a moment, not pop in flat
-  // alongside the narration above it. Skips straight to shown, no delay,
-  // under reduced motion — same as every other staged reveal in this app
-  // (FatalFlashOverlay, the phase-fade transitions).
+  // The win condition text gets a beat of pause before it animates in —
+  // the one line every game has been building toward deserves to land as
+  // a moment, not pop in flat the instant this view mounts. Skips
+  // straight to shown, no delay, under reduced motion — same as every
+  // other staged reveal in this app (FatalFlashOverlay, the phase-fade
+  // transitions).
   const [bannerShown, setBannerShown] = useState(reduceMotion);
   useEffect(() => {
     if (!victory || reduceMotion) return;
@@ -53,14 +53,13 @@ export default function OverView({ players, victory, gameSummary, log, actionLog
 
   const main = (
     <div className="stage-main">
-      <div className="narration">The truth, then.</div>
+      {/* No "Good wins"/"Evil wins" label and no separate banner box — the
+          ring's border glow (below) already says who won, so this line only
+          has to carry the win condition itself, e.g. "Only the Demon and one
+          other live." */}
       {victory && (
-        <div className={'victory-banner' + (bannerShown ? ' show' : '')}>
-          <div className="icon-badge"><Icon name={victory.winner === 'good' ? 'sun' : 'skull'} size={24} /></div>
-          <div>
-            <div className="who">{victory.winner === 'good' ? 'Good wins' : 'Evil wins'}</div>
-            <div>{victory.reason}</div>
-          </div>
+        <div className={'narration reveal' + (victory.winner !== 'good' ? ' dread' : '') + (bannerShown ? ' show' : '')}>
+          {victory.reason}
         </div>
       )}
       {/* Same ring the table's watched all game — avatars swap for the real
@@ -68,7 +67,7 @@ export default function OverView({ players, victory, gameSummary, log, actionLog
           The dashed circle connecting the seats is the one thing every player
           has been staring at all night, so the verdict lands there too: it
           lights up blue for good, red for evil, on the same beat as the
-          banner above. */}
+          text above. */}
       <RingSeats players={players} revealed glow={victory && bannerShown ? victory.winner : null} />
     </div>
   );

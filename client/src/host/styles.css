@@ -1774,24 +1774,17 @@
         cursor: pointer;
       }
 
-      .victory-banner {
-        border: 1px solid var(--primary);
-        border-radius: 12px;
-        padding: 18px 22px;
-        margin-bottom: 6px;
-        background: var(--surface);
-        display: flex;
-        align-items: center;
-        gap: 16px;
-        text-align: left;
-        /* Held out of view until OverView.jsx flips .show, a beat after
-   "The truth, then." lands alone above it — the one line every game's
-   been building toward gets its own moment instead of popping in flat
-   alongside the narration. */
+      /* The game-over win-condition line — plain .narration styling, held
+   out of view until OverView.jsx flips .show a beat after mount, so the
+   one line every game's been building toward lands as a moment instead
+   of popping in flat the instant this view mounts. No banner box, no
+   "Good wins"/"Evil wins" label — the ring's border glow (see .ring.glow-
+   good/.glow-evil above) already says who won. */
+      .narration.reveal {
         opacity: 0;
         transform: translateY(14px) scale(0.96);
       }
-      .victory-banner.show {
+      .narration.reveal.show {
         animation: victory-reveal 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
       }
       /* Same "flare/overshoot, then settle" character as .rseat's own
@@ -1812,28 +1805,13 @@
         }
       }
       @media (prefers-reduced-motion: reduce) {
-        .victory-banner {
+        .narration.reveal {
           opacity: 1;
           transform: none;
         }
-        .victory-banner.show {
+        .narration.reveal.show {
           animation: none;
         }
-      }
-      .victory-banner .icon-badge {
-        width: 52px;
-        height: 52px;
-        border-color: var(--primary);
-        color: var(--primary);
-      }
-      .victory-banner .icon-badge .icon {
-        width: 26px;
-        height: 26px;
-      }
-      .victory-banner .who {
-        font-family: "Cinzel Decorative", Georgia, serif;
-        font-size: 1.4rem;
-        color: var(--primary);
       }
 
       /* The fatal blow that ends the game gets its own beat before the usual
