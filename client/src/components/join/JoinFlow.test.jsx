@@ -56,6 +56,22 @@ describe('JoinFlow', () => {
     await waitFor(() => expect(onJoined).toHaveBeenCalledWith('bo-token'));
   });
 
+  it('a network failure on /api/join shows a real message and lets the player retry, instead of failing silently', async () => {
+    globalThis.fetch = vi.fn((url) => {
+      if (String(url).includes('/api/join')) return Promise.reject(new Error('offline'));
+      const routes = { '/api/sim/seats': [], '/api/profiles': [{ name: 'Bo', gamesPlayed: 0, color: null, goodWinRate: null, evilWinRate: null }] };
+      const entry = Object.entries(routes).find(([key]) => String(url).includes(key));
+      return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(entry ? entry[1] : {}) });
+    });
+    render(<JoinFlow onJoined={() => {}} />);
+    const card = await screen.findByText('Bo');
+    await userEvent.click(card);
+    expect(await screen.findByText(/could not reach the server/i)).toBeInTheDocument();
+    // Still on the real-join screen, not stuck — the same recovery path a
+    // real server-returned error already gets.
+    expect(screen.getByText(/who.s playing/i)).toBeInTheDocument();
+  });
+
   it('typing a brand-new name with no profile offers a color picker, then joins on skip', async () => {
     const fetchMock = mockFetch({
       '/api/sim/seats': [],

@@ -30,6 +30,14 @@ export default function JoinFlow({ onJoined }) {
         return;
       }
       onJoined(r.token);
+    }).catch(() => {
+      // A rejected fetch (offline, DNS, a dropped connection) used to have
+      // no handler at all here — the "Sit down" button's own spinner just
+      // stopped with nothing to show for it, on the one screen every new
+      // player has to get through before anything else. Same fallback the
+      // server's own r.error branch above already uses, so a real failure
+      // and a network failure read the same way to whoever's stuck here.
+      setScreen({ kind: 'realJoin', message: 'Could not reach the server — check your connection and try again.' });
     });
   };
 
