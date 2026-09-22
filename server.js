@@ -2791,7 +2791,17 @@ async function requestHandler(req, res) {
         clearTimeout(windowTimer);
         clearTimeout(voteTimer);
         clearTimeout(simTimer);
+        // Carry Timing/Drama/Whim/Roster/LLM settings across a reset —
+        // E.newGame() used to rebuild config from scratch every time,
+        // silently reverting a host's own dialed-in settings on every
+        // single "New game" in a multi-game sitting, with the confirm
+        // dialog never mentioning it. llmStorytellerEnabled reverting
+        // silently was the sharpest edge: forget to re-flip it back on
+        // between games and the table quietly falls back to flat dice-roll
+        // judgment with no indication anything changed.
+        const config = game.config;
         game = E.newGame();
+        game.config = config;
         playerStreams.clear();
         pushHost();
         return json(res, 200, { ok: true });
