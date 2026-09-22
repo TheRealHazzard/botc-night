@@ -51,4 +51,37 @@ describe('NominateAction', () => {
     const { container } = render(<NominateAction nominations={[openNom]} nightNumber={1} players={players5} />);
     expect(container).toBeEmptyDOMElement();
   });
+
+  it('drops an already-nominated player from the nominee dropdown, and their nominator from the nominator dropdown', () => {
+    const closedNom = { day: 1, nominatorId: 'p1', nominatorName: 'Ada', nomineeId: 'p2', nomineeName: 'Bo', closed: true, yesCount: 1, votes: [] };
+    const { container } = render(<NominateAction nominations={[closedNom]} nightNumber={1} players={players5} />);
+    const [nominatorSelect, nomineeSelect] = container.querySelectorAll('select');
+    expect([...nominatorSelect.options].map(o => o.textContent)).toEqual(['Bo', 'Cy', 'Di']);
+    expect([...nomineeSelect.options].map(o => o.textContent)).toEqual(['Ada', 'Cy', 'Di']);
+  });
+
+  it('the picker\'s own snap-back drops an option that just became ineligible mid-day, so a repeat 409 can never happen from stale state', () => {
+    const { container, rerender } = render(<NominateAction nominations={[]} nightNumber={1} players={players5} />);
+    const nomineeSelect = () => container.querySelectorAll('select')[1];
+    const closedNom = { day: 1, nominatorId: 'p3', nominatorName: 'Cy', nomineeId: 'p1', nomineeName: 'Ada', closed: true, yesCount: 1, votes: [] };
+    rerender(<NominateAction nominations={[closedNom]} nightNumber={1} players={players5} />);
+    // Ada (p1), the default nominee, just got nominated by Cy — the picker should have moved off her.
+    expect(nomineeSelect().value).not.toBe('p1');
+  });
+
+  it('shows a message once everyone living has already nominated someone today', () => {
+    const noms = players5.filter(p => p.alive).map((p, i) => ({
+      day: 1, nominatorId: p.id, nominatorName: p.name, nomineeId: 'ghost' + i, nomineeName: 'X', closed: true, yesCount: 0, votes: [],
+    }));
+    render(<NominateAction nominations={noms} nightNumber={1} players={players5} />);
+    expect(screen.getByText(/everyone living has already nominated someone today/i)).toBeInTheDocument();
+  });
+
+  it('shows a message once everyone living has already been nominated today', () => {
+    const noms = players5.filter(p => p.alive).map((p, i) => ({
+      day: 1, nominatorId: 'ghost' + i, nominatorName: 'X', nomineeId: p.id, nomineeName: p.name, closed: true, yesCount: 0, votes: [],
+    }));
+    render(<NominateAction nominations={noms} nightNumber={1} players={players5} />);
+    expect(screen.getByText(/everyone living has already been nominated today/i)).toBeInTheDocument();
+  });
 });

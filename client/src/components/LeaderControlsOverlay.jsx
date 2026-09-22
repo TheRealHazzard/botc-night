@@ -116,11 +116,31 @@ function RevealControls({ busy, run }) {
 function DayControls({ S, busy, run }) {
   const alive = S.players.filter(p => p.alive);
   const nightNumber = S.nightNumber;
-  const anyOpen = S.nominations.some(n => n.day === nightNumber && !n.closed);
+  const todaysNoms = S.nominations.filter(n => n.day === nightNumber);
+  const anyOpen = todaysNoms.some(n => !n.closed);
+  // Same as the host's own NominateAction.jsx: /api/table/nominate 409s on
+  // a repeat nominee or a nominator who's already used their one
+  // nomination today, so both pickers drop the ineligible names instead
+  // of offering a pick that can only fail.
+  const nominatedTodayIds = new Set(todaysNoms.map(n => n.nomineeId));
+  const alreadyNominatorIds = new Set(todaysNoms.map(n => n.nominatorId));
+  const eligibleNominees = alive.filter(p => !nominatedTodayIds.has(p.id));
+  const eligibleNominators = alive.filter(p => !alreadyNominatorIds.has(p.id));
 
-  const [nominatorId, setNominatorId] = useState(() => alive[0]?.id || '');
-  const [nomineeId, setNomineeId] = useState(() => alive[0]?.id || '');
+  const [nominatorId, setNominatorId] = useState(() => eligibleNominators[0]?.id || '');
+  const [nomineeId, setNomineeId] = useState(() => eligibleNominees[0]?.id || '');
   const [executeId, setExecuteId] = useState('');
+
+  // Same snap-back as NominateAction.jsx — this overlay stays mounted
+  // across a whole day rather than remounting per-nomination, so a stale
+  // selection (someone who just got nominated, or just used their own
+  // nomination) has to be corrected here, not just excluded at first render.
+  useEffect(() => {
+    const nominatorIds = new Set(eligibleNominators.map(p => p.id));
+    const nomineeIds = new Set(eligibleNominees.map(p => p.id));
+    setNominatorId(id => (id && nominatorIds.has(id)) ? id : (eligibleNominators[0]?.id || ''));
+    setNomineeId(id => (id && nomineeIds.has(id)) ? id : (eligibleNominees[0]?.id || ''));
+  }, [eligibleNominators, eligibleNominees]);
 
   const { id: autoWinnerId, tied } = leadingNominee(S.nominations, nightNumber, alive);
   const effectiveExecuteId = executeId || autoWinnerId || '';
@@ -138,15 +158,15 @@ function DayControls({ S, busy, run }) {
           way for it to end with nobody executed — see
           server.js's resolveMastermindBonusDay. (An earlier version of
           this file said the opposite — that was wrong.) */}
-      {!anyOpen && alive.length >= 2 && (
+      {!anyOpen && alive.length >= 2 && eligibleNominators.length > 0 && eligibleNominees.length > 0 && (
         <div className="card">
           <div className="nomrow">
             <select value={nominatorId} onChange={e => setNominatorId(e.target.value)}>
-              {alive.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+              {eligibleNominators.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
             <span aria-hidden="true"> → </span>
             <select value={nomineeId} onChange={e => setNomineeId(e.target.value)}>
-              {alive.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+              {eligibleNominees.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
           </div>
           <button

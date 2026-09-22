@@ -17,7 +17,7 @@
     "test:dom-shim": "node test/dom-shim/games.js && node test/dom-shim/simulate.js",
     "test:llm": "node test/llmStoryteller.js",
     "test:history": "node test/historyRecap.js",
-    "test:server": "node test/server/lifecycle.js && node test/server/mastermindBonusDay.js && node test/server/vortoxNoExecution.js && node test/server/botDayActions.js && node test/server/flagBug.js && node test/server/charactersChecklist.js && node test/server/replayRecord.js && node test/server/replaySuccession.js && node test/server/replayNonActor.js",
+    "test:server": "node test/server/lifecycle.js && node test/server/mastermindBonusDay.js && node test/server/vortoxNoExecution.js && node test/server/botDayActions.js && node test/server/nominateEligibility.js && node test/server/flagBug.js && node test/server/charactersChecklist.js && node test/server/replayRecord.js && node test/server/replaySuccession.js && node test/server/replayNonActor.js",
     "dev:player": "vite",
     "build:player": "vite build",
     "build:host": "vite build --mode host",

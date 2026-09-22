@@ -1367,6 +1367,12 @@ function privateState(g, playerId) {
   const p = byId(g, playerId);
   if (!p) return null;
   const c = actingChar(p);
+  // Everyone already-nominated today, win or lose — /api/table/nominate
+  // rejects a repeat nominee with "has already been nominated today"
+  // regardless of how that first nomination turned out, so a picker
+  // offering them again would just be a guaranteed error tap.
+  const nomsToday = g.nominations.filter(n => n.day === g.nightNumber);
+  const alreadyNominatedTodayIds = new Set(nomsToday.map(n => n.nomineeId));
   return {
     you: {
       id: p.id,
@@ -1422,16 +1428,19 @@ function privateState(g, playerId) {
     ],
     // Every living player's own action, not a character ability — no
     // x.id !== p.id exclusion the way slayerShot/jugglerGuess have below,
-    // since nominating yourself is legal. Rarer per-day limits (already
-    // nominated, already been nominated, the Golem's once-per-game cap)
-    // aren't re-checked here — same as those checks already work for
-    // every other prompt in this file, the real gate is /api/table/
-    // nominate itself; this only covers the common case (alive, day,
-    // nothing already open) so the button doesn't show at an obviously
-    // wrong moment.
+    // since nominating yourself is legal. Filters out both of the common,
+    // every-day-happens 409s /api/table/nominate would otherwise return —
+    // this player having already nominated someone today (canNominate
+    // itself goes null), and a target already nominated by someone else
+    // today (dropped from the list, not merely disabled, so a tap can
+    // never fail on that account). The Golem's once-per-game cap is still
+    // left to the route itself — it's a single-character, once-a-game
+    // edge case, not a picker a Golem's player taps into repeatedly.
     canNominate: (g.phase === 'day' && publiclyAlive(p) &&
-        !g.nominations.some(n => n.day === g.nightNumber && !n.closed))
-      ? { targets: g.players.filter(x => publiclyAlive(x)).map(x => ({ id: x.id, name: x.name, color: x.color || null, alive: true })) }
+        !nomsToday.some(n => !n.closed) &&
+        !nomsToday.some(n => n.nominatorId === p.id) &&
+        g.players.some(x => publiclyAlive(x) && !alreadyNominatedTodayIds.has(x.id)))
+      ? { targets: g.players.filter(x => publiclyAlive(x) && !alreadyNominatedTodayIds.has(x.id)).map(x => ({ id: x.id, name: x.name, color: x.color || null, alive: true })) }
       : null,
     // Shown based on *believed* character, same as everything else — a
     // Drunk who thinks they're the Slayer gets the button too, and simply

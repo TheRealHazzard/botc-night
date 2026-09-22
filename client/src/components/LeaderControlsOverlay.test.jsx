@@ -140,6 +140,40 @@ describe('LeaderControlsOverlay', () => {
       expect(screen.queryByText('Open for voting')).not.toBeInTheDocument();
     });
 
+    it('drops an already-nominated player from the nominee picker, and their nominator from the nominator picker', () => {
+      FakeEventSource.instances = [];
+      vi.stubGlobal('EventSource', FakeEventSource);
+      const threeAlive = {
+        phase: 'day', nightNumber: 2, wave: 0, mastermindExtraDay: false,
+        players: [
+          { id: 'p1', name: 'Ada', alive: true },
+          { id: 'p2', name: 'Bo', alive: true },
+          { id: 'p3', name: 'Cy', alive: true },
+        ],
+        // Ada already nominated Bo today.
+        nominations: [{ day: 2, closed: true, nominatorId: 'p1', nomineeId: 'p2', yesCount: 0 }],
+      };
+      const { container } = render(<LeaderControlsOverlay open={true} onClose={() => {}} />);
+      push(threeAlive);
+      const [nominatorSelect, nomineeSelect] = container.querySelectorAll('.nomrow select');
+      expect([...nominatorSelect.options].map(o => o.textContent)).toEqual(['Bo', 'Cy']);
+      expect([...nomineeSelect.options].map(o => o.textContent)).toEqual(['Ada', 'Cy']);
+    });
+
+    it('hides the nominate form entirely once nobody living is eligible to nominate or be nominated', () => {
+      FakeEventSource.instances = [];
+      vi.stubGlobal('EventSource', FakeEventSource);
+      render(<LeaderControlsOverlay open={true} onClose={() => {}} />);
+      // 2 living (Ada p1, Bo p2) — both have already nominated someone today.
+      push(dayState({
+        nominations: [
+          { day: 2, closed: true, nominatorId: 'p1', nomineeId: 'p1', yesCount: 0 },
+          { day: 2, closed: true, nominatorId: 'p2', nomineeId: 'p2', yesCount: 0 },
+        ],
+      }));
+      expect(screen.queryByText('Open for voting')).not.toBeInTheDocument();
+    });
+
     it('auto-selects the leading (closed, threshold-met) nominee for execution', async () => {
       FakeEventSource.instances = [];
       vi.stubGlobal('EventSource', FakeEventSource);
