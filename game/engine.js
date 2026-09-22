@@ -1393,6 +1393,11 @@ function privateState(g, playerId) {
     // everyone at once, host and every player alike (see
     // client/src/hooks/useBluffBeat.js).
     bluffBeatAt: g.bluffBeatAt,
+    // Who's seated is never secret before roles are even dealt — everyone
+    // physically at the table already sees this. Lobby-only, so a lobby
+    // card can show real progress instead of a flat "waiting" with no
+    // sense of whether that's 1 player or 14.
+    lobby: g.phase === 'lobby' ? { count: g.players.length, names: g.players.map(x => x.name) } : null,
     // Whoever took the first seat gets an extra "Storyteller controls"
     // button on their own phone (see LeaderControlsOverlay.jsx) — nothing
     // else in this object changes for them; the overlay drives itself off

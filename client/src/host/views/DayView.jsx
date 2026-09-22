@@ -20,6 +20,7 @@ import { useMinorBeat } from '../hooks/useMinorBeat.js';
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion.js';
 import { useRoomPacing } from '../hooks/useRoomPacing.js';
 import { post } from '../../lib/api.js';
+import { showToast } from '../../lib/toast.js';
 import { leadingNominee } from '../../lib/leadingNominee.js';
 
 export default function DayView({ players, nightNumber, deaths, nominations, config, script, scriptChars, activeScriptMeta, muted, log = [], dayStartedAt }) {
@@ -143,7 +144,7 @@ function DayActions({ players, nominations, nightNumber, anyOpen }) {
   const nightFalls = () => post('/api/table/night');
   const kick = () => {
     if (effectiveId && !confirm(`Execute ${effectivePlayer ? effectivePlayer.name : 'this player'}?`)) return;
-    post('/api/table/execute', { playerId: effectiveId || null }).then(r => r.error && alert(r.error));
+    post('/api/table/execute', { playerId: effectiveId || null }).then(r => r.error && showToast(r.error));
   };
 
   return (

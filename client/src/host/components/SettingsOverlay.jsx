@@ -4,6 +4,7 @@ import DramaSection from './settings/DramaSection.jsx';
 import WhimSection from './settings/WhimSection.jsx';
 import RosterSection from './settings/RosterSection.jsx';
 import LlmSection from './settings/LlmSection.jsx';
+import { showToast } from '../../lib/toast.js';
 
 export default function SettingsOverlay({ config, phase, llmConfigured, llmProvider, llmModel, patchConfig, onClose }) {
   // None of the 6 call sites across the 5 sections below ever handled a
@@ -14,7 +15,7 @@ export default function SettingsOverlay({ config, phase, llmConfigured, llmProvi
   // reverted it back with no explanation. One wrapper here covers every
   // section instead of fixing each call site separately.
   const patch = cfg => patchConfig(cfg).then(r => {
-    if (r.error) alert(r.error);
+    if (r.error) showToast(r.error);
     return r;
   });
 

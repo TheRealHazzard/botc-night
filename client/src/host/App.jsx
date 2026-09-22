@@ -8,6 +8,7 @@ import { useScriptRoster } from "./hooks/useScriptRoster.js";
 import { useWakeLock } from "../hooks/useWakeLock.js";
 import { useTextScale } from "../hooks/useTextScale.js";
 import { post } from "../lib/api.js";
+import { showToast } from "../lib/toast.js";
 import { useWhimConfirm } from "./hooks/useWhimConfirm.js";
 import { useHostAnnouncement } from "./hooks/useHostAnnouncement.js";
 import { useBluffBeat } from "../hooks/useBluffBeat.js";
@@ -15,6 +16,7 @@ import Icon from "./components/Icon.jsx";
 import ReclaimBanner from "./components/ReclaimBanner.jsx";
 import FatalFlashOverlay from "./components/FatalFlashOverlay.jsx";
 import WhimConfirmCard from "./components/WhimConfirmCard.jsx";
+import ToastStack from "./components/ToastStack.jsx";
 import BluffBeat from "../components/BluffBeat.jsx";
 import SettingsOverlay from "./components/SettingsOverlay.jsx";
 import ScriptBuilderOverlay from "./components/ScriptBuilderOverlay.jsx";
@@ -131,7 +133,7 @@ export default function App() {
     post("/api/table/script", { script: browsedMeta.id }).then(r => {
       if (r.error) {
         setConfirming(false);
-        alert(r.error);
+        showToast(r.error);
         return;
       }
       setConfirming(false);
@@ -142,11 +144,11 @@ export default function App() {
   // Also header actions, alongside browsing's Play/Close — both pairs are
   // lobby-only and mutually exclusive (this one only when NOT browsing),
   // so they share the same header slot rather than doubling up controls.
-  const startGame = () => post("/api/table/deal").then(r => r.error && alert(r.error));
+  const startGame = () => post("/api/table/deal").then(r => r.error && showToast(r.error));
   const clearLobby = () => {
     const n = displayS.players.length;
     if (!confirm(`Remove all ${n} seated player${n === 1 ? "" : "s"} and start the count over?`)) return;
-    post("/api/table/clear-lobby").then(r => r.error && alert(r.error));
+    post("/api/table/clear-lobby").then(r => r.error && showToast(r.error));
   };
 
   const phaseLabel =
@@ -187,6 +189,7 @@ export default function App() {
       />
 
       <ReclaimBanner pendingReclaims={S?.pendingReclaims} />
+      <ToastStack />
 
       <main>
         {section === "toolkit" ? (

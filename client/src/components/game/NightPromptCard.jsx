@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import TargetButton from '../TargetButton.jsx';
 import { post } from '../../lib/api.js';
+import { showToast } from '../../lib/toast.js';
 
 /** The one really stateful prompt — multi-select targets up to a count,
     an optional character guess, a live countdown, and a window that
@@ -96,14 +97,14 @@ export default function NightPromptCard({ P, token }) {
     autoSubmittedRef.current = true;
     setBusy(true);
     submitTargets(picked, guessedCharacter).then(r => {
-      if (r.error) { alert(r.error); setBusy(false); autoSubmittedRef.current = false; }
+      if (r.error) { showToast(r.error); setBusy(false); autoSubmittedRef.current = false; }
     });
   };
   const pass = () => {
     autoSubmittedRef.current = true;
     setBusy(true);
     submitTargets([], null).then(r => {
-      if (r.error) { alert(r.error); setBusy(false); autoSubmittedRef.current = false; }
+      if (r.error) { showToast(r.error); setBusy(false); autoSubmittedRef.current = false; }
     });
   };
 

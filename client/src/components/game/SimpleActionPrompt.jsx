@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { post } from '../../lib/api.js';
+import { showToast } from '../../lib/toast.js';
 
 // Shared by MadClaim and SavantVisit — a title, a description, and one
 // button that posts {token} with no target and no local reset needed on
@@ -11,7 +12,7 @@ export default function SimpleActionPrompt({ title, description, buttonLabel, en
   const act = () => {
     setBusy(true);
     post(endpoint, { token }).then(r => {
-      if (r.error) { alert(r.error); setBusy(false); }
+      if (r.error) { showToast(r.error); setBusy(false); }
     });
   };
 

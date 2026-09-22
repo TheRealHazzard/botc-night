@@ -1,7 +1,8 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import NominateAction from './NominateAction.jsx';
+import ToastStack from './ToastStack.jsx';
 import { mockFetch, lastBody } from '../../../test/fetchMock.js';
 
 const players5 = [
@@ -37,12 +38,12 @@ describe('NominateAction', () => {
     expect(nomineeSelect().value).toBe('p1');
   });
 
-  it('alerts on a Virgin-fires response', async () => {
+  it('shows a story-styled toast on a Virgin-fires response, not a plain error', async () => {
     mockFetch({ '/api/table/nominate': { virginFired: true } });
-    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
-    render(<NominateAction nominations={[]} nightNumber={1} players={players5} />);
+    render(<><NominateAction nominations={[]} nightNumber={1} players={players5} /><ToastStack /></>);
     await userEvent.click(screen.getByText(/open for voting/i));
-    expect(alertSpy).toHaveBeenCalledWith(expect.stringMatching(/virgin/i));
+    const toast = await screen.findByText(/virgin/i);
+    expect(toast).toHaveClass('toast-story');
   });
 
   it('renders nothing once a vote is already open — nothing left to pick', () => {

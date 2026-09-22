@@ -2,6 +2,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import LeaderControlsOverlay from './LeaderControlsOverlay.jsx';
+import ToastStack from './ToastStack.jsx';
 import { mockFetch, lastBody } from '../../test/fetchMock.js';
 
 class FakeEventSource {
@@ -285,15 +286,14 @@ describe('LeaderControlsOverlay', () => {
       expect(screen.getByText(/requires a host code/i)).toBeInTheDocument();
     });
 
-    it('any other server error still shows a plain alert', async () => {
+    it('any other server error still shows a toast', async () => {
       FakeEventSource.instances = [];
       vi.stubGlobal('EventSource', FakeEventSource);
-      const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
       mockFetch({ '/api/table/deal': { error: 'Need at least 5 players.' } });
-      render(<LeaderControlsOverlay open={true} onClose={() => {}} />);
+      render(<><LeaderControlsOverlay open={true} onClose={() => {}} /><ToastStack /></>);
       push(lobbyState(5));
       await userEvent.click(screen.getByText('Start game'));
-      expect(alertSpy).toHaveBeenCalledWith('Need at least 5 players.');
+      expect(await screen.findByText('Need at least 5 players.')).toBeInTheDocument();
     });
   });
 });

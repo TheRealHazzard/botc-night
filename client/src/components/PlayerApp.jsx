@@ -78,7 +78,7 @@ export default function PlayerApp({ P, token, onChangeUser, onOpenLeaderControls
 
       {!choosingTarget && <RoleCard character={P.you.character} />}
 
-      {P.phase === 'lobby' && <LobbyCard name={P.you.name} onChangeUser={onChangeUser} />}
+      {P.phase === 'lobby' && <LobbyCard name={P.you.name} onChangeUser={onChangeUser} lobby={P.lobby} />}
       {P.phase === 'reveal' && <RevealCard />}
 
       {P.phase === 'night' && P.prompt && (

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import Icon from './Icon.jsx';
 import { post } from '../../lib/api.js';
+import { showToast } from '../../lib/toast.js';
 
 // The operator half of what used to be one NominationPanel — placing a
 // nomination on someone's behalf (a verbal nomination at the table, typed
@@ -47,9 +48,9 @@ export default function NominateAction({ nominations, nightNumber, players }) {
     setSubmitting(true);
     post('/api/table/nominate', { nominatorId, nomineeId }).then(r => {
       setSubmitting(false);
-      if (r.error) { alert(r.error); return; }
+      if (r.error) { showToast(r.error); return; }
       if (r.virginFired) {
-        alert('The Virgin was nominated by a Townsfolk — the nominator is executed immediately.');
+        showToast('The Virgin was nominated by a Townsfolk — the nominator is executed immediately.', { kind: 'story' });
       }
     });
   };

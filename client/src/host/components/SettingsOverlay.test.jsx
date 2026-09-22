@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import SettingsOverlay from './SettingsOverlay.jsx';
+import ToastStack from './ToastStack.jsx';
 
 const config = {
   windowSeconds: 60, wave2Seconds: 20, voteWindowSeconds: 20, hintNights: [1, 2], dramaBias: 0.5,
@@ -34,14 +35,13 @@ describe('SettingsOverlay', () => {
     expect(bucket4Checkbox).toBeDisabled();
   });
 
-  it('a failed PATCH is surfaced via alert, instead of silently reverting later with no explanation', async () => {
-    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
+  it('a failed PATCH is surfaced via a toast, instead of silently reverting later with no explanation', async () => {
     const patchConfig = vi.fn(() => Promise.resolve({ error: 'Game already started.' }));
-    render(<SettingsOverlay config={config} phase="lobby" llmConfigured={false} patchConfig={patchConfig} onClose={() => {}} />);
+    render(<><SettingsOverlay config={config} phase="lobby" llmConfigured={false} patchConfig={patchConfig} onClose={() => {}} /><ToastStack /></>);
     const llmToggle = screen.getByText('Connect an LLM Storyteller').closest('.settings-row').querySelector('input[type=checkbox]');
 
     await userEvent.click(llmToggle);
     expect(patchConfig).toHaveBeenCalledWith({ llmStorytellerEnabled: true });
-    expect(alertSpy).toHaveBeenCalledWith('Game already started.');
+    expect(await screen.findByText('Game already started.')).toBeInTheDocument();
   });
 });

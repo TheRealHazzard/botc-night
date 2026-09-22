@@ -12,6 +12,25 @@ describe('SimpleCards', () => {
     expect(onChangeUser).toHaveBeenCalledTimes(1);
   });
 
+  it('LobbyCard falls back to a flat "waiting" line with no lobby data yet (e.g. the very first render)', () => {
+    render(<LobbyCard name="Bo" onChangeUser={() => {}} />);
+    expect(screen.getByText('Waiting for the table to fill.')).toBeInTheDocument();
+  });
+
+  it('LobbyCard shows real progress once others are seated, naming everyone but yourself', () => {
+    render(<LobbyCard name="Bo" onChangeUser={() => {}} lobby={{ count: 3, names: ['Ada', 'Bo', 'Cy'] }} />);
+    expect(screen.getByText(/3 seated — ada, cy\./i)).toBeInTheDocument();
+  });
+
+  it('LobbyCard says how many more are needed under 5, and switches to "waiting to deal" at 5+', () => {
+    const { rerender } = render(<LobbyCard name="Bo" onChangeUser={() => {}} lobby={{ count: 3, names: ['Ada', 'Bo', 'Cy'] }} />);
+    expect(screen.getByText(/need 2 more to start/i)).toBeInTheDocument();
+
+    rerender(<LobbyCard name="Bo" onChangeUser={() => {}} lobby={{ count: 5, names: ['Ada', 'Bo', 'Cy', 'Di', 'Ed'] }} />);
+    expect(screen.queryByText(/need .* more/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/waiting for the storyteller to deal/i)).toBeInTheDocument();
+  });
+
   it('RevealCard, NightWaitingCard, and DaylightCard render their static copy', () => {
     const { rerender } = render(<RevealCard />);
     expect(screen.getByText('Learn yourself')).toBeInTheDocument();

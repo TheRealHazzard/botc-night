@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import TargetButton from '../TargetButton.jsx';
 import { post } from '../../lib/api.js';
+import { showToast } from '../../lib/toast.js';
 
 /** Shared by GossipClaim and ArtistQuestion — both let a player build one
     of four claim shapes (a player's team, a player's exact character, a
@@ -63,7 +64,7 @@ export default function ClaimBuilder({
         ? { token, claimType: 'freeform', claimText: freeText.trim() }
         : { token, targetId: target, claimType, claimValue };
     post(endpoint, claimBody).then(r => {
-      if (r.error) { alert(r.error); setBusy(false); return; }
+      if (r.error) { showToast(r.error); setBusy(false); return; }
       pickKind(null);
       setBusy(false);
     });

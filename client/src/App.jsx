@@ -7,6 +7,7 @@ import LeaderControlsOverlay from './components/LeaderControlsOverlay.jsx';
 import JoinFlow from './components/join/JoinFlow.jsx';
 import PlayerApp from './components/PlayerApp.jsx';
 import FlagBugButton from './components/FlagBugButton.jsx';
+import ToastStack from './components/ToastStack.jsx';
 
 export default function App() {
   const { P, token, setToken, forgetToken } = useTableState();
@@ -68,6 +69,7 @@ export default function App() {
           : <JoinFlow onJoined={setToken} />}
       </div>
       {P && <FlagBugButton token={token} />}
+      <ToastStack />
       <ScriptOverlay open={scriptOpen} onClose={() => setScriptOpen(false)} script={P?.script} />
       <LeaderControlsOverlay
         open={leaderControlsOpen}

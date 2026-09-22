@@ -1,7 +1,8 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import AskStoryteller from './AskStoryteller.jsx';
+import ToastStack from '../ToastStack.jsx';
 import { mockFetch, lastBody } from '../../../test/fetchMock.js';
 
 describe('AskStoryteller', () => {
@@ -48,15 +49,14 @@ describe('AskStoryteller', () => {
     expect(questions.map(q => q.textContent)).toEqual(['First question', 'Second question']);
   });
 
-  it('alerts and re-enables Ask on error, without clearing what was typed', async () => {
+  it('toasts and re-enables Ask on error, without clearing what was typed', async () => {
     mockFetch({ '/api/ask-storyteller': { error: 'Only during the day.' } });
-    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
-    render(<AskStoryteller token="tok-9" />);
+    render(<><AskStoryteller token="tok-9" /><ToastStack /></>);
     const box = screen.getByPlaceholderText(/empath/i);
     await userEvent.type(box, 'Is it day yet?');
     const btn = screen.getByText('Ask');
     await userEvent.click(btn);
-    await waitFor(() => expect(alertSpy).toHaveBeenCalledWith('Only during the day.'));
+    expect(await screen.findByText('Only during the day.')).toBeInTheDocument();
     expect(btn).toBeEnabled();
     expect(box).toHaveValue('Is it day yet?');
   });

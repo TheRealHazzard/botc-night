@@ -1,7 +1,8 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import SimpleActionPrompt from './SimpleActionPrompt.jsx';
+import ToastStack from '../ToastStack.jsx';
 import { mockFetch, lastBody } from '../../../test/fetchMock.js';
 
 describe('SimpleActionPrompt', () => {
@@ -20,15 +21,17 @@ describe('SimpleActionPrompt', () => {
     await waitFor(() => expect(lastBody(fetchMock, '/api/savant-visit')).toEqual({ token: 'tok-9' }));
   });
 
-  it('alerts and re-enables the button on error', async () => {
+  it('toasts and re-enables the button on error', async () => {
     mockFetch({ '/api/mad-claim': { error: 'Already claimed.' } });
-    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
     render(
-      <SimpleActionPrompt title="t" description="d" buttonLabel="Claim it" endpoint="/api/mad-claim" token="tok-9" />
+      <>
+        <SimpleActionPrompt title="t" description="d" buttonLabel="Claim it" endpoint="/api/mad-claim" token="tok-9" />
+        <ToastStack />
+      </>
     );
     const btn = screen.getByText('Claim it');
     await userEvent.click(btn);
-    await waitFor(() => expect(alertSpy).toHaveBeenCalledWith('Already claimed.'));
+    expect(await screen.findByText('Already claimed.')).toBeInTheDocument();
     expect(btn).toBeEnabled();
   });
 });

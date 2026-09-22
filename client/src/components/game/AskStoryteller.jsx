@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { post } from '../../lib/api.js';
+import { showToast } from '../../lib/toast.js';
 
 /** A general "speak to the Storyteller" utility — unlike Gossip/Savant/
     Artist, not gated to a specific believed character, no per-day or
@@ -18,7 +19,7 @@ export default function AskStoryteller({ token }) {
     setBusy(true);
     post('/api/ask-storyteller', { token, question: q }).then(r => {
       setBusy(false);
-      if (r.error) { alert(r.error); return; }
+      if (r.error) { showToast(r.error); return; }
       setHistory(h => [...h, { question: q, answer: r.answer }]);
       setQuestion('');
     });

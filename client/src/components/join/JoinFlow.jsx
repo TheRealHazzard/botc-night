@@ -132,6 +132,13 @@ export default function JoinFlow({ onJoined }) {
         />
       );
     default:
-      return null; // loading
+      // Only ever visible for as long as the first /api/sim/seats check
+      // takes — brief on a real connection, but a totally blank page on a
+      // slow one reads as "is this broken?" rather than "still loading."
+      return (
+        <div className="card">
+          <p className="dim small">Loading…</p>
+        </div>
+      );
   }
 }

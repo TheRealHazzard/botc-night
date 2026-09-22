@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useLeaderState, isHostCodeError } from '../hooks/useLeaderState.js';
 import { leadingNominee } from '../lib/leadingNominee.js';
 import { post } from '../lib/api.js';
+import { showToast } from '../lib/toast.js';
 
 const PHASE_LABEL = { lobby: 'Lobby', reveal: 'Revealing roles', night: 'Night', day: 'Day', over: 'Game over' };
 
@@ -36,7 +37,7 @@ export default function LeaderControlsOverlay({ open, onClose, token, myId }) {
     post(route, body).then(r => {
       setBusy(false);
       if (isHostCodeError(r)) { setHostCodeNeeded(true); return; }
-      if (r && r.error) { alert(r.error); return; }
+      if (r && r.error) { showToast(r.error); return; }
       if (onSuccess) onSuccess(r);
     });
   };
@@ -149,7 +150,7 @@ function DayControls({ S, busy, run }) {
             type="button"
             disabled={busy}
             onClick={() => run('/api/table/nominate', { nominatorId, nomineeId }, null, r => {
-              if (r.virginFired) alert('The Virgin was nominated by a Townsfolk — the nominator is executed immediately.');
+              if (r.virginFired) showToast('The Virgin was nominated by a Townsfolk — the nominator is executed immediately.', { kind: 'story' });
             })}
           >
             Open for voting

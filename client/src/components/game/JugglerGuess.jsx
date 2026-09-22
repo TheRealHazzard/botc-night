@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import TargetButton from '../TargetButton.jsx';
 import { post } from '../../lib/api.js';
+import { showToast } from '../../lib/toast.js';
 
 export default function JugglerGuess({ jugglerGuess, token }) {
   const [guesses, setGuesses] = useState([]);
@@ -24,7 +25,7 @@ export default function JugglerGuess({ jugglerGuess, token }) {
   const submit = () => {
     setBusy(true);
     post('/api/juggler-guess', { token, guesses }).then(r => {
-      if (r.error) { alert(r.error); setBusy(false); return; }
+      if (r.error) { showToast(r.error); setBusy(false); return; }
       setGuesses([]);
       setPickingFor(null);
     });

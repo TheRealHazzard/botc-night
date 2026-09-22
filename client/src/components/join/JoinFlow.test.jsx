@@ -9,6 +9,13 @@ describe('JoinFlow', () => {
     vi.restoreAllMocks();
   });
 
+  it('shows a real loading state, not a blank page, while checking for a running simulation', () => {
+    vi.stubGlobal('fetch', () => new Promise(() => {})); // never resolves — freezes the initial check
+    render(<JoinFlow onJoined={() => {}} />);
+    expect(screen.getByText('Loading…')).toBeInTheDocument();
+    vi.unstubAllGlobals();
+  });
+
   it('goes straight to the real-join screen when no simulation is running', async () => {
     mockFetch({ '/api/sim/seats': [], '/api/profiles': [] });
     render(<JoinFlow onJoined={() => {}} />);

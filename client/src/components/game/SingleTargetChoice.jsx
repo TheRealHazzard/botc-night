@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import TargetButton from '../TargetButton.jsx';
 import { post } from '../../lib/api.js';
+import { showToast } from '../../lib/toast.js';
 
 // Shared by the Moonchild, Klutz, and Slayer prompts — the vanilla version
 // had three near-identical copies of this (target list, single selection,
@@ -13,7 +14,7 @@ export default function SingleTargetChoice({ title, description, targets, button
   const choose = () => {
     setBusy(true);
     post(endpoint, { token, targetId: target }).then(r => {
-      if (r.error) { alert(r.error); setBusy(false); return; }
+      if (r.error) { showToast(r.error); setBusy(false); return; }
       onDone();
     });
   };

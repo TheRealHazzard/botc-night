@@ -397,6 +397,29 @@ a.linklike-a{
 }
 .leader-banner:active{background:var(--brass); color:var(--surface-2)}
 
+/* Replaces every alert(r.error) in this app — see client/src/lib/toast.js.
+   Stacked bottom-up above the safe area so it never collides with the
+   flag-bug tab's own fixed corner; tap anywhere on one to dismiss early. */
+.toast-stack{
+  position:fixed; left:12px; right:12px;
+  bottom:calc(56px + env(safe-area-inset-bottom, 0px));
+  z-index:50; display:flex; flex-direction:column-reverse; gap:8px;
+  pointer-events:none;
+}
+.toast{
+  pointer-events:auto; cursor:pointer;
+  border-radius:5px; padding:12px 16px; font-size:.9rem; line-height:1.4;
+  box-shadow:0 4px 18px rgba(0,0,0,.35);
+  animation:toast-in .22s ease-out;
+}
+.toast-error{background:var(--surface-2); border:1px solid var(--oxblood); color:var(--bone)}
+.toast-story{
+  background:var(--oxblood); border:1px solid var(--oxblood-hi); color:#fff8ef;
+  font-family:'Cormorant Garamond',Georgia,serif; font-size:1.05rem; text-align:center;
+}
+@keyframes toast-in{from{opacity:0; transform:translateY(8px)} to{opacity:1; transform:translateY(0)}}
+@media (prefers-reduced-motion: reduce){.toast{animation:none}}
+
 /* "Something wrong?" — fixed, deliberately quiet (low-contrast until
    tapped) so it never competes with the actual game for attention, same
    spirit as the Storyteller-controls drawer tab on the host screen. */

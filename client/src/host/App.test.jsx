@@ -376,20 +376,17 @@ describe("App", () => {
       expect(screen.getByTitle("Coming soon")).toBeDisabled();
     });
 
-    it("a failed confirm alerts and stays in browsing mode", async () => {
+    it("a failed confirm toasts and stays in browsing mode", async () => {
       mockFetch({
         "/api/tokens": {},
         "/trivia.json": [],
         "/api/scripts": SCRIPTS,
         "/api/table/script": { error: "Game already started." },
       });
-      const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
       render(<App />);
       await userEvent.click(screen.getByText(/change script/i));
       await userEvent.click(screen.getByTitle(/choose trouble brewing/i));
-      await vi.waitFor(() =>
-        expect(alertSpy).toHaveBeenCalledWith("Game already started."),
-      );
+      expect(await screen.findByText("Game already started.")).toBeInTheDocument();
       expect(screen.getByTitle(/choose trouble brewing/i)).toBeInTheDocument(); // still browsing
     });
 
