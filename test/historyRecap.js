@@ -108,6 +108,25 @@ console.log('\nlongestSurvivingEvil');
     H.longestSurvivingEvil(survivorRecord).seatName === 'Bo');
 
   check('no evil players at all -> null', H.longestSurvivingEvil({ players: [{ team: 'townsfolk' }] }) === null);
+
+  // recapFor() forwards this straight into /recap's own response — the one
+  // deliberate hole in the table-code/host-code gate (server.js's
+  // GATE_EXEMPT), meant to be pasted into a group chat with people who
+  // never got the table code. A raw players[] entry carries profileId,
+  // believedId, and the full statuses blob (which can itself carry
+  // another player's id, e.g. evilTwinId/grandchildId) — none of that was
+  // ever meant to be part of a curated public recap.
+  const rawSeat = {
+    seatName: 'Cy', team: 'demon', diedNight: 3, diedPhase: 'execution', characterName: 'Imp',
+    profileId: 'cy-profile-id', believedId: 'imp', statuses: { evilTwinId: 'ada-seat-id', poisoned: true },
+  };
+  const curated = H.longestSurvivingEvil({ players: [rawSeat] });
+  check('keeps only the curated, already-public fields — seatName/characterName/team/diedNight/diedPhase',
+    curated && Object.keys(curated).sort().join(',') === 'characterName,diedNight,diedPhase,seatName,team',
+    JSON.stringify(curated));
+  check('never forwards profileId, believedId, or the raw statuses blob',
+    curated && !('profileId' in curated) && !('believedId' in curated) && !('statuses' in curated),
+    JSON.stringify(curated));
 }
 
 console.log('\nrecapNarration');

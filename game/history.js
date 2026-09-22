@@ -438,12 +438,28 @@ function biggestSwing(record) {
 function longestSurvivingEvil(record) {
   const evil = (record.players || []).filter(p => p.team === 'minion' || p.team === 'demon');
   if (!evil.length) return null;
-  return evil.reduce((best, p) => {
+  const winner = evil.reduce((best, p) => {
     if (!best) return p;
     if (p.diedNight == null) return best.diedNight == null ? best : p;
     if (best.diedNight == null) return best;
     return p.diedNight > best.diedNight ? p : best;
   }, null);
+  // Curated, same as closestVote()/biggestSwing() above — this is the one
+  // field of recapFor()'s output that used to forward the raw players[]
+  // record whole, through /recap's own deliberate gate exemption
+  // (server.js's GATE_EXEMPT). Nothing in it was ever a live secret (team/
+  // character are always public once a game's actually finished and
+  // persisted), but profileId/believedId/the full statuses blob — which
+  // can itself carry another player's id, e.g. evilTwinId/grandchildId —
+  // were never meant to be part of this page's public contract, and
+  // recapNarration()/recap.html only ever read the fields kept below.
+  return {
+    seatName: winner.seatName,
+    characterName: winner.characterName,
+    team: winner.team,
+    diedNight: winner.diedNight,
+    diedPhase: winner.diedPhase,
+  };
 }
 
 /** A few sentences of plain templated prose from data that's already
