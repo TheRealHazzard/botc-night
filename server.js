@@ -842,6 +842,14 @@ function recordGameHistory() {
       const death = game.deaths.find(d => d.name === p.name);
       return {
         profileId: p.profileId || null,
+        // Explicit, on top of profileId already reliably implying it (only
+        // /api/join ever sets profileId, and bots never go through it) —
+        // history.js's own stats functions already leaned on that implication
+        // for a while, spelled out in characterWinRates()'s own comment; this
+        // makes it a direct fact on the record instead of an inference every
+        // reader has to re-derive. See history.js's longestSurvivingEvil()
+        // for the one place this was actually missing a bot exclusion.
+        bot: !!p.bot,
         seatName: p.name,
         characterId: p.characterId,
         characterName: c ? c.name : null,

@@ -1175,7 +1175,13 @@ function gameSummary(g) {
   const dead = g.players.filter(p => !p.alive);
 
   let longestSurvivingEvil = null;
-  g.players.filter(p => isEvil(g, p)).forEach(p => {
+  // !p.bot — a bot seat filling out the table (/api/table/add-bots) is
+  // nobody's actual achievement to be credited with; without this, a bot
+  // that happened to outlive every real evil player showed up on the
+  // host's own "THIS GAME" card as the game's longest-lived evil. Mirrors
+  // history.js's own longestSurvivingEvil() fix for the persisted-record
+  // version of this exact same stat.
+  g.players.filter(p => isEvil(g, p) && !p.bot).forEach(p => {
     const death = g.deaths.find(d => d.name === p.name);
     const night = death ? death.night : g.nightNumber;
     if (!longestSurvivingEvil || night > longestSurvivingEvil.night ||

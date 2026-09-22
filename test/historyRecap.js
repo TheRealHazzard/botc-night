@@ -109,6 +109,24 @@ console.log('\nlongestSurvivingEvil');
 
   check('no evil players at all -> null', H.longestSurvivingEvil({ players: [{ team: 'townsfolk' }] }) === null);
 
+  // A bot seat filling out the table (/api/table/add-bots) is nobody's
+  // actual achievement — without this exclusion, a bot that happened to
+  // outlive every real evil player would be credited by name here.
+  const botOutlastsReal = {
+    players: [
+      { seatName: 'RealMinion', team: 'minion', diedNight: 1, diedPhase: 'night' },
+      { seatName: 'BotDemon', team: 'demon', diedNight: null, characterName: 'Imp', bot: true },
+    ],
+  };
+  check('a bot that outlived every real evil player is excluded — the real minion is credited instead',
+    H.longestSurvivingEvil(botOutlastsReal).seatName === 'RealMinion', JSON.stringify(H.longestSurvivingEvil(botOutlastsReal)));
+
+  check('evil players who are ALL bots -> null, not a bot\'s name',
+    H.longestSurvivingEvil({ players: [{ seatName: 'BotImp', team: 'demon', diedNight: null, bot: true }] }) === null);
+
+  check('a record from before the bot field existed (undefined, not false) still credits its real evil player normally',
+    H.longestSurvivingEvil({ players: [{ seatName: 'OldMinion', team: 'minion', diedNight: null }] }).seatName === 'OldMinion');
+
   // recapFor() forwards this straight into /recap's own response — the one
   // deliberate hole in the table-code/host-code gate (server.js's
   // GATE_EXEMPT), meant to be pasted into a group chat with people who

@@ -436,7 +436,12 @@ function biggestSwing(record) {
     (Barber, Pit-Hag, Snake Charmer) means this is whoever they ended the
     game as, not who they were the whole way through. */
 function longestSurvivingEvil(record) {
-  const evil = (record.players || []).filter(p => p.team === 'minion' || p.team === 'demon');
+  // !p.bot — a bot seat filling out the table is nobody's actual
+  // achievement; older records predate this field, so a missing/undefined
+  // p.bot reads as "not a bot" rather than silently excluding everyone
+  // from before this shipped. Mirrors engine.js's own gameSummary() fix
+  // for the live, in-game version of this exact same stat.
+  const evil = (record.players || []).filter(p => (p.team === 'minion' || p.team === 'demon') && !p.bot);
   if (!evil.length) return null;
   const winner = evil.reduce((best, p) => {
     if (!best) return p;
