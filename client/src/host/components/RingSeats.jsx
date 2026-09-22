@@ -1,8 +1,8 @@
 import RingSeat from './RingSeat.jsx';
 
-export default function RingSeats({ players, revealed = false, enteringIds = null }) {
+export default function RingSeats({ players, revealed = false, enteringIds = null, glow = null }) {
   return (
-    <div className={'ring' + (players.length > 10 ? ' dense' : '')}>
+    <div className={'ring' + (players.length > 10 ? ' dense' : '') + (glow ? ` glow-${glow}` : '')}>
       {players.map((p, i) => (
         <RingSeat
           key={p.id}

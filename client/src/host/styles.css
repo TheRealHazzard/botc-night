@@ -335,6 +335,41 @@
         inset: 9%;
         border: 1px dashed var(--line);
         border-radius: 50%;
+        transition: border-color 0.5s ease;
+      }
+      /* The verdict, told through the one shape every player has been
+   watching all game: the dashed circle connecting the seats. Lights up
+   blue for good, red for evil, once OverView's staged reveal says the
+   beat has arrived (see the glow-good/glow-evil class OverView adds).
+   Same flare-then-settle character as seat-dusk/seat-dawn elsewhere in
+   this file — overshoot brighter, then ease back to a steady glow. */
+      .ring.glow-good::before {
+        border-color: var(--good-hi);
+        animation: ring-verdict-good 1.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      }
+      .ring.glow-evil::before {
+        border-color: var(--oxblood-hi);
+        animation: ring-verdict-evil 1.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      }
+      @keyframes ring-verdict-good {
+        0% { box-shadow: 0 0 0 0 rgba(92, 134, 171, 0); }
+        55% { box-shadow: 0 0 70px 14px rgba(92, 134, 171, 0.55); }
+        100% { box-shadow: 0 0 42px 8px rgba(92, 134, 171, 0.38); }
+      }
+      @keyframes ring-verdict-evil {
+        0% { box-shadow: 0 0 0 0 rgba(142, 34, 38, 0); }
+        55% { box-shadow: 0 0 70px 14px rgba(142, 34, 38, 0.55); }
+        100% { box-shadow: 0 0 42px 8px rgba(142, 34, 38, 0.38); }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .ring.glow-good::before {
+          animation: none;
+          box-shadow: 0 0 42px 8px rgba(92, 134, 171, 0.38);
+        }
+        .ring.glow-evil::before {
+          animation: none;
+          box-shadow: 0 0 42px 8px rgba(142, 34, 38, 0.38);
+        }
       }
       /* No solid fill of its own — the page's own background (now purple-
    toned everywhere, not just here) already shows through. A one-off

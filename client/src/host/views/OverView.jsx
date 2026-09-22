@@ -64,8 +64,12 @@ export default function OverView({ players, victory, gameSummary, log, actionLog
         </div>
       )}
       {/* Same ring the table's watched all game — avatars swap for the real
-          token art now that it's revealed, with a shroud over anyone who died. */}
-      <RingSeats players={players} revealed />
+          token art now that it's revealed, with a shroud over anyone who died.
+          The dashed circle connecting the seats is the one thing every player
+          has been staring at all night, so the verdict lands there too: it
+          lights up blue for good, red for evil, on the same beat as the
+          banner above. */}
+      <RingSeats players={players} revealed glow={victory && bannerShown ? victory.winner : null} />
     </div>
   );
 

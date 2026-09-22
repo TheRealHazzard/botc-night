@@ -31,19 +31,22 @@ describe('OverView', () => {
     stubReducedMotion(false);
     vi.useFakeTimers();
     baseMocks();
-    render(<OverView players={players} victory={{ winner: 'good', reason: 'The Demon fell.' }} gameSummary={gameSummary} log={log} actionLog={[]} nightNumber={2} />);
+    const { container } = render(<OverView players={players} victory={{ winner: 'good', reason: 'The Demon fell.' }} gameSummary={gameSummary} log={log} actionLog={[]} nightNumber={2} />);
     const banner = () => screen.getByText('Good wins').closest('.victory-banner');
     expect(banner()).not.toHaveClass('show');
+    expect(container.querySelector('.ring')).not.toHaveClass('glow-good');
 
     act(() => { vi.advanceTimersByTime(550); });
     expect(banner()).toHaveClass('show');
+    expect(container.querySelector('.ring')).toHaveClass('glow-good');
   });
 
-  it('reveals the banner immediately, no delay, under reduced motion', () => {
+  it('reveals the banner and the ring glow immediately, no delay, under reduced motion', () => {
     stubReducedMotion(true);
     baseMocks();
-    render(<OverView players={players} victory={{ winner: 'good', reason: 'The Demon fell.' }} gameSummary={gameSummary} log={log} actionLog={[]} nightNumber={2} />);
-    expect(screen.getByText('Good wins').closest('.victory-banner')).toHaveClass('show');
+    const { container } = render(<OverView players={players} victory={{ winner: 'evil', reason: 'The town executed a Townsfolk.' }} gameSummary={gameSummary} log={log} actionLog={[]} nightNumber={2} />);
+    expect(screen.getByText('Evil wins').closest('.victory-banner')).toHaveClass('show');
+    expect(container.querySelector('.ring')).toHaveClass('glow-evil');
   });
 
   it('a good win shows the sun-badged banner and reason', () => {

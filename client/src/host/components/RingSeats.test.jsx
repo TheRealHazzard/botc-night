@@ -65,6 +65,19 @@ describe('RingSeats', () => {
     expect(container.querySelector('.ring')).toHaveClass('dense');
   });
 
+  it('has no glow class by default, and takes glow-good/glow-evil from the glow prop', () => {
+    const { container, rerender } = render(<RingSeats players={[alive]} />);
+    expect(container.querySelector('.ring')).not.toHaveClass('glow-good');
+    expect(container.querySelector('.ring')).not.toHaveClass('glow-evil');
+
+    rerender(<RingSeats players={[alive]} glow="good" />);
+    expect(container.querySelector('.ring')).toHaveClass('glow-good');
+
+    rerender(<RingSeats players={[alive]} glow="evil" />);
+    expect(container.querySelector('.ring')).toHaveClass('glow-evil');
+    expect(container.querySelector('.ring')).not.toHaveClass('glow-good');
+  });
+
   it('applies the entering class only to ids in enteringIds', () => {
     const { container } = render(<RingSeats players={[alive, dead]} enteringIds={new Set(['p1'])} />);
     const seats = container.querySelectorAll('.rseat');
