@@ -1585,6 +1585,14 @@ function privateState(g, playerId) {
     // together. A player's own phone only ever needs to know about the
     // nomination they can still act on, not how anyone else voted.
     voteRequest: currentVoteRequest(g, p),
+    // Not secret (same as publicState's own copy of this) — a bare
+    // winner/reason, never a role or team. Was missing entirely: a
+    // player's own phone had no way to even know the game had ended,
+    // never mind who won, short of looking up at the shared screen. Kept
+    // deliberately this small rather than mirroring the TV's full
+    // grimoire reveal here too — that stays the one "look up together"
+    // group moment this app's whole design already leans on.
+    victory: g.victory || null,
   };
 }
 

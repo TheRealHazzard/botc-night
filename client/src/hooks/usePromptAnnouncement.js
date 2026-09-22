@@ -35,8 +35,13 @@ export function usePromptAnnouncement(P) {
       setText('Day begins.');
     } else if (P.phase === 'reveal') {
       setText('The grimoire is revealed.');
+    } else if (P.phase === 'over') {
+      // Mirrors useHostAnnouncement.js's own 'over' branch — this player's
+      // phone otherwise had no way to know the game had ended at all,
+      // short of looking up at the shared screen.
+      setText(P.victory ? `The game is over. ${P.victory.winner === 'good' ? 'Good' : 'Evil'} wins.` : 'The game is over.');
     }
-  }, [P?.phase, P?.prompt, P?.submitted, P?.result, P?.voteRequest?.nominationId]);
+  }, [P?.phase, P?.prompt, P?.submitted, P?.result, P?.voteRequest?.nominationId, P?.victory?.winner]);
 
   return text;
 }

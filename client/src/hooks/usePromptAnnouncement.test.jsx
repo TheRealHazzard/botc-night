@@ -80,4 +80,24 @@ describe('usePromptAnnouncement', () => {
     const { result } = renderHook(({ P }) => usePromptAnnouncement(P), { initialProps: { P } });
     expect(result.current).toBe('');
   });
+
+  // Mirrors useHostAnnouncement.js's own 'over' branch — without this, a
+  // player's own phone had no way to know the game had ended at all,
+  // short of looking up at the shared screen.
+  it('announces the game ending, with the winner when one is known', () => {
+    const noVictory = renderHook(({ P }) => usePromptAnnouncement(P), {
+      initialProps: { P: { phase: 'over', victory: null } },
+    });
+    expect(noVictory.result.current).toBe('The game is over.');
+
+    const goodWins = renderHook(({ P }) => usePromptAnnouncement(P), {
+      initialProps: { P: { phase: 'over', victory: { winner: 'good', reason: 'The Demon is dead.' } } },
+    });
+    expect(goodWins.result.current).toBe('The game is over. Good wins.');
+
+    const evilWins = renderHook(({ P }) => usePromptAnnouncement(P), {
+      initialProps: { P: { phase: 'over', victory: { winner: 'evil', reason: 'Only two players remain.' } } },
+    });
+    expect(evilWins.result.current).toBe('The game is over. Evil wins.');
+  });
 });

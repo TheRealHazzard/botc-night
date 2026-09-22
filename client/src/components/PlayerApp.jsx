@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import RoleCard from './game/RoleCard.jsx';
 import ResultCard from './game/ResultCard.jsx';
 import ResultHistoryCard from './game/ResultHistoryCard.jsx';
-import { LobbyCard, RevealCard, NightWaitingCard, DaylightCard } from './game/SimpleCards.jsx';
+import { LobbyCard, RevealCard, NightWaitingCard, DaylightCard, GameOverCard } from './game/SimpleCards.jsx';
 import NightPromptCard from './game/NightPromptCard.jsx';
 import SingleTargetChoice from './game/SingleTargetChoice.jsx';
 import SimpleActionPrompt from './game/SimpleActionPrompt.jsx';
@@ -80,6 +80,7 @@ export default function PlayerApp({ P, token, onChangeUser, onOpenLeaderControls
 
       {P.phase === 'lobby' && <LobbyCard name={P.you.name} onChangeUser={onChangeUser} lobby={P.lobby} />}
       {P.phase === 'reveal' && <RevealCard />}
+      {P.phase === 'over' && <GameOverCard victory={P.victory} />}
 
       {P.phase === 'night' && P.prompt && (
         <NightPromptCard key={`${P.nightNumber}:${P.wave}`} P={P} token={token} />

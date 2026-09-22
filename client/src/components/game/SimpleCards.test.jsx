@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { LobbyCard, RevealCard, NightWaitingCard, DaylightCard } from './SimpleCards.jsx';
+import { LobbyCard, RevealCard, NightWaitingCard, DaylightCard, GameOverCard } from './SimpleCards.jsx';
 
 describe('SimpleCards', () => {
   it('LobbyCard greets the seated player by name, with a Change button that calls onChangeUser', async () => {
@@ -52,5 +52,16 @@ describe('SimpleCards', () => {
     expect(screen.queryByText(/nothing more for you/i)).not.toBeInTheDocument();
     await userEvent.click(screen.getByText('I Nominate'));
     expect(onNominate).toHaveBeenCalledTimes(1);
+  });
+
+  it('GameOverCard names the winner and reason when victory is known', () => {
+    render(<GameOverCard victory={{ winner: 'good', reason: 'The Demon is dead.' }} />);
+    expect(screen.getByText(/good wins\. the demon is dead\./i)).toBeInTheDocument();
+    expect(screen.getByText(/look up at the screen/i)).toBeInTheDocument();
+  });
+
+  it('GameOverCard falls back to plain copy when victory is not yet known', () => {
+    render(<GameOverCard victory={null} />);
+    expect(screen.getByText(/the story is told/i)).toBeInTheDocument();
   });
 });

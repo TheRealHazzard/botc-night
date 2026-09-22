@@ -74,6 +74,12 @@ const realGamesFileBefore = fs.existsSync(REAL_GAMES_FILE) ? fs.readFileSync(REA
     check('the game actually reached "over" within the expected number of nights', state.json.phase === 'over', `stuck at phase=${state.json.phase} after ${guard} rounds`);
     check('evil wins once living count hits 2, with no execution ever made', !!state.json.victory && state.json.victory.winner === 'evil', JSON.stringify(state.json.victory));
 
+    // privateState() carries this too now — a player's own phone used to
+    // have no way to even know the game had ended, short of looking up at
+    // the shared screen.
+    const { json: playerFinal } = await request(server.baseUrl, `/api/state?token=${tokens[0]}`);
+    check('a player\'s own phone also sees the victory result, not just the host/TV screen', !!playerFinal.victory && playerFinal.victory.winner === 'evil', JSON.stringify(playerFinal.victory));
+
     // The actual point of this whole test: did the finished game really
     // land in the isolated data dir, not silently vanish or hit the real
     // one (game/history.js's DATA_DIR override).

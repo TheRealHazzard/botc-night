@@ -107,18 +107,26 @@ describe('PlayerApp', () => {
     expect(onChangeUser).toHaveBeenCalledTimes(1);
   });
 
-  it('lobby/reveal/night-waiting/daylight phases render their matching plain card', () => {
+  it('lobby/reveal/night-waiting/daylight/over phases render their matching plain card', () => {
     const cases = [
       [{ phase: 'lobby' }, /seated as bo/i],
       [{ phase: 'reveal' }, /learn yourself/i],
       [{ phase: 'night', prompt: null, you: { ...baseP().you } }, /eyes closed/i],
       [{ phase: 'day' }, /daylight/i],
+      [{ phase: 'over', victory: null }, /game over/i],
     ];
     for (const [override, expected] of cases) {
       const { unmount } = render(<PlayerApp P={baseP(override)} token="tok" />);
       expect(screen.getByText(expected)).toBeInTheDocument();
       unmount();
     }
+  });
+
+  it('the game-over card names the winner once victory is known, and announces it too', () => {
+    const P = baseP({ phase: 'over', victory: { winner: 'evil', reason: 'Only two players remain.' } });
+    render(<PlayerApp P={P} token="tok" />);
+    expect(screen.getByText(/evil wins\. only two players remain\./i)).toBeInTheDocument();
+    expect(screen.getByText('The game is over. Evil wins.')).toBeInTheDocument(); // the sr-only aria-live region
   });
 
   it('an active vote (from P.voteRequest) takes over instead of the plain daylight card', () => {

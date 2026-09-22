@@ -49,6 +49,27 @@ export function NightWaitingCard() {
   );
 }
 
+/** `victory` (see privateState's own field) is not secret — a bare
+    winner, never a role or team — but deliberately doesn't try to mirror
+    the host TV's full grimoire reveal here too: that reveal is this
+    app's one real "look up together" group moment, and duplicating it
+    per-phone would undercut the point of it. This just closes the gap
+    that used to leave a player with no signal the game had even ended,
+    short of glancing at the shared screen. */
+export function GameOverCard({ victory }) {
+  return (
+    <div className="card">
+      <h2>Game over</h2>
+      <p className="dim">
+        {victory
+          ? `${victory.winner === 'good' ? 'Good' : 'Evil'} wins. ${victory.reason || ''}`
+          : 'The story is told.'}
+        {' '}Look up at the screen for the full reveal.
+      </p>
+    </div>
+  );
+}
+
 export function DaylightCard({ canNominate, onNominate }) {
   return (
     <div className="card">
