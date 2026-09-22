@@ -30,4 +30,19 @@ describe('WhimSection', () => {
     fireEvent.input(screen.getAllByRole('slider')[0], { target: { value: '0.9' } });
     expect(patch).not.toHaveBeenCalled();
   });
+
+  it('shows no fallback-only note when the LLM Storyteller is off', () => {
+    render(<WhimSection config={{ ...config, llmStorytellerEnabled: false }} patch={() => {}} />);
+    expect(screen.queryByText(/fallback only/i)).not.toBeInTheDocument();
+  });
+
+  it('flags only the three chances a connected LLM Storyteller actually replaces, once it\'s on', () => {
+    render(<WhimSection config={{ ...config, llmStorytellerEnabled: true }} patch={() => {}} />);
+    expect(screen.getAllByText(/fallback only/i)).toHaveLength(3);
+    // Shabaloth/Tinker/Madness are read straight off config with no judge
+    // involved at all, in every configuration — never flagged either way.
+    expect(screen.getByText('Shabaloth regurgitate').closest('.lbl').textContent).not.toMatch(/fallback only/i);
+    expect(screen.getByText('Tinker death').closest('.lbl').textContent).not.toMatch(/fallback only/i);
+    expect(screen.getByText('Madness execution').closest('.lbl').textContent).not.toMatch(/fallback only/i);
+  });
 });
