@@ -130,6 +130,17 @@ input[type=text],select{
 .nomrow{display:flex; align-items:center; gap:8px}
 .nomrow select{width:auto; flex:1; min-width:0}
 .nomrow span{color:var(--bone-dim); flex-shrink:0}
+/* LeaderControlsOverlay's trimmed settings card — a much lighter surface
+   than the host's own settings-row/toggle switch, since this is meant to
+   cover just the two things a phone-only leader would otherwise never be
+   able to reach at all, not replicate the full settings screen. */
+.settings-head{font-size:1.05rem; margin-bottom:10px}
+.settings-num-row{display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:8px}
+.settings-num-row label{color:var(--bone-dim); font-size:.9rem}
+.settings-num-row input[type=number]{width:5.5em; padding:8px; background:var(--void); color:var(--bone); border:1px solid var(--line); border-radius:3px; text-align:right}
+.settings-toggle-row{display:flex; align-items:flex-start; gap:10px; margin-top:6px; cursor:pointer}
+.settings-toggle-row input[type=checkbox]{margin-top:3px; flex-shrink:0}
+.settings-toggle-row input[type=checkbox]:disabled + span{color:var(--bone-dim)}
 textarea.freetext{
   width:100%; padding:14px; background:var(--void); color:var(--bone);
   border:1px solid var(--line); border-radius:3px; font-family:inherit; font-size:1rem;

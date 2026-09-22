@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useLeaderState, isHostCodeError } from '../hooks/useLeaderState.js';
 import { leadingNominee } from '../lib/leadingNominee.js';
+import { SECONDS_FIELDS } from '../lib/settingsFields.js';
+import { useCommittedInput } from '../hooks/useCommittedInput.js';
 import { post } from '../lib/api.js';
 import { showToast } from '../lib/toast.js';
 
@@ -73,6 +75,7 @@ export default function LeaderControlsOverlay({ open, onClose, token, myId }) {
           {S && S.phase === 'reveal' && <RevealControls busy={busy} run={run} />}
           {S && S.phase === 'day' && <DayControls S={S} busy={busy} run={run} />}
           {S && <AlwaysControls busy={busy} run={run} />}
+          {S && <SettingsCard S={S} run={run} />}
           {S && <HandOffControl S={S} myId={myId} busy={busy} handOff={handOff} />}
         </div>
       </div>
@@ -254,6 +257,56 @@ function AlwaysControls({ busy, run }) {
       >
         New game
       </button>
+    </div>
+  );
+}
+
+/** A trimmed mirror of the host TV's own SettingsOverlay (Timing section +
+    the lobby-only Bucket 4 toggle) — before this, a table running entirely
+    off phones, exactly who `leaderId` exists for, had no path to any of
+    this: not even once, before dealing, for the Bucket 4 toggle. Everything
+    else in SettingsOverlay (Drama/Whim chance sliders, Roster's own script
+    controls, the LLM section) stays host-TV-only — genuinely deeper
+    configuration a phone-only leader can still reach later by walking up to
+    the screen, not the two things that would otherwise be permanently
+    unreachable for this table. Posts through the same run() helper, same
+    /api/table/config route the host's own patchConfig() uses — no separate
+    optimistic local merge the way the host does, since this overlay's `S`
+    already refreshes off the same live stream every other section here
+    reads from. */
+function SettingsCard({ S, run }) {
+  const patch = cfg => run('/api/table/config', { config: cfg });
+  const bucket4Off = (S.config.disabledCharacterIds || []).length > 0;
+  const lobbyOnly = S.phase !== 'lobby';
+
+  return (
+    <div className="card">
+      <h2 className="settings-head">Table settings</h2>
+      {SECONDS_FIELDS.map(f => (
+        <SecondsRow key={f.key} field={f} value={S.config[f.key]} onCommit={v => patch({ [f.key]: Number(v) })} />
+      ))}
+      <label className="settings-toggle-row">
+        <input
+          type="checkbox"
+          disabled={lobbyOnly}
+          checked={bucket4Off}
+          onChange={e => patch({ disabledCharacterIds: e.target.checked ? ['gossip', 'savant', 'artist'] : [] })}
+        />
+        <span>
+          Turn off Gossip, Savant, and Artist
+          {lobbyOnly && <span className="dim small"> — only changeable before roles are dealt.</span>}
+        </span>
+      </label>
+    </div>
+  );
+}
+
+function SecondsRow({ field, value, onCommit }) {
+  const { ref, display, setDisplay } = useCommittedInput(value, onCommit);
+  return (
+    <div className="settings-num-row">
+      <label>{field.label}</label>
+      <input ref={ref} type="number" min="5" max="600" step="5" value={display} onChange={e => setDisplay(e.target.value)} />
     </div>
   );
 }

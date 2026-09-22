@@ -15,7 +15,11 @@ import { useEffect, useRef, useState } from 'react';
     server's echoed value raced the next tick. Attaching the real 'change'
     listener directly is what correctly and uniformly covers every
     interaction method (mouse release, touch release, each individual
-    keyboard arrow-key step) without enumerating them by hand. */
+    keyboard arrow-key step) without enumerating them by hand.
+
+    Shared between the host's own settings sections and the player-facing
+    leader-overlay's trimmed settings surface (LeaderSettingsCard.jsx) — no
+    host-specific logic in here to begin with. */
 export function useCommittedInput(value, onCommit) {
   const [display, setDisplay] = useState(value);
   const ref = useRef(null);

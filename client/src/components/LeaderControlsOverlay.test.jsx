@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, act } from '@testing-library/react';
+import { render, screen, act, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import LeaderControlsOverlay from './LeaderControlsOverlay.jsx';
 import ToastStack from './ToastStack.jsx';
@@ -23,13 +23,18 @@ function push(state) {
   act(() => FakeEventSource.instances[0].emit(state));
 }
 
+// SettingsCard reads S.config unconditionally (real /api/host-state always
+// carries one — see publicState() in game/engine.js) — every fixture below
+// needs one too, or the settings card (rendered on every phase) crashes.
+const defaultConfig = { windowSeconds: 60, wave2Seconds: 20, voteWindowSeconds: 20, disabledCharacterIds: [] };
+
 const lobbyState = (count) => ({
-  phase: 'lobby', nightNumber: 0, wave: 0, nominations: [], mastermindExtraDay: false,
+  phase: 'lobby', nightNumber: 0, wave: 0, nominations: [], mastermindExtraDay: false, config: defaultConfig,
   players: Array.from({ length: count }, (_, i) => ({ id: 'p' + i, name: 'Player' + i, alive: true })),
 });
 
 const dayState = (overrides = {}) => ({
-  phase: 'day', nightNumber: 2, wave: 0, nominations: [], mastermindExtraDay: false,
+  phase: 'day', nightNumber: 2, wave: 0, nominations: [], mastermindExtraDay: false, config: defaultConfig,
   players: [
     { id: 'p1', name: 'Ada', alive: true },
     { id: 'p2', name: 'Bo', alive: true },
@@ -115,7 +120,7 @@ describe('LeaderControlsOverlay', () => {
       vi.stubGlobal('EventSource', FakeEventSource);
       const fetchMock = mockFetch({ '/api/table/night': { ok: true } });
       render(<LeaderControlsOverlay open={true} onClose={() => {}} />);
-      push({ phase: 'reveal', nightNumber: 0, wave: 0, nominations: [], mastermindExtraDay: false, players: [{ id: 'p1', name: 'Ada', alive: true }] });
+      push({ phase: 'reveal', nightNumber: 0, wave: 0, nominations: [], mastermindExtraDay: false, config: defaultConfig, players: [{ id: 'p1', name: 'Ada', alive: true }] });
       await userEvent.click(screen.getByText('Night falls'));
       expect(fetchMock.calls.some(c => c.url.includes('/api/table/night'))).toBe(true);
     });
@@ -144,7 +149,7 @@ describe('LeaderControlsOverlay', () => {
       FakeEventSource.instances = [];
       vi.stubGlobal('EventSource', FakeEventSource);
       const threeAlive = {
-        phase: 'day', nightNumber: 2, wave: 0, mastermindExtraDay: false,
+        phase: 'day', nightNumber: 2, wave: 0, mastermindExtraDay: false, config: defaultConfig,
         players: [
           { id: 'p1', name: 'Ada', alive: true },
           { id: 'p2', name: 'Bo', alive: true },
@@ -277,6 +282,54 @@ describe('LeaderControlsOverlay', () => {
     });
   });
 
+  describe('table settings', () => {
+    it('shows the current timing values, in every phase, not just the lobby', () => {
+      FakeEventSource.instances = [];
+      vi.stubGlobal('EventSource', FakeEventSource);
+      render(<LeaderControlsOverlay open={true} onClose={() => {}} />);
+      push(dayState());
+      expect(screen.getByText('Night window (seconds)').closest('.settings-num-row').querySelector('input').value).toBe('60');
+      expect(screen.getByText('Second-wave window (seconds)').closest('.settings-num-row').querySelector('input').value).toBe('20');
+      expect(screen.getByText('Vote window (seconds)').closest('.settings-num-row').querySelector('input').value).toBe('20');
+    });
+
+    it('committing a changed timing value patches /api/table/config, only on change — not per keystroke', async () => {
+      FakeEventSource.instances = [];
+      vi.stubGlobal('EventSource', FakeEventSource);
+      const fetchMock = mockFetch({ '/api/table/config': { ok: true, config: defaultConfig } });
+      render(<LeaderControlsOverlay open={true} onClose={() => {}} />);
+      push(lobbyState(3));
+      const input = screen.getByText('Night window (seconds)').closest('.settings-num-row').querySelector('input');
+      fireEvent.input(input, { target: { value: '9' } });
+      fireEvent.input(input, { target: { value: '90' } });
+      expect(fetchMock.calls.some(c => c.url.includes('/api/table/config'))).toBe(false);
+      fireEvent.change(input, { target: { value: '90' } });
+      expect(lastBody(fetchMock, '/api/table/config')).toEqual({ config: { windowSeconds: 90 } });
+    });
+
+    it('the Bucket 4 toggle is enabled in the lobby and patches disabledCharacterIds', async () => {
+      FakeEventSource.instances = [];
+      vi.stubGlobal('EventSource', FakeEventSource);
+      const fetchMock = mockFetch({ '/api/table/config': { ok: true, config: defaultConfig } });
+      render(<LeaderControlsOverlay open={true} onClose={() => {}} />);
+      push(lobbyState(3));
+      const toggle = screen.getByText(/turn off gossip, savant, and artist/i).closest('label').querySelector('input');
+      expect(toggle).toBeEnabled();
+      await userEvent.click(toggle);
+      expect(lastBody(fetchMock, '/api/table/config')).toEqual({ config: { disabledCharacterIds: ['gossip', 'savant', 'artist'] } });
+    });
+
+    it('the Bucket 4 toggle is disabled once roles are dealt, with an explanatory note', () => {
+      FakeEventSource.instances = [];
+      vi.stubGlobal('EventSource', FakeEventSource);
+      render(<LeaderControlsOverlay open={true} onClose={() => {}} />);
+      push(dayState());
+      const toggle = screen.getByText(/turn off gossip, savant, and artist/i).closest('label').querySelector('input');
+      expect(toggle).toBeDisabled();
+      expect(screen.getByText(/only changeable before roles are dealt/i)).toBeInTheDocument();
+    });
+  });
+
   describe('always available', () => {
     it('Reveal confirms, then posts to /api/table/reveal', async () => {
       FakeEventSource.instances = [];
@@ -295,7 +348,7 @@ describe('LeaderControlsOverlay', () => {
       FakeEventSource.instances = [];
       vi.stubGlobal('EventSource', FakeEventSource);
       render(<LeaderControlsOverlay open={true} onClose={() => {}} token="leader-tok" myId="p0" />);
-      push({ phase: 'lobby', nightNumber: 0, wave: 0, nominations: [], mastermindExtraDay: false, players: [{ id: 'p0', name: 'Me', alive: true }] });
+      push({ phase: 'lobby', nightNumber: 0, wave: 0, nominations: [], mastermindExtraDay: false, config: defaultConfig, players: [{ id: 'p0', name: 'Me', alive: true }] });
       expect(screen.queryByText('Hand off Storyteller controls')).not.toBeInTheDocument();
     });
 
@@ -304,7 +357,7 @@ describe('LeaderControlsOverlay', () => {
       vi.stubGlobal('EventSource', FakeEventSource);
       render(<LeaderControlsOverlay open={true} onClose={() => {}} token="leader-tok" myId="p0" />);
       push({
-        phase: 'lobby', nightNumber: 0, wave: 0, nominations: [], mastermindExtraDay: false,
+        phase: 'lobby', nightNumber: 0, wave: 0, nominations: [], mastermindExtraDay: false, config: defaultConfig,
         players: [{ id: 'p0', name: 'Me', alive: true }, { id: 'p1', name: 'Ada', alive: true }, { id: 'p2', name: 'Bo', alive: true }],
       });
       const picker = screen.getByText('Hand off Storyteller controls').closest('.card').querySelector('select');
@@ -318,7 +371,7 @@ describe('LeaderControlsOverlay', () => {
       const fetchMock = mockFetch({ '/api/table/hand-off-leader': { ok: true } });
       render(<LeaderControlsOverlay open={true} onClose={() => {}} token="leader-tok" myId="p0" />);
       push({
-        phase: 'lobby', nightNumber: 0, wave: 0, nominations: [], mastermindExtraDay: false,
+        phase: 'lobby', nightNumber: 0, wave: 0, nominations: [], mastermindExtraDay: false, config: defaultConfig,
         players: [{ id: 'p0', name: 'Me', alive: true }, { id: 'p1', name: 'Ada', alive: true }],
       });
       await userEvent.click(screen.getByText('Hand off Storyteller controls'));
@@ -333,7 +386,7 @@ describe('LeaderControlsOverlay', () => {
       const fetchMock = mockFetch({ '/api/table/hand-off-leader': { ok: true } });
       render(<LeaderControlsOverlay open={true} onClose={() => {}} token="leader-tok" myId="p0" />);
       push({
-        phase: 'lobby', nightNumber: 0, wave: 0, nominations: [], mastermindExtraDay: false,
+        phase: 'lobby', nightNumber: 0, wave: 0, nominations: [], mastermindExtraDay: false, config: defaultConfig,
         players: [{ id: 'p0', name: 'Me', alive: true }, { id: 'p1', name: 'Ada', alive: true }],
       });
       await userEvent.click(screen.getByText('Hand off Storyteller controls'));
@@ -348,7 +401,7 @@ describe('LeaderControlsOverlay', () => {
       const onClose = vi.fn();
       render(<LeaderControlsOverlay open={true} onClose={onClose} token="leader-tok" myId="p0" />);
       push({
-        phase: 'lobby', nightNumber: 0, wave: 0, nominations: [], mastermindExtraDay: false,
+        phase: 'lobby', nightNumber: 0, wave: 0, nominations: [], mastermindExtraDay: false, config: defaultConfig,
         players: [{ id: 'p0', name: 'Me', alive: true }, { id: 'p1', name: 'Ada', alive: true }],
       });
       await userEvent.click(screen.getByText('Hand off Storyteller controls'));

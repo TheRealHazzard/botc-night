@@ -1,4 +1,4 @@
-import { useCommittedInput } from '../../hooks/useCommittedInput.js';
+import { useCommittedInput } from '../../../hooks/useCommittedInput.js';
 
 export default function DramaSection({ config, patch }) {
   const hintNights = config.hintNights || [];

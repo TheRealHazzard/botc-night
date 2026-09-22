@@ -1,5 +1,5 @@
-import { CHANCE_FIELDS } from '../../lib/settingsFields.js';
-import { useCommittedInput } from '../../hooks/useCommittedInput.js';
+import { CHANCE_FIELDS } from '../../../lib/settingsFields.js';
+import { useCommittedInput } from '../../../hooks/useCommittedInput.js';
 
 export default function WhimSection({ config, patch }) {
   return (
