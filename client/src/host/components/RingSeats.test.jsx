@@ -78,6 +78,14 @@ describe('RingSeats', () => {
     expect(container.querySelector('.ring')).not.toHaveClass('glow-good');
   });
 
+  it('renders no day-countdown ring by default, and one when given a countdown prop', () => {
+    const { container, rerender } = render(<RingSeats players={[alive]} />);
+    expect(container.querySelector('.day-countdown-ring')).not.toBeInTheDocument();
+
+    rerender(<RingSeats players={[alive]} countdown={{ startedAt: Date.now(), totalMs: 5 * 60_000 }} />);
+    expect(container.querySelector('.day-countdown-ring')).toBeInTheDocument();
+  });
+
   it('applies the entering class only to ids in enteringIds', () => {
     const { container } = render(<RingSeats players={[alive, dead]} enteringIds={new Set(['p1'])} />);
     const seats = container.querySelectorAll('.rseat');

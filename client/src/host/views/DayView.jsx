@@ -21,6 +21,11 @@ import { post } from '../../lib/api.js';
 import { showToast } from '../../lib/toast.js';
 import { leadingNominee } from '../../lib/leadingNominee.js';
 
+// Fixed for now, not a Settings value yet — atmospheric only, no phase
+// effect (see DayCountdownRing.jsx). Revisit if it ever needs tuning per
+// table rather than once here.
+const DAY_COUNTDOWN_MS = 5 * 60_000;
+
 export default function DayView({ players, nightNumber, deaths, nominations, config, script, scriptChars, activeScriptMeta, muted, log = [], dayStartedAt }) {
   const lastNight = deaths.filter(d => d.night === nightNumber && d.cause !== 'execution');
   const line = lastNight.length ? `${lastNight.map(d => d.name).join(' and ')} did not wake.` : 'Everyone wakes. That should worry you.';
@@ -60,7 +65,10 @@ export default function DayView({ players, nightNumber, deaths, nominations, con
           (see server.js's resolveMastermindBonusDay). */}
       {whim && <WhimBeat />}
       <RoomPacingNudge level={pacing} />
-      <RingSeats players={players} />
+      <RingSeats
+        players={players}
+        countdown={dayStartedAt ? { startedAt: dayStartedAt, totalMs: DAY_COUNTDOWN_MS } : null}
+      />
     </div>
   );
 
