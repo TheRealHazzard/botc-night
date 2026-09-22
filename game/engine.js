@@ -1322,7 +1322,17 @@ function publicState(g) {
       // keep acting as the demon), but every public-facing view — the ring,
       // ghost votes, everyone's eyes at the table — must show them as dead,
       // which is the entire point of the ability.
-      alive: publiclyAlive(p),
+      //
+      // The opposite redaction happens for a real death THIS night, while
+      // still mid-night: a wave-2 night (the Ravenkeeper or Barber dying in
+      // wave 1) used to push publiclyAlive's already-flipped `false` to
+      // every host/TV screen the moment wave 1 resolved — a skull on the
+      // shared screen, and the death entry below, well before wave 2 even
+      // opens, let alone dawn. A live Storyteller already knows who died
+      // the second it happens but doesn't announce it until morning; this
+      // keeps the public view honest to that same beat, same as
+      // resultsLog/actionLog below stay hidden until g.revealed.
+      alive: (g.phase === 'night' && p.statuses.diedTonight) ? true : publiclyAlive(p),
       connected: !!p.connected,
       submitted: !!g.pending[p.id],
       // Who has spent their ghost vote — and their chosen color — are both
@@ -1336,7 +1346,11 @@ function publicState(g) {
         team: trueChar(p) && trueChar(p).team,
       } : {}),
     })),
-    deaths: g.deaths,
+    // Same redaction as `alive` above, and for the same reason: a real
+    // night death's own log entry (phase: 'night', from resolveNight's own
+    // death-applying loop) is withheld until dawn actually arrives, not
+    // pushed out mid-night the moment wave 1 resolves it.
+    deaths: g.phase === 'night' ? g.deaths.filter(d => !(d.night === g.nightNumber && d.phase === 'night')) : g.deaths,
     // Nominations, who voted, and their outcome are never secret at a real
     // table — everyone in the room already sees all of this happen.
     nominations: g.nominations,
