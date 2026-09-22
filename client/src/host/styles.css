@@ -112,7 +112,30 @@
       .header-right {
         display: flex;
         align-items: center;
-        gap: 14px;
+        gap: 10px;
+      }
+      /* Splits the header's one long strip of icon buttons into the same
+   chunks a host already thinks in (Display / Reference / Lobby / Script /
+   Game), each with a small caption instead of a bare row of icons with
+   nothing but hover tooltips telling them apart. */
+      .header-group {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+      .header-group-label {
+        font-size: 0.62rem;
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        color: var(--bone-faint);
+        margin-right: 4px;
+        white-space: nowrap;
+      }
+      .header-divider {
+        width: 1px;
+        height: 22px;
+        background: var(--line);
+        flex-shrink: 0;
       }
       .mutebtn {
         width: auto;

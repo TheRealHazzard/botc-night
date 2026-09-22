@@ -612,6 +612,36 @@ describe("App", () => {
     });
   });
 
+  describe("the header's icon buttons are split into labeled groups, not one bare strip", () => {
+    beforeEach(() => {
+      hostState.current.S = baseS();
+    });
+
+    it("shows Display always, and Lobby/Reference only in the idle lobby", () => {
+      render(<App />);
+      expect(screen.getByText("Display")).toBeInTheDocument();
+      expect(screen.getByText("Reference")).toBeInTheDocument();
+      expect(screen.getByText("Lobby")).toBeInTheDocument();
+      expect(screen.queryByText("Storyteller")).not.toBeInTheDocument();
+    });
+
+    it("shows Storyteller (Reveal/New game's group) during an in-progress game, not Reference/Lobby", () => {
+      hostState.current.S = baseS({ phase: "night", nightNumber: 1 });
+      render(<App />);
+      expect(screen.getByText("Display")).toBeInTheDocument();
+      expect(screen.getByText("Storyteller")).toBeInTheDocument();
+      expect(screen.queryByText("Reference")).not.toBeInTheDocument();
+      expect(screen.queryByText("Lobby")).not.toBeInTheDocument();
+    });
+
+    it("shows Script while browsing scripts", async () => {
+      render(<App />);
+      await userEvent.click(screen.getByText(/change script/i));
+      expect(screen.getByText("Script")).toBeInTheDocument();
+      expect(screen.queryByText("Lobby")).not.toBeInTheDocument();
+    });
+  });
+
   describe("the Game/Toolkit header switch", () => {
     it("is absent before any state has loaded — the toolkit only appears once the header's real controls do", () => {
       render(<App />);

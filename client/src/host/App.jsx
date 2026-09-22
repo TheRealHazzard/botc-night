@@ -386,134 +386,161 @@ function Header({
             </button>
           </span>
         )}
-        <button
-          type="button"
-          className="mutebtn"
-          onClick={onCycleTextScale}
-          aria-label={`Text size: ${Math.round(textScale * 100)}%. Tap to change.`}
-        >
-          Aa
-        </button>
-        <button
-          type="button"
-          className="mutebtn"
-          title="Table settings"
-          onClick={onOpenSettings}
-        >
-          <Icon name="gear" size={17} />
-        </button>
-        {fullscreen.supported && (
+        <span className="header-divider" aria-hidden="true" />
+        {/* Every button in this row used to be one long, unbroken strip of
+            icons with nothing but a hover tooltip to tell them apart — easy
+            to lose count of which icon does what, especially the further
+            right you go. Small uppercase captions split it into the same
+            chunks a host already thinks in, without adding a word to every
+            single button (see the roadmap's "header icon labeling" item). */}
+        <span className="header-group">
+          <span className="header-group-label">Display</span>
           <button
             type="button"
             className="mutebtn"
-            title={
-              fullscreen.isFullscreen ? "Exit fullscreen" : "Enter fullscreen"
-            }
-            onClick={fullscreen.toggle}
+            onClick={onCycleTextScale}
+            aria-label={`Text size: ${Math.round(textScale * 100)}%. Tap to change.`}
           >
-            <Icon
-              name={fullscreen.isFullscreen ? "collapse" : "expand"}
-              size={17}
-            />
+            Aa
           </button>
-        )}
-        <button
-          type="button"
-          className={"mutebtn" + (muted ? "" : " on")}
-          title={
-            muted ? "Sound is off — tap to unmute" : "Sound is on — tap to mute"
-          }
-          onClick={() => setMuted(!muted)}
-        >
-          <Icon name={muted ? "speakerOff" : "speaker"} size={17} />
-        </button>
+          <button
+            type="button"
+            className="mutebtn"
+            title="Table settings"
+            onClick={onOpenSettings}
+          >
+            <Icon name="gear" size={17} />
+          </button>
+          {fullscreen.supported && (
+            <button
+              type="button"
+              className="mutebtn"
+              title={
+                fullscreen.isFullscreen ? "Exit fullscreen" : "Enter fullscreen"
+              }
+              onClick={fullscreen.toggle}
+            >
+              <Icon
+                name={fullscreen.isFullscreen ? "collapse" : "expand"}
+                size={17}
+              />
+            </button>
+          )}
+          <button
+            type="button"
+            className={"mutebtn" + (muted ? "" : " on")}
+            title={
+              muted ? "Sound is off — tap to unmute" : "Sound is on — tap to mute"
+            }
+            onClick={() => setMuted(!muted)}
+          >
+            <Icon name={muted ? "speakerOff" : "speaker"} size={17} />
+          </button>
+        </span>
         {lobbyIdle && (
           <>
-            <button
-              type="button"
-              className="mutebtn"
-              title="Game history"
-              onClick={onOpenHistory}
-            >
-              <Icon name="scroll" size={17} />
-            </button>
-            <button
-              type="button"
-              className="mutebtn"
-              title="Hall of Fame"
-              onClick={onOpenHallOfFame}
-            >
-              <Icon name="trophy" size={17} />
-            </button>
-            <button
-              type="button"
-              className="mutebtn"
-              title="Character checklist"
-              onClick={onOpenCharacters}
-            >
-              <Icon name="check" size={17} />
-            </button>
-            <button
-              type="button"
-              className="mutebtn"
-              title="Clear the lobby"
-              disabled={!playerCount}
-              onClick={onClearLobby}
-            >
-              <Icon name="refresh" size={17} />
-            </button>
-            <button
-              type="button"
-              className={"mutebtn" + (canStart ? " on" : "")}
-              title="Start Game"
-              disabled={!canStart}
-              onClick={onStartGame}
-            >
-              <Icon name="play" size={17} />
-            </button>
+            <span className="header-divider" aria-hidden="true" />
+            <span className="header-group">
+              <span className="header-group-label">Reference</span>
+              <button
+                type="button"
+                className="mutebtn"
+                title="Game history"
+                onClick={onOpenHistory}
+              >
+                <Icon name="scroll" size={17} />
+              </button>
+              <button
+                type="button"
+                className="mutebtn"
+                title="Hall of Fame"
+                onClick={onOpenHallOfFame}
+              >
+                <Icon name="trophy" size={17} />
+              </button>
+              <button
+                type="button"
+                className="mutebtn"
+                title="Character checklist"
+                onClick={onOpenCharacters}
+              >
+                <Icon name="check" size={17} />
+              </button>
+            </span>
+            <span className="header-divider" aria-hidden="true" />
+            <span className="header-group">
+              <span className="header-group-label">Lobby</span>
+              <button
+                type="button"
+                className="mutebtn"
+                title="Clear the lobby"
+                disabled={!playerCount}
+                onClick={onClearLobby}
+              >
+                <Icon name="refresh" size={17} />
+              </button>
+              <button
+                type="button"
+                className={"mutebtn" + (canStart ? " on" : "")}
+                title="Start Game"
+                disabled={!canStart}
+                onClick={onStartGame}
+              >
+                <Icon name="play" size={17} />
+              </button>
+            </span>
           </>
         )}
         {browsing && browsedMeta && (
           <>
-            <button
-              type="button"
-              className={"mutebtn" + (locked ? "" : " on")}
-              title={locked ? "Coming soon" : `Choose ${browsedMeta.name}`}
-              disabled={locked || confirming}
-              onClick={onConfirmScript}
-            >
-              <Icon name="play" size={17} />
-            </button>
-            <button
-              type="button"
-              className="mutebtn"
-              title="Cancel — keep the current script"
-              onClick={onCancelBrowse}
-            >
-              <Icon name="close" size={17} />
-            </button>
+            <span className="header-divider" aria-hidden="true" />
+            <span className="header-group">
+              <span className="header-group-label">Script</span>
+              <button
+                type="button"
+                className={"mutebtn" + (locked ? "" : " on")}
+                title={locked ? "Coming soon" : `Choose ${browsedMeta.name}`}
+                disabled={locked || confirming}
+                onClick={onConfirmScript}
+              >
+                <Icon name="play" size={17} />
+              </button>
+              <button
+                type="button"
+                className="mutebtn"
+                title="Cancel — keep the current script"
+                onClick={onCancelBrowse}
+              >
+                <Icon name="close" size={17} />
+              </button>
+            </span>
           </>
         )}
         {showGameControls && (
           <>
-            <button
-              type="button"
-              className="mutebtn"
-              title="Reveal every role and end the game"
-              onClick={onReveal}
-            >
-              <Icon name="eye" size={17} />
-            </button>
-            <button
-              type="button"
-              className="mutebtn"
-              title="Clear the table and start a new game"
-              onClick={onNewGame}
-            >
-              <Icon name="refresh" size={17} />
-            </button>
+            <span className="header-divider" aria-hidden="true" />
+            <span className="header-group">
+              <span className="header-group-label">Storyteller</span>
+              <button
+                type="button"
+                className="mutebtn"
+                title="Reveal every role and end the game"
+                onClick={onReveal}
+              >
+                <Icon name="eye" size={17} />
+              </button>
+              <button
+                type="button"
+                className="mutebtn"
+                title="Clear the table and start a new game"
+                onClick={onNewGame}
+              >
+                <Icon name="refresh" size={17} />
+              </button>
+            </span>
           </>
         )}
+        <span className="header-divider" aria-hidden="true" />
         <span className="phase">
           <Icon name={phaseIcon} size={14} />
           <span>{phaseLabel}</span>
