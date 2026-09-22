@@ -354,11 +354,22 @@ function waveFor(characterId) {
   return (entry && entry.wave) || 1;
 }
 
+// Flat, mechanical instructions — the exact register every real
+// text() string in game/abilities/*.js already uses ("Choose a player.
+// They die.", "Choose two living players. You learn how many woke
+// tonight...") — deliberately NOT atmospheric or ominous. Decoy prompts
+// used to read in an obviously different voice ("The dark asks something
+// of you...", "Something is listening..."), which quietly defeated the
+// entire point of decoyPrompt(): a player only has to sit through one or
+// two nights before "spooky vague phrasing = decoy, plain mechanical
+// phrasing = real" becomes a tell, independent of target count or wording
+// specifics. A real table's Storyteller has no such tell — waking
+// gestures look the same whether the ability does anything or not.
 const DECOY_LINES = [
-  'The dark asks something of you. Choose a player.',
-  'Something is listening. Point to someone.',
-  'Name a player. Do not explain why.',
+  'Choose a player.',
   'Choose a player. You will not be told what happens.',
+  'Choose a player. You learn nothing further tonight.',
+  'Choose a player. There is no other effect.',
 ];
 
 /** A prompt every living player receives, so nobody's silence marks them out. */
