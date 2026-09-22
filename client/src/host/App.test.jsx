@@ -502,11 +502,16 @@ describe("App", () => {
       expect(openSpy).toHaveBeenCalledWith("/games", "_blank");
     });
 
-    it("Hall of Fame opens /hall-of-fame in a new tab", async () => {
+    it("Hall of Fame opens the in-app overlay, not a new tab", async () => {
       const openSpy = vi.spyOn(window, "open").mockImplementation(() => {});
+      mockFetch({
+        "/api/tokens": {}, "/trivia.json": [], "/api/scripts": SCRIPTS,
+        "/api/profiles": [], "/api/leaderboard/voting": [], "/api/leaderboard/characters": [],
+      });
       render(<App />);
       await userEvent.click(screen.getByTitle("Hall of Fame"));
-      expect(openSpy).toHaveBeenCalledWith("/hall-of-fame", "_blank");
+      expect(openSpy).not.toHaveBeenCalled();
+      expect(await screen.findByRole("heading", { name: "Hall of Fame" })).toBeInTheDocument();
     });
 
     it("Character checklist opens the in-app overlay, not a new tab", async () => {

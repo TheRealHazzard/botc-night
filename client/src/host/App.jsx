@@ -22,6 +22,7 @@ import SettingsOverlay from "./components/SettingsOverlay.jsx";
 import ScriptBuilderOverlay from "./components/ScriptBuilderOverlay.jsx";
 import ConfirmModal from "./components/ConfirmModal.jsx";
 import CharactersOverlay from "./components/CharactersOverlay.jsx";
+import HallOfFameOverlay from "./components/HallOfFameOverlay.jsx";
 import LobbyView from "./views/LobbyView.jsx";
 import RevealView from "./views/RevealView.jsx";
 import NightView from "./views/NightView.jsx";
@@ -61,6 +62,7 @@ export default function App() {
   // In-app stand-ins for what used to be window.open(url, "_blank") — see
   // each overlay's own header comment for why.
   const [viewingCharacters, setViewingCharacters] = useState(false);
+  const [viewingHallOfFame, setViewingHallOfFame] = useState(false);
   // Independent of the BOTC phase machine below — switching tabs never
   // touches `game` state, so an in-progress night is never at risk from a
   // peek at the toolkit, and the underlying phase/SSE stream keeps running
@@ -247,7 +249,7 @@ export default function App() {
         onReveal={revealAll}
         onNewGame={newGame}
         onOpenHistory={() => window.open("/games", "_blank")}
-        onOpenHallOfFame={() => window.open("/hall-of-fame", "_blank")}
+        onOpenHallOfFame={() => setViewingHallOfFame(true)}
         onOpenCharacters={() => setViewingCharacters(true)}
         textScale={textScale}
         onCycleTextScale={cycleTextScale}
@@ -373,6 +375,10 @@ export default function App() {
 
       {viewingCharacters && (
         <CharactersOverlay onClose={() => setViewingCharacters(false)} />
+      )}
+
+      {viewingHallOfFame && (
+        <HallOfFameOverlay onClose={() => setViewingHallOfFame(false)} />
       )}
     </>
   );

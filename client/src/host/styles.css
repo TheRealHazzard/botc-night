@@ -2657,6 +2657,71 @@
         font-family: "Space Mono", monospace;
       }
 
+      /* ------------------------------------------------------------- hall of fame
+         HallOfFameOverlay.jsx / LeaderboardPanel.jsx — an in-app port of
+         hall-of-fame.html (and the leaderboard panel it duplicated with
+         games.html, now one shared component). Reuses .powerlog-table for
+         the profile ranking grid rather than a new table style. */
+      .lb-panel {
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: var(--surface);
+        padding: 18px 20px;
+        margin-bottom: 20px;
+      }
+      .lb-panel h3 {
+        margin: 0 0 6px;
+        font-family: "Cinzel Decorative", Georgia, serif;
+        font-size: 1.05rem;
+        color: var(--bone);
+      }
+      .lb-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        font-size: 0.9rem;
+        padding: 7px 0;
+        border-bottom: 1px dashed var(--line-soft);
+      }
+      .lb-row:last-child {
+        border-bottom: none;
+      }
+      .lb-rank {
+        color: var(--bone-faint);
+        font-family: "Space Mono", monospace;
+        margin-right: 8px;
+      }
+      .lb-value {
+        font-family: "Space Mono", monospace;
+        color: var(--bone-dim);
+        flex-shrink: 0;
+      }
+      .hof-rank {
+        color: var(--bone-faint);
+        width: 2em;
+      }
+      .hof-namecell {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .hof-avatar {
+        width: 26px;
+        height: 26px;
+        border-radius: 50%;
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: "Cinzel Decorative", Georgia, serif;
+        font-size: 0.72rem;
+        color: #f2e8d3;
+      }
+      .hof-streak {
+        color: var(--brass);
+        font-weight: 600;
+      }
+
       /* ---------------------------------------------------------------
          Game-night toolkit — the header's Game/Toolkit switch, and the
          Timer/Randomizer/Trivia/Scoreboard tools themselves. Built on the
