@@ -80,14 +80,26 @@ describe('LeaderControlsOverlay', () => {
       expect(screen.getByText(/need 2 more/i).closest('button')).toBeDisabled();
     });
 
-    it('Start game posts to /api/table/deal once 5+ are seated', async () => {
+    it('Start game confirms, then posts to /api/table/deal once 5+ are seated', async () => {
       FakeEventSource.instances = [];
       vi.stubGlobal('EventSource', FakeEventSource);
+      vi.spyOn(window, 'confirm').mockReturnValue(true);
       const fetchMock = mockFetch({ '/api/table/deal': { ok: true } });
       render(<LeaderControlsOverlay open={true} onClose={() => {}} />);
       push(lobbyState(5));
       await userEvent.click(screen.getByText('Start game'));
       expect(fetchMock.calls.some(c => c.url.includes('/api/table/deal'))).toBe(true);
+    });
+
+    it('declining Start game\'s confirm never posts', async () => {
+      FakeEventSource.instances = [];
+      vi.stubGlobal('EventSource', FakeEventSource);
+      vi.spyOn(window, 'confirm').mockReturnValue(false);
+      const fetchMock = mockFetch({ '/api/table/deal': { ok: true } });
+      render(<LeaderControlsOverlay open={true} onClose={() => {}} />);
+      push(lobbyState(5));
+      await userEvent.click(screen.getByText('Start game'));
+      expect(fetchMock.calls.some(c => c.url.includes('/api/table/deal'))).toBe(false);
     });
 
     it('Clear the lobby confirms, then posts to /api/table/clear-lobby', async () => {
@@ -330,16 +342,31 @@ describe('LeaderControlsOverlay', () => {
     });
   });
 
-  describe('always available', () => {
+  describe('always available (outside the lobby)', () => {
     it('Reveal confirms, then posts to /api/table/reveal', async () => {
       FakeEventSource.instances = [];
       vi.stubGlobal('EventSource', FakeEventSource);
       vi.spyOn(window, 'confirm').mockReturnValue(true);
       const fetchMock = mockFetch({ '/api/table/reveal': { ok: true } });
       render(<LeaderControlsOverlay open={true} onClose={() => {}} />);
-      push(lobbyState(3));
+      push(dayState());
       await userEvent.click(screen.getByText('Reveal'));
       expect(fetchMock.calls.some(c => c.url.includes('/api/table/reveal'))).toBe(true);
+    });
+
+    // Nothing here to reveal or reset over yet — the host TV's own
+    // ControlPanelRow (where these two live) never mounts during the
+    // lobby either; LobbyControls' own Start game/Clear the lobby pair is
+    // the lobby's real equivalent. Reveal also has its own server-side
+    // phase guard now, but this is what keeps a leader from ever seeing
+    // (and tapping) a button that would just 409.
+    it('hides Reveal and New game entirely during the lobby', () => {
+      FakeEventSource.instances = [];
+      vi.stubGlobal('EventSource', FakeEventSource);
+      render(<LeaderControlsOverlay open={true} onClose={() => {}} />);
+      push(lobbyState(3));
+      expect(screen.queryByText('Reveal')).not.toBeInTheDocument();
+      expect(screen.queryByText('New game')).not.toBeInTheDocument();
     });
   });
 
@@ -413,6 +440,7 @@ describe('LeaderControlsOverlay', () => {
     it('shows a link to enter the host code instead of a raw error', async () => {
       FakeEventSource.instances = [];
       vi.stubGlobal('EventSource', FakeEventSource);
+      vi.spyOn(window, 'confirm').mockReturnValue(true);
       mockFetch({ '/api/table/deal': { error: 'Enter the host code first.' } });
       render(<LeaderControlsOverlay open={true} onClose={() => {}} />);
       push(lobbyState(5));
@@ -423,6 +451,7 @@ describe('LeaderControlsOverlay', () => {
     it('any other server error still shows a toast', async () => {
       FakeEventSource.instances = [];
       vi.stubGlobal('EventSource', FakeEventSource);
+      vi.spyOn(window, 'confirm').mockReturnValue(true);
       mockFetch({ '/api/table/deal': { error: 'Need at least 5 players.' } });
       render(<><LeaderControlsOverlay open={true} onClose={() => {}} /><ToastStack /></>);
       push(lobbyState(5));

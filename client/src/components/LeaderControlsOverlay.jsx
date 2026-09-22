@@ -74,7 +74,14 @@ export default function LeaderControlsOverlay({ open, onClose, token, myId }) {
           {S && S.phase === 'lobby' && <LobbyControls S={S} busy={busy} run={run} />}
           {S && S.phase === 'reveal' && <RevealControls busy={busy} run={run} />}
           {S && S.phase === 'day' && <DayControls S={S} busy={busy} run={run} />}
-          {S && <AlwaysControls busy={busy} run={run} />}
+          {/* Reveal/New game — matches the host TV exactly: ControlPanelRow
+              (their real home) only ever mounts from RevealView/NightView/
+              DayView/OverView, never LobbyView, which has its own dedicated
+              Start game/Clear the lobby pair instead (LobbyControls above).
+              Reveal specifically also has its own server-side phase guard
+              now (/api/table/reveal), so this is UX clarity on top of a
+              real fix, not the only thing stopping it. */}
+          {S && S.phase !== 'lobby' && <AlwaysControls busy={busy} run={run} />}
           {S && <SettingsCard S={S} run={run} />}
           {S && <HandOffControl S={S} myId={myId} busy={busy} handOff={handOff} />}
         </div>
@@ -88,7 +95,12 @@ function LobbyControls({ S, busy, run }) {
   const canStart = count >= 5;
   return (
     <div className="card">
-      <button type="button" className="primary" disabled={busy || !canStart} onClick={() => run('/api/table/deal', {})}>
+      <button
+        type="button"
+        className="primary"
+        disabled={busy || !canStart}
+        onClick={() => run('/api/table/deal', {}, "Deal roles and start the game? This can't be undone.")}
+      >
         {canStart ? 'Start game' : `Start game (need ${5 - count} more)`}
       </button>
       <button

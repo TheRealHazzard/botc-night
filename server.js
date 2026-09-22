@@ -2681,6 +2681,14 @@ async function requestHandler(req, res) {
       }
 
       if (route === '/api/table/deal') {
+        // Every sibling lobby route already guards this (add-bots just
+        // above, clear-lobby, script) — deal didn't, despite being the one
+        // truly irreversible lobby action: dealRoles() below unconditionally
+        // reassigns every seat's characterId/alive/statuses and flips
+        // phase to 'reveal', so a stray double-tap or a race between two
+        // leader-capable clients hitting this within the same tick would
+        // otherwise silently re-shuffle (or wipe) a game already in progress.
+        if (game.phase !== 'lobby') return json(res, 409, { error: 'Roles are already dealt.' });
         if (game.players.length < 5) return json(res, 400, { error: 'Need at least 5 players.' });
         const dealCap = SCRIPT_MAX_PLAYERS[game.script];
         if (dealCap && game.players.length > dealCap) {
@@ -2732,6 +2740,17 @@ async function requestHandler(req, res) {
       }
 
       if (route === '/api/table/reveal') {
+        // Every sibling lobby-adjacent route (clear-lobby, script,
+        // add-bots) already guards game.phase — this one didn't, and
+        // nothing else stopped a phone-only leader (LeaderControlsOverlay
+        // renders AlwaysControls in every phase) from tapping Reveal
+        // before anyone was ever dealt a character. That didn't just end
+        // an empty game harmlessly: recordGameHistory() below writes a
+        // real, permanent record for every seated player with
+        // characterId null and alive still true (never flipped), which
+        // silently inflated their lifetime gamesPlayed and diluted
+        // survivalRate — the actual stat WelcomeBackScreen.jsx shows.
+        if (game.phase === 'lobby') return json(res, 409, { error: 'Nothing to reveal — deal roles first.' });
         game.revealed = true;
         game.phase = 'over';
         recordGameHistory(); // a hand-ended game (no clean win condition) still counts

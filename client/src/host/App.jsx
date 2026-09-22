@@ -144,7 +144,15 @@ export default function App() {
   // Also header actions, alongside browsing's Play/Close — both pairs are
   // lobby-only and mutually exclusive (this one only when NOT browsing),
   // so they share the same header slot rather than doubling up controls.
-  const startGame = () => post("/api/table/deal").then(r => r.error && showToast(r.error));
+  // Dealing is the one truly irreversible lobby action — unlike Clear the
+  // lobby just below (easily repeated, nothing lost but seating), once
+  // roles are dealt there's no way back to the lobby. This had no confirm
+  // at all before, backwards from Clear the lobby having one for a far
+  // less consequential action.
+  const startGame = () => {
+    if (!confirm("Deal roles and start the game? This can't be undone.")) return;
+    post("/api/table/deal").then(r => r.error && showToast(r.error));
+  };
   const clearLobby = () => {
     const n = displayS.players.length;
     if (!confirm(`Remove all ${n} seated player${n === 1 ? "" : "s"} and start the count over?`)) return;

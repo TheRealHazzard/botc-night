@@ -420,7 +420,7 @@ describe("App", () => {
       expect(screen.getByTitle(/clear the lobby/i)).toBeDisabled();
     });
 
-    it("Start Game enables at 5+ players and posts /api/table/deal", async () => {
+    it("Start Game enables at 5+ players, confirms, and posts /api/table/deal", async () => {
       const players = Array.from({ length: 5 }, (_, i) => ({
         id: `p${i}`,
         name: `P${i}`,
@@ -434,6 +434,7 @@ describe("App", () => {
         "/api/scripts": SCRIPTS,
         "/api/table/deal": {},
       });
+      vi.spyOn(window, "confirm").mockReturnValue(true);
       hostState.current.S = baseS({ players });
       render(<App />);
       const start = screen.getByTitle("Start Game");
@@ -444,6 +445,29 @@ describe("App", () => {
           fetchMock.calls.some(c => c.url.includes("/api/table/deal")),
         ).toBe(true),
       );
+    });
+
+    it("declining Start Game's confirm never posts /api/table/deal", async () => {
+      const players = Array.from({ length: 5 }, (_, i) => ({
+        id: `p${i}`,
+        name: `P${i}`,
+        alive: true,
+        connected: true,
+        color: null,
+      }));
+      const fetchMock = mockFetch({
+        "/api/tokens": {},
+        "/trivia.json": [],
+        "/api/scripts": SCRIPTS,
+        "/api/table/deal": {},
+      });
+      vi.spyOn(window, "confirm").mockReturnValue(false);
+      hostState.current.S = baseS({ players });
+      render(<App />);
+      await userEvent.click(screen.getByTitle("Start Game"));
+      expect(
+        fetchMock.calls.some(c => c.url.includes("/api/table/deal")),
+      ).toBe(false);
     });
 
     it("Clear the lobby confirms, and only posts on accept", async () => {
