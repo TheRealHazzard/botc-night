@@ -136,12 +136,23 @@ function DayActions({ players, nominations, nightNumber, anyOpen }) {
     setOverrideId(id => (id && !aliveIds.has(id)) ? null : id);
   }, [players]);
 
-  const autoWinner = leadingNominee(nominations, nightNumber, alive);
-  const leaderChanged = useLeaderChanged(autoWinner);
-  const effectiveId = overrideId !== null ? overrideId : (autoWinner || '');
+  const { id: autoWinnerId, tied } = leadingNominee(nominations, nightNumber, alive);
+  const leaderChanged = useLeaderChanged(autoWinnerId);
+  const effectiveId = overrideId !== null ? overrideId : (autoWinnerId || '');
   const effectivePlayer = alive.find(p => p.id === effectiveId);
+  // Only worth flagging while nothing overrides it — a host who's already
+  // picked someone manually has already made the real decision either way.
+  const showTied = tied && overrideId === null;
 
-  const nightFalls = () => post('/api/table/night');
+  // "Kick Player" already confirms an execution — "Night falls" used to
+  // have no such guard at all, even with a real candidate queued (the
+  // computed leader, or the host's own override): one misclick in the
+  // drawer silently skipped a legitimate execution, and the result was
+  // indistinguishable afterward from a day nobody ever qualified on.
+  const nightFalls = () => {
+    if (effectiveId && !confirm(`${effectivePlayer ? effectivePlayer.name : 'This player'} would be executed if you clicked Kick Player instead — end the day with no execution anyway?`)) return;
+    post('/api/table/night');
+  };
   const kick = () => {
     if (effectiveId && !confirm(`Execute ${effectivePlayer ? effectivePlayer.name : 'this player'}?`)) return;
     post('/api/table/execute', { playerId: effectiveId || null }).then(r => r.error && showToast(r.error));
@@ -153,6 +164,10 @@ function DayActions({ players, nominations, nightNumber, anyOpen }) {
         <option value="">No execution</option>
         {alive.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
       </select>
+      {/* Without this, a tie and "nobody's ever qualified" look identical —
+          the select just quietly reads "No execution" either way, with no
+          sign a real tie is why. */}
+      {showTied && <p className="sub tied-note">Tied — no clear leader. Pick one yourself, or let the day pass.</p>}
       <button
         type="button"
         className={'primary' + (leaderChanged && overrideId === null ? ' leader-changed' : '')}

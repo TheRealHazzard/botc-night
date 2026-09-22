@@ -170,6 +170,53 @@ describe('LeaderControlsOverlay', () => {
       expect(fetchMock.calls.some(c => c.url.includes('/api/table/night'))).toBe(true);
     });
 
+    it('Night falls confirms first when a real candidate is queued, and only posts on accept', async () => {
+      FakeEventSource.instances = [];
+      vi.stubGlobal('EventSource', FakeEventSource);
+      const fetchMock = mockFetch({ '/api/table/night': { ok: true } });
+      const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+      render(<LeaderControlsOverlay open={true} onClose={() => {}} />);
+      // 2 living (Ada, Bo) -> majority threshold is 1.
+      push(dayState({ nominations: [{ day: 2, closed: true, nomineeId: 'p2', yesCount: 1 }] }));
+      await userEvent.click(screen.getByText('Night falls'));
+      expect(confirmSpy).toHaveBeenCalledWith(expect.stringMatching(/bo would be executed/i));
+      expect(fetchMock.calls.some(c => c.url.includes('/api/table/night'))).toBe(false);
+
+      confirmSpy.mockReturnValue(true);
+      await userEvent.click(screen.getByText('Night falls'));
+      expect(fetchMock.calls.some(c => c.url.includes('/api/table/night'))).toBe(true);
+    });
+
+    it('shows a tied note when two nominees are tied for the lead, and nothing overrides it', () => {
+      FakeEventSource.instances = [];
+      vi.stubGlobal('EventSource', FakeEventSource);
+      render(<LeaderControlsOverlay open={true} onClose={() => {}} />);
+      // 2 living (Ada, Bo) -> majority threshold is 1; both qualify with the same yesCount.
+      push(dayState({
+        nominations: [
+          { day: 2, closed: true, nomineeId: 'p1', yesCount: 1 },
+          { day: 2, closed: true, nomineeId: 'p2', yesCount: 1 },
+        ],
+      }));
+      expect(screen.getByText(/tied — no clear leader/i)).toBeInTheDocument();
+    });
+
+    it('hides the tied note once the leader manually picks someone', async () => {
+      FakeEventSource.instances = [];
+      vi.stubGlobal('EventSource', FakeEventSource);
+      render(<LeaderControlsOverlay open={true} onClose={() => {}} />);
+      push(dayState({
+        nominations: [
+          { day: 2, closed: true, nomineeId: 'p1', yesCount: 1 },
+          { day: 2, closed: true, nomineeId: 'p2', yesCount: 1 },
+        ],
+      }));
+      expect(screen.getByText(/tied — no clear leader/i)).toBeInTheDocument();
+      const select = screen.getByText('No execution').closest('select');
+      await userEvent.selectOptions(select, 'p1');
+      expect(screen.queryByText(/tied — no clear leader/i)).not.toBeInTheDocument();
+    });
+
     // The wiki is explicit: "Add a shroud as normal. Do not say that the
     // Demon has died." The bonus day has to look exactly like any other
     // day — no announcement, and Night falls stays a perfectly ordinary,

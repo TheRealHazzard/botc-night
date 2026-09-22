@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import DayView from './DayView.jsx';
@@ -89,6 +89,62 @@ describe('DayView', () => {
     );
     const select = screen.getAllByText('No execution')[0].closest('select');
     expect(select.value).toBe('p1');
+  });
+
+  it('Night falls posts directly with no confirm when nobody is queued for execution', async () => {
+    const fetchMock = mockFetch({ '/api/table/night': { ok: true } });
+    render(
+      <DayView players={players} nightNumber={1} deaths={[]} nominations={[]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
+    );
+    await userEvent.click(screen.getAllByText(/^night falls$/i)[0]);
+    expect(fetchMock.calls.some(c => c.url.includes('/api/table/night'))).toBe(true);
+  });
+
+  it('Night falls confirms first when a real candidate is queued, and only posts on accept', async () => {
+    const closedNom = { day: 1, nominatorName: 'Bo', nomineeName: 'Ada', nomineeId: 'p1', closed: true, yesCount: 1, votes: [] };
+    const fetchMock = mockFetch({ '/api/table/night': { ok: true } });
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    render(
+      <DayView players={players} nightNumber={1} deaths={[]} nominations={[closedNom]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
+    );
+    await userEvent.click(screen.getAllByText(/^night falls$/i)[0]);
+    expect(confirmSpy).toHaveBeenCalledWith(expect.stringMatching(/ada would be executed/i));
+    expect(fetchMock.calls.some(c => c.url.includes('/api/table/night'))).toBe(false);
+
+    confirmSpy.mockReturnValue(true);
+    await userEvent.click(screen.getAllByText(/^night falls$/i)[0]);
+    expect(fetchMock.calls.some(c => c.url.includes('/api/table/night'))).toBe(true);
+  });
+
+  it('shows a tied note when two nominees are tied for the lead, and nothing overrides it', () => {
+    const threeAliveLocal = [
+      { id: 'p1', name: 'Ada', alive: true, connected: true, ghostVoteUsed: false, color: null },
+      { id: 'p2', name: 'Cy', alive: true, connected: true, ghostVoteUsed: false, color: null },
+      { id: 'p3', name: 'Evy', alive: true, connected: true, ghostVoteUsed: false, color: null },
+    ];
+    const nomP1 = { day: 1, nominatorName: 'Cy', nomineeName: 'Ada', nomineeId: 'p1', closed: true, yesCount: 2, votes: [] };
+    const nomP2 = { day: 1, nominatorName: 'Ada', nomineeName: 'Cy', nomineeId: 'p2', closed: true, yesCount: 2, votes: [] };
+    render(
+      <DayView players={threeAliveLocal} nightNumber={1} deaths={[]} nominations={[nomP1, nomP2]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
+    );
+    expect(screen.getAllByText(/tied — no clear leader/i)[0]).toBeInTheDocument();
+  });
+
+  it('hides the tied note once the host manually picks someone', async () => {
+    const threeAliveLocal = [
+      { id: 'p1', name: 'Ada', alive: true, connected: true, ghostVoteUsed: false, color: null },
+      { id: 'p2', name: 'Cy', alive: true, connected: true, ghostVoteUsed: false, color: null },
+      { id: 'p3', name: 'Evy', alive: true, connected: true, ghostVoteUsed: false, color: null },
+    ];
+    const nomP1 = { day: 1, nominatorName: 'Cy', nomineeName: 'Ada', nomineeId: 'p1', closed: true, yesCount: 2, votes: [] };
+    const nomP2 = { day: 1, nominatorName: 'Ada', nomineeName: 'Cy', nomineeId: 'p2', closed: true, yesCount: 2, votes: [] };
+    render(
+      <DayView players={threeAliveLocal} nightNumber={1} deaths={[]} nominations={[nomP1, nomP2]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
+    );
+    expect(screen.getAllByText(/tied — no clear leader/i)[0]).toBeInTheDocument();
+    const select = screen.getAllByText('No execution')[0].closest('select');
+    await userEvent.selectOptions(select, 'p1');
+    expect(screen.queryByText(/tied — no clear leader/i)).not.toBeInTheDocument();
   });
 
   it('a manual pick in the select overrides the auto-populated leader', async () => {

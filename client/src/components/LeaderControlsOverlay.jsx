@@ -122,9 +122,12 @@ function DayControls({ S, busy, run }) {
   const [nomineeId, setNomineeId] = useState(() => alive[0]?.id || '');
   const [executeId, setExecuteId] = useState('');
 
-  const autoWinner = leadingNominee(S.nominations, nightNumber, alive);
-  const effectiveExecuteId = executeId || autoWinner || '';
+  const { id: autoWinnerId, tied } = leadingNominee(S.nominations, nightNumber, alive);
+  const effectiveExecuteId = executeId || autoWinnerId || '';
   const effectivePlayer = alive.find(p => p.id === effectiveExecuteId);
+  // Same as DayView.jsx's own showTied — only worth flagging while
+  // nothing overrides it.
+  const showTied = tied && !executeId;
 
   return (
     <>
@@ -162,6 +165,7 @@ function DayControls({ S, busy, run }) {
           <option value="">No execution</option>
           {alive.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
         </select>
+        {showTied && <p className="dim small">Tied — no clear leader. Pick one yourself, or let the day pass.</p>}
         <button
           type="button"
           className="primary"
@@ -174,7 +178,15 @@ function DayControls({ S, busy, run }) {
         >
           Kick player
         </button>
-        <button type="button" disabled={busy || anyOpen} onClick={() => run('/api/table/night', {})}>
+        <button
+          type="button"
+          disabled={busy || anyOpen}
+          onClick={() => run(
+            '/api/table/night',
+            {},
+            effectiveExecuteId ? `${effectivePlayer ? effectivePlayer.name : 'This player'} would be executed if you tapped Kick player instead — end the day with no execution anyway?` : null,
+          )}
+        >
           Night falls
         </button>
       </div>
