@@ -63,8 +63,12 @@ export default function DayView({ players, nightNumber, deaths, nominations, con
       </div>
       {/* The ring itself lives outside this view now (App.jsx renders it
           permanently via a portal, exempt from fade-wrap's fade) — this
-          slot is where it visually lands. */}
-      <div className="ring-slot" ref={ringSlotRef} />
+          slot is where it visually lands. ring-zone is the ring's own
+          dedicated row, so it centers independently of narration's
+          height instead of overlapping or being pushed off-screen. */}
+      <div className="ring-zone">
+        <div className="ring-slot" ref={ringSlotRef} />
+      </div>
     </div>
   );
 

@@ -70,7 +70,9 @@ export default function LobbyView({ players, script, scripts, setupRatio, browsi
           browsing scripts, since the preview panel takes over this
           column. Unmounting here would drop the portal target and defeat
           the whole point of the ring living permanently in App.jsx. */}
-      <div className={'ring-slot' + (browsedMeta ? ' ring-slot-hidden' : '')} ref={ringSlotRef} />
+      <div className="ring-zone">
+        <div className={'ring-slot' + (browsedMeta ? ' ring-slot-hidden' : '')} ref={ringSlotRef} />
+      </div>
     </div>
   );
 

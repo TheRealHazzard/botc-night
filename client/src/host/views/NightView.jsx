@@ -25,7 +25,9 @@ export default function NightView({ players, nightNumber, wave, windowEndsAt, wi
         <div className="narration dread">{line}</div>
         {whim && <WhimBeat />}
       </div>
-      <div className="ring-slot" ref={ringSlotRef} />
+      <div className="ring-zone">
+        <div className="ring-slot" ref={ringSlotRef} />
+      </div>
     </div>
   );
 

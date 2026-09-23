@@ -14,7 +14,9 @@ export default function RevealView({ scriptChars, activeScriptMeta, muted, ringS
         <div className="narration dread">Look at your hands.</div>
         <div className="sub">Each of you now knows only yourself. No one in this room knows the rest.</div>
       </div>
-      <div className="ring-slot" ref={ringSlotRef} />
+      <div className="ring-zone">
+        <div className="ring-slot" ref={ringSlotRef} />
+      </div>
     </div>
   );
 

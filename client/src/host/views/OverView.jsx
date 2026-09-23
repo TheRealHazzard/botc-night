@@ -47,7 +47,9 @@ export default function OverView({ players, victory, gameSummary, log, actionLog
           permanently, via a portal, so it never unmounts on a phase
           change) — this slot is where it visually lands. See
           RingSeats.jsx's own comment and App.jsx's ring-slot wiring. */}
-      <div className="ring-slot" ref={ringSlotRef} />
+      <div className="ring-zone">
+        <div className="ring-slot" ref={ringSlotRef} />
+      </div>
     </div>
   );
 
