@@ -61,4 +61,36 @@ describe('NanoleafSection', () => {
     expect(await screen.findByText(/enter the panels' ip address first/i)).toBeInTheDocument();
     expect(fetchMock.calls.some(c => c.url.includes('/api/nanoleaf/pair'))).toBe(false);
   });
+
+  it('Scan finds devices and clicking one fills the IP field', async () => {
+    mockFetch({
+      '/api/nanoleaf/status': { paired: false, ip: null },
+      '/api/nanoleaf/discover': { devices: [{ ip: '192.168.1.140', port: 16021, name: 'Living Room Panels' }] },
+    });
+    render(<NanoleafSection />);
+    await screen.findByText('Not paired yet.');
+
+    await userEvent.click(screen.getByRole('button', { name: /scan for lights/i }));
+
+    const device = await screen.findByRole('button', { name: /Living Room Panels/i });
+    expect(device).toHaveTextContent('192.168.1.140');
+    expect(screen.getByPlaceholderText('192.168.1.45')).toHaveValue(''); // not yet clicked
+
+    await userEvent.click(device);
+    expect(screen.getByPlaceholderText('192.168.1.45')).toHaveValue('192.168.1.140');
+    expect(device).toHaveClass('selected');
+  });
+
+  it('Scan finding nothing shows a helpful message instead of an empty list', async () => {
+    mockFetch({
+      '/api/nanoleaf/status': { paired: false, ip: null },
+      '/api/nanoleaf/discover': { devices: [] },
+    });
+    render(<NanoleafSection />);
+    await screen.findByText('Not paired yet.');
+
+    await userEvent.click(screen.getByRole('button', { name: /scan for lights/i }));
+
+    expect(await screen.findByText(/no nanoleaf devices answered/i)).toBeInTheDocument();
+  });
 });

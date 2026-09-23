@@ -17,6 +17,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const dgram = require('dgram');
 
 // Same override this project already uses for profiles.json/games.jsonl
 // (game/history.js) — read once at require time, and it's what makes this
@@ -28,6 +29,16 @@ const CONFIG_FILE = path.join(DATA_DIR, 'nanoleaf.json');
 const PORT = 16021; // fixed by Nanoleaf's own API, not configurable device-side
 const PAIR_TIMEOUT_MS = 8000; // the pairing window itself is a generous 30s server-side; this just bounds our own request
 const EFFECT_TIMEOUT_MS = 4000; // a LAN call to a device on the same network — should be fast or not happen at all
+
+// SSDP is how the official Nanoleaf app finds devices too, per Nanoleaf's
+// own OpenAPI docs — standard UPnP multicast discovery, not anything
+// Nanoleaf-specific except the ST (search target) value, which scopes
+// responses to just Nanoleaf controllers instead of every SSDP-speaking
+// device on the network (smart TVs, printers, ...).
+const SSDP_MULTICAST_ADDR = '239.255.255.250';
+const SSDP_PORT = 1900;
+const SSDP_SEARCH_TARGET = 'nanoleaf_aurora:light';
+const SSDP_DISCOVER_TIMEOUT_MS = 3000;
 
 function ensureDataDir() { fs.mkdirSync(DATA_DIR, { recursive: true }); }
 
@@ -82,6 +93,67 @@ async function pair(ip) {
 
   saveConfig({ ip, token: body.auth_token });
   return { ok: true };
+}
+
+/** Pure — no socket, no I/O. Pulls {ip, port, name} out of one SSDP
+    response's raw text, or null if it doesn't look like a real Nanoleaf
+    reply (LOCATION is the one header that actually matters; everything
+    else is best-effort). Split out from discover() specifically so the
+    parsing logic is testable without opening a real UDP socket. */
+function parseSSDPResponse(text) {
+  const location = /LOCATION:\s*http:\/\/([\d.]+):(\d+)/i.exec(text);
+  if (!location) return null;
+  const name = /nl-devicename:\s*(.+)/i.exec(text);
+  return {
+    ip: location[1],
+    port: Number(location[2]),
+    name: name ? name[1].trim() : location[1],
+  };
+}
+
+/** Finds Nanoleaf controllers on the local network via SSDP multicast —
+    the same mechanism the official app uses, so the host doesn't have to
+    go hunting through router admin pages for a MAC address starting
+    00:55:da. Always resolves (never rejects) with whatever answered
+    within the window, even an empty array if nothing did — a LAN with no
+    Nanoleaf on it, or one that's off, is an ordinary, non-error outcome
+    here, not a failure. De-duplicates by IP since one device can answer
+    more than once. */
+function discover({ timeoutMs = SSDP_DISCOVER_TIMEOUT_MS } = {}) {
+  return new Promise(resolve => {
+    const found = new Map();
+    let socket;
+    try { socket = dgram.createSocket('udp4'); }
+    catch (e) { resolve([]); return; }
+
+    const finish = () => {
+      try { socket.close(); } catch (e) {}
+      resolve([...found.values()]);
+    };
+    const timer = setTimeout(finish, timeoutMs);
+
+    // A socket-level error (no network interface, permission denied, …)
+    // must resolve gracefully with whatever's already in `found`, not
+    // reject and take down whatever called this — same "never breaks the
+    // game" rule as every other exported function here.
+    socket.on('error', () => { clearTimeout(timer); finish(); });
+    socket.on('message', msg => {
+      const device = parseSSDPResponse(msg.toString());
+      if (device) found.set(device.ip, device);
+    });
+
+    socket.bind(() => {
+      const message = Buffer.from(
+        'M-SEARCH * HTTP/1.1\r\n' +
+        `HOST: ${SSDP_MULTICAST_ADDR}:${SSDP_PORT}\r\n` +
+        'MAN: "ssdp:discover"\r\n' +
+        'MX: 2\r\n' +
+        `ST: ${SSDP_SEARCH_TARGET}\r\n` +
+        '\r\n',
+      );
+      socket.send(message, SSDP_PORT, SSDP_MULTICAST_ADDR, e => { if (e) { clearTimeout(timer); finish(); } });
+    });
+  });
 }
 
 /** Switches the panels to a scene already saved on the device (authored in
@@ -145,4 +217,4 @@ function sceneForState(g) {
   return null;
 }
 
-module.exports = { loadConfig, saveConfig, status, pair, selectEffect, sceneForState, SCENES, DATA_DIR };
+module.exports = { loadConfig, saveConfig, status, pair, selectEffect, discover, parseSSDPResponse, sceneForState, SCENES, DATA_DIR };

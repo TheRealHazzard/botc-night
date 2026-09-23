@@ -16,12 +16,16 @@ function pairErrorMessage(reason) {
 // verify without real panels in front of it — see game/nanoleaf.js's own
 // header comment. Mirrors LlmSection.jsx's shape (a settings-section with
 // one status paragraph), but unlike the LLM integration (configured via
-// env var, read-only here) this one needs an actual pairing action, since
-// there's no way to get a device's auth token without a live handshake.
+// env var, read-only here) this one needs real actions — there's no way
+// to get a device's auth token, or find its IP in the first place,
+// without a live handshake and a network scan.
 export default function NanoleafSection() {
   const [ip, setIp] = useState('');
   const [status, setStatus] = useState(null); // null while loading, else {paired, ip}
   const [pairing, setPairing] = useState(false);
+  const [scanning, setScanning] = useState(false);
+  // null = never scanned this session; [] = scanned, found nothing.
+  const [devices, setDevices] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -35,6 +39,14 @@ export default function NanoleafSection() {
       .catch(() => {});
     return () => { cancelled = true; };
   }, []);
+
+  const scan = async () => {
+    setScanning(true);
+    setDevices(null);
+    const r = await fetch('/api/nanoleaf/discover').then(r => r.json()).catch(() => ({ devices: [] }));
+    setScanning(false);
+    setDevices(r.devices || []);
+  };
 
   const pair = async () => {
     const trimmed = ip.trim();
@@ -56,9 +68,34 @@ export default function NanoleafSection() {
           <span>Switches to a "BOTC Night"/"BOTC Day"/"BOTC Good Win"/"BOTC Evil Win" scene
             — authored ahead of time in the Nanoleaf app, by exactly those names — as the table
             moves through those moments. To pair: hold the panel controller's own power button
-            5-7s until it flashes, then enter its IP address and pair within ~30s.</span>
+            5-7s until it flashes, scan (or enter its IP by hand), then pair within ~30s.</span>
         </div>
       </div>
+      <div className="settings-row">
+        <div className="lbl"><b>Find the panels</b></div>
+        <button type="button" disabled={scanning} onClick={scan}>
+          {scanning ? 'Scanning…' : 'Scan for lights'}
+        </button>
+      </div>
+      {devices && (
+        devices.length ? (
+          <div className="nanoleaf-devices">
+            {devices.map(d => (
+              <button
+                type="button"
+                key={d.ip}
+                className={'nanoleaf-device' + (ip.trim() === d.ip ? ' selected' : '')}
+                onClick={() => setIp(d.ip)}
+              >
+                {d.name} <span className="sub">{d.ip}</span>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <p className="sub">No Nanoleaf devices answered — make sure the power button was
+            held 5-7s recently, or enter the IP by hand below.</p>
+        )
+      )}
       <div className="settings-row">
         <div className="lbl"><b>Panel IP address</b></div>
         <div className="nanoleaf-pair-controls">

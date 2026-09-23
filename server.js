@@ -1943,6 +1943,13 @@ async function requestHandler(req, res) {
         return json(res, 200, Nanoleaf.status());
       }
 
+      if (route === '/api/nanoleaf/discover') {
+        // A ~3s SSDP scan, same as the official app's own device-finding
+        // step — never throws, resolves [] on a LAN with nothing to find.
+        const devices = await Nanoleaf.discover();
+        return json(res, 200, { devices });
+      }
+
       if (route === '/api/reclaim/status') {
         const requestId = url.searchParams.get('requestId');
         const entry = game.pendingReclaims.find(r => r.requestId === requestId);

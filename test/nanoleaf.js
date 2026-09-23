@@ -108,6 +108,38 @@ function jsonResponse(status, body) {
     check('a network failure during effect selection never throws either', r.ok === false && r.reason === 'network-error');
   }
 
+  // ---------------------------------------------------- parseSSDPResponse()
+  // Pure — no socket, so a raw response string is enough to exercise this.
+  {
+    const raw = 'HTTP/1.1 200 OK\r\n'
+      + 'LOCATION: http://192.168.1.140:16021\r\n'
+      + 'nl-devicename: Living Room Panels\r\n'
+      + 'nl-deviceid: AA:BB:CC:DD:EE:FF\r\n'
+      + 'ST: nanoleaf_aurora:light\r\n';
+    const d = Nanoleaf.parseSSDPResponse(raw);
+    check('a well-formed SSDP response parses ip/port/name', d && d.ip === '192.168.1.140' && d.port === 16021 && d.name === 'Living Room Panels', JSON.stringify(d));
+  }
+  {
+    const d = Nanoleaf.parseSSDPResponse('LOCATION: http://192.168.1.140:16021\r\n'); // no nl-devicename
+    check('a response with no device name falls back to the ip as the label', d && d.name === '192.168.1.140', JSON.stringify(d));
+  }
+  {
+    const d = Nanoleaf.parseSSDPResponse('HTTP/1.1 200 OK\r\nST: upnp:rootdevice\r\n'); // some unrelated SSDP responder, no LOCATION at all
+    check('a response with no LOCATION header is not treated as a device', d === null);
+  }
+
+  // ------------------------------------------------------------ discover()
+  // No real Nanoleaf on this machine to actually find — what matters here
+  // is that a scan on a network with nothing listening resolves cleanly
+  // (an array, empty is fine) within its own timeout instead of hanging.
+  {
+    const start = Date.now();
+    const devices = await Nanoleaf.discover({ timeoutMs: 300 });
+    const elapsedMs = Date.now() - start;
+    check('discover() resolves with an array, never throws', Array.isArray(devices));
+    check('discover() respects its own timeout instead of hanging', elapsedMs < 2000, `${elapsedMs}ms`);
+  }
+
   // ------------------------------------------------------- sceneForState()
   // Pure — no fetch involved in any of these, so no mock needed at all.
   restoreFetch();

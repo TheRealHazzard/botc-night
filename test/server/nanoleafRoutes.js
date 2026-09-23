@@ -36,6 +36,16 @@ function check(label, ok, detail) {
 
     const stillUnpaired = await request(server.baseUrl, '/api/nanoleaf/status');
     check('a failed pairing attempt never leaves the table looking paired', stillUnpaired.json.paired === false, JSON.stringify(stillUnpaired.json));
+
+    // No real Nanoleaf on the CI/dev machine to actually find — this just
+    // proves the route is wired up and the SSDP scan resolves within a
+    // bounded time (it has its own internal timeout) instead of hanging
+    // the request.
+    const discoverStart = Date.now();
+    const discover = await request(server.baseUrl, '/api/nanoleaf/discover');
+    const discoverElapsedMs = Date.now() - discoverStart;
+    check('discover returns 200 with a devices array, even if empty', discover.status === 200 && Array.isArray(discover.json.devices), JSON.stringify(discover.json));
+    check('discover resolves within a bounded time, not stuck forever', discoverElapsedMs < 10000, `${discoverElapsedMs}ms`);
   } finally {
     await server.stop();
   }
