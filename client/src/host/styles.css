@@ -372,21 +372,24 @@
    ring is free to grow into genuinely all the space that's left. */
       .ring {
         /* Centered by .ring-zone (its flex parent — see that rule), not
-   self-positioned — this is the fix for two rounds of clipping/overlap
-   from trying to place the ring via raw viewport units: vh doesn't know
-   how much of the viewport the header/padding above .stage-main already
-   eat into, so a vh-sized ring plus a hand-tuned offset could exceed
-   the real box (confirmed live: the ring's bottom edge was cut off by
-   .ring-zone's actual, smaller-than-assumed available height). A
-   preferred size (min(68vh,42vw,900px)) still avoids the old flex-grow
-   behavior of resizing to match whatever room narration happens to
-   leave on every phase change — but max-width/max-height:100% now cap
-   it to .ring-zone's own real box as a hard, un-overflowable ceiling,
-   so on a tight screen it gracefully shrinks instead of clipping. */
+   self-positioned. Sizing has now failed twice trying to cap the ring
+   against a *percentage* of an ancestor's height (100vh directly, then
+   max-height:100% of .ring-zone) — both times it clipped live, because
+   that requires every ancestor in the main → .view → .dashboard(grid)
+   → .stage-main → .ring-zone chain to resolve a "definite" height for
+   percentages to work against, and something in that chain isn't
+   reliably giving one (the grid row in particular). Rather than debug
+   that chain a third time, this caps the ring from *fixed, known*
+   quantities instead — 100vh minus a deliberately generous estimate of
+   everything that sits above/around it (header + main's own padding +
+   the tallest realistic narration block + the gap between them) — which
+   needs no ancestor to cooperate at all. Biased conservative on
+   purpose: a ring that's a bit smaller than the theoretical max on a
+   short-narration view (most of them) is far better than one that
+   clips again on the tall one (DayView, worst case). */
         position: relative;
-        width: min(68vh, 42vw, 900px);
+        width: min(calc(100vh - 320px), 42vw, 900px);
         max-width: 100%;
-        max-height: 100%;
         aspect-ratio: 1;
       }
       .ring::before {
@@ -1377,14 +1380,10 @@
           grid-template-columns: 1fr !important;
         }
       }
-      /* position:relative makes this the positioning context for .ring,
-   which anchors to it directly (top:50%/left:50%) instead of sharing
-   flex layout with narration — narration's height used to make the ring
-   resize/reposition on every phase change (a different view's narration
-   is a different height, so the flex-centered narration+ring group
-   re-centered as a unit); now the ring depends only on this box's own
-   already-viewport-stable size (see .dashboard's grid-row comment) and
-   never on what narration currently contains. */
+      /* narration flows normally here; the ring lives in its own row
+   below (.ring-zone) rather than sharing this flex row or being
+   absolutely positioned against it — see .ring-zone's and .ring's own
+   comments for why. */
       .stage-main {
         display: flex;
         flex-direction: column;
@@ -1395,20 +1394,17 @@
         min-height: 0;
         align-self: stretch;
       }
-      /* The ring's own dedicated row, taking whatever's left after
-   narration's natural height (flex:1 1 auto + min-height:0 is what
-   makes this actually shrink instead of overflowing .stage-main's real,
-   already-viewport-stable box — see .ring's own comment for why that
-   matters). Centers .ring within itself on both axes, so narration and
-   the ring can never overlap (previous approach: absolutely positioning
-   the ring at a fixed offset from .stage-main's center, which twice
-   needed hand-tuning and *still* overflowed the bottom edge once the
-   offset was big enough — vh-based sizing doesn't know how much of the
-   viewport the header/padding above it actually eat into; flex-computed
-   remaining space does, by construction). */
+      /* The ring's own dedicated row, so narration's height can never
+   push it around or overlap it (separate rows, not a shared one).
+   overflow:hidden is a deliberate backstop, not the primary sizing
+   mechanism — .ring caps its own size from fixed, known quantities (see
+   its own comment); this only catches the case where that estimate
+   still turns out wrong, clipping cleanly at this row's edge instead of
+   spilling into the header above or off the bottom of the page. */
       .ring-zone {
         flex: 1 1 auto;
         min-height: 0;
+        overflow: hidden;
         width: 100%;
         display: flex;
         align-items: center;
