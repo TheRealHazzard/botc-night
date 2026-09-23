@@ -51,6 +51,20 @@ describe('NanoleafSection', () => {
     expect(screen.getByText('Not paired yet.')).toHaveClass('llm-status', 'off');
   });
 
+  it('an unrecognized failure reason still surfaces the raw code, not a silent generic message', async () => {
+    mockFetch({
+      '/api/nanoleaf/status': { paired: false, ip: null },
+      '/api/nanoleaf/pair': { ok: false, error: 'http-500' },
+    });
+    render(<><NanoleafSection /><ToastStack /></>);
+    await screen.findByText('Not paired yet.');
+
+    await userEvent.type(screen.getByPlaceholderText('192.168.1.45'), '10.0.0.5');
+    await userEvent.click(screen.getByRole('button', { name: /^pair$/i }));
+
+    expect(await screen.findByText('Pairing failed (http-500).')).toBeInTheDocument();
+  });
+
   it('Pair with an empty IP field never posts', async () => {
     const fetchMock = mockFetch({ '/api/nanoleaf/status': { paired: false, ip: null } });
     render(<><NanoleafSection /><ToastStack /></>);

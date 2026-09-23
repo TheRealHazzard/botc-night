@@ -85,9 +85,14 @@ async function pair(ip) {
   }
 
   if (!res.ok) {
-    // 401 here specifically means the pairing window had already closed —
-    // the button wasn't held (or was held too long ago) before this call.
-    return { ok: false, reason: res.status === 401 ? 'pairing-window-closed' : `http-${res.status}` };
+    // Nanoleaf's own docs only name 401 for "the pairing window is
+    // closed," but that's the same kind of unverified-against-real-
+    // hardware claim that turned out wrong for the SSDP search target
+    // (see SSDP_SEARCH_TARGET's own comment) — 403 is treated the same
+    // way defensively, since both mean the same thing to a host: hold
+    // the button on THIS panel again and retry immediately.
+    if (res.status === 401 || res.status === 403) return { ok: false, reason: 'pairing-window-closed' };
+    return { ok: false, reason: `http-${res.status}` };
   }
 
   let body;

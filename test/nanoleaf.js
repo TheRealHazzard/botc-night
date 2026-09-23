@@ -57,6 +57,12 @@ function jsonResponse(status, body) {
   }
 
   {
+    mockFetch(async () => jsonResponse(403, {}));
+    const r = await Nanoleaf.pair('192.168.1.45');
+    check('a 403 is treated the same as 401 (docs only confirm 401, defensive either way)', r.ok === false && r.reason === 'pairing-window-closed');
+  }
+
+  {
     mockFetch(async () => jsonResponse(200, { not_a_token: true }));
     const r = await Nanoleaf.pair('192.168.1.45');
     check('a 200 with no auth_token in the body fails instead of saving garbage', r.ok === false && r.reason === 'no-token-in-response');

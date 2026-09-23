@@ -5,10 +5,14 @@ import { showToast } from '../../../lib/toast.js';
 function pairErrorMessage(reason) {
   switch (reason) {
     case 'no-ip': return "Enter the panels' IP address first.";
-    case 'pairing-window-closed': return 'Pairing window closed — hold the power button 5-7s, then try again right away.';
+    case 'pairing-window-closed': return 'Pairing window closed — hold the power button 5-7s on THIS panel, then pair right away.';
     case 'timeout':
     case 'network-error': return "Couldn't reach the panels at that address — check the IP and that it's on the same network.";
-    default: return 'Pairing failed.';
+    // Still experimental (see game/nanoleaf.js) — surfacing the raw reason
+    // rather than a made-up friendly message for anything not seen yet,
+    // so an unexpected failure is diagnosable from the toast alone
+    // instead of a guess.
+    default: return `Pairing failed (${reason}).`;
   }
 }
 
