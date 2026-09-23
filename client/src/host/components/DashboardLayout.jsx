@@ -4,13 +4,18 @@
 // would give a 3-up row, but with a middle track that can grow. Shared by
 // every phase view (lobby/reveal/night/day/over).
 //
-// `fadeClass` wraps left/right only — main isn't wrapped here, since the
-// ring now lives inside each view's own `main` JSX (as a portal target,
-// see App.jsx) and must NOT be inside anything that fades: a parent's
-// opacity can't be countermanded by a child's own CSS, so the ring has
-// to sit outside whatever gets this class entirely. Each view wraps its
-// own narration content in `fadeClass` internally, leaving the ring
-// slot as a sibling.
+// `fadeClass` wraps right only — left is deliberately never wrapped in
+// it (same reasoning as the ring, which also never fades): across
+// reveal/night/day it's the same GameLeftPanel reference material every
+// time, so fading it out and back in on every phase change was pure
+// flicker with nothing actually changing underneath. Right genuinely
+// swaps to different content per phase (countdown, nominations, power
+// log, ...), so it keeps the fade. main isn't wrapped here either, since
+// the ring now lives inside each view's own `main` JSX (as a portal
+// target, see App.jsx) and must NOT be inside anything that fades — a
+// parent's opacity can't be countermanded by a child's own CSS. Each
+// view wraps its own narration content in `fadeClass` internally,
+// leaving the ring slot as a sibling.
 export default function DashboardLayout({ left, main, right, fadeClass = '' }) {
   const cols = [];
   if (left) cols.push('minmax(300px,400px)');
@@ -19,7 +24,7 @@ export default function DashboardLayout({ left, main, right, fadeClass = '' }) {
 
   return (
     <div className="dashboard" style={{ gridTemplateColumns: cols.join(' ') }}>
-      {left && <div className={fadeClass}>{left}</div>}
+      {left}
       {main}
       {right && <div className={fadeClass}>{right}</div>}
     </div>

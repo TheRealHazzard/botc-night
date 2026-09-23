@@ -380,7 +380,13 @@
    same 420px floor and 900px ceiling, shrinking through whichever of
    68% viewport height or 42% viewport width is tighter. */
         position: absolute;
-        top: 50%;
+        /* A bit below dead-center, not 50% — narration sits in normal
+   flow above the ring (see .stage-main's padding-top), and true center
+   put the ring's top edge close enough to overlap it, especially a
+   two-line narration string. The extra offset pushes it down just
+   enough to clear that, live-confirmed against the game-over screen
+   (the tallest narration case, paired with the largest ring size). */
+        top: calc(50% + clamp(24px, 6vh, 80px));
         left: 50%;
         transform: translate(-50%, -50%);
         width: clamp(420px, min(68vh, 42vw), 900px);
