@@ -11,6 +11,7 @@ const E = require('./game/engine');
 const H = require('./game/history');
 const { COLOR_PALETTE } = require('./game/colors');
 const { askStoryteller, status: llmStatus } = require('./game/llmStoryteller');
+const Nanoleaf = require('./game/nanoleaf');
 
 const PORT = process.env.PORT || 3000;
 // A second, HTTPS listener alongside the plain one above — installability
@@ -391,7 +392,26 @@ async function llmWhimJudge(g, ctx) {
 }
 E.setWhimJudge(llmWhimJudge);
 
+// game.phase flips to 'over' from five separate call sites in this file
+// alone (plus 'night'/'day' one each, 'reveal' two in engine.js) —
+// threading a light-trigger call into each individually is exactly the
+// kind of thing that silently rots the next time a call site is added.
+// pushHost() is already the one function every one of those paths calls
+// afterward, so the trigger lives here instead, once. Fire-and-forget:
+// selectEffect() already never throws, but .catch() is cheap insurance
+// against ever turning a lighting hiccup into an unhandled rejection on
+// the server's hot path.
+let lastNanoleafScene = null;
+function maybeTriggerNanoleaf() {
+  const scene = Nanoleaf.sceneForState(game);
+  if (scene !== lastNanoleafScene) {
+    lastNanoleafScene = scene;
+    if (scene) Nanoleaf.selectEffect(scene).catch(() => {});
+  }
+}
+
 function pushHost() {
+  maybeTriggerNanoleaf();
   const payload = hostState();
   for (const res of hostStreams) write(res, payload);
 }
@@ -1919,6 +1939,10 @@ async function requestHandler(req, res) {
         })));
       }
 
+      if (route === '/api/nanoleaf/status') {
+        return json(res, 200, Nanoleaf.status());
+      }
+
       if (route === '/api/reclaim/status') {
         const requestId = url.searchParams.get('requestId');
         const entry = game.pendingReclaims.find(r => r.requestId === requestId);
@@ -2762,6 +2786,15 @@ async function requestHandler(req, res) {
         E.applyConfigPatch(game, body.config || {});
         pushAll();
         return json(res, 200, { ok: true, config: game.config });
+      }
+
+      if (route === '/api/nanoleaf/pair') {
+        // Not gated to any game phase — pairing is a one-time, per-
+        // installation setup step, unrelated to whatever's currently on
+        // the table.
+        const r = await Nanoleaf.pair(body.ip);
+        if (!r.ok) return json(res, 200, { ok: false, error: r.reason });
+        return json(res, 200, { ok: true });
       }
 
       if (route === '/api/table/reveal') {

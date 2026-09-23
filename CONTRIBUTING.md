@@ -32,6 +32,7 @@ node tools/audit-abilities.js
 npm run test:server
 npm run test:player
 npm run test:llm
+npm run test:nanoleaf
 npm run test:dom-shim
 ```
 

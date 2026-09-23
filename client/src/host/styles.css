@@ -2376,6 +2376,20 @@
         font-size: 0.9rem;
         text-align: right;
       }
+      .settings-row input[type="text"] {
+        width: 150px;
+        background: var(--surface-2);
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        color: var(--bone);
+        padding: 6px 8px;
+        font-size: 0.9rem;
+      }
+      .nanoleaf-pair-controls {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
       .settings-row .val {
         font-family: "Space Mono", monospace;
         font-size: 0.82rem;

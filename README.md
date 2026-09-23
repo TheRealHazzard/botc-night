@@ -57,6 +57,7 @@ This project treats both the rules engine *and* the server built on top of it as
 | `npm run test:server` | Spawns the real `server.js` as a real child process (isolated temp data directory, ephemeral port) and drives it over real HTTP — a full game lifecycle end to end, plus permanent regression coverage for every wiring bug found so far. See `test/server/harness.js`. |
 | `npm run test:player` | The full client component/hook test suite (`vitest`). |
 | `npm run test:llm` | The optional LLM integration's defensive parsing — no real API key or network access needed. |
+| `npm run test:nanoleaf` | The optional Nanoleaf lighting integration's request/response logic (mocked device) — no real panels needed. |
 | `npm run test:dom-shim` | Lightweight integration smoke tests for the static host pages. |
 
 Every rules or reliability bug found this way gets a permanent regression test alongside its fix — see the commit history for several rounds of systematic, independently-verified audits across the engine, the server, and the client.
