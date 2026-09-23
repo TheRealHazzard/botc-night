@@ -404,33 +404,37 @@
    blue for good, red for evil, once OverView's staged reveal says the
    beat has arrived (see the glow-good/glow-evil class OverView adds).
    Same flare-then-settle character as seat-dusk/seat-dawn elsewhere in
-   this file — overshoot brighter, then ease back to a steady glow. */
+   this file — overshoot brighter, then ease back to a steady glow. The
+   box-shadow's blur/spread is deliberately huge — .ring::before is
+   already a circle (border-radius:50%), so a big enough shadow reads as
+   a radial bloom bleeding into the stage, not just a glowing ring edge,
+   with no separate overlay element needed. */
       .ring.glow-good::before {
         border-color: var(--good-hi);
-        animation: ring-verdict-good 1.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        animation: ring-verdict-good 2.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
       }
       .ring.glow-evil::before {
         border-color: var(--oxblood-hi);
-        animation: ring-verdict-evil 1.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        animation: ring-verdict-evil 2.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
       }
       @keyframes ring-verdict-good {
         0% { box-shadow: 0 0 0 0 rgba(92, 134, 171, 0); }
-        55% { box-shadow: 0 0 70px 14px rgba(92, 134, 171, 0.55); }
-        100% { box-shadow: 0 0 42px 8px rgba(92, 134, 171, 0.38); }
+        45% { box-shadow: 0 0 260px 60px rgba(92, 134, 171, 0.45); }
+        100% { box-shadow: 0 0 90px 18px rgba(92, 134, 171, 0.32); }
       }
       @keyframes ring-verdict-evil {
         0% { box-shadow: 0 0 0 0 rgba(142, 34, 38, 0); }
-        55% { box-shadow: 0 0 70px 14px rgba(142, 34, 38, 0.55); }
-        100% { box-shadow: 0 0 42px 8px rgba(142, 34, 38, 0.38); }
+        45% { box-shadow: 0 0 260px 60px rgba(142, 34, 38, 0.45); }
+        100% { box-shadow: 0 0 90px 18px rgba(142, 34, 38, 0.32); }
       }
       @media (prefers-reduced-motion: reduce) {
         .ring.glow-good::before {
           animation: none;
-          box-shadow: 0 0 42px 8px rgba(92, 134, 171, 0.38);
+          box-shadow: 0 0 90px 18px rgba(92, 134, 171, 0.32);
         }
         .ring.glow-evil::before {
           animation: none;
-          box-shadow: 0 0 42px 8px rgba(142, 34, 38, 0.38);
+          box-shadow: 0 0 90px 18px rgba(142, 34, 38, 0.32);
         }
       }
       /* The day's own "time bomb" — same treatment as the game-over
