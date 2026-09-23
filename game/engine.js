@@ -133,6 +133,15 @@ function newGame() {
     // ability reported. See logTrueValue() in helpers.js. Same
     // reveal-gated exposure as actionLog/resultsLog below.
     trueValueLog: [],
+    // Notable deterministic state changes worth flagging for the same
+    // future scoring pass — the Goon's flip to evil, so far. Deliberately
+    // separate from decisionLog just below: that array is the replay
+    // tool's own queue (see decide()'s doc comment in helpers.js),
+    // consumed in strict order during a replay run — an event that never
+    // goes through decide() at all (nothing random about it) would
+    // desync that queue if pushed there instead. Same reveal-gated
+    // exposure as blockedKills/trueValueLog above.
+    pivotalEvents: [],
     // A handful of genuinely untraceable rolls that don't already surface
     // through resultsLog/deaths/log/privateActionLog — currently just
     // every Bucket-1 whim roll outside logWhimConfirm's own <=5-living
@@ -775,6 +784,10 @@ async function resolveNight(g, wave = 1) {
         goon.statuses.drunkUntilNight = g.nightNumber;
         goon.statuses.goonEvil = isEvil(g, p);
         logEvent(g, `${goon.name} (the Goon) is drunk until dusk, and turns ${goon.statuses.goonEvil ? 'evil' : 'good'}.`, true);
+        // Structured, not just the prose line above — a quiet but
+        // genuinely game-swinging moment (a good player becomes evil)
+        // that otherwise left no trace a future scoring pass could read.
+        g.pivotalEvents.push({ night: g.nightNumber, type: 'goon-flip', goonId: goon.id, chooserId: p.id, resultingAlignment: goon.statuses.goonEvil ? 'evil' : 'good' });
       }
     }
 
@@ -1440,6 +1453,7 @@ function publicState(g) {
     // own definitions above), never a live spoiler.
     blockedKills: g.revealed ? g.blockedKills : [],
     trueValueLog: g.revealed ? g.trueValueLog : [],
+    pivotalEvents: g.revealed ? g.pivotalEvents : [],
     // The Confirm — unlike resultsLog/actionLog's all-or-nothing reveal
     // gate, this needs to stay usable *during* play (a host-facing card in
     // the moment is the whole point), so only the two fields that could

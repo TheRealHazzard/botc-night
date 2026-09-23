@@ -1463,6 +1463,14 @@ console.log('\nBMR: Goon');
   const goon = gEvil.players.find(p => p.id === 'goon1');
   check('targeted by an evil character, the Goon is drunk and flips evil',
     goon.statuses.drunk === true && goon.statuses.goonEvil === true);
+  // Engine groundwork for a future "pivotal moment" scoring pass — see
+  // pivotalEvents' own comment in engine.js. A quiet but genuinely
+  // game-swinging moment (a good player becomes evil) used to leave no
+  // trace a scoring pass could read, only prose.
+  const goonFlipEvent = gEvil.pivotalEvents.find(e => e.type === 'goon-flip');
+  check('the flip leaves a structured pivotalEvents record naming who caused it',
+    !!goonFlipEvent && goonFlipEvent.goonId === 'goon1' && goonFlipEvent.chooserId === 'imp1' && goonFlipEvent.resultingAlignment === 'evil',
+    JSON.stringify(gEvil.pivotalEvents));
 
   const gGood = E.newGame();
   gGood.script = 'bmr'; gGood.nightNumber = 2; gGood.phase = 'night'; gGood.wave = 1; gGood.results = {};

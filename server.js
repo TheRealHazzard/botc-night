@@ -658,6 +658,11 @@ function closeNomination() {
   for (const v of nom.votes) {
     if (v.vote !== 'yes') continue;
     if (butler && v.playerId === butler.id && !masterVotedYes) {
+      // Structured, not just the prose log line below — nominations/
+      // votes are already fully public (no reveal gate), so this needs
+      // no new array or exposure wiring at all, unlike blockedKills/
+      // trueValueLog.
+      v.nullified = true;
       E.logEvent(game, `${butler.name} (the Butler) voted, but their master didn't vote with them — that vote doesn't count.`, true);
       continue;
     }
@@ -933,6 +938,20 @@ function recordGameHistory() {
     // The same whim rolls, in the richer host-facing shape (helpsGood,
     // livingCount breakdown) — kept too since it's already built and free.
     whimConfirmations: game.whimConfirmations || [],
+    // Engine groundwork for a future "pivotal moment" scoring pass — see
+    // checkKill()/logTrueValue()'s own comments in helpers.js. Missed
+    // here the first time these two were added (they made it into
+    // publicState()'s live view, but never this persisted record) —
+    // without this, both were lost the moment a game ended, defeating
+    // the entire point of building them for later analysis.
+    blockedKills: game.blockedKills || [],
+    trueValueLog: game.trueValueLog || [],
+    // Notable deterministic state changes (the Goon's flip, so far) —
+    // deliberately not decisionLog: that array is the replay tool's own
+    // queue (see decide() in helpers.js), consumed in strict order
+    // during a replay run, and this never goes through decide() at all
+    // since there's no actual randomness to it.
+    pivotalEvents: game.pivotalEvents || [],
   };
   H.appendGameRecord(record);
 }
