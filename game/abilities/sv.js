@@ -32,7 +32,9 @@ module.exports = (h) => [
         const diff = Math.abs(di - mi);
         trueSteps = Math.min(trueSteps, diff, n - diff);
       }
-      const shown = (broken || h.vortoxActive(g)) ? h.falseNumber(trueSteps, Math.floor(n / 2)) : trueSteps;
+      const impaired = broken || h.vortoxActive(g);
+      const shown = impaired ? h.falseNumber(trueSteps, Math.floor(n / 2)) : trueSteps;
+      h.logTrueValue(g, { playerId: p.id, characterId: 'clockmaker', type: 'count', trueValue: trueSteps, shown, impaired });
       results[p.id] = { title: 'Clockmaker', body: `Steps from the Demon to its nearest Minion: ${h.numberSignal(shown)}` };
     },
   },
@@ -53,14 +55,16 @@ module.exports = (h) => [
       // the almanac is explicit that registration tricks don't apply there.
       const trueC = h.trueChar(t);
       const trueIsGood = trueC.team === 'townsfolk' || trueC.team === 'outsider';
+      const impaired = broken || h.vortoxActive(g);
       let goodChar, evilChar;
-      if (!broken && !h.vortoxActive(g)) {
+      if (!impaired) {
         goodChar = trueIsGood ? trueC : h.pick(goodPool);
         evilChar = !trueIsGood ? trueC : h.pick(evilPool);
       } else {
         goodChar = h.pick(goodPool.filter(c => c.id !== trueC.id));
         evilChar = h.pick(evilPool.filter(c => c.id !== trueC.id));
       }
+      h.logTrueValue(g, { playerId: p.id, characterId: 'dreamer', type: 'pointer', trueValue: trueC.id, shown: [goodChar.id, evilChar.id], impaired });
       results[p.id] = {
         title: 'Dreamer',
         body: `${t.name} is either the ${goodChar.name} or the ${evilChar.name}.`,
@@ -76,7 +80,9 @@ module.exports = (h) => [
     text: () => '',
     resolve(g, p, action, { broken, results }) {
       const trueCount = g.abnormalTonight ? g.abnormalTonight.size : 0;
-      const shown = (broken || h.vortoxActive(g)) ? h.falseNumber(trueCount, Math.max(trueCount + 1, 1)) : trueCount;
+      const impaired = broken || h.vortoxActive(g);
+      const shown = impaired ? h.falseNumber(trueCount, Math.max(trueCount + 1, 1)) : trueCount;
+      h.logTrueValue(g, { playerId: p.id, characterId: 'mathematician', type: 'count', trueValue: trueCount, shown, impaired });
       results[p.id] = { title: 'Mathematician', body: `Abilities that worked abnormally: ${h.numberSignal(shown)}` };
     },
   },
@@ -117,7 +123,9 @@ module.exports = (h) => [
       for (const x of dead) {
         if (await h.isEvilRegistration(g, x)) trueCount++;
       }
-      const shown = (broken || h.vortoxActive(g)) ? h.falseNumber(trueCount, Math.max(dead.length, 1)) : trueCount;
+      const impaired = broken || h.vortoxActive(g);
+      const shown = impaired ? h.falseNumber(trueCount, Math.max(dead.length, 1)) : trueCount;
+      h.logTrueValue(g, { playerId: p.id, characterId: 'oracle', type: 'count', trueValue: trueCount, shown, impaired });
       results[p.id] = { title: 'Oracle', body: `Dead players who are evil: ${h.numberSignal(shown)}` };
     },
   },
@@ -141,7 +149,9 @@ module.exports = (h) => [
       // charge; only the answer itself is corrupted, exactly like Vortox
       // already did here. Showing nothing at all on a valid choice — the
       // previous behavior — is itself a tell that something's wrong.
-      const same = h.impairedFlip(broken || h.vortoxActive(g), trueSame);
+      const impaired = broken || h.vortoxActive(g);
+      const same = h.impairedFlip(impaired, trueSame);
+      h.logTrueValue(g, { playerId: p.id, characterId: 'seamstress', type: 'yesno', trueValue: trueSame, shown: same, impaired });
       results[p.id] = {
         title: 'Seamstress',
         body: same ? 'Yes — they are the same alignment.' : 'No — they are not the same alignment.',
@@ -170,8 +180,9 @@ module.exports = (h) => [
       const broken = h.impaired(player);
       const demon = g.players.find(x => h.trueChar(x).team === 'demon');
       const others = g.players.filter(x => x.id !== player.id);
+      const impaired = broken || h.vortoxActive(g);
       let shown;
-      if (!broken && !h.vortoxActive(g) && demon) {
+      if (!impaired && demon) {
         const decoy = h.pick(others.filter(x => x.id !== demon.id));
         shown = h.shuffle([demon, decoy]);
       } else {
@@ -182,6 +193,7 @@ module.exports = (h) => [
         // so this was the likeliest way anyone would ever notice.
         shown = h.excludingPick(others, demon ? [demon.id] : [], 2);
       }
+      h.logTrueValue(g, { playerId: player.id, characterId: 'sage', type: 'pointer', trueValue: demon ? demon.id : null, shown: shown.map(x => x.id), impaired });
       results[player.id] = { title: 'Sage', body: 'The Demon is one of these two players.', names: shown.map(x => x.name) };
     },
   },
@@ -420,7 +432,9 @@ module.exports = (h) => [
         const target = h.byId(g, gu.playerId);
         return target && target.characterId === gu.characterGuess;
       }).length;
-      const shown = (broken || h.vortoxActive(g)) ? h.falseNumber(trueCount, Math.max(guesses.length, 1)) : trueCount;
+      const impaired = broken || h.vortoxActive(g);
+      const shown = impaired ? h.falseNumber(trueCount, Math.max(guesses.length, 1)) : trueCount;
+      h.logTrueValue(g, { playerId: p.id, characterId: 'juggler', type: 'count', trueValue: trueCount, shown, impaired });
       results[p.id] = { title: 'Juggler', body: `Correct guesses: ${h.numberSignal(shown)}` };
     },
   },

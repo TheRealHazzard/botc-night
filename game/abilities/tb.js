@@ -132,17 +132,18 @@ module.exports = (h) => [
       // was comparing true team directly and skipping that roll entirely.
       // A plain .some() can't await, so this is a for-loop with an early
       // break instead — same short-circuit behavior.
-      let answer = false;
+      let trueAnswer = false;
       for (const x of chosen) {
         const tc = h.trueChar(x);
-        if (tc.team === 'demon' || x.statuses.redHerring) { answer = true; break; }
+        if (tc.team === 'demon' || x.statuses.redHerring) { trueAnswer = true; break; }
         if (tc.id === 'recluse') {
           // resolveWhim() itself logs the fired decision — this is its own
           // independent roll site, same as isEvilRegistration()/pairInfo().
-          if (await h.resolveWhim(g, { kind: 'registration-ambiguity', target: x })) { answer = true; break; }
+          if (await h.resolveWhim(g, { kind: 'registration-ambiguity', target: x })) { trueAnswer = true; break; }
         }
       }
-      answer = h.impairedFlip(broken, answer);
+      const answer = h.impairedFlip(broken, trueAnswer);
+      h.logTrueValue(g, { playerId: p.id, characterId: 'fortuneteller', type: 'yesno', trueValue: trueAnswer, shown: answer, impaired: broken });
       results[p.id] = {
         ...h.resultYesNo('Fortune Teller', answer, answer ? 'Yes — one of them is the Demon.' : 'No — neither is the Demon.'),
         names: chosen.map(x => x.name),
@@ -162,6 +163,7 @@ module.exports = (h) => [
     async resolve(g, p, action, { broken, results }) {
       const team = { washerwoman: 'townsfolk', librarian: 'outsider', investigator: 'minion' }[id];
       const info = await h.pairInfo(g, p, team, broken);
+      h.logTrueValue(g, { playerId: p.id, characterId: id, type: 'pointer', trueValue: info.trueSubjectId, shown: info.players, impaired: broken });
       const c = h.char(id);
       results[p.id] = h.resultPointer(c.name, info.players, info.text);
     },
@@ -175,6 +177,7 @@ module.exports = (h) => [
     async resolve(g, p, action, { broken, results }) {
       const trueCount = await h.evilPairCount(g);
       const shown = broken ? h.falseNumber(trueCount, Math.max(2, trueCount + 1)) : trueCount;
+      h.logTrueValue(g, { playerId: p.id, characterId: 'chef', type: 'count', trueValue: trueCount, shown, impaired: broken });
       results[p.id] = h.resultCount('Chef', shown, `Pairs of neighbouring evil players: ${h.numberSignal(shown)}`);
     },
   },
@@ -187,6 +190,7 @@ module.exports = (h) => [
     async resolve(g, p, action, { broken, results, deaths }) {
       const trueCount = await h.evilNeighbourCount(g, p, deaths);
       const shown = broken ? h.falseNumber(trueCount, 2) : trueCount;
+      h.logTrueValue(g, { playerId: p.id, characterId: 'empath', type: 'count', trueValue: trueCount, shown, impaired: broken });
       results[p.id] = h.resultCount('Empath', shown, `Evil living neighbours: ${h.numberSignal(shown)}`);
     },
   },
@@ -200,11 +204,13 @@ module.exports = (h) => [
       if (!g.executedToday) return;
       const dead = h.byId(g, g.executedToday);
       if (!dead) return;
-      let shown = h.trueChar(dead);
+      const trueCharacter = h.trueChar(dead);
+      let shown = trueCharacter;
       if (broken) {
         const others = h.activeScriptPool(g).filter(x => x.id !== shown.id);
         shown = h.pick(others);
       }
+      h.logTrueValue(g, { playerId: p.id, characterId: 'undertaker', type: 'pointer', trueValue: trueCharacter.id, shown: shown.id, impaired: broken });
       results[p.id] = { title: 'Undertaker', body: `Executed today: the ${shown.name}.` };
     },
   },
@@ -219,11 +225,13 @@ module.exports = (h) => [
     resolve(g, p, action, { broken, target, results }) {
       const [t] = target(action && action.targets);
       if (!t) return;
-      let shown = h.trueChar(t);
+      const trueCharacter = h.trueChar(t);
+      let shown = trueCharacter;
       if (broken) {
         const others = h.activeScriptPool(g).filter(x => x.id !== shown.id);
         shown = h.pick(others);
       }
+      h.logTrueValue(g, { playerId: p.id, characterId: 'ravenkeeper', type: 'pointer', trueValue: trueCharacter.id, shown: shown.id, impaired: broken });
       results[p.id] = { title: 'Ravenkeeper', body: `${t.name} is the ${shown.name}.` };
     },
   },

@@ -12,7 +12,7 @@ const {
   heuristicWhim, WHIM_FIRING_HELPS_GOOD, maybeMercy, triggerMoonchildIfNeeded, flagAbnormal,
   triggerPixieIfNeeded, applyCannibalTransform,
   logEvent, outsiderDiedToday, minionDiedToday, somebodyDiedYesterday,
-  numberSignal, falseNumber, evilNeighbourCount, evilPairCount, pairInfo,
+  numberSignal, falseNumber, logTrueValue, evilNeighbourCount, evilPairCount, pairInfo,
   decide,
 } = H;
 
@@ -118,6 +118,21 @@ function newGame() {
     // role was told, what visibly happened), nothing else records what a
     // player actually chose.
     privateActionLog: [],
+    // Every kill checkKill() (helpers.js) actually blocked — Monk
+    // protection, Soldier, Fool, Pacifist, everything wouldBlockKill()
+    // covers — as a real record instead of just the prose log line
+    // ("...who survives (protected)."), so a future pass can tell
+    // "this player would have died here" apart from "nothing was ever
+    // going to happen to them." Kept host/analysis-only, same
+    // reveal-gated exposure as actionLog below — never a live spoiler.
+    blockedKills: [],
+    // The truth behind a result that could have been falsified by
+    // poison/drunk but wasn't necessarily — e.g. an Empath's real count
+    // vs. the (possibly false) number actually shown, or whether a
+    // Slayer's shot targeted the real Demon regardless of what the
+    // ability reported. See logTrueValue() in helpers.js. Same
+    // reveal-gated exposure as actionLog/resultsLog below.
+    trueValueLog: [],
     // A handful of genuinely untraceable rolls that don't already surface
     // through resultsLog/deaths/log/privateActionLog — currently just
     // every Bucket-1 whim roll outside logWhimConfirm's own <=5-living
@@ -1421,6 +1436,10 @@ function publicState(g) {
     // Bucket-4-style true-character info looks like, not something a
     // still-playing table should be able to read.
     resultsLog: g.revealed ? g.resultsLog : [],
+    // Same reveal gate again — storyteller/analysis-only data (see their
+    // own definitions above), never a live spoiler.
+    blockedKills: g.revealed ? g.blockedKills : [],
+    trueValueLog: g.revealed ? g.trueValueLog : [],
     // The Confirm — unlike resultsLog/actionLog's all-or-nothing reveal
     // gate, this needs to stay usable *during* play (a host-facing card in
     // the moment is the whole point), so only the two fields that could
@@ -1627,7 +1646,7 @@ module.exports = {
   actingTonight, promptFor, resolveNight, needsWaveTwo,
   generateHint, logEvent, publicState, privateState,
   checkVictory, applyPoliticianFlip, succeedDemon, trueChar, impaired, impairedFlip,
-  checkKill, wouldBlockKill, publiclyAlive, randomKiller,
+  checkKill, wouldBlockKill, publiclyAlive, randomKiller, logTrueValue,
   isEvil, isEvilRegistration, resolveWhim, setWhimJudge, heuristicWhim, WHIM_FIRING_HELPS_GOOD, maybeMercy,
   minionDiedToday, triggerMoonchildIfNeeded, triggerDeathHooks, resolveMastermindDay,
   resolveDayVote, gameSummary, resolveMadness, buildSavantStatements, evaluateClaim,

@@ -2158,7 +2158,15 @@ async function requestHandler(req, res) {
           playerId: p.id, playerName: p.name, characterId: 'slayer', characterName: 'Slayer',
           targets: [target.name],
         });
-        const hit = !E.impaired(p) && E.trueChar(target).team === 'demon';
+        const shooterImpaired = E.impaired(p);
+        const targetWasDemon = E.trueChar(target).team === 'demon';
+        const hit = !shooterImpaired && targetWasDemon;
+        // The counterfactual this is actually for: a poisoned Slayer who
+        // fires on the real Demon and a sober Slayer who correctly misses
+        // a Townsfolk produce byte-identical output above (`hit` is false
+        // either way) — this is the one place that tells them apart after
+        // the fact.
+        E.logTrueValue(game, { playerId: p.id, characterId: 'slayer', type: 'kill-attempt', targetId: target.id, targetWasDemon, impaired: shooterImpaired });
         if (hit) {
           const blocked = E.checkKill(game, target, {});
           if (blocked) {

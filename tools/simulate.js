@@ -280,6 +280,12 @@ console.log('\nImp self-target respects protection, same as any other target');
     g.players.find(p => p.id === 'imp1').alive);
   check('...and no star-pass happens — the Minion stays a Minion',
     g.players.find(p => p.id === 'min1').characterId === 'poisoner');
+  // Engine groundwork for a future "pivotal moment" scoring pass — see
+  // checkKill()'s own comment in helpers.js. A blocked kill used to leave
+  // no structured trace at all, only a prose log line.
+  const blocked = g.blockedKills.find(b => b.targetId === 'imp1');
+  check('the blocked kill leaves a structured record, not just a prose log line',
+    !!blocked && blocked.reason === 'protected' && blocked.night === 2, JSON.stringify(g.blockedKills));
 }
 
 console.log('\nPoison timing');
@@ -291,11 +297,32 @@ console.log('\nPoison timing');
   gp.pending = { poi1: { targets: ['emp1'], decoy: false } };
   await E.resolveNight(gp, 1);
   check('poison is applied the night it is used', gp.players.find(p => p.id === 'emp1').statuses.poisoned === true);
+  // Engine groundwork for a future "pivotal moment" scoring pass — see
+  // logTrueValue()'s own comment in helpers.js. The Empath's real count
+  // used to be discarded the instant a falsified one was shown; this is
+  // the only place it's recoverable at all now.
+  const empathTrue = gp.trueValueLog.find(e => e.characterId === 'empath');
+  const empathShown = gp.results.emp1;
+  check('a poisoned Empath\'s true count is preserved, distinct from the shown one',
+    !!empathTrue && empathTrue.impaired === true && typeof empathTrue.trueValue === 'number' && empathTrue.shown === empathShown.count,
+    JSON.stringify({ empathTrue, empathShown }));
 
   gp.nightNumber = 2; gp.pending = { poi1: { targets: ['t1'], decoy: false } }; gp.results = {};
   await E.resolveNight(gp, 1);
   check('...but is cleared before the following night resolves (was lasting a night too long)',
     !gp.players.find(p => p.id === 'emp1').statuses.poisoned);
+
+  // blockedKills/trueValueLog are storyteller/analysis-only data — same
+  // reveal gate actionLog/resultsLog already use, never a live spoiler.
+  const beforeReveal = E.publicState(gp);
+  check('trueValueLog is withheld before the game is revealed',
+    Array.isArray(beforeReveal.trueValueLog) && beforeReveal.trueValueLog.length === 0);
+  check('blockedKills is withheld before the game is revealed',
+    Array.isArray(beforeReveal.blockedKills) && beforeReveal.blockedKills.length === 0);
+  gp.revealed = true;
+  const afterReveal = E.publicState(gp);
+  check('trueValueLog is exposed once the game is revealed',
+    afterReveal.trueValueLog.some(e => e.characterId === 'empath'));
 }
 
 console.log('\nFortune Teller');

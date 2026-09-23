@@ -559,6 +559,15 @@ function checkKill(g, target, opts = {}) {
     target.statuses.appearsDead = true;
     logEvent(g, `${target.name} appears to die, but secretly does not.`, true);
   }
+  // A structured record alongside the prose log line above — the only
+  // place any of this is otherwise recoverable is by parsing log text
+  // for "(protected)"/"(fool)"/etc, which is fragile and never names
+  // the target explicitly. Every kill in the game funnels through this
+  // one function (see the doc comment above), so this is the one place
+  // that needs it.
+  if (reason) {
+    g.blockedKills.push({ night: g.nightNumber, phase: g.phase, targetId: target.id, targetName: target.name, reason });
+  }
   return reason;
 }
 
@@ -738,6 +747,21 @@ function falseNumber(trueValue, max) {
   return pick(options);
 }
 
+/** The truth behind a result that could have been falsified — an info
+    role's real count/yes-no/pointer vs. the (possibly false) value
+    actually shown, called by each character's own resolve() right where
+    the true value already exists as a local variable, about to be
+    discarded once `shown` is computed. Deliberately not centralized
+    into falseNumber()/impairedFlip()/pairInfo() themselves: those are
+    called by some characters that never have a "true value" concept at
+    all (a suppressed action, not a falsified result), so folding this
+    in there would force an awkward extra argument on every caller
+    instead of just the ones that actually have something to log. See
+    game.trueValueLog's own comment in engine.js for what reads this. */
+function logTrueValue(g, entry) {
+  g.trueValueLog.push({ night: g.nightNumber, ...entry });
+}
+
 // Same `pendingDeaths` treatment as livingNeighbors above, for the same
 // reason: the Empath acts after the Demon on other nights (order 53 vs.
 // 24), so without this her count used a stale pre-kill neighbor snapshot
@@ -810,11 +834,12 @@ async function pairInfo(g, p, team, wrong) {
   const pool = [...trueMembers, ...registrants];
   if (!pool.length) {
     if (!wrong) {
-      return { text: `You learn that no ${team} is in play.`, characterId: null, players: [] };
+      return { text: `You learn that no ${team} is in play.`, characterId: null, players: [], trueSubjectId: null };
     }
     // Poisoned/drunk: "none in play" is still real information, so it
     // can't be told truthfully either — fabricate a false positive instead.
-    return fabricateWrongPair(g, team, [p.id]);
+    // trueSubjectId is genuinely null here — there really was nobody.
+    return { ...fabricateWrongPair(g, team, [p.id]), trueSubjectId: null };
   }
   const subject = pick(pool);
   // A registrant isn't really that role, so a real member of the category
@@ -822,6 +847,10 @@ async function pairInfo(g, p, team, wrong) {
   const shownChar = registrants.includes(subject)
     ? pick(activeScriptPool(g).filter(c => c.team === team))
     : trueChar(subject);
+  // trueSubjectId is who this reveal was actually about, kept on the
+  // return value regardless of `wrong` — logTrueValue()'s whole reason
+  // for existing (see its own comment) is recovering exactly this once
+  // `wrong` has replaced it with a fabricated pair below.
   if (!wrong) {
     const decoy = excludingPick(g.players, [p.id, subject.id], 1)[0];
     const shown = shuffle([subject, decoy]);
@@ -829,10 +858,11 @@ async function pairInfo(g, p, team, wrong) {
       text: `One of these two players is the ${shownChar.name}.`,
       characterId: shownChar.id,
       players: shown.map(x => x.name),
+      trueSubjectId: subject.id,
     };
   }
   // Wrong: name a character, point at two players, neither of whom is it.
-  return fabricateWrongPair(g, team, [p.id, subject.id]);
+  return { ...fabricateWrongPair(g, team, [p.id, subject.id]), trueSubjectId: subject.id };
 }
 
 module.exports = {
@@ -845,7 +875,7 @@ module.exports = {
   reassignCharacter, flagAbnormal,
   logEvent, logWhim, outsiderDiedToday, minionDiedToday, somebodyDiedYesterday,
   minionNominatedToday, demonVotedToday, vortoxActive,
-  numberSignal, falseNumber, evilNeighbourCount, evilPairCount, pairInfo,
+  numberSignal, falseNumber, logTrueValue, evilNeighbourCount, evilPairCount, pairInfo,
   resultCount, resultYesNo, resultPointer,
   decide,
 };

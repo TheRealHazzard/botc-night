@@ -39,11 +39,12 @@ module.exports = (h) => [
       // ability but are drunk or poisoned still count as having woke
       // tonight" — impairment silences the ability's *effect*, not the
       // physical act of waking, so it must NOT be filtered out here.
-      let count = chosen.filter(t => {
+      const trueCount = chosen.filter(t => {
         if (t.id === p.id) return false;
         return order.some(e => e.player.id === t.id);
       }).length;
-      if (broken) count = h.falseNumber(count, 2);
+      const count = broken ? h.falseNumber(trueCount, 2) : trueCount;
+      h.logTrueValue(g, { playerId: p.id, characterId: 'chambermaid', type: 'count', trueValue: trueCount, shown: count, impaired: broken });
       results[p.id] = {
         title: 'Chambermaid',
         body: `Of those two, ${h.numberSignal(count)} woke tonight.`,
