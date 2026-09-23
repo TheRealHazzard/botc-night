@@ -19,8 +19,7 @@ function check(label, ok, detail) {
   const server = await startServer();
   try {
     const status = await request(server.baseUrl, '/api/nanoleaf/status');
-    check('a fresh table (isolated temp DATA_DIR) reports unpaired', status.status === 200 && status.json.paired === false, JSON.stringify(status.json));
-    check('an unpaired status never includes a token field', !('token' in status.json), JSON.stringify(status.json));
+    check('a fresh table (isolated temp DATA_DIR) reports an empty device list', status.status === 200 && Array.isArray(status.json.devices) && status.json.devices.length === 0, JSON.stringify(status.json));
 
     const noIp = await request(server.baseUrl, '/api/nanoleaf/pair', { method: 'POST', body: {} });
     check('pairing with no IP fails cleanly, not a 500', noIp.status === 200 && noIp.json.ok === false, JSON.stringify(noIp));
@@ -35,7 +34,10 @@ function check(label, ok, detail) {
     check('the failure returns within a bounded time, not stuck forever', elapsedMs < 15000, `${elapsedMs}ms`);
 
     const stillUnpaired = await request(server.baseUrl, '/api/nanoleaf/status');
-    check('a failed pairing attempt never leaves the table looking paired', stillUnpaired.json.paired === false, JSON.stringify(stillUnpaired.json));
+    check('a failed pairing attempt never leaves the table looking paired', stillUnpaired.json.devices.length === 0, JSON.stringify(stillUnpaired.json));
+
+    const forgetNothing = await request(server.baseUrl, '/api/nanoleaf/forget', { method: 'POST', body: { ip: '192.0.2.1' } });
+    check('forgetting a device that was never paired is a no-op, not an error', forgetNothing.status === 200 && forgetNothing.json.ok === true, JSON.stringify(forgetNothing));
 
     // No real Nanoleaf on the CI/dev machine to actually find — this just
     // proves the route is wired up and the SSDP scan resolves within a

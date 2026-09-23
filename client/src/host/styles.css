@@ -2390,7 +2390,8 @@
         gap: 8px;
         align-items: center;
       }
-      .nanoleaf-devices {
+      .nanoleaf-devices,
+      .nanoleaf-paired-list {
         display: flex;
         flex-direction: column;
         gap: 6px;
@@ -2399,7 +2400,7 @@
       .nanoleaf-device {
         display: flex;
         justify-content: space-between;
-        align-items: baseline;
+        align-items: center;
         background: var(--surface-2);
         border: 1px solid var(--line);
         border-radius: 6px;
@@ -2407,9 +2408,6 @@
         color: var(--bone);
         font-size: 0.88rem;
         text-align: left;
-      }
-      .nanoleaf-device.selected {
-        border-color: var(--brass);
       }
       .nanoleaf-device .sub {
         color: var(--bone-dim);

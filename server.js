@@ -2803,9 +2803,15 @@ async function requestHandler(req, res) {
       if (route === '/api/nanoleaf/pair') {
         // Not gated to any game phase — pairing is a one-time, per-
         // installation setup step, unrelated to whatever's currently on
-        // the table.
-        const r = await Nanoleaf.pair(body.ip);
+        // the table. Adds to the paired list (or updates in place if
+        // this ip is already paired) — see game/nanoleaf.js's own pair().
+        const r = await Nanoleaf.pair(body.ip, body.name);
         if (!r.ok) return json(res, 200, { ok: false, error: r.reason });
+        return json(res, 200, { ok: true });
+      }
+
+      if (route === '/api/nanoleaf/forget') {
+        Nanoleaf.forget(body.ip);
         return json(res, 200, { ok: true });
       }
 

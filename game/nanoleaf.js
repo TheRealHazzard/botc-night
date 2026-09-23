@@ -47,31 +47,42 @@ const SSDP_DISCOVER_TIMEOUT_MS = 3000;
 
 function ensureDataDir() { fs.mkdirSync(DATA_DIR, { recursive: true }); }
 
-/** null if never paired, or the file is missing/corrupt — corrupt is
+/** [] if never paired, or the file is missing/corrupt — corrupt is
     treated the same as absent (re-pairing is a one-button-hold away, far
-    simpler than trying to partially recover a broken config file). */
-function loadConfig() {
-  try { return JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8')); }
-  catch (e) { return null; }
+    simpler than trying to partially recover a broken config file).
+    Transparently upgrades the old single-device shape (`{ip, token}`,
+    the only shape this file ever held before multi-device support) into
+    a 1-item list — the device paired under the old code isn't lost, and
+    never needs re-pairing just because the file format changed. */
+function loadDevices() {
+  let raw;
+  try { raw = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8')); }
+  catch (e) { return []; }
+  if (Array.isArray(raw)) return raw;
+  if (raw && typeof raw.ip === 'string') return [raw]; // old single-object shape
+  return [];
 }
 
-function saveConfig(config) {
+function saveDevices(devices) {
   ensureDataDir();
-  fs.writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2));
+  fs.writeFileSync(CONFIG_FILE, JSON.stringify(devices, null, 2));
 }
 
-/** {paired, ip} for the settings UI — never the token itself, same
+/** {devices: [{ip, name}]} for the settings UI — never a token, same
     "don't hand back the secret you were just given" instinct as every
     other token in this codebase (player reclaim tokens included). */
 function status() {
-  const config = loadConfig();
-  return { paired: !!(config && config.token), ip: (config && config.ip) || null };
+  return { devices: loadDevices().map(d => ({ ip: d.ip, name: d.name || d.ip })) };
 }
 
-/** Holding the panel's own power button 5-7s until it flashes opens a 30s
-    pairing window — this POST has to land inside it. Saves {ip, token} on
-    success; never throws. */
-async function pair(ip) {
+/** Holding a panel's own power button 5-7s until it flashes opens a 30s
+    pairing window — this POST has to land inside it. Adds {ip, token,
+    name} to the paired list on success, or updates the existing entry
+    in place if that ip is already paired (a fresh token, never a
+    duplicate row) — never throws. `name` is optional (a scan result
+    already has one; a hand-typed IP falls back to the ip itself as its
+    own label, same as before multi-device support). */
+async function pair(ip, name) {
   if (!ip) return { ok: false, reason: 'no-ip' };
 
   let res;
@@ -101,7 +112,24 @@ async function pair(ip) {
 
   if (!body || typeof body.auth_token !== 'string') return { ok: false, reason: 'no-token-in-response' };
 
-  saveConfig({ ip, token: body.auth_token });
+  const devices = loadDevices();
+  const existing = devices.find(d => d.ip === ip);
+  if (existing) {
+    existing.token = body.auth_token;
+    if (name) existing.name = name;
+  } else {
+    devices.push({ ip, token: body.auth_token, name: name || ip });
+  }
+  saveDevices(devices);
+  return { ok: true };
+}
+
+/** Removes one device from the paired list — the counterpart to pair(),
+    needed the moment there's more than one device (a wrong pairing
+    would otherwise be permanent). No-op, not an error, if that ip was
+    never paired in the first place. */
+function forget(ip) {
+  saveDevices(loadDevices().filter(d => d.ip !== ip));
   return { ok: true };
 }
 
@@ -186,36 +214,46 @@ function discover({ timeoutMs = SSDP_DISCOVER_TIMEOUT_MS, localAddress = null } 
   });
 }
 
-/** Switches the panels to a scene already saved on the device (authored in
-    the Nanoleaf app, by name) — the one call this integration actually
-    makes during a live game. Fire-and-forget from the caller's side:
-    always resolves, never rejects, regardless of what goes wrong. */
-async function selectEffect(name) {
-  const config = loadConfig();
-  if (!config) return { ok: false, reason: 'not-paired' };
-
+async function selectEffectOn(device, name) {
   let res;
   try {
-    res = await fetch(`http://${config.ip}:${PORT}/api/v1/${config.token}/effects`, {
+    res = await fetch(`http://${device.ip}:${PORT}/api/v1/${device.token}/effects`, {
       method: 'PUT',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ select: name }),
       signal: AbortSignal.timeout(EFFECT_TIMEOUT_MS),
     });
   } catch (e) {
-    return { ok: false, reason: e.name === 'TimeoutError' ? 'timeout' : 'network-error' };
+    return { ip: device.ip, ok: false, reason: e.name === 'TimeoutError' ? 'timeout' : 'network-error' };
   }
 
-  // A revoked/stale token (the panels were re-paired with something else
+  // A revoked/stale token (this device was re-paired with something else
   // since) surfaces as 401/403 here, not as a thrown error — worth telling
   // apart from "this scene name doesn't exist on the device" (422/400),
   // even though both are equally non-fatal to the actual game either way.
   if (!res.ok) {
-    if (res.status === 401 || res.status === 403) return { ok: false, reason: 'unauthorized' };
-    return { ok: false, reason: `http-${res.status}` };
+    if (res.status === 401 || res.status === 403) return { ip: device.ip, ok: false, reason: 'unauthorized' };
+    return { ip: device.ip, ok: false, reason: `http-${res.status}` };
   }
 
-  return { ok: true };
+  return { ip: device.ip, ok: true };
+}
+
+/** Switches every paired device to a scene already saved on it (authored
+    in the Nanoleaf app, by name) — the one call this integration
+    actually makes during a live game. Fans out to all paired devices in
+    parallel: one unreachable or powered-off panel must never block or
+    suppress the others. Fire-and-forget from the caller's side: always
+    resolves, never rejects, regardless of what goes wrong on any of
+    them. `ok` is true as long as at least one device actually switched;
+    `results` carries the per-device detail for anything that needs it
+    (tests, future diagnostics). */
+async function selectEffect(name) {
+  const devices = loadDevices();
+  if (!devices.length) return { ok: false, reason: 'not-paired', results: [] };
+
+  const results = await Promise.all(devices.map(d => selectEffectOn(d, name)));
+  return { ok: results.some(r => r.ok), results };
 }
 
 // "BOTC " prefix keeps these from colliding with any of the user's own,
@@ -247,4 +285,4 @@ function sceneForState(g) {
   return null;
 }
 
-module.exports = { loadConfig, saveConfig, status, pair, selectEffect, discover, parseSSDPResponse, sceneForState, SCENES, DATA_DIR };
+module.exports = { loadDevices, saveDevices, status, pair, forget, selectEffect, discover, parseSSDPResponse, sceneForState, SCENES, DATA_DIR };
