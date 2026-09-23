@@ -254,6 +254,13 @@
       .ring-slot {
         display: contents;
       }
+      /* Hides the portaled ring without unmounting it — used while
+         browsing scripts in the lobby, where the preview panel takes
+         over this column visually but the ring's portal target must stay
+         registered, or <RingSeats> unmounts for real (see LobbyView). */
+      .ring-slot.ring-slot-hidden {
+        display: none;
+      }
 
       /* Dusk/dawn get a second, ring-local layer on top of the stage-wide
    dim/brighten above: each seat catches the transition in turn, sweeping
@@ -364,20 +371,20 @@
    columns (not this) are what pin the layout to the screen's edges, so the
    ring is free to grow into genuinely all the space that's left. */
       .ring {
-        position: relative;
-        /* A flex-sized box, not a fixed one — it grows to fill whatever
-   room .stage-main actually has (up to the same ceiling this always
-   had) and shrinks to make room for narration/trivia above and below
-   it, instead of unconditionally claiming 68% of viewport height even
-   with one seated player and nothing left over for its neighbors. */
-        flex: 1 1 min(68vh, 900px);
-        max-height: min(68vh, 900px);
-        min-height: 420px;
-        width: auto;
-        max-width: min(42vw, 900px);
-        min-width: 420px;
+        /* Absolutely centered on .stage-main's own box (see that rule's
+   comment) — a fixed, viewport-derived size that never depends on
+   narration's height, so the ring holds still and holds its size across
+   every phase change instead of resizing/repositioning along with
+   whatever narration happens to be showing. clamp(min, preferred, max)
+   replaces the old flex-grow/min/max-height/min/max-width block: the
+   same 420px floor and 900px ceiling, shrinking through whichever of
+   68% viewport height or 42% viewport width is tighter. */
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: clamp(420px, min(68vh, 42vw), 900px);
         aspect-ratio: 1;
-        margin: 0 auto;
       }
       .ring::before {
         content: "";
@@ -1363,18 +1370,27 @@
           grid-template-columns: 1fr !important;
         }
       }
+      /* position:relative makes this the positioning context for .ring,
+   which anchors to it directly (top:50%/left:50%) instead of sharing
+   flex layout with narration — narration's height used to make the ring
+   resize/reposition on every phase change (a different view's narration
+   is a different height, so the flex-centered narration+ring group
+   re-centered as a unit); now the ring depends only on this box's own
+   already-viewport-stable size (see .dashboard's grid-row comment) and
+   never on what narration currently contains. */
       .stage-main {
+        position: relative;
         display: flex;
         flex-direction: column;
         align-items: center;
-        /* Now has real slack to center within, once .view/.dashboard's
-   flex:1 chain above gives this column a genuine viewport-bound height
-   instead of a content-derived one — see .ring's own comment. */
-        justify-content: center;
         gap: 14px;
         min-width: 0;
         min-height: 0;
         align-self: stretch;
+        /* Replaces justify-content:center now that the ring is no longer
+   an in-flow sibling — narration is the only in-flow child left, so it
+   just needs room from the top edge, not vertical centering. */
+        padding-top: clamp(8px, 3vh, 32px);
       }
       .sidepanel {
         display: flex;

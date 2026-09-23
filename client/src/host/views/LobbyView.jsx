@@ -64,10 +64,13 @@ export default function LobbyView({ players, script, scripts, setupRatio, browsi
           </>
         )}
       </div>
-      {/* Same condition RingSeats used to render under, before the ring
-          moved into App.jsx's portal — no seats to show while browsing
-          scripts (the preview takes over main) or before anyone's seated. */}
-      {!browsedMeta && players.length > 0 && <div className="ring-slot" ref={ringSlotRef} />}
+      {/* Always mounted — the ring is empty-but-present before anyone's
+          seated (consistent with "the ring is constantly on screen", not
+          a special case), and only visually hidden (not unmounted) while
+          browsing scripts, since the preview panel takes over this
+          column. Unmounting here would drop the portal target and defeat
+          the whole point of the ring living permanently in App.jsx. */}
+      <div className={'ring-slot' + (browsedMeta ? ' ring-slot-hidden' : '')} ref={ringSlotRef} />
     </div>
   );
 

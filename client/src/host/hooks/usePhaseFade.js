@@ -39,6 +39,18 @@ export function usePhaseFade(S, { muted = false } = {}) {
 
   const [displayS, setDisplayS] = useState(S);
   const [fading, setFading] = useState(false);
+  // Set true for two frames right as the new phase's content mounts,
+  // then cleared — the double rAF guarantees the browser actually
+  // paints that first frame before the class is removed, so the
+  // opacity/filter change is a real CSS transition (a fade-in) instead
+  // of the new content just appearing at full opacity with nothing to
+  // transition from (a freshly-mounted node has no prior frame). Kept
+  // separate from `fading` because only narration/sidepanel content
+  // (App.jsx's fadeClass) should pick this up — the seat-sweep
+  // (.view.trans-dusk.fading .rseat) stays keyed to `fading` alone, or
+  // it would replay a second time on arrival instead of playing once
+  // during the actual transition.
+  const [entering, setEntering] = useState(false);
   const [transClass, setTransClass] = useState('plain');
   const lastKeyRef = useRef('');
   const hasRenderedRef = useRef(false);
@@ -91,6 +103,8 @@ export function usePhaseFade(S, { muted = false } = {}) {
       const t = setTimeout(() => {
         setDisplayS(S);
         setFading(false);
+        setEntering(true);
+        requestAnimationFrame(() => requestAnimationFrame(() => setEntering(false)));
       }, TRANS_MS[transKind]);
       return () => clearTimeout(t);
     }
@@ -119,6 +133,7 @@ export function usePhaseFade(S, { muted = false } = {}) {
   return {
     displayS,
     fading,
+    entering,
     transClass,
     fatalFlashing: fatalBlow.stage === 'flashing',
     blow: fatalBlow.blow,

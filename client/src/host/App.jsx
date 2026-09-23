@@ -51,6 +51,7 @@ export default function App() {
   const {
     displayS,
     fading,
+    entering,
     transClass,
     fatalFlashing,
     blow,
@@ -267,11 +268,16 @@ export default function App() {
         : displayS.phase;
 
   const stageClass = "view" + (fading ? " fading trans-" + transClass : "");
-  // Same state, applied to the narrower fade-wrap elements each view
-  // wraps its own narration in (and DashboardLayout wraps left/right
-  // in) — kept separate from stageClass since .view itself no longer
-  // carries the opacity/filter fade (see styles.css's .fade-wrap).
-  const fadeClass = fading ? "fading trans-" + transClass : "";
+  // Applied to the narrower fade-wrap elements each view wraps its own
+  // narration in (and DashboardLayout wraps left/right in) — kept
+  // separate from stageClass since .view itself no longer carries the
+  // opacity/filter fade (see styles.css's .fade-wrap). Unlike
+  // stageClass, this also picks up `entering` (fading OUT and fading
+  // IN both read the same class here) so narration gets a real fade-in
+  // instead of snapping to full opacity the instant it mounts — see
+  // usePhaseFade's own comment on why the seat-sweep (which uses
+  // stageClass) deliberately does NOT also pick up `entering`.
+  const fadeClass = (fading || entering) ? "fading trans-" + transClass : "";
 
   const revealedForRing = displayS.phase === "over" || displayS.revealed;
   const enteringIds = displayS.phase === "lobby" ? allEnteringIds : null;

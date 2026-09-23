@@ -42,6 +42,37 @@ describe('LobbyView', () => {
     expect(screen.queryByTitle(/game history/i)).not.toBeInTheDocument();
   });
 
+  // The ring-slot (App.jsx's portal target for the permanently-mounted
+  // ring) must never unmount here, or the ring itself unmounts for real —
+  // defeating the whole point of it living outside the phase views. An
+  // empty lobby shows an empty ring rather than no ring at all; browsing
+  // scripts hides it visually (the preview takes over this column) via a
+  // class, not by dropping the slot.
+  describe('the ring-slot stays mounted no matter what — hidden by class, never unmounted', () => {
+    const players = Array.from({ length: 3 }, (_, i) => ({ id: `p${i}`, name: `P${i}`, alive: true, connected: true, color: null }));
+
+    it('present, not hidden, with an empty lobby', () => {
+      const { container } = render(<LobbyView {...baseProps()} />);
+      const slot = container.querySelector('.ring-slot');
+      expect(slot).toBeInTheDocument();
+      expect(slot).not.toHaveClass('ring-slot-hidden');
+    });
+
+    it('present, not hidden, with players seated and not browsing', () => {
+      const { container } = render(<LobbyView {...baseProps({ players })} />);
+      const slot = container.querySelector('.ring-slot');
+      expect(slot).toBeInTheDocument();
+      expect(slot).not.toHaveClass('ring-slot-hidden');
+    });
+
+    it('present but hidden while browsing a script', () => {
+      const { container } = render(<LobbyView {...baseProps({ players, browsing: true, browseIndex: 0, browsedMeta: scripts[0] })} />);
+      const slot = container.querySelector('.ring-slot');
+      expect(slot).toBeInTheDocument();
+      expect(slot).toHaveClass('ring-slot-hidden');
+    });
+  });
+
   it('shows the current script in the view panel, and Change script calls onEnterBrowse', async () => {
     const onEnterBrowse = vi.fn();
     render(<LobbyView {...baseProps({ onEnterBrowse })} />);
