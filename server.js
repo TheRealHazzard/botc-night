@@ -1946,7 +1946,12 @@ async function requestHandler(req, res) {
       if (route === '/api/nanoleaf/discover') {
         // A ~3s SSDP scan, same as the official app's own device-finding
         // step — never throws, resolves [] on a LAN with nothing to find.
-        const devices = await Nanoleaf.discover();
+        // localAddress pins the query to the same real LAN adapter
+        // lanAddress() already picks for the join-address below — on a
+        // multi-adapter machine (VPN client, Docker/Hyper-V's virtual
+        // switch, ...) an unpinned multicast send has no guarantee of
+        // going out the one actually connected to the panels' network.
+        const devices = await Nanoleaf.discover({ localAddress: lanAddress() });
         return json(res, 200, { devices });
       }
 

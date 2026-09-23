@@ -31,13 +31,18 @@ const PAIR_TIMEOUT_MS = 8000; // the pairing window itself is a generous 30s ser
 const EFFECT_TIMEOUT_MS = 4000; // a LAN call to a device on the same network — should be fast or not happen at all
 
 // SSDP is how the official Nanoleaf app finds devices too, per Nanoleaf's
-// own OpenAPI docs — standard UPnP multicast discovery, not anything
-// Nanoleaf-specific except the ST (search target) value, which scopes
-// responses to just Nanoleaf controllers instead of every SSDP-speaking
-// device on the network (smart TVs, printers, ...).
+// own OpenAPI docs — standard UPnP multicast discovery. Docs name
+// 'nanoleaf_aurora:light' as the Nanoleaf-specific ST (search target)
+// value, but that name is tied to the older "Aurora" product line, and a
+// live check found it not matching against real panels — rather than
+// guess at the exact ST string every current generation actually
+// advertises, this asks every SSDP-speaking device on the network to
+// respond (ssdp:all) and relies on parseSSDPResponse()'s own nl- header
+// check to tell a real Nanoleaf reply apart from a smart TV or printer
+// answering the same broad query.
 const SSDP_MULTICAST_ADDR = '239.255.255.250';
 const SSDP_PORT = 1900;
-const SSDP_SEARCH_TARGET = 'nanoleaf_aurora:light';
+const SSDP_SEARCH_TARGET = 'ssdp:all';
 const SSDP_DISCOVER_TIMEOUT_MS = 3000;
 
 function ensureDataDir() { fs.mkdirSync(DATA_DIR, { recursive: true }); }
@@ -97,10 +102,17 @@ async function pair(ip) {
 
 /** Pure — no socket, no I/O. Pulls {ip, port, name} out of one SSDP
     response's raw text, or null if it doesn't look like a real Nanoleaf
-    reply (LOCATION is the one header that actually matters; everything
-    else is best-effort). Split out from discover() specifically so the
+    reply. Requires an nl-deviceid or nl-devicename header specifically
+    (not just any LOCATION) — the search below now casts a broad
+    ssdp:all net rather than the Nanoleaf-specific ST value, precisely so
+    it still finds a device generation whose exact ST string turns out to
+    differ, which means the response itself is now the only thing telling
+    a Nanoleaf controller apart from a smart TV or printer answering the
+    same broad query. Split out from discover() specifically so the
     parsing logic is testable without opening a real UDP socket. */
 function parseSSDPResponse(text) {
+  const isNanoleaf = /^nl-device(id|name):/im.test(text);
+  if (!isNanoleaf) return null;
   const location = /LOCATION:\s*http:\/\/([\d.]+):(\d+)/i.exec(text);
   if (!location) return null;
   const name = /nl-devicename:\s*(.+)/i.exec(text);
@@ -118,8 +130,18 @@ function parseSSDPResponse(text) {
     within the window, even an empty array if nothing did — a LAN with no
     Nanoleaf on it, or one that's off, is an ordinary, non-error outcome
     here, not a failure. De-duplicates by IP since one device can answer
-    more than once. */
-function discover({ timeoutMs = SSDP_DISCOVER_TIMEOUT_MS } = {}) {
+    more than once.
+
+    `localAddress`, when given, pins the *outgoing* interface for the
+    multicast query via setMulticastInterface() — on a machine with more
+    than one network adapter (a VPN client, Docker/Hyper-V's virtual
+    switch, ...) the OS has no obligation to pick the one actually
+    connected to the LAN the panels are on for an unbound multicast send,
+    and silently sending it out a VPN tunnel instead looks identical to
+    "nothing responded." server.js already solves this exact problem for
+    the join-address it hands to players (lanAddress()); the caller is
+    expected to pass that same value through here. */
+function discover({ timeoutMs = SSDP_DISCOVER_TIMEOUT_MS, localAddress = null } = {}) {
   return new Promise(resolve => {
     const found = new Map();
     let socket;
@@ -143,6 +165,9 @@ function discover({ timeoutMs = SSDP_DISCOVER_TIMEOUT_MS } = {}) {
     });
 
     socket.bind(() => {
+      // Best-effort — a bad/stale address here shouldn't abort the whole
+      // scan, just leave the OS's own default interface choice in place.
+      if (localAddress) { try { socket.setMulticastInterface(localAddress); } catch (e) {} }
       const message = Buffer.from(
         'M-SEARCH * HTTP/1.1\r\n' +
         `HOST: ${SSDP_MULTICAST_ADDR}:${SSDP_PORT}\r\n` +
