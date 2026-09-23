@@ -2287,31 +2287,35 @@
         font-size: 1.3rem;
         color: var(--primary);
       }
-      /* Two columns, not one long scroll — a table settings screen with five
-   sections has real width to spend on a fixed-viewport TV overlay, so it
-   spends it sideways instead of forcing a scroll to reach Roster/LLM.
-   Left column is table setup (timing/drama/roster), right is storyteller
-   behavior (whim's probability sliders + the LLM toggle) — grouped by
-   what they tune, and roughly balanced in length either way. */
+      /* Three columns, not one long scroll — a TV-sized overlay has real
+   width to spend, so it spends it sideways instead of forcing a scroll
+   to reach Roster/LLM/Nanoleaf. Grouped by what they tune: table setup
+   (timing/drama/roster), storyteller whim (six probability sliders —
+   long enough on its own to earn a dedicated column rather than share
+   one), and external integrations (LLM + Nanoleaf, the two sections
+   most likely to keep growing as either gains more controls). 1100px
+   was sized for two columns of five short sections; six sections
+   (Nanoleaf's paired-device list included) don't fit that comfortably
+   two-up any more, so this uses much more of a wide TV screen's actual
+   width instead of leaving it empty on both sides. */
       .settings-body {
         flex: 1;
         min-height: 0;
         overflow: auto;
         padding: 28px 40px;
-        max-width: 1100px;
+        max-width: 1600px;
         margin: 0 auto;
         width: 100%;
         display: flex;
-        gap: 64px;
-        /* Vertically centers the two-column content within whatever
-   height .settings-overlay's fixed-viewport flex:1 actually gives this —
-   with `start` (the old value), five short settings sections just
-   clumped at the top of an already-full-height box on any screen taller
-   than the content itself, which a TV always is. `overflow:auto` still
-   takes over exactly as before if the content ever does grow past the
-   viewport (more sections, a tall help string) — centering only matters
-   while there's real slack to center within. */
-        align-items: center;
+        gap: 48px;
+        /* flex-start, not center — center clips the TOP of whichever
+   column overflows first once content is taller than the viewport
+   (routine now that Nanoleaf's device list can grow), since centering
+   an overflowing flex item overflows it equally in both directions.
+   overflow:auto still handles the case where every column is short
+   enough to actually need centering; this just stops it fighting the
+   common case. */
+        align-items: flex-start;
       }
       .settings-col {
         flex: 1;
@@ -2396,6 +2400,11 @@
         flex-direction: column;
         gap: 6px;
         margin: 4px 0 10px;
+        /* Caps how tall this can grow as more panel sets get paired or a
+   scan turns up a lot of devices — without this, this one section could
+   end up dictating the whole settings column's height by itself. */
+        max-height: 220px;
+        overflow-y: auto;
       }
       .nanoleaf-device {
         display: flex;

@@ -34,6 +34,8 @@ export default function SettingsOverlay({ config, phase, llmConfigured, llmProvi
         </div>
         <div className="settings-col">
           <WhimSection config={config} patch={patch} />
+        </div>
+        <div className="settings-col">
           <LlmSection config={config} llmConfigured={llmConfigured} llmProvider={llmProvider} llmModel={llmModel} patch={patch} />
           <NanoleafSection />
         </div>
