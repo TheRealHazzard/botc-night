@@ -771,10 +771,14 @@ console.log('\nMayor win condition');
 
   const gm1 = E.newGame();
   gm1.phase = 'day'; gm1.noExecutionToday = true;
+  // Narration variety picks a random line by default (see checkVictoryRaw
+  // in game/engine.js) — off here so this exact-string assertion still
+  // tests what it's actually meant to: the win condition, not prose.
+  gm1.config.narrationVarietyEnabled = false;
   gm1.players = [mk('mayor1', 'mayor'), mk('t1', 'soldier'), mk('imp1', 'imp'), mk('dead1', 'chef', false), mk('dead2', 'empath', false)];
   check('3 alive, no execution, Mayor alive -> good wins',
     JSON.stringify(E.checkVictory(gm1)) ===
-    JSON.stringify({ winner: 'good', reason: 'Only 3 remain, no one was executed, and the Mayor still lives.' }));
+    JSON.stringify({ winner: 'good', conditionId: 'mayorNoExecution', reason: 'Only 3 remain, no one was executed, and the Mayor still lives.' }));
 
   const gm2 = E.newGame();
   gm2.phase = 'day'; gm2.noExecutionToday = true;
@@ -2149,7 +2153,7 @@ console.log('\nSV: Evil Twin blocks/forces victory');
   g2.players.find(p => p.id === 'gt').alive = false;
   const v2 = E.checkVictory(g2);
   check('executing the good Twin forces an evil win even with a Demon still alive',
-    !!v2 && v2.winner === 'evil' && v2.reason.includes('Twin'));
+    !!v2 && v2.winner === 'evil' && v2.conditionId === 'evilTwinTwinExecuted');
 }
 
 console.log('\nSV: Fang Gu');

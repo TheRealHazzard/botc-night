@@ -12,6 +12,7 @@ const H = require('./game/history');
 const { COLOR_PALETTE } = require('./game/colors');
 const { askStoryteller, status: llmStatus } = require('./game/llmStoryteller');
 const Nanoleaf = require('./game/nanoleaf');
+const { computeHighlights, extractCandidateEvents, scoreEvent } = require('./game/pivotalScoring');
 
 const PORT = process.env.PORT || 3000;
 // A second, HTTPS listener alongside the plain one above — installability
@@ -289,6 +290,52 @@ async function rephraseSavantStatements(statements) {
   return out;
 }
 
+/** The victory line's own LLM embellishment — same shape as
+    rephraseSavantStatements just above, reusing the existing
+    llmStorytellerEnabled toggle rather than a new one (narrationVariety's
+    local pick() pool is the always-on deterministic baseline regardless
+    of this; this only ever upgrades it further when an LLM is actually
+    configured). On any failure, returns null and the caller keeps the
+    already-chosen, already-displayed line verbatim. */
+async function rephraseVictoryLine(reason) {
+  const result = await llmCall('victory-rephrase', {
+    system:
+      'You add flavor to the final line of a game of Blood on the Clocktower, spoken the moment ' +
+      'the game ends. You will be given one sentence describing why the game just ended. Rephrase ' +
+      'it to sound more evocative, in the voice of an old Storyteller, WITHOUT changing its meaning ' +
+      'or adding any fact not already in it — you may only change the wording. Return exactly one line.',
+    prompt: `The line: ${reason}`,
+    schema: {
+      type: 'object',
+      properties: { line: { type: 'string' } },
+      required: ['line'],
+      additionalProperties: false,
+    },
+    maxTokens: 100,
+  });
+  if (!result.ok) return null;
+  const line = result.data && result.data.line;
+  return typeof line === 'string' && line.trim() ? line.trim() : null;
+}
+
+/** Fire-and-forget, mirroring maybeTriggerNanoleaf's own reasoning: the
+    deterministic reason (game/engine.js's narration-variety pick, already
+    chosen and already displayed by the time this is called) never blocks
+    the game moving on waiting for a slow or unreachable model. If a
+    rephrase does land, it mutates the SAME victory object's `reason` in
+    place and pushes once more — gated on `game.victory === victory` so a
+    reset or a fresh game in the meantime can never have a stale rephrase
+    land on top of it. */
+function maybeRephraseVictoryLine(victory) {
+  if (!victory || !game.config.llmStorytellerEnabled || !llmConfigured()) return;
+  rephraseVictoryLine(victory.reason).then(line => {
+    if (line && game.victory === victory) {
+      game.victory.reason = line;
+      pushAll();
+    }
+  }).catch(() => {});
+}
+
 const WHIM_SCHEMA = {
   type: 'object',
   properties: { fire: { type: 'boolean' }, reason: { type: 'string' } },
@@ -410,8 +457,42 @@ function maybeTriggerNanoleaf() {
   }
 }
 
+// Live "notable moment" beats — see game.notableBeatAt's own comment in
+// engine.js. Re-runs game/pivotalScoring.js's already-shipped, already-
+// tested extraction+scoring fresh each push (cheap: a handful of events
+// at most) and diffs the count against how many candidate events existed
+// last time this ran, so only a genuinely NEW event gets a chance to
+// fire, never the same one replayed on a later, unrelated push. Same
+// "one centralized place, not threaded into every kill/vote site"
+// reasoning as maybeTriggerNanoleaf just above, and the same module-level
+// shape — a fresh `game` object (e.g. after /api/table/reset) naturally
+// resets this the next time it runs, same as lastNanoleafScene does.
+const NOTABLE_BEAT_THRESHOLD = 0.7;
+let lastNotableBeatCount = 0;
+function maybeTriggerNotableBeat() {
+  if (!game.config.liveBeatsEnabled) return;
+  // Only while a game is actually mid-play — once revealed (game-over, or
+  // a Storyteller's manual mid-game Reveal), the post-game recap cards
+  // are what highlights are for; a fresh lobby has no candidate events to
+  // find in the first place. Reset the counter here too, so the very
+  // first check of a brand new game never treats its predecessor's event
+  // count as a baseline to diff against.
+  if (game.phase === 'lobby' || game.revealed) {
+    lastNotableBeatCount = 0;
+    return;
+  }
+  const events = extractCandidateEvents(game);
+  if (events.length <= lastNotableBeatCount) return;
+  const fresh = events.slice(lastNotableBeatCount);
+  lastNotableBeatCount = events.length;
+  if (fresh.some(e => scoreEvent(e, game) >= NOTABLE_BEAT_THRESHOLD)) {
+    game.notableBeatAt = Date.now();
+  }
+}
+
 function pushHost() {
   maybeTriggerNanoleaf();
+  maybeTriggerNotableBeat();
   const payload = hostState();
   for (const res of hostStreams) write(res, payload);
 }
@@ -691,6 +772,7 @@ function resolveMastermindBonusDay(executedPlayer) {
   clearTimeout(voteTimer);
   clearTimeout(simTimer);
   game.victory = result;
+  maybeRephraseVictoryLine(game.victory);
   game.phase = 'over';
   game.revealed = true;
   game.windowEndsAt = null;
@@ -833,6 +915,7 @@ function finishIfOver() {
   clearTimeout(voteTimer);
   clearTimeout(simTimer);
   game.victory = result;
+  maybeRephraseVictoryLine(game.victory);
   game.phase = 'over';
   game.revealed = true;
   game.windowEndsAt = null;
@@ -946,6 +1029,13 @@ function recordGameHistory() {
     // the entire point of building them for later analysis.
     blockedKills: game.blockedKills || [],
     trueValueLog: game.trueValueLog || [],
+    // The same deterministic MVP/Play-of-the-Game/game-winning-nomination
+    // analysis publicState() exposes live — computed here too (against
+    // the still-intact live `game` object, before it's discarded) so a
+    // finished game's highlights survive in the permanent record exactly
+    // like blockedKills/trueValueLog above, not just in the one response
+    // that happened to be in flight when the game ended.
+    pivotalHighlights: computeHighlights(game),
     // Notable deterministic state changes (the Goon's flip, so far) —
     // deliberately not decisionLog: that array is the replay tool's own
     // queue (see decide() in helpers.js), consumed in strict order
@@ -2502,6 +2592,7 @@ async function requestHandler(req, res) {
           clearTimeout(voteTimer);
           clearTimeout(simTimer);
           game.victory = E.applyPoliticianFlip(game, { winner: 'evil', reason: `The Klutz chose ${target.name}, who is evil.` });
+          maybeRephraseVictoryLine(game.victory);
           game.phase = 'over';
           game.revealed = true;
           game.windowEndsAt = null;
@@ -2554,6 +2645,7 @@ async function requestHandler(req, res) {
           clearTimeout(voteTimer);
           clearTimeout(simTimer);
           game.victory = E.applyPoliticianFlip(game, { winner: 'evil', reason: `${guesser.name} correctly named the Damsel.` });
+          maybeRephraseVictoryLine(game.victory);
           game.phase = 'over';
           game.revealed = true;
           game.windowEndsAt = null;

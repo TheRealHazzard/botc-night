@@ -70,7 +70,7 @@ async function answerEveryoneExceptDevilsAdvocate(baseUrl, tokens) {
 async function checkVortoxWinsImmediately(baseUrl, label) {
   const state = await request(baseUrl, '/api/host-state');
   check(`${label}: the game ends immediately`, state.json.phase === 'over', state.json.phase);
-  check(`${label}: evil wins because Vortox is alive and nobody was executed`, !!state.json.victory && state.json.victory.winner === 'evil' && /vortox/i.test(state.json.victory.reason || ''), JSON.stringify(state.json.victory));
+  check(`${label}: evil wins because Vortox is alive and nobody was executed`, !!state.json.victory && state.json.victory.winner === 'evil' && state.json.victory.conditionId === 'vortoxNoExecution', JSON.stringify(state.json.victory));
 }
 
 (async () => {

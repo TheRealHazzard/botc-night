@@ -1,6 +1,9 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { installFakeAudioContext, resetAudioCalls, toneCalls, noiseCalls, lifecycleCalls } from '../../../test/fakeAudioContext.js';
-import { playNightFalls, playDayBreaks, playImpactSting, playVictory, suspendAudioContext, startAmbience, stopAmbience } from './soundEngine.js';
+import {
+  playNightFalls, playDayBreaks, playImpactSting, playVictory, playNotableChime,
+  suspendAudioContext, startAmbience, stopAmbience, setTensionIntensity,
+} from './soundEngine.js';
 
 describe('soundEngine', () => {
   beforeEach(() => {
@@ -53,9 +56,9 @@ describe('soundEngine', () => {
     expect(lifecycleCalls).toContain('suspend');
   });
 
-  it('startAmbience: a continuous night bed is two low oscillators + a looping noise texture', () => {
+  it('startAmbience: a continuous night bed is three low oscillators (two base + the silent-at-rest tension layer) + a looping noise texture', () => {
     startAmbience('night', false);
-    expect(toneCalls.length).toBe(2);
+    expect(toneCalls.length).toBe(3);
     expect(noiseCalls.length).toBe(1);
     expect(toneCalls.every(c => c.freq < 100)).toBe(true);
     stopAmbience();
@@ -80,12 +83,44 @@ describe('soundEngine', () => {
     // Only the new bed's own oscillators/noise fire on this call — the
     // night bed's nodes are torn down (faded out on a timer), not left
     // running alongside the day bed.
-    expect(toneCalls.length).toBe(2);
+    expect(toneCalls.length).toBe(3);
     expect(noiseCalls.length).toBe(1);
     stopAmbience();
   });
 
   it('stopAmbience: safe to call with nothing currently running', () => {
     expect(() => stopAmbience()).not.toThrow();
+  });
+
+  it('playNotableChime: a brief two-note shimmer (each tone() call is two detuned oscillators), no noise texture', () => {
+    playNotableChime(false);
+    expect(toneCalls.length).toBe(4);
+    expect(noiseCalls.length).toBe(0);
+  });
+
+  it('playNotableChime: muted plays nothing', () => {
+    playNotableChime(true);
+    expect(toneCalls.length).toBe(0);
+  });
+
+  it('setTensionIntensity: a no-op with no ambience currently running', () => {
+    expect(() => setTensionIntensity(0.8)).not.toThrow();
+    expect(toneCalls.length).toBe(0);
+  });
+
+  it('setTensionIntensity: ramps the existing bed\'s own tension layer, never starting a new sound source', () => {
+    startAmbience('night', false);
+    resetAudioCalls();
+    expect(() => setTensionIntensity(0.8)).not.toThrow();
+    expect(toneCalls.length).toBe(0);
+    expect(noiseCalls.length).toBe(0);
+    stopAmbience();
+  });
+
+  it('setTensionIntensity: clamps out-of-range input instead of throwing', () => {
+    startAmbience('night', false);
+    expect(() => setTensionIntensity(5)).not.toThrow();
+    expect(() => setTensionIntensity(-1)).not.toThrow();
+    stopAmbience();
   });
 });

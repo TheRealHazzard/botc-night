@@ -3,6 +3,7 @@
 const crypto = require('crypto');
 const H = require('./helpers');
 const { buildRegistry } = require('./abilities');
+const { computeHighlights } = require('./pivotalScoring');
 
 const {
   DATA, CHARACTERS, SETUP_TABLE, char, scriptPool, BUCKET4_IDS, activeScriptPool,
@@ -82,6 +83,14 @@ function newGame() {
       voteWindowSeconds: 30, // how long a nomination stays open for votes
       disabledCharacterIds: [], // Bucket 4 toggle — see BUCKET4_IDS in helpers.js
       llmStorytellerEnabled: false, // see game/llmStoryteller.js
+      // The "elevate the drama" pass — each independently switchable so a
+      // table can turn off any one of these without losing the others.
+      // Default true: none of these reveal anything a live table
+      // wouldn't otherwise see (see each field's own comment below).
+      liveBeatsEnabled: true, // a content-free ring pulse when something pivotal-scored happens live — see maybeTriggerNotableBeat in server.js
+      adaptiveAudioEnabled: true, // the ambience bed's tension layer — see setTensionIntensity in soundEngine.js
+      narrationVarietyEnabled: true, // victory-line variant pools below, off = the original single fixed string
+      shareCardEnabled: true, // whether the end-of-session share-card entry point appears at all
     },
     players: [],
     pending: {},
@@ -161,6 +170,18 @@ function newGame() {
     // client/src/hooks/useBluffBeat.js), visible to the host and every
     // player alike, unlike everything else The Whim's family surfaces.
     bluffBeatAt: null,
+    // A live "notable moment" beat — a bare timestamp, same shape and
+    // same reasoning as bluffBeatAt above, rolled in server.js
+    // (maybeTriggerNotableBeat) whenever a freshly-completed event scores
+    // high enough via game/pivotalScoring.js's own formulas to be worth a
+    // pulse right now, not just in the post-game recap cards. Carries no
+    // content at all (unlike bluffBeatAt, which is *always* meaningless,
+    // this one is real — but the target/reason/character it's about is
+    // exactly what stays hidden, same redaction philosophy as
+    // whimConfirmations' kind/reason fields). Host-only, unlike
+    // bluffBeatAt: nothing here needs to be shared theater with every
+    // player's phone the way a deliberate bluff does.
+    notableBeatAt: null,
     // Whoever took the first seat this game (server.js's /api/join) — with
     // no designated Storyteller, someone at the table needs a way to run
     // the game without walking up to the host screen. Keyed to a player
@@ -1141,6 +1162,9 @@ function applyConfigPatch(g, patch) {
   if ('llmStorytellerEnabled' in patch) {
     g.config.llmStorytellerEnabled = !!patch.llmStorytellerEnabled;
   }
+  ['liveBeatsEnabled', 'adaptiveAudioEnabled', 'narrationVarietyEnabled', 'shareCardEnabled'].forEach(key => {
+    if (key in patch) g.config[key] = !!patch[key];
+  });
 }
 
 /**
@@ -1263,7 +1287,10 @@ function evilTwinBlocksGood(g) {
  */
 function applyPoliticianFlip(g, result) {
   if (result && result.winner === 'evil' && g.players.some(p => p.characterId === 'politician')) {
-    return { winner: 'good', reason: `${result.reason} But the Politician turns it around.` };
+    // Spread first, not a fresh {winner, reason} literal — preserves
+    // conditionId (see checkVictoryRaw) through the flip instead of
+    // silently dropping it for every flipped win.
+    return { ...result, winner: 'good', reason: `${result.reason} But the Politician turns it around.` };
   }
   return result;
 }
@@ -1271,6 +1298,50 @@ function applyPoliticianFlip(g, result) {
 /** Returns null while the game is still alive, else {winner, reason}. */
 function checkVictory(g) {
   return applyPoliticianFlip(g, checkVictoryRaw(g));
+}
+
+// Narration variety (Settings: narrationVarietyEnabled, default on) — each
+// pool's first entry is the ORIGINAL fixed string this pass replaced, used
+// verbatim when the toggle is off, so turning it off is a real revert, not
+// just "fewer options." `conditionId` (below, on every returned victory
+// object) is the stable identifier anything that needs to recognize a
+// SPECIFIC win condition should match on instead of this prose — see
+// client/src/host/lib/pickFatalBlow.js, which used to string-match the
+// Evil-Twin/Vortox reason text directly and would have silently stopped
+// recognizing either the moment this text started varying.
+const DEMON_DEAD_LINES = [
+  'The Demon is dead.',
+  'The Demon has fallen.',
+  "The Demon's reign ends here.",
+];
+const DEMON_AND_ONE_LEFT_LINES = [
+  'Only the Demon and one other remain.',
+  'The town has run out of hands to raise.',
+  'Two remain, and one of them was never going to blink first.',
+];
+const SAINT_EXECUTED_LINES = [
+  'The Saint was executed.',
+  'The town executed its own Saint.',
+  'In their haste, the town silenced the one soul they should have protected.',
+];
+const EVIL_TWIN_LINES = [
+  "The Evil Twin's twin was executed.",
+  'The good Twin fell, and doomed the town by it.',
+  "One Twin's death was always going to be the other's victory.",
+];
+const VORTOX_LINES = [
+  'No one was executed, and the Vortox lives.',
+  'Every truth was a lie today, and the Vortox paid nothing for it.',
+  'The town reasoned its way to nothing, and the Vortox thanks them.',
+];
+const MAYOR_LINES = [
+  'Only 3 remain, no one was executed, and the Mayor still lives.',
+  "Three remain. No blade fell today. The Mayor's quiet victory.",
+  'The town simply... stopped. And the Mayor let them.',
+];
+
+function narrationLine(g, variants) {
+  return g.config.narrationVarietyEnabled === false ? variants[0] : pick(variants);
 }
 
 function checkVictoryRaw(g) {
@@ -1288,16 +1359,16 @@ function checkVictoryRaw(g) {
     // resolveMastermindDay before ever calling checkVictory again.
     if (g.mastermindExtraDay) return null;
     if (evilTwinBlocksGood(g)) return null;
-    return { winner: 'good', reason: 'The Demon is dead.' };
+    return { winner: 'good', conditionId: 'demonDead', reason: narrationLine(g, DEMON_DEAD_LINES) };
   }
   if (living.length <= 2) {
-    return { winner: 'evil', reason: 'Only the Demon and one other remain.' };
+    return { winner: 'evil', conditionId: 'demonAndOneLeft', reason: narrationLine(g, DEMON_AND_ONE_LEFT_LINES) };
   }
   if (g.saintExecuted) {
-    return { winner: 'evil', reason: 'The Saint was executed.' };
+    return { winner: 'evil', conditionId: 'saintExecuted', reason: narrationLine(g, SAINT_EXECUTED_LINES) };
   }
   if (g.evilTwinGoodExecuted) {
-    return { winner: 'evil', reason: "The Evil Twin's twin was executed." };
+    return { winner: 'evil', conditionId: 'evilTwinTwinExecuted', reason: narrationLine(g, EVIL_TWIN_LINES) };
   }
   // Vortox: "each day, if no-one is executed, evil wins" — like the Mayor's
   // rule below, only while Vortox is actually alive AND unimpaired to claim
@@ -1311,7 +1382,7 @@ function checkVictoryRaw(g) {
   // the Demon's own win condition over the Mayor's corner-case rule felt
   // like the safer default.
   if (g.noExecutionToday && living.some(x => x.characterId === 'vortox' && !impaired(x))) {
-    return { winner: 'evil', reason: 'No one was executed, and the Vortox lives.' };
+    return { winner: 'evil', conditionId: 'vortoxNoExecution', reason: narrationLine(g, VORTOX_LINES) };
   }
   // "If only 3 players live & no execution occurs, your team wins" — reads
   // as conditional on the Mayor still being alive to claim it, matching the
@@ -1322,7 +1393,7 @@ function checkVictoryRaw(g) {
   // either.
   const mayor = living.find(x => x.characterId === 'mayor');
   if (mayor && !impaired(mayor) && living.length === 3 && g.noExecutionToday && !evilTwinBlocksGood(g)) {
-    return { winner: 'good', reason: 'Only 3 remain, no one was executed, and the Mayor still lives.' };
+    return { winner: 'good', conditionId: 'mayorNoExecution', reason: narrationLine(g, MAYOR_LINES) };
   }
   return null;
 }
@@ -1440,6 +1511,12 @@ function publicState(g) {
     nominations: g.nominations,
     log: g.revealed ? g.log : g.log.filter(l => !l.secret),
     gameSummary: g.revealed ? gameSummary(g) : null,
+    // The deterministic MVP/Play-of-the-Game/game-winning-nomination
+    // analysis — see game/pivotalScoring.js's own file comment for the
+    // scoring rationale. Same reveal gate as gameSummary; this is the
+    // "inspectable before any card UI exists" step, meant to be read
+    // straight off this endpoint or the persisted history record for now.
+    pivotalHighlights: g.revealed ? computeHighlights(g) : null,
     actionLog: g.revealed ? g.actionLog : [],
     // Same reveal gate as actionLog — every info role's actual result,
     // night by night, for exactly the situation that prompted this: a
@@ -1468,6 +1545,10 @@ function publicState(g) {
     // at every stage of the game, revealed or not: it's a bare timestamp
     // that never encoded anything about who's evil or what happened.
     bluffBeatAt: g.bluffBeatAt,
+    // Live "notable moment" beat — also safe to show exactly as-is at
+    // every stage: same bare-timestamp shape as bluffBeatAt, and see its
+    // own comment above for why it carries no content despite being real.
+    notableBeatAt: g.notableBeatAt,
   };
 }
 

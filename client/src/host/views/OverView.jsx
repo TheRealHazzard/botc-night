@@ -4,6 +4,7 @@ import GameSummaryCard from '../components/GameSummaryCard.jsx';
 import SidepanelCard from '../components/SidepanelCard.jsx';
 import SessionStatsCard from '../components/SessionStatsCard.jsx';
 import PowerLogOverlay from '../components/PowerLogOverlay.jsx';
+import ShareCardOverlay from '../components/ShareCardOverlay.jsx';
 import Icon from '../components/Icon.jsx';
 import { useSpeak } from '../hooks/useSpeak.js';
 import { useVictoryReveal } from '../hooks/useVictoryReveal.js';
@@ -20,8 +21,9 @@ function logLabel(l) {
   return ''; // lobby/reveal/over, or older data with no recorded phase
 }
 
-export default function OverView({ players, victory, gameSummary, log, actionLog, resultsLog, nightNumber, muted, ringSlotRef, fadeClass = '' }) {
+export default function OverView({ players, victory, gameSummary, pivotalHighlights, shareCardEnabled, log, actionLog, resultsLog, nightNumber, muted, ringSlotRef, fadeClass = '' }) {
   const [showPowerLog, setShowPowerLog] = useState(false);
+  const [showShareCard, setShowShareCard] = useState(false);
 
   const victoryLine = victory ? `${victory.winner === 'good' ? 'Good wins.' : 'Evil wins.'} ${victory.reason}` : '';
   useSpeak(victoryLine, { dread: !!victory && victory.winner !== 'good', muted });
@@ -71,6 +73,11 @@ export default function OverView({ players, victory, gameSummary, log, actionLog
           <Icon name="scroll" size={15} /> Power log
         </button>
       )}
+      {shareCardEnabled !== false && (
+        <button type="button" onClick={() => setShowShareCard(true)}>
+          <Icon name="trophy" size={15} /> Share this game
+        </button>
+      )}
       {/* Only worth a card once there's a second game tonight to compare
           against — SessionStatsCard removes itself if there isn't one. */}
       <SessionStatsCard />
@@ -87,6 +94,9 @@ export default function OverView({ players, victory, gameSummary, log, actionLog
       <DashboardLayout left={left} main={main} right={right} fadeClass={`fade-wrap ${fadeClass}`} />
       {showPowerLog && (
         <PowerLogOverlay players={players} actionLog={actionLog} resultsLog={resultsLog} nightNumber={nightNumber} onClose={() => setShowPowerLog(false)} />
+      )}
+      {showShareCard && (
+        <ShareCardOverlay players={players} pivotalHighlights={pivotalHighlights} onClose={() => setShowShareCard(false)} />
       )}
     </>
   );

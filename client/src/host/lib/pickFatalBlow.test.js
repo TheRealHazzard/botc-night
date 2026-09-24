@@ -10,13 +10,21 @@ describe('pickFatalBlow', () => {
   it("the Evil Twin's twin executed is named as that specific twist", () => {
     const state = {
       deaths: [{ name: 'Cass', cause: 'execution' }],
-      victory: { reason: "The Evil Twin's twin was executed." },
+      victory: { conditionId: 'evilTwinTwinExecuted', reason: "The Evil Twin's twin was executed." },
     };
     expect(pickFatalBlow(state)).toEqual({ icon: 'eye', text: "Cass was the Evil Twin's twin all along." });
   });
 
+  it('matches on conditionId, not the (now variable) reason prose', () => {
+    const state = {
+      deaths: [{ name: 'Cass', cause: 'execution' }],
+      victory: { conditionId: 'evilTwinTwinExecuted', reason: 'The good Twin fell, and doomed the town by it.' },
+    };
+    expect(pickFatalBlow(state).icon).toBe('eye');
+  });
+
   it('the Vortox wins with no execution', () => {
-    const state = { deaths: [], victory: { reason: 'No one was executed, and the Vortox lives.' } };
+    const state = { deaths: [], victory: { conditionId: 'vortoxNoExecution', reason: 'No one was executed, and the Vortox lives.' } };
     expect(pickFatalBlow(state)).toEqual({ icon: 'bolt', text: 'Every read was false. The Vortox wins.' });
   });
 
@@ -45,7 +53,7 @@ describe('pickFatalBlow', () => {
   it('a Slayer shot wins even when the game also ended on an Evil-Twin-style victory reason', () => {
     const state = {
       deaths: [{ name: 'Fay', cause: 'slayer' }],
-      victory: { reason: "The Evil Twin's twin was executed." },
+      victory: { conditionId: 'evilTwinTwinExecuted', reason: "The Evil Twin's twin was executed." },
     };
     expect(pickFatalBlow(state).icon).toBe('crosshair');
   });

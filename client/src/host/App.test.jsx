@@ -302,6 +302,29 @@ describe("App", () => {
     expect(toneCalls.every(c => c.freq < 100)).toBe(true);
   });
 
+  // Feature 1 — live "notable moment" beats. Fires mid-game, well before
+  // any verdict glow could ever apply (phase stays "night" throughout),
+  // proving the two states really are mutually exclusive by phase rather
+  // than one silently overriding the other.
+  it("a live notable-moment beat pulses the ring gold and plays its chime, distinct from the verdict glow", () => {
+    // notableBeatAt starts at null (never undefined) in every real game —
+    // see its own init in game/engine.js's newGame() — matching that here
+    // matters: useNotableBeat's baseline-detection sentinel IS undefined,
+    // specifically so it can tell "never checked" apart from "checked
+    // once, already null," which this test would otherwise not exercise.
+    hostState.current.S = baseS({ phase: "night", notableBeatAt: null });
+    const { rerender } = render(<App />);
+    resetAudioCalls();
+
+    hostState.current.S = baseS({ phase: "night", notableBeatAt: Date.now() });
+    rerender(<App />);
+
+    expect(document.querySelector(".ring")).toHaveClass("glow-notable");
+    expect(document.querySelector(".ring")).not.toHaveClass("glow-good");
+    expect(document.querySelector(".ring")).not.toHaveClass("glow-evil");
+    expect(toneCalls.length).toBeGreaterThan(0);
+  });
+
   describe("script browsing: commit/back-out live in the header, not the lobby panels", () => {
     beforeEach(() => {
       mockFetch({

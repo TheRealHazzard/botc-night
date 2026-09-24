@@ -165,7 +165,24 @@
         display: flex;
         flex-direction: column;
         align-items: center;
-        justify-content: center;
+        /* flex-start, not center — the real cause of the ring's day/night
+   shift (the .ring-zone fix alone didn't hold): .sidepanel (the right
+   column's default, non-.sidepanel-fill case — see that rule's own
+   comment, "every other sidepanel stays top-anchored") has no
+   min-height:0/overflow of its own, so a phase whose right column
+   genuinely has more content (Day's nomination list/report vs Night's
+   plain countdown) can render .dashboard's grid row taller than a
+   shorter phase's, even though every container in the main → .view →
+   .dashboard → .stage-main chain otherwise sets min-height:0 correctly.
+   With justify-content:center, that per-phase height difference centered
+   the whole stage differently each time — a taller box (Day) extends
+   further up from center than a shorter one (Night) does, shifting
+   everything inside, ring included, even after the ring's own row
+   anchors itself to that box's bottom edge. flex-start pins the stage to
+   a fixed top edge regardless of how tall any one phase's content gets,
+   which is what the ring actually needs: a fixed reference point that
+   doesn't move with a sidebar's word count. */
+        justify-content: flex-start;
         padding: 20px 40px;
         text-align: center;
         gap: 16px;
@@ -436,6 +453,27 @@
         .ring.glow-evil::before {
           animation: none;
           box-shadow: 0 0 90px 18px rgba(142, 34, 38, 0.32);
+        }
+      }
+      /* A live "notable moment" pulse (see useNotableBeat.js) — same
+   box-shadow-bloom treatment as the verdict glow just above, not a new
+   visual language, but brass (an award-ceremony color, matching the
+   reveal cards' own accent) instead of a team color, and a single quick
+   flare-then-clear rather than a settle-and-hold: this fires mid-game,
+   deliberately content-free, and shouldn't linger or compete with the
+   verdict glow the way a held state would. */
+      .ring.glow-notable::before {
+        border-color: var(--brass);
+        animation: ring-notable-pulse 1.2s cubic-bezier(0.16, 1, 0.3, 1);
+      }
+      @keyframes ring-notable-pulse {
+        0% { box-shadow: 0 0 0 0 rgba(184, 134, 63, 0); }
+        40% { box-shadow: 0 0 180px 40px rgba(184, 134, 63, 0.4); }
+        100% { box-shadow: 0 0 0 0 rgba(184, 134, 63, 0); }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .ring.glow-notable::before {
+          animation: none;
         }
       }
       /* The day's own "time bomb" — same treatment as the game-over
@@ -1400,14 +1438,29 @@
    mechanism — .ring caps its own size from fixed, known quantities (see
    its own comment); this only catches the case where that estimate
    still turns out wrong, clipping cleanly at this row's edge instead of
-   spilling into the header above or off the bottom of the page. */
+   spilling into the header above or off the bottom of the page.
+
+   align-items: flex-end, not center — this row's own HEIGHT still
+   varies with narration (Night's one line vs. Day's label+narration+
+   deaths+nudge), and centering the ring within that leftover space
+   visibly shifted it up/down between phases, since a taller narration
+   block leaves less room here to center into. .ring's own width is
+   already sized for the tallest realistic narration block (see its
+   comment — "100vh minus a deliberately generous estimate of... the
+   tallest realistic narration block"), so anchoring to the bottom edge
+   matches that same worst-case assumption: the ring's bottom always
+   sits at this row's bottom, which is always stage-main's own bottom
+   (this is the last flex child, flex:1 1 auto, so it consumes exactly
+   the remainder) — a fixed point on screen no matter which view is
+   showing, with any leftover height on a short-narration view (most of
+   them) simply showing above the ring instead of moving it. */
       .ring-zone {
         flex: 1 1 auto;
         min-height: 0;
         overflow: hidden;
         width: 100%;
         display: flex;
-        align-items: center;
+        align-items: flex-end;
         justify-content: center;
       }
       .sidepanel {
@@ -1990,6 +2043,88 @@
         }
       }
 
+      /* The MVP/Play-of-the-Game/game-winning-nomination cards — an
+   encore after .fatal-flash/.narration.reveal have already had their
+   moment (see useRevealCardSequencer.js), never shown at the same time
+   as either, hence the same z-index tier as .fatal-flash. Brass, not
+   oxblood/good-blue, deliberately: this isn't a verdict color, it's an
+   award-ceremony one, distinct from both teams' win colors. */
+      .reveal-card-scrim {
+        position: fixed;
+        inset: 0;
+        z-index: 50;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 22px;
+        background: var(--void);
+        cursor: pointer;
+      }
+      .reveal-card {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 14px;
+        max-width: min(640px, 84vw);
+        padding: 0 24px;
+        text-align: center;
+        color: var(--bone);
+        opacity: 0;
+        transform: translateY(14px) scale(0.96);
+      }
+      .reveal-card.show {
+        animation: victory-reveal 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      }
+      .reveal-card .icon {
+        width: 64px;
+        height: 64px;
+        color: var(--brass);
+      }
+      .reveal-card-title {
+        font-family: "Cinzel Decorative", Georgia, serif;
+        font-size: 1.6rem;
+        letter-spacing: 0.04em;
+        color: var(--brass);
+      }
+      .reveal-card-subtitle {
+        font-family: "Cormorant Garamond", Georgia, serif;
+        font-size: 1.5rem;
+        color: var(--bone);
+      }
+      .reveal-card-body {
+        font-size: 1.05rem;
+        line-height: 1.5;
+        color: var(--bone-dim);
+      }
+      .reveal-card-dots {
+        display: flex;
+        gap: 8px;
+      }
+      .reveal-card-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--line);
+      }
+      .reveal-card-dot.active {
+        background: var(--brass);
+      }
+      .reveal-card-skip {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .reveal-card {
+          opacity: 1;
+          transform: none;
+        }
+        .reveal-card.show {
+          animation: none;
+        }
+      }
+
       /* A lighter sibling of .fatal-flash above, for a death that doesn't
    end the game — today only a game-ending death gets any beat at all, so
    an ordinary execution changed nothing on the ring. Deliberately NOT a
@@ -2327,6 +2462,75 @@
           align-items: stretch;
           gap: 0;
         }
+      }
+      /* The shareable end-of-session card (ShareCardOverlay.jsx) — reuses
+   .settings-overlay/.powerlog-body for the overlay shell itself (this
+   block is just the card's own content and the preview/actions wrapper
+   around it). Fixed width, not full-bleed: this is the exact node
+   html-to-image rasterizes, so its size is the shared image's own size,
+   sized for a phone screen rather than the TV it's rendered on. */
+      .share-card-overlay-body {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 20px;
+      }
+      .share-card-preview {
+        display: inline-block;
+      }
+      .share-card {
+        width: 420px;
+        max-width: 100%;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 24px;
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+        color: var(--bone);
+      }
+      .share-card-brand {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-family: "Cinzel Decorative", Georgia, serif;
+        font-size: 1rem;
+        color: var(--brass);
+      }
+      .share-card-brand .icon {
+        color: var(--brass);
+      }
+      .share-card-highlights {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        border-top: 1px solid var(--line-soft);
+        padding-top: 16px;
+      }
+      .share-card-highlight {
+        display: flex;
+        gap: 10px;
+        align-items: flex-start;
+      }
+      .share-card-highlight .icon {
+        flex: none;
+        color: var(--brass);
+        margin-top: 2px;
+      }
+      .share-card-highlight-title {
+        font-weight: 600;
+        font-size: 0.9rem;
+        color: var(--bone);
+      }
+      .share-card-highlight-body {
+        font-size: 0.85rem;
+        color: var(--bone-dim);
+        line-height: 1.4;
+      }
+      .share-card-actions {
+        display: flex;
+        gap: 10px;
       }
       .settings-section {
         margin-bottom: 34px;

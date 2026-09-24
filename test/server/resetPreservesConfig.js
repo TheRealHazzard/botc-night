@@ -29,6 +29,10 @@ function check(label, ok, detail) {
       mayorRedirectChance: 0.2,
       disabledCharacterIds: ['gossip', 'savant', 'artist'],
       llmStorytellerEnabled: true,
+      liveBeatsEnabled: false,
+      adaptiveAudioEnabled: false,
+      narrationVarietyEnabled: false,
+      shareCardEnabled: false,
     };
     const patchRes = await request(server.baseUrl, '/api/table/config', { method: 'POST', body: { config: patch } });
     check('the config patch is accepted', patchRes.status === 200 && !patchRes.json.error, JSON.stringify(patchRes));

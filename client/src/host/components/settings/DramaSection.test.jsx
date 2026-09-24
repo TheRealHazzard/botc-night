@@ -42,4 +42,25 @@ describe('DramaSection', () => {
     await userEvent.click(screen.getByLabelText('Night 1'));
     expect(patch).toHaveBeenCalledWith({ hintNights: [2] });
   });
+
+  it.each([
+    ['Live notable-moment beats', 'liveBeatsEnabled'],
+    ['Adaptive tension audio', 'adaptiveAudioEnabled'],
+    ['Narration variety', 'narrationVarietyEnabled'],
+    ['Shareable session card', 'shareCardEnabled'],
+  ])('%s toggles %s', async (label, key) => {
+    const patch = vi.fn();
+    render(<DramaSection config={{ ...config, [key]: false }} patch={patch} />);
+    const row = screen.getByText(label).closest('.settings-row');
+    await userEvent.click(row.querySelector('input[type="checkbox"]'));
+    expect(patch).toHaveBeenCalledWith({ [key]: true });
+  });
+
+  it('each new toggle reflects an already-true config value as checked', () => {
+    render(<DramaSection config={{ ...config, liveBeatsEnabled: true, adaptiveAudioEnabled: true, narrationVarietyEnabled: true, shareCardEnabled: true }} patch={() => {}} />);
+    ['Live notable-moment beats', 'Adaptive tension audio', 'Narration variety', 'Shareable session card'].forEach(label => {
+      const row = screen.getByText(label).closest('.settings-row');
+      expect(row.querySelector('input[type="checkbox"]')).toBeChecked();
+    });
+  });
 });

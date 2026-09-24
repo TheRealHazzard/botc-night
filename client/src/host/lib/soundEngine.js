@@ -141,6 +141,15 @@ export function playDayBreaks(muted) {
   tone(293.66, { duration: 1.5, type: 'triangle', attack: 0.14, delay: 0.16, gain: 0.14, filterFreq: 1300, detune: 4, wet: 0.28, muted });
 }
 
+export function playNotableChime(muted) {
+  // A brief, bright shimmer — distinct from playImpactSting's thud (this
+  // isn't a death) and playVictory's resolved chord (this isn't an
+  // ending). Two quick ascending notes with a bright filter and a
+  // generous reverb send: the sound of a glint, not an event.
+  tone(587.33, { duration: 0.5, type: 'triangle', attack: 0.02, gain: 0.1, filterFreq: 2600, detune: 3, wet: 0.4, muted });
+  tone(880.0, { duration: 0.6, type: 'triangle', attack: 0.03, delay: 0.09, gain: 0.09, filterFreq: 3200, detune: 3, wet: 0.45, muted });
+}
+
 export function playImpactSting(muted) {
   // A sub-bass thud, a short bandpass "crack" for the transient, and a low
   // rumble tail — three different textures, the way a real impact layers,
@@ -182,7 +191,7 @@ let ambience = null; // { osc1, osc2, noiseSrc, gainNode, kind } | null
 
 function teardownAmbience(fadeSec) {
   if (!ambience) return;
-  const { osc1, osc2, noiseSrc, gainNode } = ambience;
+  const { osc1, osc2, osc3, noiseSrc, gainNode } = ambience;
   ambience = null;
   const ctx = getAudioCtx();
   const t0 = ctx.currentTime;
@@ -193,7 +202,7 @@ function teardownAmbience(fadeSec) {
   // than stopping immediately and cutting the ramp off audibly) lets the
   // bed actually die away instead of clicking off.
   setTimeout(() => {
-    [osc1, osc2, noiseSrc].forEach(n => { try { n.stop(); } catch (e) { /* already stopped */ } });
+    [osc1, osc2, osc3, noiseSrc].forEach(n => { try { n.stop(); } catch (e) { /* already stopped */ } });
   }, fadeSec * 1000 + 80);
 }
 
@@ -252,11 +261,55 @@ export function startAmbience(kind, muted) {
   noiseGain.connect(gainNode);
   noiseSrc.start();
 
-  ambience = { osc1, osc2, noiseSrc, gainNode, kind };
+  // The tension layer — Feature 2 (adaptive tension audio). Silent at
+  // rest (tensionGainNode starts at 0); setTensionIntensity below is the
+  // only thing that ever moves it. Nested inside the bed's own gainNode
+  // (not connected straight to masterBus) so it fades out along with
+  // everything else on a phase change instead of needing its own
+  // teardown lifecycle, and so its audible level is naturally relative
+  // to the bed's own night/day volume rather than an independent one. A
+  // fifth-ish above the bed's own base frequency, mildly dissonant
+  // against it on purpose — "rising tension" should read as friction,
+  // not just "louder."
+  const osc3 = ctx.createOscillator();
+  osc3.type = 'sawtooth';
+  osc3.frequency.value = night ? 96.0 : 261.63; // stays under the night bed's own <100Hz register, just above osc1/osc2
+  osc3.detune.value = 6;
+  const tensionFilter = ctx.createBiquadFilter();
+  tensionFilter.type = 'lowpass';
+  tensionFilter.frequency.value = 900;
+  const tensionGainNode = ctx.createGain();
+  tensionGainNode.gain.value = 0;
+  osc3.connect(tensionFilter);
+  tensionFilter.connect(tensionGainNode);
+  tensionGainNode.connect(gainNode);
+  osc3.start();
+
+  ambience = { osc1, osc2, osc3, noiseSrc, gainNode, tensionGainNode, kind };
 }
 
 export function stopAmbience() {
   teardownAmbience(1.2);
+}
+
+/** Ramps the ambience bed's own tension layer toward `level` (0-1) — a
+   smooth ramp, same linear-ramp approach teardownAmbience already uses
+   for its own fades, never a hard cut (a vote-margin update landing
+   every second or two would otherwise click audibly). A no-op with no
+   ambience currently running (lobby/reveal/over — nothing to layer onto;
+   a fresh startAmbience() call always begins this layer back at silent
+   regardless of where a previous bed last left it). */
+export function setTensionIntensity(level) {
+  if (!ambience) return;
+  const ctx = getAudioCtx();
+  const t0 = ctx.currentTime;
+  // Headroom-matched to the bed's own peak gain (0.032-0.05) — the
+  // tension layer is meant to color the existing bed, not dominate it.
+  const target = Math.max(0, Math.min(1, level)) * 0.05;
+  const g = ambience.tensionGainNode.gain;
+  g.cancelScheduledValues(t0);
+  g.setValueAtTime(g.value, t0);
+  g.linearRampToValueAtTime(target, t0 + 1.5);
 }
 
 export function playVictory(winner, muted) {

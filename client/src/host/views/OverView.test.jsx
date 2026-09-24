@@ -118,4 +118,17 @@ describe('OverView', () => {
     render(<OverView players={players} victory={null} gameSummary={null} log={[]} actionLog={[]} nightNumber={1} />);
     expect(await screen.findAllByText(/5 games · 60% win rate/)).toHaveLength(2);
   });
+
+  it('the Share button appears by default (shareCardEnabled unset) and opens the overlay', async () => {
+    baseMocks();
+    render(<OverView players={players} victory={null} gameSummary={null} log={[]} actionLog={[]} nightNumber={1} />);
+    await userEvent.click(screen.getByText('Share this game'));
+    expect(screen.getByText('Share this game', { selector: 'h2' })).toBeInTheDocument();
+  });
+
+  it('the Share button is hidden when shareCardEnabled is explicitly off', () => {
+    baseMocks();
+    render(<OverView players={players} victory={null} gameSummary={null} log={[]} actionLog={[]} nightNumber={1} shareCardEnabled={false} />);
+    expect(screen.queryByText('Share this game')).not.toBeInTheDocument();
+  });
 });

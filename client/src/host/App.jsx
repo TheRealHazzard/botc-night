@@ -9,6 +9,9 @@ import { useScriptRoster } from "./hooks/useScriptRoster.js";
 import { useEnteringSeatIds } from "./hooks/useEnteringSeatIds.js";
 import { useDayPace } from "./hooks/useDayPace.js";
 import { useVictoryReveal } from "./hooks/useVictoryReveal.js";
+import { useRevealCardSequencer } from "./hooks/useRevealCardSequencer.js";
+import { useNotableBeat } from "./hooks/useNotableBeat.js";
+import { useTensionLevel } from "./hooks/useTensionLevel.js";
 import { useWakeLock } from "../hooks/useWakeLock.js";
 import { useTextScale } from "../hooks/useTextScale.js";
 import { post } from "../lib/api.js";
@@ -20,6 +23,7 @@ import Icon from "./components/Icon.jsx";
 import RingSeats from "./components/RingSeats.jsx";
 import ReclaimBanner from "./components/ReclaimBanner.jsx";
 import FatalFlashOverlay from "./components/FatalFlashOverlay.jsx";
+import RevealCardOverlay from "./components/RevealCardOverlay.jsx";
 import WhimConfirmCard from "./components/WhimConfirmCard.jsx";
 import ToastStack from "./components/ToastStack.jsx";
 import BluffBeat from "../components/BluffBeat.jsx";
@@ -92,6 +96,16 @@ export default function App() {
   );
   const dayPace = useDayPace(displayS?.dayStartedAt, DAY_PACE_TOTAL_MS);
   const bannerShown = useVictoryReveal(displayS?.victory);
+  const { stage: revealCardStage, cards: revealCards, finish: finishRevealCards } = useRevealCardSequencer(displayS, bannerShown);
+  // Both read raw S (not displayS) — a notable moment or a vote landing
+  // mid phase-transition should still register immediately, the same
+  // reasoning useHostAnnouncement below already reads raw S for. No
+  // client-side liveBeatsEnabled check needed here: maybeTriggerNotableBeat
+  // (server.js) already gates the toggle server-side — when it's off,
+  // notableBeatAt simply never advances, so this hook never has anything
+  // new to fire on in the first place.
+  const notablePulsing = useNotableBeat(S?.notableBeatAt, muted);
+  useTensionLevel(S, { enabled: S?.config?.adaptiveAudioEnabled !== false });
   const { scale: textScale, cycle: cycleTextScale } = useTextScale();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [buildingScript, setBuildingScript] = useState(false);
@@ -282,10 +296,14 @@ export default function App() {
   const revealedForRing = displayS.phase === "over" || displayS.revealed;
   const enteringIds = displayS.phase === "lobby" ? allEnteringIds : null;
   const pace = displayS.phase === "day" ? dayPace : null;
+  // notablePulsing only ever fires pre-"over" (see maybeTriggerNotableBeat
+  // in server.js), the verdict glow only post- — mutually exclusive by
+  // phase, so this is a plain either/or, never a real conflict to resolve.
   const glow =
-    revealedForRing && displayS.victory && bannerShown
-      ? displayS.victory.winner
-      : null;
+    notablePulsing ? "notable"
+      : revealedForRing && displayS.victory && bannerShown
+        ? displayS.victory.winner
+        : null;
 
   return (
     <>
@@ -398,6 +416,8 @@ export default function App() {
                 players={displayS.players}
                 victory={displayS.victory}
                 gameSummary={displayS.gameSummary}
+                pivotalHighlights={displayS.pivotalHighlights}
+                shareCardEnabled={displayS.config?.shareCardEnabled}
                 log={displayS.log}
                 actionLog={displayS.actionLog}
                 resultsLog={displayS.resultsLog}
@@ -429,6 +449,10 @@ export default function App() {
 
       {fatalFlashing && (
         <FatalFlashOverlay blow={blow} onDone={onFatalFlashDone} />
+      )}
+
+      {revealCardStage === "active" && (
+        <RevealCardOverlay cards={revealCards} onDone={finishRevealCards} />
       )}
 
       <WhimConfirmCard card={whimCard} onDismiss={dismissWhimCard} />
