@@ -18,25 +18,44 @@
     "test:llm": "node test/llmStoryteller.js",
     "test:nanoleaf": "node test/nanoleaf.js",
     "test:history": "node test/historyRecap.js",
+    "test:pivotal-scoring": "node test/pivotalScoring.js",
     "test:server": "node test/server/lifecycle.js && node test/server/mastermindBonusDay.js && node test/server/vortoxNoExecution.js && node test/server/botDayActions.js && node test/server/nominateEligibility.js && node test/server/wave2PrivacyLeak.js && node test/server/revealPhaseGuard.js && node test/server/dealPhaseGuard.js && node test/server/dealUndersizedRoster.js && node test/server/clearLobbyReclaims.js && node test/server/botsAnswerRealPlayer.js && node test/server/resetPreservesConfig.js && node test/server/flagBug.js && node test/server/charactersChecklist.js && node test/server/replayRecord.js && node test/server/replaySuccession.js && node test/server/replayNonActor.js && node test/server/gameSummaryExcludesBots.js && node test/server/gameHistoryBotFilter.js && node test/server/simStartGuard.js && node test/server/nanoleafRoutes.js && node test/server/butlerVoteNullified.js",
     "dev:player": "vite",
     "build:player": "vite build",
     "build:host": "vite build --mode host",
     "build": "npm run build:player && npm run build:host",
-    "test:player": "vitest run"
+    "test:player": "vitest run",
+    "package:server": "pkg server.js --config package.json --output src-tauri/binaries/botc-night-server-x86_64-pc-windows-msvc.exe",
+    "tauri": "tauri",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build",
+    "stage:app": "node tools/stage-app.js",
+    "build:app": "npm run build && npm run package:server && cargo build --release --manifest-path src-tauri/Cargo.toml && npm run stage:app"
   },
   "engines": {
     "node": ">=18"
   },
+  "pkg": {
+    "targets": [
+      "node22-win-x64"
+    ],
+    "assets": [
+      "public/**/*",
+      "game/characters.json"
+    ]
+  },
   "dependencies": {
+    "html-to-image": "^1.11.13",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
+    "@tauri-apps/cli": "^2.11.5",
     "@testing-library/jest-dom": "^6.5.0",
     "@testing-library/react": "^16.0.1",
     "@testing-library/user-event": "^14.5.2",
     "@vitejs/plugin-react": "^4.3.2",
+    "@yao-pkg/pkg": "^6.22.0",
     "jsdom": "^25.0.1",
     "vite": "^5.4.8",
     "vitest": "^2.1.2"

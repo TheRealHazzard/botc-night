@@ -39,6 +39,18 @@ npm start           # now also serves HTTPS on :3443
 npm run host:public # needs cloudflared on PATH
 ```
 
+**Optional — a desktop app for the host, no terminal needed** (Windows
+only so far): a real window instead of a browser tab, wrapping this same
+server unmodified — see [`ROADMAP.md`](ROADMAP.md) for the current state
+of it and why it ships as a folder rather than an installer for now.
+
+```bash
+npm run build:app   # needs Rust + the Tauri CLI — see src-tauri/
+```
+
+Copy the resulting `dist-app/` folder anywhere and double-click
+`BotC Night.exe`.
+
 ## Architecture
 
 - **`server.js`** — the entire HTTP/SSE layer: one plain Node process, no framework, no database. All state lives in a single in-memory `game` object; every client (host and player) subscribes to it over Server-Sent Events and gets pushed a fresh view the moment anything changes.
@@ -73,6 +85,8 @@ A few things that look like gaps on a first read are deliberate, not missed — 
 ## Status
 
 Single-table, no accounts, no database — built for one physical table at a time. Player history/stats live in `data/` (gitignored) on whichever machine hosts the game.
+
+See [`ROADMAP.md`](ROADMAP.md) for what's actually validated vs. code-complete-but-untested, named gaps, and the open scope questions for a 1.0.
 
 ## Contributing
 
