@@ -2365,6 +2365,71 @@ console.log('\nSV: Barber (no wave 2 — the swap rides along with the Demon\'s 
   check('no Barber in the script -> no addon at all, even for a living Demon', !prompt.barberSwap);
 }
 
+console.log('\nDamsel (opening briefing must confirm she\'s in play, never who she is)');
+{
+  // The real bug: this used to read `${damsel.name} is the Damsel.`,
+  // naming her seat outright — a guaranteed, risk-free win for evil the
+  // instant day began, since /api/damsel-guess's whole premise (evil
+  // "guesses" and might be wrong) only holds if they genuinely don't know
+  // yet. boozling is one of the three scripts that actually carries her.
+  // 7+ players — below that, "evil stays in the dark" entirely (this same
+  // function's own small-game exception), so nothing would be told to
+  // anyone regardless of the Damsel, and this test would prove nothing.
+  const mk = (id, characterId) => ({ id, name: id, characterId, believedId: characterId, alive: true, statuses: {} });
+  const g = E.newGame();
+  g.script = 'boozling'; g.nightNumber = 1; g.phase = 'night'; g.results = {};
+  g.players = [
+    mk('dm', 'damsel'), mk('m1', 'poisoner'), mk('m2', 'baron'), mk('d', 'imp'),
+    mk('t1', 'soldier'), mk('t2', 'saint'), mk('t3', 'drunk'),
+  ];
+  await E.resolveNight(g);
+  const m1Body = g.results.m1.body, m2Body = g.results.m2.body;
+  check('a Minion is told the Damsel is in play', m1Body.includes('The Damsel is in play.'), m1Body);
+  check('...but is never told her actual seat/name', !m1Body.includes('dm'), m1Body);
+  check('every Minion gets the same treatment, not just one', m2Body.includes('The Damsel is in play.') && !m2Body.includes('dm'), m2Body);
+}
+{
+  // No Damsel in the roster at all -> no such line for anyone, and
+  // definitely never a false positive naming some other player.
+  const mk = (id, characterId) => ({ id, name: id, characterId, believedId: characterId, alive: true, statuses: {} });
+  const g = E.newGame();
+  g.script = 'tb'; g.nightNumber = 1; g.phase = 'night'; g.results = {};
+  g.players = [
+    mk('m1', 'poisoner'), mk('t1', 'soldier'), mk('d', 'imp'),
+    mk('t2', 'saint'), mk('t3', 'drunk'), mk('t4', 'virgin'), mk('t5', 'mayor'),
+  ];
+  await E.resolveNight(g);
+  check('no Damsel in the script -> no "Damsel" mention at all', !g.results.m1.body.includes('Damsel'), g.results.m1.body);
+}
+{
+  // The second, separate bug: privateState's damselGuess prompt itself was
+  // never gated on a Damsel actually being in the roster at all — every
+  // living Minion, in every game (Trouble Brewing included, which doesn't
+  // even carry the character), saw the "Guess the Damsel" prompt during
+  // the day. Caught live: a real table reported seeing it in a game with
+  // no Damsel dealt.
+  const mk = (id, characterId) => ({ id, name: id, characterId, believedId: characterId, alive: true, statuses: {} });
+  const gNoDamsel = E.newGame();
+  gNoDamsel.script = 'tb'; gNoDamsel.phase = 'day';
+  gNoDamsel.players = [mk('m1', 'poisoner'), mk('t1', 'soldier'), mk('d', 'imp')];
+  check('a living Minion in a Damsel-less game never gets the damselGuess prompt',
+    E.privateState(gNoDamsel, 'm1').damselGuess === null);
+
+  const gDamsel = E.newGame();
+  gDamsel.script = 'boozling'; gDamsel.phase = 'day';
+  gDamsel.players = [mk('dm', 'damsel'), mk('m1', 'poisoner'), mk('d', 'imp')];
+  const withDamsel = E.privateState(gDamsel, 'm1').damselGuess;
+  check('a living Minion in a real Damsel game DOES get the prompt', !!withDamsel, JSON.stringify(withDamsel));
+  check('the target list includes the Damsel herself, among everyone else', withDamsel && withDamsel.targets.some(t => t.id === 'dm'));
+
+  // The new Damsel-presence check is additive — every pre-existing gate
+  // still holds alongside it, not replaced by it.
+  check('a non-Minion in the same real Damsel game still never gets it', E.privateState(gDamsel, 'd').damselGuess === null);
+  gDamsel.damselGuessUsed = true;
+  check('a Minion in a real Damsel game, once the guess is already used, no longer gets it',
+    E.privateState(gDamsel, 'm1').damselGuess === null);
+}
+
 console.log('\nRavenkeeper (day-phase reveal, not wave 2)');
 {
   const mk = (id, characterId, alive = true) => ({ id, name: id, characterId, believedId: characterId, alive, statuses: {} });

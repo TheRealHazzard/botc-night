@@ -2590,6 +2590,14 @@ async function requestHandler(req, res) {
         if (!E.publiclyAlive(guesser) || E.trueChar(guesser).team !== 'minion') {
           return json(res, 400, { error: 'Only a living Minion may guess.' });
         }
+        // The client only ever offers this button when privateState's own
+        // damselGuess field is set (which already checks this) — checked
+        // again here since a client-computed prompt is never trusted alone
+        // for anything that changes real game state, same as every other
+        // /api/* route in this file.
+        if (!game.players.some(x => x.characterId === 'damsel')) {
+          return json(res, 409, { error: 'There is no Damsel in this game.' });
+        }
         if (game.damselGuessUsed) return json(res, 409, { error: 'That guess has already been used.' });
         // targetId, not guessedId — matches the {token, targetId} body
         // shape client/src/components/game/SingleTargetChoice.jsx already

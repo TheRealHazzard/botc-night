@@ -610,10 +610,15 @@ function deliverOpeningInfo(g, results) {
   // wrong, name) and is added to what the Demon is told about their
   // Minions. A script with no Magician in play is untouched by either half.
   const magician = g.players.find(p => p.characterId === 'magician');
-  // Damsel: "All Minions know you are in play" — every Minion's own opening
-  // briefing below gets a line naming her outright, unconditional on
-  // anything (this is what /api/damsel-guess later gives a Minion the
-  // chance to act on).
+  // Damsel: "All Minions know you are in play" — setup info about the
+  // CHARACTER, same shape as Godfather's "which Outsiders are in play"
+  // just below (a category, not an identity). This used to name her
+  // outright by seat ("Ada is the Damsel."), which handed every Minion a
+  // guaranteed, risk-free win the instant day began — /api/damsel-guess's
+  // whole "publicly GUESS" premise only makes sense if evil genuinely
+  // doesn't know who she is yet and has to deduce it, the same way they
+  // have to deduce everything else on a script (hide-and-seek's own
+  // description) built specifically around bluffing and double-claims.
   const damsel = g.players.find(p => p.characterId === 'damsel');
   // Marionette: "The Demon knows who you are" — the reciprocal half of her
   // dealRoles setup above, same shape as the Lunatic's own line to the
@@ -632,7 +637,7 @@ function deliverOpeningInfo(g, results) {
   for (const m of minions) {
     results[m.id] = {
       title: 'Your allies',
-      body: `${magician ? magician.name : demon.name} is the Demon.` + (damsel ? ` ${damsel.name} is the Damsel.` : ''),
+      body: `${magician ? magician.name : demon.name} is the Demon.` + (damsel ? ' The Damsel is in play.' : ''),
       names: minions.filter(x => x.id !== m.id).map(x => `${x.name} — fellow Minion`),
     };
     if (snitch) {
@@ -1631,8 +1636,12 @@ function privateState(g, playerId) {
     // check like the others here, since a real Minion always knows they're
     // a Minion (there's no Drunk/Lunatic-style mixup to model). Once per
     // game across the whole evil team, not once per Minion — see
-    // game.damselGuessUsed and /api/damsel-guess in server.js.
-    damselGuess: (g.phase === 'day' && publiclyAlive(p) && trueChar(p) && trueChar(p).team === 'minion' && !g.damselGuessUsed)
+    // game.damselGuessUsed and /api/damsel-guess in server.js. Also gated
+    // on a real Damsel actually being in THIS game's dealt roster — missed
+    // originally, which meant every Minion in every game (Trouble Brewing
+    // included, which doesn't even carry the character) saw this prompt.
+    damselGuess: (g.phase === 'day' && publiclyAlive(p) && trueChar(p) && trueChar(p).team === 'minion' && !g.damselGuessUsed
+      && g.players.some(x => x.characterId === 'damsel'))
       ? { targets: g.players.filter(x => publiclyAlive(x)).map(x => ({ id: x.id, name: x.name, color: x.color || null, alive: true })) }
       : null,
     // Sects & Violets' Juggler: "on your 1st day" — day one only, once ever,
