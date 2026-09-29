@@ -311,8 +311,9 @@ module.exports = (h) => [
     // characters.json gives this a real otherNightOrder (the physical
     // Storyteller sheet still wakes that slot to check "did they die
     // today?"), but resolve() is never actually reached: a dead player is
-    // excluded from actingTonight() entirely (the Ravenkeeper is the one
-    // named exception). The effect is implemented via onDeath instead,
+    // excluded from actingTonight() entirely (Vigormortis's own "keeps
+    // their ability" Minion is the one named exception). The effect is
+    // implemented via onDeath instead,
     // fired the instant the death is applied — resolve stays a no-op purely
     // so the shape is safe to call.
     resolve() {},

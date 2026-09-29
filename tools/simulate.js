@@ -177,13 +177,14 @@ for (let n = 2; n <= 4; n++) {
   const after = E.alive(g).length;
   check(`night ${n} resolved (${before} -> ${after} alive)`, after <= before);
 
+  // Wave 2 itself (the Barber's swap — the only remaining trigger now that
+  // the Ravenkeeper's own reveal moved to a day-phase route; see "SV:
+  // Barber" below) has its own dedicated coverage; this default TB roster
+  // never deals a Barber, so there's nothing wave-2-specific to check here.
   if (E.needsWaveTwo(g)) {
     g.wave = 2; g.pending = {};
-    const rk = g.players.find(p => p.believedId === 'ravenkeeper' && p.statuses.diedTonight);
-    check('  ravenkeeper is asked only after dying', !!E.promptFor(g, rk));
     autoAnswer(g);
     await E.resolveNight(g, 2);
-    check('  ravenkeeper learned a character', !!g.results[rk.id]);
     check('  wave 2 did not re-run the whole night',
       g.players.filter(p => p.statuses.diedTonight).length >= 1);
   }
@@ -2337,6 +2338,79 @@ console.log('\nSV: Barber');
   g.players = [mk('ba', 'barber'), mk('t1', 'oracle')];
   const prompt = E.promptFor(g, g.players.find(p => p.id === 'ba'));
   check('a living Barber has no active ability of their own — just a decoy', !!prompt && prompt.decoy === true);
+}
+
+console.log('\nRavenkeeper (day-phase reveal, not wave 2)');
+{
+  const mk = (id, characterId, alive = true) => ({ id, name: id, characterId, believedId: characterId, alive, statuses: {} });
+
+  // A night kill on the Ravenkeeper no longer opens wave 2 on its own —
+  // see needsWaveTwo/promptFor's own comments in engine.js for why (moved
+  // to a day-phase route after a real report: a player who'd just learned
+  // they died, needing to also read new instructions and choose a target
+  // inside wave 2's old 20-second window, and consistently losing that
+  // race).
+  const g = E.newGame();
+  g.script = 'tb'; g.nightNumber = 2; g.phase = 'night'; g.wave = 1;
+  g.players = [mk('rk', 'ravenkeeper'), mk('t1', 'soldier'), mk('d', 'imp')];
+  g.pending = { d: { targets: ['rk'] } };
+  await E.resolveNight(g, 1);
+  const rk = g.players.find(p => p.id === 'rk');
+  check('the Ravenkeeper actually died', rk.alive === false);
+  check('no wave 2 opens just from her own death', E.needsWaveTwo(g) === false);
+  check('she has no night prompt of her own to answer', E.promptFor(g, rk) === null);
+  check('instead, she is left with a day-phase choice pending', rk.statuses.ravenkeeperPending === true);
+
+  // A real player's day-phase choice — server.js's /api/ravenkeeper-choice
+  // is a thin wrapper around exactly this.
+  const result = await E.resolveRavenkeeperChoice(g, rk, 't1');
+  check('resolveRavenkeeperChoice returns the reveal', result && result.body === 't1 is the Soldier.', JSON.stringify(result));
+  check('logTrueValue recorded the real answer, unfalsified', g.trueValueLog.some(
+    tv => tv.playerId === 'rk' && tv.characterId === 'ravenkeeper' && tv.trueValue === 'soldier' && tv.shown === 'soldier' && tv.impaired === false));
+
+  check('an unknown target is rejected, not silently resolved', await E.resolveRavenkeeperChoice(g, rk, 'nobody') === null);
+  check('targeting herself is rejected', await E.resolveRavenkeeperChoice(g, rk, 'rk') === null);
+
+  // Poisoned (or otherwise impaired): wrong, never silent — same doctrine
+  // as every other info role, see game/abilities/README.md.
+  const gPoisoned = E.newGame();
+  gPoisoned.script = 'tb';
+  gPoisoned.players = [mk('rk2', 'ravenkeeper'), mk('t2', 'soldier'), mk('d2', 'imp')];
+  gPoisoned.players.find(p => p.id === 'rk2').statuses.poisoned = true;
+  gPoisoned.mercyUsed = true; // deliberately pre-spent so Mercy can't quietly rescue this assertion
+  const poisonedResult = await E.resolveRavenkeeperChoice(gPoisoned, gPoisoned.players.find(p => p.id === 'rk2'), 't2');
+  check('a poisoned Ravenkeeper is still shown SOME character, never silent', !!poisonedResult, JSON.stringify(poisonedResult));
+  check('a poisoned Ravenkeeper\'s shown answer is false, not the real one', poisonedResult.body !== 't2 is the Soldier.', poisonedResult.body);
+  check('the false answer is still logged as impaired, with the real truth alongside it', gPoisoned.trueValueLog.some(
+    tv => tv.playerId === 'rk2' && tv.trueValue === 'soldier' && tv.impaired === true && tv.shown !== 'soldier'));
+
+  // The pending choice expires if never used, once night falls again — "the
+  // day immediately following the death," not indefinitely available.
+  const gExpire = E.newGame();
+  gExpire.script = 'tb'; gExpire.nightNumber = 2; gExpire.phase = 'night'; gExpire.wave = 1;
+  gExpire.players = [mk('rk3', 'ravenkeeper'), mk('t3', 'soldier'), mk('d3', 'imp')];
+  gExpire.pending = { d3: { targets: ['rk3'] } };
+  await E.resolveNight(gExpire, 1);
+  check('pending right after the death', gExpire.players.find(p => p.id === 'rk3').statuses.ravenkeeperPending === true);
+  gExpire.nightNumber = 3; gExpire.phase = 'night'; gExpire.wave = 1; gExpire.pending = {};
+  await E.resolveNight(gExpire, 1);
+  check('no longer pending once the next night\'s wave-1 reset has run', !gExpire.players.find(p => p.id === 'rk3').statuses.ravenkeeperPending);
+
+  // A bot has no day-phase UI to act through — resolveNight resolves a bot
+  // Ravenkeeper's reveal immediately instead of leaving it pending, so a
+  // full-bot game (npm run sim's own default, /api/sim/start) still
+  // exercises this reveal rather than silently losing it.
+  const gBot = E.newGame();
+  gBot.script = 'tb'; gBot.nightNumber = 2; gBot.phase = 'night'; gBot.wave = 1;
+  gBot.players = [
+    { ...mk('rkb', 'ravenkeeper'), bot: true },
+    mk('t4', 'soldier'), mk('d4', 'imp'),
+  ];
+  gBot.pending = { d4: { targets: ['rkb'] } };
+  await E.resolveNight(gBot, 1);
+  const rkb = gBot.players.find(p => p.id === 'rkb');
+  check('a bot Ravenkeeper is resolved immediately, not left pending', !rkb.statuses.ravenkeeperPending);
+  check('a bot Ravenkeeper still gets a real reveal', !!gBot.results.rkb, JSON.stringify(gBot.results.rkb));
 }
 
 console.log('\nSV: Mutant setup (dealRoles)');

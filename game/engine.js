@@ -10,7 +10,7 @@ const {
   byId, byToken, alive, actingChar, trueChar, impaired, impairedFlip, publiclyAlive,
   wouldBlockKill, randomKiller, checkKill, isEvil, isEvilRegistration, resolveWhim, setWhimJudge,
   heuristicWhim, WHIM_FIRING_HELPS_GOOD, maybeMercy, triggerMoonchildIfNeeded, flagAbnormal,
-  triggerPixieIfNeeded, applyCannibalTransform,
+  triggerPixieIfNeeded, applyCannibalTransform, resolveRavenkeeperChoice,
   logEvent, outsiderDiedToday, minionDiedToday, somebodyDiedYesterday,
   numberSignal, falseNumber, logTrueValue, evilNeighbourCount, evilPairCount, pairInfo,
   decide,
@@ -376,11 +376,13 @@ function actingTonight(g) {
   const entries = [];
 
   for (const p of g.players) {
-    // Two dead players still act: the Ravenkeeper, once, the night they die;
-    // a Minion Vigormortis killed, every night thereafter — "keeps their
-    // ability" is permanent, not a one-time epilogue.
-    const actsFromBeyond = (first === false && p.believedId === 'ravenkeeper') || p.statuses.vigormortisKept;
-    if (!p.alive && !actsFromBeyond) continue;
+    // A dead player still acts: a Minion Vigormortis killed, every night
+    // thereafter — "keeps their ability" is permanent, not a one-time
+    // epilogue. The Ravenkeeper used to be the other named exception here
+    // (once, the night they die) — moved to a day-phase route instead (see
+    // server.js's /api/ravenkeeper-choice), so a dead Ravenkeeper no longer
+    // has a night turn to dispatch here at all.
+    if (!p.alive && !p.statuses.vigormortisKept) continue;
     const c = actingChar(p);
     if (!c) continue;
     const order = first ? c.firstNightOrder : c.otherNightOrder;
@@ -401,8 +403,14 @@ function actingTonight(g) {
   return entries.sort((a, b) => a.order - b.order);
 }
 
-/** Which wave a character's own turn falls in — only the Ravenkeeper (acts
-    from beyond, after wave 1 has already decided who died) is wave 2. */
+/** Which wave a character's own turn falls in — reserved for a future
+    ability that has to act after wave 1 has already decided who died.
+    Nothing in the registry currently sets `wave: 2` (the Ravenkeeper used
+    to be the one example; see server.js's /api/ravenkeeper-choice for
+    where that logic lives now) — the Barber's swap is still a real wave-2
+    case, but it's a named special case outside the registry entirely (see
+    needsWaveTwo and promptFor's own 'barber-swap' branch), not dispatched
+    through this. */
 function waveFor(characterId) {
   const entry = REGISTRY[characterId];
   return (entry && entry.wave) || 1;
@@ -472,9 +480,11 @@ function promptFor(g, p) {
 
   const c = actingChar(p);
   if (!c || !p.alive) {
-    // The Ravenkeeper acts from beyond once, the night they die. A Minion
-    // Vigormortis killed keeps acting every night after — see actingTonight.
-    if (!((p.believedId === 'ravenkeeper' && p.statuses.diedTonight && g.wave === 2) || p.statuses.vigormortisKept)) return null;
+    // A Minion Vigormortis killed keeps acting every night after — see
+    // actingTonight. The Ravenkeeper used to be the other exception here
+    // (acts from beyond once, the night they die); that's a day-phase
+    // route now (server.js's /api/ravenkeeper-choice), not a night prompt.
+    if (!p.statuses.vigormortisKept) return null;
   }
   const first = g.nightNumber === 1;
   const order = c ? (first ? c.firstNightOrder : c.otherNightOrder) : 0;
@@ -674,8 +684,9 @@ function logPrivateAction(g, player, submitted) {
 
 /**
  * Resolve one wave of the night. Wave 2 exists only for abilities that depend
- * on what wave 1 did (the Ravenkeeper dying), so it must not re-run the night:
- * re-resolving would wipe `diedTonight` and recompute every info role's answer.
+ * on what wave 1 did (the Barber's own death flagging the Demon's swap), so
+ * it must not re-run the night: re-resolving would wipe `diedTonight` and
+ * recompute every info role's answer.
  */
 async function resolveNight(g, wave = 1) {
   const order = actingTonight(g).filter(e => waveFor(e.character.id) === wave);
@@ -690,6 +701,13 @@ async function resolveNight(g, wave = 1) {
       delete p.statuses.diedTonight;
       delete p.statuses.executionImmune; // Devil's Advocate's protection covered only yesterday's execution
       delete p.statuses.witchCursed; // the Witch's curse only ever covers the single day right after it's cast
+      // The Ravenkeeper's day-phase choice (see /api/ravenkeeper-choice)
+      // expires once night falls again unused — "the day immediately
+      // following the death," not indefinitely available. A bot's own
+      // choice never sets this in the first place (resolved immediately
+      // below instead), so this only ever fires for a real player who
+      // missed their own window.
+      delete p.statuses.ravenkeeperPending;
     }
     g.exorcistBlockedId = null;
     g.goonFlippedTonight = false;
@@ -881,6 +899,28 @@ async function resolveNight(g, wave = 1) {
     logEvent(g, `${d.player.name} died in the night (${d.cause}).`, true);
     triggerDeathHooks(g, d.player, { killedByDemon: !!d.killedByDemon, results });
     if (!d.skipSuccession) succeedDemon(g, d.player);
+
+    // The Ravenkeeper: "if you die at night, choose a player: you learn
+    // their character" — moved off this same night's wave-2 window onto
+    // the day immediately following instead (see server.js's own
+    // /api/ravenkeeper-choice and its comment on why: a real report of a
+    // player who'd just learned they died, needing to also read new
+    // instructions and choose within wave 2's short window, and losing
+    // that race). A bot has no day-phase UI to act through, so a bot
+    // Ravenkeeper resolves immediately, right here, with a random target —
+    // same spirit as botChoice() elsewhere — rather than silently losing
+    // this reveal the moment it stopped being a night prompt.
+    if (d.player.believedId === 'ravenkeeper') {
+      if (d.player.bot) {
+        const candidates = g.players.filter(x => x.id !== d.player.id);
+        if (candidates.length) {
+          const result = await resolveRavenkeeperChoice(g, d.player, pick(candidates).id);
+          if (result) results[d.player.id] = result;
+        }
+      } else {
+        d.player.statuses.ravenkeeperPending = true;
+      }
+    }
   }
 
   // Sects & Violets' Barber: the wave-2 swap itself (see promptFor's
@@ -1173,13 +1213,14 @@ function resolveDayVote(g) {
   return top[0].nomineeId;
 }
 
-/** Does anyone need a second window tonight? Either the Ravenkeeper died in
-    wave 1, or the Barber did (today's execution, or tonight in wave 1) and
-    flagged the Demon via barberSwapPending — see promptFor and the wave-2
-    step in resolveNight. */
+/** Does anyone need a second window tonight? Only the Barber, dying (today's
+    execution, or tonight in wave 1) and flagging the Demon via
+    barberSwapPending — see promptFor and the wave-2 step in resolveNight.
+    The Ravenkeeper used to be the other trigger here; her reveal moved to a
+    day-phase route instead (server.js's /api/ravenkeeper-choice), so dying
+    no longer opens a second window on its own. */
 function needsWaveTwo(g) {
-  return g.players.some(p => p.believedId === 'ravenkeeper' && p.statuses.diedTonight) ||
-    g.players.some(p => p.statuses.barberSwapPending);
+  return g.players.some(p => p.statuses.barberSwapPending);
 }
 
 /** The whole game's own numbers — safe to show only once revealed, same as
@@ -1610,8 +1651,8 @@ function privateState(g, playerId) {
     madClaim: (g.phase === 'day' && p.statuses.madReasons && p.statuses.madReasons.length && !p.statuses.madClaimedToday)
       ? { label: p.statuses.madReasons.map(r => r.label).join(' or ') }
       : null,
-    // Acts from beyond, same as the Ravenkeeper — offered once, the first
-    // time this player ever dies, in whatever phase that happens to be.
+    // Acts from beyond — offered once, the first time this player ever
+    // dies, in whatever phase that happens to be.
     moonchildChoice: p.statuses.moonchildPending
       ? { targets: g.players.filter(x => x.id !== p.id && publiclyAlive(x)).map(x => ({ id: x.id, name: x.name, color: x.color || null, alive: true })) }
       : null,
@@ -1621,6 +1662,15 @@ function privateState(g, playerId) {
     // /api/klutz-choice.
     klutzChoice: p.statuses.klutzPending
       ? { targets: g.players.filter(x => x.id !== p.id && publiclyAlive(x)).map(x => ({ id: x.id, name: x.name, color: x.color || null, alive: true })) }
+      : null,
+    // The Ravenkeeper: a different shape from Moonchild/Klutz above in two
+    // ways — gated to the day phase specifically (ravenkeeperPending is
+    // only ever set on a night death; see resolveNight's "Apply deaths"
+    // step), and able to target a DEAD player too, matching the real
+    // ability ("choose a player: you learn their character," never
+    // restricted to the living) — see server.js's /api/ravenkeeper-choice.
+    ravenkeeperChoice: (g.phase === 'day' && p.statuses.ravenkeeperPending)
+      ? { targets: g.players.filter(x => x.id !== p.id).map(x => ({ id: x.id, name: x.name, color: x.color || null, alive: x.alive })) }
       : null,
     // Deliberately no live tally here — the running count is a shared
     // TV/host-only read of the room, same as everyone watching hands go up
@@ -1668,7 +1718,7 @@ module.exports = {
   minionDiedToday, triggerMoonchildIfNeeded, triggerDeathHooks, resolveMastermindDay,
   resolveDayVote, gameSummary, resolveMadness, buildSavantStatements, evaluateClaim,
   activeScriptPool, applyConfigPatch, buildStorytellerContext, BUCKET4_IDS,
-  applyCannibalTransform,
+  applyCannibalTransform, resolveRavenkeeperChoice,
   // Exposed for tools/audit-abilities.js's generic per-character invariant
   // checks, which need to iterate every entry rather than dispatch by id —
   // nothing inside game/ itself needs this, since engine.js's own functions

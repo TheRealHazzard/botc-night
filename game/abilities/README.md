@@ -11,19 +11,21 @@ that pattern. Now each character is one self-contained entry.
 ## Scope
 
 Only characters with a real night prompt, `resolveNight` behavior, and/or an
-`onDeath` reaction have an entry — 13 in `tb.js`, 15 in `bmr.js`, 22 (of
+`onDeath` reaction have an entry — 12 in `tb.js`, 15 in `bmr.js`, 22 (of
 Sects & Violets' 25 — see below) in `sv.js`. Passive/reactive-only characters
 (Tea Lady, Fool, Mayor, Soldier, Recluse, Saint, Baron, Drunk, Scarlet Woman,
 Grandmother, Minstrel, Pacifist, Tinker, Moonchild, Goon, Lunatic,
-Mastermind, Virgin, Slayer) have no entry — their effects live where they're
-actually checked: `wouldBlockKill`/`isEvil` in `game/helpers.js`,
-`dealRoles`/`deliverOpeningInfo`/`succeedDemon`/`resolveMastermindDay` in
-`game/engine.js`, or a day-phase route in `server.js`. A handful of
-genuinely cross-cutting interceptions (the Lunatic dispatching on true
-character instead of believed, the Exorcist blocking the Demon's turn, the
-Goon reacting to *any* other player's action) also stay as small named
-exceptions directly in `resolveNight`'s main loop, rather than being forced
-into one character's entry when they don't actually belong to it.
+Mastermind, Virgin, Slayer, Ravenkeeper) have no entry — their effects live
+where they're actually checked: `wouldBlockKill`/`isEvil` in
+`game/helpers.js`, `dealRoles`/`deliverOpeningInfo`/`succeedDemon`/
+`resolveMastermindDay` in `game/engine.js`, or a day-phase route in
+`server.js`. The Ravenkeeper is the newest addition to that list — see
+"Savant, Artist, and Mutant" below for the precedent and why it moved there.
+A handful of genuinely cross-cutting interceptions (the Lunatic dispatching
+on true character instead of believed, the Exorcist blocking the Demon's
+turn, the Goon reacting to *any* other player's action) also stay as small
+named exceptions directly in `resolveNight`'s main loop, rather than being
+forced into one character's entry when they don't actually belong to it.
 
 `sv.js` (Sects & Violets) is complete — all 25 characters are implemented,
 and `'sv'` is a selectable script everywhere (`DATA.editions` in
@@ -45,11 +47,14 @@ three:
   so a mid-night identity change can't retroactively add a dispatch slot for
   this night, only for future ones (same deliberate simplification Snake
   Charmer's swap and Pit-Hag's demon-making already document in `sv.js`).
-- **Vigormortis**'s "keeps their ability" is the one case so far where a
-  *dead* player still needs a real turn indefinitely, not just once
-  (unlike the Ravenkeeper). `p.statuses.vigormortisKept` is the flag both
-  `actingTonight()` and `promptFor()` check alongside the Ravenkeeper
-  exception — search for it in `engine.js` before changing either function.
+- **Vigormortis**'s "keeps their ability" is the one case where a *dead*
+  player still needs a real turn at all — `p.statuses.vigormortisKept` is
+  the flag both `actingTonight()` and `promptFor()` check for it. It used
+  to share that spot with a Ravenkeeper exception (once, the night they
+  die); that moved to a day-phase route instead (see "Savant, Artist, and
+  Mutant" below), so Vigormortis is the only remaining case of a dead
+  player still getting a night turn dispatched through here — search for
+  `vigormortisKept` in `engine.js` before changing either function.
 - **Vortox**'s "Townsfolk abilities yield false info" isn't a registry field
   at all — it's `h.vortoxActive(g)` (`game/helpers.js`), read directly
   inside every S&V info-yielding Townsfolk's own `resolve()`, alongside
@@ -79,6 +84,19 @@ three:
   (`/api/savant-visit`, `/api/artist-question`, `/api/mad-claim`) and
   `engine.js` functions (`buildSavantStatements`, `evaluateClaim`,
   `resolveMadness`).
+  - **The Ravenkeeper** joined this list for a different reason than the
+    three above — it does have a night order, and used to dispatch through
+    the registry via a `wave: 2` entry (acting once, the night it dies, in
+    a second window opened just for it). A real report — a player who'd
+    just learned they died, needing to also read new instructions and pick
+    a target inside wave 2's short window, and consistently losing that
+    race — moved the actual choice to the day immediately following the
+    death instead: `server.js`'s `/api/ravenkeeper-choice`, backed by
+    `h.resolveRavenkeeperChoice` (`game/helpers.js`, shared with a bot's own
+    immediate resolution — see `resolveNight`'s "Apply deaths" step, since a
+    bot has no day-phase UI to act through). `needsWaveTwo`/`promptFor`'s
+    old Ravenkeeper exceptions are gone; the Barber is the only wave-2
+    trigger left (see below).
   - **Savant**'s "learn 2 things, 1 true 1 false" turned out to be fully
     computable (Bucket 2 in ABILITY_PATTERNS.md) despite reading like a
     Storyteller-Q&A ability — `buildSavantStatements` just generates two
@@ -113,7 +131,7 @@ three:
   choiceCount: (g, p, h) => 1,       // how many targets they pick; 0 = pure info, no prompt at all
   optional: (g, p, h) => false,      // may they submit zero and have it count? default false
   usesOnceFlag: false,               // once true and p.statuses[`${id}Used`] is set, never offered again
-  wave: 1,                           // 2 only for the Ravenkeeper (acts after wave 1 decides who died)
+  wave: 1,                           // 2 for an ability that must act after wave 1 decides who died — nothing currently uses this
   acts: (g, p, h) => true,           // extra gating beyond the generic count/order/wave/usedUp checks
   targets: (g, p, h) => [...],       // eligible players for the prompt
   text: (g, p, h) => '...',          // prompt copy

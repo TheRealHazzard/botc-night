@@ -2515,6 +2515,32 @@ async function requestHandler(req, res) {
         return json(res, 200, { ok: true });
       }
 
+      if (route === '/api/ravenkeeper-choice') {
+        // "If you die at night, you are woken to choose a player: you learn
+        // their character" — the choice itself now happens here, on the day
+        // immediately following the death, instead of the same night's
+        // wave-2 window (see game/abilities/tb.js's own comment on why: a
+        // real report of a player who'd just learned they died, needing to
+        // also read new instructions and pick a target inside wave 2's
+        // short window, and consistently losing that race). Private, unlike
+        // Moonchild/Klutz just above — nothing here is meant to be
+        // announced out loud, so the reveal lands in the normal result
+        // screen instead of a public log line.
+        const p = E.byToken(game, body.token);
+        if (!p) return json(res, 404, { error: 'Unknown player.' });
+        if (game.phase !== 'day') return json(res, 409, { error: 'Only during the day.' });
+        if (!p.statuses.ravenkeeperPending) return json(res, 409, { error: 'Nothing to choose.' });
+
+        const result = await E.resolveRavenkeeperChoice(game, p, body.targetId);
+        if (!result) return json(res, 400, { error: 'Invalid target.' });
+        p.statuses.ravenkeeperPending = false;
+        game.results[p.id] = result;
+        E.logEvent(game, `${p.name} (the Ravenkeeper) reflects on last night.`, true);
+        pushPlayer(p.id);
+        pushHost();
+        return json(res, 200, { ok: true });
+      }
+
       if (route === '/api/damsel-guess') {
         // "If a Minion publicly guesses you (once), your team loses" — a
         // public day action any living Minion can make, once ever across

@@ -768,6 +768,32 @@ function logTrueValue(g, entry) {
   g.trueValueLog.push({ night: g.nightNumber, ...entry, playerName: player ? player.name : null });
 }
 
+/** The Ravenkeeper's actual reveal — "choose a player: you learn their
+    character" — factored out so both callers get identical impairment/
+    Mercy/logTrueValue treatment: engine.js's resolveNight (a bot, resolved
+    immediately the moment they die — no day-phase UI to act through) and
+    server.js's /api/ravenkeeper-choice (a real player, on the day
+    immediately following). Returns the result object to assign into
+    results[p.id]/g.results[p.id] — deliberately not writing either object
+    itself, since the two callers stash it in different places (see each
+    one's own comment). Returns null for an invalid target (unknown, or
+    themself) — the caller decides what to do with that; a real player's
+    request is a 400, a bot's is silently skipped, same as `broken` never
+    being computed for a candidate pool of zero elsewhere in this file. */
+async function resolveRavenkeeperChoice(g, p, targetId) {
+  const target = byId(g, targetId);
+  if (!target || target.id === p.id) return null;
+  const broken = impaired(p) && !(await maybeMercy(g, p));
+  const trueCharacter = trueChar(target);
+  let shown = trueCharacter;
+  if (broken) {
+    const others = activeScriptPool(g).filter(x => x.id !== shown.id);
+    shown = pick(others);
+  }
+  logTrueValue(g, { playerId: p.id, characterId: 'ravenkeeper', type: 'pointer', trueValue: trueCharacter.id, shown: shown.id, impaired: broken });
+  return { title: 'Ravenkeeper', body: `${target.name} is the ${shown.name}.` };
+}
+
 // Same `pendingDeaths` treatment as livingNeighbors above, for the same
 // reason: the Empath acts after the Demon on other nights (order 53 vs.
 // 24), so without this her count used a stale pre-kill neighbor snapshot
@@ -882,6 +908,6 @@ module.exports = {
   logEvent, logWhim, outsiderDiedToday, minionDiedToday, somebodyDiedYesterday,
   minionNominatedToday, demonVotedToday, vortoxActive,
   numberSignal, falseNumber, logTrueValue, evilNeighbourCount, evilPairCount, pairInfo,
-  resultCount, resultYesNo, resultPointer,
+  resultCount, resultYesNo, resultPointer, resolveRavenkeeperChoice,
   decide,
 };
