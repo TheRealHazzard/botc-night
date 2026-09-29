@@ -3335,6 +3335,15 @@ console.log('\nheuristicWhim (Option 1: the non-LLM judgment)');
   ]); // 6 living, not endgame, good ahead
   check('a tight endgame fires more often than a larger, good-ahead midgame', endgame > midgame,
     `endgame=${endgame}, midgame=${midgame}`);
+
+  // Real report: a Mayor that felt unkillable — traced to this escalating
+  // all the way to 0.5 * 1.4 * 1.2 = 0.84 in the endgame, silently, with
+  // no host visibility until the Confirm card started showing up at
+  // <=5 living (by which point the pattern had already shaped the whole
+  // game). Softened to a real nudge, not near-immunity — locks in the new
+  // ceiling (0.5 * 1.2 * 1.1 = 0.66) so it can't silently climb back up.
+  check('the worst case (trailing side, endgame) stays a real nudge, not the old near-immunity',
+    endgame > 0.5 && endgame < 0.75, `endgame fire rate: ${endgame}`);
 }
 
 console.log('\nEnd');

@@ -503,8 +503,13 @@ function heuristicWhim(g, ctx) {
   // that side is the one currently behind.
   const sideNeedsHelp = helpsGood ? margin <= 0 : margin >= 0;
   let chance = 0.5; // same baseline this bucket has always defaulted to
-  if (sideNeedsHelp) chance *= 1.4;
-  if (living.length <= 5) chance *= 1.2; // a whim matters more in the endgame than on night one
+  // Real report: 0.5 * 1.4 * 1.2 = 0.84 (a Mayor redirect firing at 84% in
+  // the endgame, silently, with no host-visible reason until the game was
+  // nearly over) read as "the Mayor is unkillable," not "a nudge for
+  // whoever's behind" — the whole point of this function. Softened to a
+  // real nudge, not near-immunity: 0.5 * 1.2 * 1.1 = 0.66 at most now.
+  if (sideNeedsHelp) chance *= 1.2;
+  if (living.length <= 5) chance *= 1.1; // a whim matters more in the endgame than on night one
   const fire = Math.random() < Math.min(chance, 0.9);
   const trailingSide = sideNeedsHelp ? (helpsGood ? 'good' : 'evil') : null;
   const reason = trailingSide
