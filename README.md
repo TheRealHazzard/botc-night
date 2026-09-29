@@ -55,6 +55,7 @@ This project treats both the rules engine *and* the server built on top of it as
 | `npm run sim` | `tools/simulate.js` — hundreds of specific, hand-written assertions against real game states, covering every character and cross-cutting rule. |
 | `node tools/audit-abilities.js` | A generic pass over *every* character in the built registry, checking the invariants that have actually caused real bugs — an impaired info role must never go silent, a decoy pool must never include the true answer, a night-order slot isn't the same as actually acting, a death's cause must always be tagged explicitly. This catches the next character to make the same mistake automatically, not just the ones already found. |
 | `npm run test:server` | Spawns the real `server.js` as a real child process (isolated temp data directory, ephemeral port) and drives it over real HTTP — a full game lifecycle end to end, plus permanent regression coverage for every wiring bug found so far. See `test/server/harness.js`. |
+| `npm run test:history` | `game/history.js`'s recap/aggregate functions (closest vote, biggest swing, longest-surviving evil, pivotal moment, win streaks, ...) against plain constructed records — no real history data touched. |
 | `npm run test:player` | The full client component/hook test suite (`vitest`). |
 | `npm run test:llm` | The optional LLM integration's defensive parsing — no real API key or network access needed. |
 | `npm run test:nanoleaf` | The optional Nanoleaf lighting integration's request/response logic (mocked device) — no real panels needed. |

@@ -759,7 +759,13 @@ function falseNumber(trueValue, max) {
     instead of just the ones that actually have something to log. See
     game.trueValueLog's own comment in engine.js for what reads this. */
 function logTrueValue(g, entry) {
-  g.trueValueLog.push({ night: g.nightNumber, ...entry });
+  // playerName resolved here, centrally, rather than at each of this
+  // function's dozen call sites — same reasoning as blockedKills'
+  // targetName (helpers.js's own checkKill): this record outlives the
+  // live game object, so a bare playerId is useless to anything reading
+  // it back later.
+  const player = byId(g, entry.playerId);
+  g.trueValueLog.push({ night: g.nightNumber, ...entry, playerName: player ? player.name : null });
 }
 
 // Same `pendingDeaths` treatment as livingNeighbors above, for the same

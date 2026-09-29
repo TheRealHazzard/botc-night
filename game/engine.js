@@ -787,7 +787,10 @@ async function resolveNight(g, wave = 1) {
         // Structured, not just the prose line above — a quiet but
         // genuinely game-swinging moment (a good player becomes evil)
         // that otherwise left no trace a future scoring pass could read.
-        g.pivotalEvents.push({ night: g.nightNumber, type: 'goon-flip', goonId: goon.id, chooserId: p.id, resultingAlignment: goon.statuses.goonEvil ? 'evil' : 'good' });
+        // goonName/chooserName denormalized here (not just the ids) since
+        // this record outlives the live game object it was built from —
+        // same reasoning as blockedKills' own targetName just above.
+        g.pivotalEvents.push({ night: g.nightNumber, type: 'goon-flip', goonId: goon.id, goonName: goon.name, chooserId: p.id, chooserName: p.name, resultingAlignment: goon.statuses.goonEvil ? 'evil' : 'good' });
       }
     }
 
