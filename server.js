@@ -12,6 +12,7 @@ const H = require('./game/history');
 const { COLOR_PALETTE } = require('./game/colors');
 const { askStoryteller, status: llmStatus } = require('./game/llmStoryteller');
 const Nanoleaf = require('./game/nanoleaf');
+const { noteFor } = require('./game/characterNotes');
 
 const PORT = process.env.PORT || 3000;
 // A second, HTTPS listener alongside the plain one above — installability
@@ -1723,6 +1724,14 @@ async function requestHandler(req, res) {
         // curated featuredCharacter (characters.json), which gets its
         // full ability text so the browse preview can give a real taste
         // of the script, not just a name and a team badge.
+        //
+        // `notes` (game/characterNotes.js) is a second, much smaller
+        // exception to that same "no ability text here" rule — not a
+        // character's ability, but a heads-up about how THIS app runs a
+        // specific character differently from what a table used to the
+        // physical game would expect. Almost always empty (see that
+        // file's own comment on how rarely a character earns one), so it
+        // costs this payload nothing in the common case.
         const namedScripts = E.DATA.meta.editions.map(ed => {
           const pool = E.scriptPool(ed.id);
           const featured = ed.featuredCharacter && E.char(ed.featuredCharacter);
@@ -1733,6 +1742,7 @@ async function requestHandler(req, res) {
             featuredCharacter: featured
               ? { id: featured.id, name: featured.name, team: featured.team, ability: featured.ability }
               : null,
+            notes: pool.map(c => ({ id: c.id, name: c.name, note: noteFor(c.id) })).filter(n => n.note),
             ...H.statsForEdition(ed.id),
           };
         });
@@ -1749,6 +1759,7 @@ async function requestHandler(req, res) {
             characterCount: pool.length,
             characters: pool.map(c => ({ id: c.id, name: c.name, team: c.team })),
             featuredCharacter: null,
+            notes: pool.map(c => ({ id: c.id, name: c.name, note: noteFor(c.id) })).filter(n => n.note),
             ...H.statsForEdition('custom'),
           });
         }

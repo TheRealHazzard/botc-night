@@ -1094,6 +1094,26 @@
         color: var(--bone-dim);
       }
 
+      /* ScriptNotesPanel — left-aligned like .featured-role above (the
+   parent .detail-stat-panel centers everything else on this card), since
+   this reads as advice to actually take in, not another abstract stat. */
+      .script-notes {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        text-align: left;
+      }
+      .script-note {
+        margin: 0;
+        font-size: 0.9rem;
+        line-height: 1.5;
+        color: var(--bone-dim);
+      }
+      .script-note strong {
+        color: var(--bone);
+        font-weight: 700;
+      }
+
       .detail-games-empty {
         font-size: 0.95rem;
         color: var(--bone-faint);

@@ -41,6 +41,28 @@ describe('ScriptBrowsePreview', () => {
     expect(screen.queryByText('Featured Role')).not.toBeInTheDocument();
   });
 
+  it('omits the notes section when the script has none', () => {
+    const meta = { id: 'custom', name: 'Custom', difficulty: 1, description: 'x' };
+    render(<ScriptBrowsePreview meta={meta} />);
+    expect(screen.queryByText('Before you play')).not.toBeInTheDocument();
+  });
+
+  it('shows notes between the description and the featured role', () => {
+    mockFetch({ '/api/tokens': {} });
+    const meta = {
+      id: 'sv', name: 'Sects & Violets', difficulty: 3, description: 'x',
+      notes: [{ id: 'barber', name: 'Barber', note: 'Expect a second prompt the same night.' }],
+      featuredCharacter: { id: 'vortox', name: 'Vortox', team: 'demon', ability: 'y' },
+    };
+    render(<ScriptBrowsePreview meta={meta} />);
+    const desc = screen.getByText('x');
+    const notesTitle = screen.getByText('Before you play');
+    const featuredTitle = screen.getByText('Featured Role');
+    expect(desc.compareDocumentPosition(notesTitle) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(notesTitle.compareDocumentPosition(featuredTitle) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByText('Expect a second prompt the same night.')).toBeInTheDocument();
+  });
+
   it('shows the featured role between the description and the games record', () => {
     mockFetch({ '/api/tokens': {} });
     const meta = {
