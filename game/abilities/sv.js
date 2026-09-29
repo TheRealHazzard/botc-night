@@ -6,8 +6,9 @@
 // small shared primitive — livingNeighbors, reassignCharacter, or
 // flagAbnormal, all in helpers.js), Group 3 (Evil Twin/Fang Gu/
 // Vigormortis/Vortox — real engine.js changes, see
-// game/abilities/README.md), Barber (a named wave-2 special case in
-// engine.js, not a registry-driven ability at all), and Cerenovus. Savant,
+// game/abilities/README.md), Barber (a named special case in engine.js,
+// not a registry-driven ability at all — see barberSwapAddon), and
+// Cerenovus. Savant,
 // Artist, and Mutant have no entry here at all — same as Slayer/Gossip/
 // Moonchild in tb.js/bmr.js, they're purely day-phase or passive (see
 // server.js's /api/savant-visit, /api/artist-question, /api/mad-claim, and
@@ -334,13 +335,15 @@ module.exports = (h) => [
     // otherNightOrder in characters.json for the physical sheet's sake, but
     // this player is dead by the time the ability matters, and the
     // *actor* the ability actually needs (the Demon) isn't this player at
-    // all. onDeath below flags the Demon; engine.js's promptFor and
-    // resolveNight implement the real prompt and swap directly as a named
-    // wave-2 special case (search both for "barberSwapPending"), the same
-    // way the Lunatic/Exorcist-block/Goon-flip interactions already live
-    // outside the registry rather than being forced into one character's
-    // shape. resolve() stays a no-op purely so a still-living Barber's
-    // decoy dispatch is safe to call.
+    // all. onDeath below flags the Demon; engine.js's promptFor
+    // (barberSwapAddon) and resolveNight implement the real prompt and
+    // swap directly as a named special case (search both for
+    // "barberSwapPending") — folded into the Demon's own turn, not a
+    // separate prompt or window of its own, same way the Lunatic/
+    // Exorcist-block/Goon-flip interactions already live outside the
+    // registry rather than being forced into one character's shape.
+    // resolve() stays a no-op purely so a still-living Barber's decoy
+    // dispatch is safe to call.
     choiceCount: () => 0,
     targets: () => [],
     text: () => '',

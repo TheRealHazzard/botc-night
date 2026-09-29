@@ -27,7 +27,7 @@ async function setupMixedTableToDay1(baseUrl) {
   });
   await request(baseUrl, '/api/table/config', {
     method: 'POST',
-    body: { config: { voteWindowSeconds: 3, windowSeconds: 5, wave2Seconds: 3 } },
+    body: { config: { voteWindowSeconds: 3, windowSeconds: 5 } },
   });
   const { json: joinRes } = await request(baseUrl, '/api/join', { method: 'POST', body: { name: 'Tester' } });
   await request(baseUrl, '/api/table/add-bots', { method: 'POST', body: { count: 4 } });

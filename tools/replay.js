@@ -109,7 +109,7 @@ async function replay(gameId) {
     });
     await request(server.baseUrl, '/api/table/config', {
       method: 'POST',
-      body: { config: { voteWindowSeconds: 2, windowSeconds: 3, wave2Seconds: 2 } },
+      body: { config: { voteWindowSeconds: 2, windowSeconds: 3 } },
     });
 
     const seats = await joinReplaySeats(server.baseUrl, record);

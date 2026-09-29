@@ -31,7 +31,14 @@ function autoAnswer(g) {
     const countOk = targets.length === prompt.count || (prompt.optional && targets.length === 0);
     if (countOk) {
       const characterGuess = prompt.guessCharacter ? prompt.characterOptions[0].id : undefined;
-      g.pending[p.id] = { targets, decoy: !!prompt.decoy, characterGuess };
+      // Sects & Violets' Barber-swap addon (engine.js's barberSwapAddon) —
+      // an independent extra field on a living Demon's own prompt, filled
+      // in alongside their real choice the same way botsAnswer() does in
+      // server.js, so a generic simulated game still exercises the swap
+      // whenever the Barber's actually in the roster and could plausibly
+      // die tonight.
+      const barberSwapTargets = prompt.barberSwap ? prompt.barberSwap.targets.slice(0, 2).map(t => t.id) : undefined;
+      g.pending[p.id] = { targets, decoy: !!prompt.decoy, characterGuess, barberSwapTargets };
     }
   }
 }
@@ -170,24 +177,12 @@ check('a phone stream contains no other player\'s role', leaked.length === 0,
 
 console.log('\nNights 2-4');
 for (let n = 2; n <= 4; n++) {
-  g.nightNumber = n; g.phase = 'night'; g.wave = 1; g.pending = {}; g.results = {};
+  g.nightNumber = n; g.phase = 'night'; g.pending = {}; g.results = {};
   autoAnswer(g);
   const before = E.alive(g).length;
   await E.resolveNight(g);
   const after = E.alive(g).length;
   check(`night ${n} resolved (${before} -> ${after} alive)`, after <= before);
-
-  // Wave 2 itself (the Barber's swap — the only remaining trigger now that
-  // the Ravenkeeper's own reveal moved to a day-phase route; see "SV:
-  // Barber" below) has its own dedicated coverage; this default TB roster
-  // never deals a Barber, so there's nothing wave-2-specific to check here.
-  if (E.needsWaveTwo(g)) {
-    g.wave = 2; g.pending = {};
-    autoAnswer(g);
-    await E.resolveNight(g, 2);
-    check('  wave 2 did not re-run the whole night',
-      g.players.filter(p => p.statuses.diedTonight).length >= 1);
-  }
   g.hint = E.generateHint(g);
 }
 
@@ -2262,60 +2257,79 @@ console.log('\nSV: Vortox — "no execution" win condition');
     E.checkVictory(g3) === null);
 }
 
-console.log('\nSV: Barber');
+console.log('\nSV: Barber (no wave 2 — the swap rides along with the Demon\'s own turn)');
 {
-  const mk = (id, characterId) => ({ id, name: id, characterId, believedId: characterId, alive: true, statuses: {} });
   // Vortox, not Fang Gu — a Fang Gu killing an Outsider triggers its own
   // transform mechanic instead of a plain death (see the Fang Gu tests
   // above), which would confuse what this test is isolating.
-  const g = E.newGame();
-  g.script = 'sv'; g.nightNumber = 2; g.phase = 'night'; g.wave = 1; g.results = {};
-  g.players = [mk('fg', 'vortox'), mk('ba', 'barber'), mk('t1', 'oracle'), mk('t2', 'dreamer')];
-  g.pending = { fg: { targets: ['ba'], decoy: false } };
-  await E.resolveNight(g, 1);
-  const fg = g.players.find(p => p.id === 'fg');
-  check("the Barber dies to the Demon's kill tonight", !g.players.find(p => p.id === 'ba').alive);
-  check('the Demon is flagged for a wave-2 barber-swap prompt', fg.statuses.barberSwapPending === true);
-  check('wave 2 is now needed', E.needsWaveTwo(g) === true);
-
-  g.wave = 2;
-  const prompt = E.promptFor(g, fg);
-  check('the Demon gets the synthetic barber-swap prompt in wave 2',
-    !!prompt && prompt.characterId === 'barber-swap' && prompt.count === 2 && prompt.optional === true);
-
-  g.pending = { fg: { targets: ['t1', 't2'], decoy: false } };
-  await E.resolveNight(g, 2);
-  const t1 = g.players.find(p => p.id === 't1'), t2 = g.players.find(p => p.id === 't2');
-  check('the swap exchanges their characters', t1.characterId === 'dreamer' && t2.characterId === 'oracle');
-  check('...and their believedId moves with it', t1.believedId === 'dreamer' && t2.believedId === 'oracle');
-  check('the pending flag is cleared after use', fg.statuses.barberSwapPending === false);
-}
-{
   const mk = (id, characterId) => ({ id, name: id, characterId, believedId: characterId, alive: true, statuses: {} });
   const g = E.newGame();
-  g.script = 'sv'; g.nightNumber = 2; g.phase = 'night'; g.wave = 2; g.results = {};
-  g.players = [mk('fg', 'fanggu'), mk('t1', 'oracle'), mk('t2', 'dreamer')];
-  g.players.find(p => p.id === 'fg').statuses.barberSwapPending = true;
-  g.pending = {};
-  await E.resolveNight(g, 2);
-  check('passing (no targets) leaves everyone unchanged', g.players.find(p => p.id === 't1').characterId === 'oracle');
+  g.script = 'sv'; g.nightNumber = 2; g.phase = 'night'; g.results = {};
+  g.players = [mk('fg', 'vortox'), mk('ba', 'barber'), mk('t1', 'oracle'), mk('t2', 'dreamer')];
+  const fg = g.players.find(p => p.id === 'fg');
+
+  // The Barber is still alive when the Demon's own prompt is built — this
+  // is exactly the "might die tonight" case, asked preemptively.
+  const beforePrompt = E.promptFor(g, fg);
+  check('a living Demon gets the addon while the Barber is still alive, marked NOT definite',
+    !!beforePrompt.barberSwap && beforePrompt.barberSwap.definite === false, JSON.stringify(beforePrompt.barberSwap));
+  check('the addon excludes another Demon but allows the Demon\'s own seat', beforePrompt.barberSwap.targets.some(t => t.id === 'fg'));
+
+  // The Demon's kill target AND their swap pick are submitted together, in
+  // the exact same action — no second submission, no second window.
+  g.pending = { fg: { targets: ['ba'], decoy: false, barberSwapTargets: ['t1', 't2'] } };
+  await E.resolveNight(g);
+  const t1 = g.players.find(p => p.id === 't1'), t2 = g.players.find(p => p.id === 't2');
+  check("the Barber died to the Demon's own kill tonight", !g.players.find(p => p.id === 'ba').alive);
+  check('the swap exchanges their characters, since the Barber really did die', t1.characterId === 'dreamer' && t2.characterId === 'oracle');
+  check('...and their believedId moves with it', t1.believedId === 'dreamer' && t2.believedId === 'oracle');
+  check('the pending flag is cleared after use, one-shot', fg.statuses.barberSwapPending === false);
+}
+{
+  // Passing — no swap targets submitted alongside the kill — leaves
+  // everyone's character untouched, even though the Barber genuinely died.
+  const mk = (id, characterId) => ({ id, name: id, characterId, believedId: characterId, alive: true, statuses: {} });
+  const g = E.newGame();
+  g.script = 'sv'; g.nightNumber = 2; g.phase = 'night'; g.results = {};
+  g.players = [mk('fg', 'vortox'), mk('ba', 'barber'), mk('t1', 'oracle'), mk('t2', 'dreamer')];
+  g.pending = { fg: { targets: ['ba'], decoy: false } }; // no barberSwapTargets at all
+  await E.resolveNight(g);
+  check('passing (no swap targets submitted) leaves everyone unchanged', g.players.find(p => p.id === 't1').characterId === 'oracle');
   check('the flag is still cleared even on a pass', g.players.find(p => p.id === 'fg').statuses.barberSwapPending === false);
 }
 {
+  // A poisoned Demon's pre-submitted swap choice silently fails to apply —
+  // same "may look like it worked, doesn't" doctrine the original wave-2
+  // version already had; unchanged by moving where the choice is captured.
   const mk = (id, characterId) => ({ id, name: id, characterId, believedId: characterId, alive: true, statuses: {} });
   const g = E.newGame();
-  g.script = 'sv'; g.nightNumber = 2; g.phase = 'night'; g.wave = 2; g.results = {};
-  g.players = [mk('fg', 'fanggu'), mk('t1', 'oracle'), mk('t2', 'dreamer')];
-  const fg = g.players.find(p => p.id === 'fg');
-  fg.statuses.barberSwapPending = true;
-  fg.statuses.poisoned = true;
-  g.pending = { fg: { targets: ['t1', 't2'], decoy: false } };
-  await E.resolveNight(g, 2);
+  g.script = 'sv'; g.nightNumber = 2; g.phase = 'night'; g.results = {};
+  g.players = [mk('fg', 'vortox'), mk('ba', 'barber'), mk('t1', 'oracle'), mk('t2', 'dreamer')];
+  g.players.find(p => p.id === 'fg').statuses.poisoned = true;
+  g.pending = { fg: { targets: ['ba'], decoy: false, barberSwapTargets: ['t1', 't2'] } };
+  await E.resolveNight(g);
   check('a poisoned Demon cannot use the barber-swap even if submitted', g.players.find(p => p.id === 't1').characterId === 'oracle');
+}
+{
+  // A chosen swap target who separately dies THIS SAME night (some other
+  // kill mechanism entirely) is no longer valid by the time the swap is
+  // actually applied — the whole point of re-validating post-resolution,
+  // not just trusting whatever the Demon saw when they first submitted.
+  const mk = (id, characterId) => ({ id, name: id, characterId, believedId: characterId, alive: true, statuses: {} });
+  const g = E.newGame();
+  g.script = 'sv'; g.nightNumber = 2; g.phase = 'night'; g.results = {};
+  g.players = [mk('fg', 'vortox'), mk('ba', 'barber'), mk('t1', 'oracle'), mk('t2', 'dreamer'), mk('tk', 'tinker')];
+  g.config.tinkerDeathChance = 1; // deterministic: the Tinker always dies this trial
+  g.pending = { fg: { targets: ['ba'], decoy: false, barberSwapTargets: ['t1', 'tk'] } };
+  await E.resolveNight(g);
+  check('the Tinker really did die from an unrelated mechanism this same night', !g.players.find(p => p.id === 'tk').alive);
+  check('the swap does not apply — one of the two chosen targets is no longer alive to swap',
+    g.players.find(p => p.id === 't1').characterId === 'oracle');
 }
 {
   // The other trigger: executed today (not killed tonight) — the exact
   // mechanism server.js's recordExecution already uses for every execution.
+  // Definite, not preemptive, by the time the Demon's next prompt is built.
   const mk = (id, characterId) => ({ id, name: id, characterId, believedId: characterId, alive: true, statuses: {} });
   const g = E.newGame();
   g.script = 'sv';
@@ -2324,40 +2338,51 @@ console.log('\nSV: Barber');
   g.players.push(ba);
   E.triggerDeathHooks(g, ba, { killedByDemon: false });
   check('executing the Barber flags a living Demon too', g.players.find(p => p.id === 'fg').statuses.barberSwapPending === true);
-  check('wave 2 is needed starting the next night', E.needsWaveTwo(g) === true);
 
-  g.nightNumber = 3; g.phase = 'night'; g.wave = 2;
+  g.nightNumber = 3; g.phase = 'night';
   const prompt = E.promptFor(g, g.players.find(p => p.id === 'fg'));
-  check('another living Demon is excluded from the swap targets', !prompt.targets.some(t => t.id === 'vg'));
-  check('a non-Demon player is still offered', prompt.targets.some(t => t.id === 't1'));
+  check('the addon is now marked definite, not just possible', prompt.barberSwap && prompt.barberSwap.definite === true);
+  check('another living Demon is excluded from the swap targets', !prompt.barberSwap.targets.some(t => t.id === 'vg'));
+  check('a non-Demon player is still offered', prompt.barberSwap.targets.some(t => t.id === 't1'));
 }
 {
   const mk = (id, characterId) => ({ id, name: id, characterId, believedId: characterId, alive: true, statuses: {} });
   const g = E.newGame();
-  g.script = 'sv'; g.nightNumber = 2; g.phase = 'night'; g.wave = 1;
+  g.script = 'sv'; g.nightNumber = 2; g.phase = 'night';
   g.players = [mk('ba', 'barber'), mk('t1', 'oracle')];
   const prompt = E.promptFor(g, g.players.find(p => p.id === 'ba'));
-  check('a living Barber has no active ability of their own — just a decoy', !!prompt && prompt.decoy === true);
+  check('a living Barber has no active ability of their own — just a decoy, and no addon (they\'re not the Demon)',
+    !!prompt && prompt.decoy === true && !prompt.barberSwap);
+}
+{
+  // No Barber at all in the script — the addon must never appear, for
+  // any Demon, ever.
+  const mk = (id, characterId) => ({ id, name: id, characterId, believedId: characterId, alive: true, statuses: {} });
+  const g = E.newGame();
+  g.script = 'tb'; g.nightNumber = 2; g.phase = 'night';
+  g.players = [mk('d', 'imp'), mk('t1', 'soldier')];
+  const prompt = E.promptFor(g, g.players.find(p => p.id === 'd'));
+  check('no Barber in the script -> no addon at all, even for a living Demon', !prompt.barberSwap);
 }
 
 console.log('\nRavenkeeper (day-phase reveal, not wave 2)');
 {
   const mk = (id, characterId, alive = true) => ({ id, name: id, characterId, believedId: characterId, alive, statuses: {} });
 
-  // A night kill on the Ravenkeeper no longer opens wave 2 on its own —
-  // see needsWaveTwo/promptFor's own comments in engine.js for why (moved
-  // to a day-phase route after a real report: a player who'd just learned
-  // they died, needing to also read new instructions and choose a target
-  // inside wave 2's old 20-second window, and consistently losing that
-  // race).
+  // A night kill on the Ravenkeeper no longer opens a second window on its
+  // own — see promptFor's own comments in engine.js for why (moved to a
+  // day-phase route after a real report: a player who'd just learned they
+  // died, needing to also read new instructions and choose a target
+  // inside that window's old 20-second deadline, and consistently losing
+  // that race). There's no wave-2 mechanism left in this codebase at all
+  // now — resolveNight only ever runs one pass, full stop.
   const g = E.newGame();
-  g.script = 'tb'; g.nightNumber = 2; g.phase = 'night'; g.wave = 1;
+  g.script = 'tb'; g.nightNumber = 2; g.phase = 'night';
   g.players = [mk('rk', 'ravenkeeper'), mk('t1', 'soldier'), mk('d', 'imp')];
   g.pending = { d: { targets: ['rk'] } };
-  await E.resolveNight(g, 1);
+  await E.resolveNight(g);
   const rk = g.players.find(p => p.id === 'rk');
   check('the Ravenkeeper actually died', rk.alive === false);
-  check('no wave 2 opens just from her own death', E.needsWaveTwo(g) === false);
   check('she has no night prompt of her own to answer', E.promptFor(g, rk) === null);
   check('instead, she is left with a day-phase choice pending', rk.statuses.ravenkeeperPending === true);
 
@@ -2581,7 +2606,10 @@ console.log('\napplyConfigPatch');
   const g = E.newGame();
   E.applyConfigPatch(g, { mayorRedirectChance: 2, tinkerDeathChance: -1, windowSeconds: 3, wave2Seconds: 99999 });
   check('chance values are clamped to [0,1]', g.config.mayorRedirectChance === 1 && g.config.tinkerDeathChance === 0);
-  check('second values are clamped to a sane range', g.config.windowSeconds === 5 && g.config.wave2Seconds === 600);
+  check('second values are clamped to a sane range', g.config.windowSeconds === 5);
+  // No wave-2 mechanism is left in this codebase at all — wave2Seconds is
+  // just an unrecognized key now, same as any other unknown patch field.
+  check('wave2Seconds is no longer a real config key — silently ignored, not stored', !('wave2Seconds' in g.config));
 
   const g2 = E.newGame();
   E.applyConfigPatch(g2, { pacifistSaveChance: 0.42, notAKnownKey: 'hello', players: 'ignored' });

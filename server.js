@@ -554,7 +554,6 @@ function startNight() {
   flushNightResults();
   game.nightNumber += 1;
   game.phase = 'night';
-  game.wave = 1;
   game.pending = {};
   game.results = {};
   game.executedToday = game.executedToday || null;
@@ -579,40 +578,41 @@ function startNight() {
 // never be picked out as "the one with nothing real to do" — checking
 // "has everyone submitted SOMETHING" (real or decoy) preserves that: the
 // window closing early is a function of whoever happens to submit last,
-// never of who has a real action versus a decoy. A from-beyond prompt
-// (Ravenkeeper just-died in wave 2, a Vigormortis-kept Minion) also counts
-// itself in via the same promptFor check, no special-casing needed.
+// never of who has a real action versus a decoy. A from-beyond prompt (a
+// Vigormortis-kept Minion) also counts itself in via the same promptFor
+// check, no special-casing needed. A living Demon's own barberSwapAddon
+// (engine.js) never affects this either — it's an optional EXTRA field on
+// whatever prompt they already have, not a prompt of its own, so it was
+// never part of what "everyone" means here in the first place.
 function allSubmitted() {
   if (game.phase !== 'night') return false;
   const required = game.players.filter(p => E.promptFor(game, p));
   return required.length > 0 && required.every(p => game.pending[p.id]);
 }
 
+// One window, every night, full stop — there used to be a second, shorter
+// window (wave 2) for whatever needed to react to who died in the first
+// one (the Barber's swap, and — until it moved to a day-phase route of its
+// own — the Ravenkeeper's reveal). Both real problems: opening it at all
+// was itself a tell that something had happened overnight (every OTHER
+// living player got pushed a fresh decoy prompt too, whether or not
+// anything was actually being decided), and its short deadline cost a
+// real Ravenkeeper her one shot at a reveal (see server.js's own
+// /api/ravenkeeper-choice for that report). The Barber's swap is now
+// captured as an extra, optional part of the Demon's OWN turn instead
+// (engine.js's barberSwapAddon/promptFor), submitted in this same window
+// alongside their kill and applied by resolveNight only if the Barber
+// actually turns out to have died — so nothing here needs to wait for a
+// second round at all.
 async function closeWindow() {
   clearTimeout(windowTimer);
   if (game.phase !== 'night') return;
-
-  if (game.wave === 1) {
-    await E.resolveNight(game, 1);
-    if (E.needsWaveTwo(game)) {
-      game.wave = 2;
-      game.windowEndsAt = Date.now() + game.config.wave2Seconds * 1000;
-      game.windowTotalSeconds = game.config.wave2Seconds;
-      pushAll();
-      if (game.players.some(p => p.bot)) setTimeout(botsAnswer, Math.max(300, game.config.wave2Seconds * 400));
-      windowTimer = setTimeout(closeWindow, game.config.wave2Seconds * 1000);
-      return;
-    }
-  } else {
-    await E.resolveNight(game, 2);
-  }
-
+  await E.resolveNight(game, 1);
   endNight();
 }
 
 function endNight() {
   game.phase = 'day';
-  game.wave = 0;
   game.windowEndsAt = null;
   game.windowTotalSeconds = null;
   game.dayStartedAt = Date.now(); // The Read — see useRoomPacing.js
@@ -1222,7 +1222,16 @@ function botsAnswer() {
     const countOk = targets.length === prompt.count || (prompt.optional && targets.length === 0);
     if (countOk) {
       const characterGuess = prompt.guessCharacter ? pickOne(prompt.characterOptions).id : undefined;
-      game.pending[p.id] = { targets, decoy: !!prompt.decoy, characterGuess };
+      // botChoice's own shape (targets/count/decoy/characterId) happens to
+      // match prompt.barberSwap closely enough to reuse directly — no
+      // decoy, no characterId, so it always lands on the generic
+      // shuffle-and-slice branch, exactly what a plain "pick 2" choice
+      // needs. A bot always takes the swap when it's offered (real players
+      // can decline), which is deliberate: a full-bot game (npm run sim,
+      // /api/sim/start) should keep actually exercising this ability, not
+      // silently stop the moment it's optional.
+      const barberSwapTargets = prompt.barberSwap ? botChoice(p, prompt.barberSwap) : undefined;
+      game.pending[p.id] = { targets, decoy: !!prompt.decoy, characterGuess, barberSwapTargets };
     }
   }
   pushAll();
@@ -1306,11 +1315,10 @@ function startSimulation({ players = 9, speed = 5, script = 'tb', config } = {})
   game.script = PLAYABLE_SCRIPTS.includes(script) ? script : 'tb';
   // A fresh E.newGame() above always resets config to defaults — apply any
   // requested overrides (Bucket 4's disabledCharacterIds, in particular)
-  // before windowSeconds/wave2Seconds get their own simulation-speed
-  // overrides below, so a config patch can't undo those.
+  // before windowSeconds gets its own simulation-speed override below, so
+  // a config patch can't undo that.
   if (config) E.applyConfigPatch(game, config);
   game.config.windowSeconds = speed;
-  game.config.wave2Seconds = Math.max(2, Math.round(speed / 2));
   game.simSpeed = speed;
 
   // A bot never goes through the real join flow's color picker, so without
@@ -2158,7 +2166,25 @@ async function requestHandler(req, res) {
             return json(res, 400, { error: 'A character guess is required.' });
           }
         }
-        game.pending[p.id] = { targets, decoy: !!prompt.decoy, characterGuess };
+        // Sects & Violets' Barber: an independent, always-optional extra
+        // choice riding along with this same submission (see engine.js's
+        // barberSwapAddon/promptFor) — never gated on prompt.optional,
+        // which describes the PRIMARY choice above and has nothing to do
+        // with this one. Validated the same way the primary choice is
+        // (every id really offered, exactly 2 or none), but kept as its
+        // own field rather than merged into `targets`, since resolveNight
+        // needs to tell "the Demon's kill target" and "the Demon's swap
+        // pick" apart later — see logPrivateAction's own comment on why.
+        let barberSwapTargets;
+        if (prompt.barberSwap) {
+          const raw = (body.barberSwapTargets || []).slice(0, 2);
+          const validSwap = raw.every(t => prompt.barberSwap.targets.some(x => x.id === t));
+          if (!validSwap || (raw.length !== 0 && raw.length !== 2)) {
+            return json(res, 400, { error: 'Invalid swap selection.' });
+          }
+          barberSwapTargets = raw;
+        }
+        game.pending[p.id] = { targets, decoy: !!prompt.decoy, characterGuess, barberSwapTargets };
         pushPlayer(p.id);
         pushHost();
         // Nobody left waiting on the clock once every real-or-decoy prompt

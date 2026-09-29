@@ -66,17 +66,30 @@ three:
   execution = evil wins" both live in `checkVictory` (`engine.js`), not
   here — see `evilTwinBlocksGood` and the comments around both checks for
   why they're ordered the way they are.
-- **Barber** isn't dispatched through the registry's `resolve()`/`wave`
-  machinery at all — "the Demon may swap 2 players' characters" is a choice
-  the *Demon* makes, not the (by-then-dead) Barber, and the registry has no
-  way to route one character's turn to a different player. It's a named
-  wave-2 special case instead: `sv.js`'s `barber` entry only has an
-  `onDeath` that sets `demon.statuses.barberSwapPending`; `needsWaveTwo` and
-  `promptFor` in `engine.js` both check that flag directly (search for
-  `barberSwapPending` in both), and `resolveNight` applies the actual swap
-  as its own step after the main per-character loop, not inside it. This is
-  the deepest exception in the codebase so far — read it before assuming any
-  new ability can be squeezed into a registry entry; some genuinely can't.
+- **Barber** isn't dispatched through the registry's `resolve()` machinery
+  at all — "the Demon may swap 2 players' characters" is a choice the
+  *Demon* makes, not the (by-then-dead) Barber, and the registry has no way
+  to route one character's turn to a different player. It's a named special
+  case instead: `sv.js`'s `barber` entry only has an `onDeath` that sets
+  `demon.statuses.barberSwapPending`; `promptFor`'s own `barberSwapAddon`
+  (`engine.js`) attaches an extra, optional field to whatever prompt a
+  living Demon already gets — their real ability or a decoy, doesn't
+  matter — asking "if the Barber ends up dead by dawn, who would you swap"
+  right alongside their normal choice, in the *same* `/api/action` call.
+  `resolveNight` reads that back and applies the actual swap, re-validated
+  against who's actually still alive, as its own step after the main
+  per-character loop — only if the Barber genuinely did die. This used to
+  be a whole separate wave-2 window opened after the fact (see git history
+  for that version, and the Ravenkeeper bullet below for the report that
+  ended it): both leaked "something happened overnight" to every other
+  living player (a second round of decoy prompts, whether or not anything
+  was actually being decided) and cost a real player their one shot at the
+  Ravenkeeper's own reveal, back when hers worked the same way. Folding it
+  into the Demon's existing turn instead — decided in advance, applied only
+  if it turns out to matter — removes both problems, and there is no wave 2
+  left in this codebase at all now. This is still the deepest exception in
+  the codebase so far — read it before assuming any new ability can be
+  squeezed into a registry entry; some genuinely can't.
 - **Savant, Artist, and Mutant** have no `sv.js` entry at all — none of them
   have a night order, so there's nothing for the registry to dispatch. Same
   precedent as Slayer/Gossip/Moonchild in `tb.js`/`bmr.js`: purely day-phase
@@ -87,16 +100,19 @@ three:
   - **The Ravenkeeper** joined this list for a different reason than the
     three above — it does have a night order, and used to dispatch through
     the registry via a `wave: 2` entry (acting once, the night it dies, in
-    a second window opened just for it). A real report — a player who'd
-    just learned they died, needing to also read new instructions and pick
-    a target inside wave 2's short window, and consistently losing that
-    race — moved the actual choice to the day immediately following the
-    death instead: `server.js`'s `/api/ravenkeeper-choice`, backed by
+    a second window opened just for it — the same mechanism the Barber
+    bullet above used to use too). A real report — a player who'd just
+    learned they died, needing to also read new instructions and pick a
+    target inside that window's short deadline, and consistently losing
+    that race — moved the actual choice to the day immediately following
+    the death instead: `server.js`'s `/api/ravenkeeper-choice`, backed by
     `h.resolveRavenkeeperChoice` (`game/helpers.js`, shared with a bot's own
     immediate resolution — see `resolveNight`'s "Apply deaths" step, since a
-    bot has no day-phase UI to act through). `needsWaveTwo`/`promptFor`'s
-    old Ravenkeeper exceptions are gone; the Barber is the only wave-2
-    trigger left (see below).
+    bot has no day-phase UI to act through). This investigation is also
+    what prompted folding the Barber's own swap into the Demon's existing
+    turn instead of a second window of its own — between the two, there is
+    no `wave: 2` anywhere in the registry any more, and `resolveNight`
+    itself only ever runs one pass.
   - **Savant**'s "learn 2 things, 1 true 1 false" turned out to be fully
     computable (Bucket 2 in ABILITY_PATTERNS.md) despite reading like a
     Storyteller-Q&A ability — `buildSavantStatements` just generates two
@@ -131,8 +147,7 @@ three:
   choiceCount: (g, p, h) => 1,       // how many targets they pick; 0 = pure info, no prompt at all
   optional: (g, p, h) => false,      // may they submit zero and have it count? default false
   usesOnceFlag: false,               // once true and p.statuses[`${id}Used`] is set, never offered again
-  wave: 1,                           // 2 for an ability that must act after wave 1 decides who died — nothing currently uses this
-  acts: (g, p, h) => true,           // extra gating beyond the generic count/order/wave/usedUp checks
+  acts: (g, p, h) => true,           // extra gating beyond the generic count/order/usedUp checks
   targets: (g, p, h) => [...],       // eligible players for the prompt
   text: (g, p, h) => '...',          // prompt copy
   extraPrompt: (g, p, h) => ({...}), // optional extra fields merged into the prompt (Gambler's guessCharacter)

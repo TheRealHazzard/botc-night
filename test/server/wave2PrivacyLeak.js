@@ -1,22 +1,31 @@
 'use strict';
 
-/* A wave-2 night used to push a death — publiclyAlive() already flipped to
-   false, plus the deaths[] entry — to every host/TV stream the instant
-   wave 1 resolved, well before wave 2 even opened and long before dawn.
-   The shared screen showed a skull on that seat while the narration still
-   said "the town sleeps." This drives a real Barber kill through the
-   actual server and checks /api/host-state at exactly that moment: still
-   publicly "alive," no deaths[] entry, right up until endNight() actually
-   reaches day.
+/* A death used to be able to leak before dawn: wave 2 (a second, later
+   window opened after wave 1 resolved, for whatever needed to react to
+   who died in the first one — the Barber's swap, and before that, the
+   Ravenkeeper's reveal) pushed publiclyAlive()'s already-flipped `false`
+   to every host/TV stream the instant wave 1 resolved, well before wave 2
+   even opened, let alone dawn. The shared screen showed a skull on that
+   seat while the narration still said "the town sleeps."
 
-   Used to be a Ravenkeeper scenario (she was the OTHER wave-2 trigger, and
-   dying was itself what put her in wave 2) — moved to the Barber once the
-   Ravenkeeper's own reveal moved off wave 2 entirely onto the day
-   immediately following her death instead (see server.js's own
-   /api/ravenkeeper-choice and its comment on why). The Barber is now the
-   only remaining trigger for a second window: the Demon's swap prompt
-   still has to wait for wave 1 to decide who died, so the same leak risk
-   this test guards against is still very much live. */
+   Both wave-2 triggers are gone now — the Ravenkeeper's reveal moved to a
+   day-phase route (server.js's /api/ravenkeeper-choice) and the Barber's
+   swap moved into the Demon's own turn (engine.js's barberSwapAddon) — so
+   there is no wave-2 window left in this codebase to catch mid-transition
+   at all: closeWindow() now runs resolveNight() and endNight() back to
+   back, with no push to any client in between, so from outside the
+   process the whole night-to-day flip is atomic. That's a stronger
+   guarantee than the original bug fix, not a weaker one, but it means
+   this test can no longer poll for a "still mid-resolution" moment the
+   way it used to (there's nothing stable left to poll for). What it CAN
+   still verify, deterministically, without racing anything: right before
+   the window's last required submission lands, the Barber still shows
+   alive; the moment that submission's own response comes back — meaning
+   resolveNight and endNight have already both run — day has already
+   arrived and the Barber already shows dead, with no client ever able to
+   observe anything in between. Doubles as a real-HTTP check that the
+   Demon's pre-submitted swap choice (the whole point of the new design)
+   actually applies once the Barber genuinely dies. */
 
 const { startServer, request, answerAllNightPrompts } = require('./harness.js');
 
@@ -43,23 +52,17 @@ function waitUntil(fn, timeoutMs, intervalMs = 100) {
   const server = await startServer();
   try {
     await request(server.baseUrl, '/api/table/reset', { method: 'POST', body: {} });
-    // sv: the Barber's wave-2 swap is the one remaining trigger for a
-    // second window now that the Ravenkeeper's own reveal has moved to a
-    // day-phase route instead — see this file's header comment. 6 players
-    // (SETUP_TABLE['6']: 3 townsfolk, 1 outsider, 1 minion, 1 demon) rather
-    // than the original 5, since the Barber is an Outsider — a 5-player
-    // table deals zero of those — and being the roster's only Outsider
-    // option makes it the guaranteed, deterministic pick.
+    // 6 players (SETUP_TABLE['6']: 3 townsfolk, 1 outsider, 1 minion, 1
+    // demon) — the Barber is an Outsider, so a 5-player table would deal
+    // zero of those; being the roster's only Outsider option makes it the
+    // guaranteed, deterministic pick here.
     await request(server.baseUrl, '/api/table/script', {
       method: 'POST',
       body: { customRoster: ['barber', 'clockmaker', 'empath', 'oracle', 'poisoner', 'nodashii'] },
     });
-    // A long wave2Seconds so the leak window would be trivially observable
-    // if the bug were still there — this test doesn't rely on catching a
-    // narrow race, it asserts the field is correct for the whole window.
     await request(server.baseUrl, '/api/table/config', {
       method: 'POST',
-      body: { config: { windowSeconds: 60, wave2Seconds: 20 } },
+      body: { config: { windowSeconds: 60 } },
     });
 
     const names = ['Ada', 'Bo', 'Cy', 'Di', 'Ed', 'Fen'];
@@ -86,14 +89,20 @@ function waitUntil(fn, timeoutMs, intervalMs = 100) {
     const demonIdx = states.findIndex(r => r.json.you.character && r.json.you.character.id === 'nodashii');
     const barberIdx = states.findIndex(r => r.json.you.character && r.json.you.character.id === 'barber');
     const poisonerIdx = states.findIndex(r => r.json.you.character && r.json.you.character.id === 'poisoner');
+    const clockmakerIdx = states.findIndex(r => r.json.you.character && r.json.you.character.id === 'clockmaker');
+    const empathIdx = states.findIndex(r => r.json.you.character && r.json.you.character.id === 'empath');
     check('a real No Dashii was dealt', demonIdx !== -1);
     check('a real Barber was dealt', barberIdx !== -1);
     check('a real Poisoner was dealt', poisonerIdx !== -1);
-    if (demonIdx === -1 || barberIdx === -1 || poisonerIdx === -1) throw new Error('roster did not deal as requested — aborting');
+    if ([demonIdx, barberIdx, poisonerIdx, clockmakerIdx, empathIdx].includes(-1)) {
+      throw new Error('roster did not deal as requested — aborting');
+    }
 
     const demonId = states[demonIdx].json.you.id;
     const barberId = states[barberIdx].json.you.id;
     const barberName = names[barberIdx];
+    const clockmakerId = states[clockmakerIdx].json.you.id;
+    const empathId = states[empathIdx].json.you.id;
     // Some other living, non-Demon seat — poisoning the Clockmaker/Empath
     // is a no-op for this test either way; the point is just to keep the
     // Poisoner from landing on the Demon, which would make the kill itself
@@ -102,53 +111,55 @@ function waitUntil(fn, timeoutMs, intervalMs = 100) {
     const poisonRes = await request(server.baseUrl, '/api/action', { method: 'POST', body: { token: tokens[poisonerIdx], targets: [poisonTargetId] } });
     check('the Poisoner\'s action is accepted', !poisonRes.json || !poisonRes.json.error, JSON.stringify(poisonRes.json));
 
-    // No Dashii explicitly targets the Barber — everyone else (the
-    // Barber's own wave-1 decoy, Clockmaker, Empath) answers however.
-    const demonRes = await request(server.baseUrl, '/api/action', { method: 'POST', body: { token: tokens[demonIdx], targets: [barberId] } });
-    check('No Dashii\'s kill on the Barber is accepted', !demonRes.json || !demonRes.json.error, JSON.stringify(demonRes.json));
-    await answerAllNightPrompts(server.baseUrl, tokens.filter((_, i) => i !== demonIdx && i !== poisonerIdx));
+    // The Demon's own prompt already carries the barberSwap addon (the
+    // Barber is alive right now, so it's the "might die tonight" shape,
+    // not yet definite) — confirmed here as a real-HTTP check that
+    // promptFor's addon actually reaches a real client, not just the
+    // engine layer tools/simulate.js already covers.
+    const { json: demonStateBefore } = await request(server.baseUrl, `/api/state?token=${tokens[demonIdx]}`);
+    check('the Demon\'s own prompt carries the barberSwap addon while the Barber is still alive',
+      !!demonStateBefore.prompt && !!demonStateBefore.prompt.barberSwap && demonStateBefore.prompt.barberSwap.definite === false,
+      JSON.stringify(demonStateBefore.prompt && demonStateBefore.prompt.barberSwap));
 
-    // allSubmitted() closes wave 1 the instant everyone's in, resolves the
-    // kill, fires the Barber's onDeath (flagging the Demon's
-    // barberSwapPending) — and, since that flag is set, opens wave 2
-    // immediately.
-    const midWave2 = await waitUntil(async () => {
-      const { json } = await request(server.baseUrl, '/api/host-state');
-      return json.phase === 'night' && json.wave === 2 ? json : null;
-    }, 8000);
-    check('wave 2 actually opened (confirms the Barber really died in wave 1)', !!midWave2, 'never reached wave 2 within 8s');
+    // No Dashii targets the Barber AND pre-commits a swap pick, both in
+    // this one submission — no second call, no second window.
+    const demonRes = await request(server.baseUrl, '/api/action', {
+      method: 'POST',
+      body: { token: tokens[demonIdx], targets: [barberId], barberSwapTargets: [clockmakerId, empathId] },
+    });
+    check('No Dashii\'s kill on the Barber, plus a pre-committed swap pick, is accepted in one call', !demonRes.json || !demonRes.json.error, JSON.stringify(demonRes.json));
 
-    if (midWave2) {
-      const barberSeat = midWave2.players.find(p => p.id === barberId);
-      check('mid-wave-2, the Barber still shows publicly alive on the host/TV stream', barberSeat && barberSeat.alive === true, JSON.stringify(barberSeat));
-      check('mid-wave-2, the Barber\'s death has not been pushed to deaths[] yet',
-        !midWave2.deaths.some(d => d.name === barberName && d.night === midWave2.nightNumber),
-        JSON.stringify(midWave2.deaths));
-    }
+    // Answer everyone except the Poisoner/Demon (already in) and the
+    // Clockmaker — held back deliberately, so the window is still
+    // genuinely, legitimately open for the next check (not a race: nobody
+    // has submitted on the Clockmaker's behalf yet).
+    await answerAllNightPrompts(server.baseUrl, tokens.filter((_, i) => i !== demonIdx && i !== poisonerIdx && i !== clockmakerIdx));
 
-    // Finish wave 2: the (now-dead) Barber gets no prompt of their own at
-    // all — the ability's real actor is the Demon (see sv.js's barber
-    // entry) — but every other LIVING player still gets a decoy this wave
-    // (promptFor's own "nobody's silence marks them out" rule doesn't stop
-    // just because it's wave 2), Demon included: answerAllNightPrompts
-    // answers all of them, including the Demon's real synthetic
-    // 'barber-swap' prompt, and naturally skips the dead Barber on its own
-    // (it only ever acts for a seat whose own state.you.alive is true).
-    const { json: demonState } = await request(server.baseUrl, `/api/state?token=${tokens[demonIdx]}`);
-    check('the Demon gets the synthetic barber-swap prompt in wave 2', !!demonState.prompt && demonState.prompt.characterId === 'barber-swap', JSON.stringify(demonState.prompt));
-    await answerAllNightPrompts(server.baseUrl, tokens);
-    const dawn = await waitUntil(async () => {
-      const { json } = await request(server.baseUrl, '/api/host-state');
-      return json.phase === 'day' ? json : null;
-    }, 8000);
-    check('the night actually ends and day begins', !!dawn, 'never reached day within 8s');
+    const stillNight = (await request(server.baseUrl, '/api/host-state')).json;
+    check('still legitimately night — one required submission is deliberately outstanding', stillNight.phase === 'night', stillNight.phase);
+    const barberSeatBefore = stillNight.players.find(p => p.id === barberId);
+    check('before the window closes, the Barber still shows publicly alive', barberSeatBefore && barberSeatBefore.alive === true, JSON.stringify(barberSeatBefore));
 
-    if (dawn) {
-      const barberSeat = dawn.players.find(p => p.id === barberId);
-      check('once day actually begins, the Barber correctly shows dead', barberSeat && barberSeat.alive === false, JSON.stringify(barberSeat));
-      check('once day actually begins, the death is now visible in deaths[]',
-        dawn.deaths.some(d => d.name === barberName), JSON.stringify(dawn.deaths));
-    }
+    // The Clockmaker's own submission is the one that completes
+    // allSubmitted() — closeWindow() runs resolveNight() and endNight()
+    // synchronously inside THIS SAME /api/action call, so by the time this
+    // response comes back, day has already arrived. No poll, no race.
+    await answerAllNightPrompts(server.baseUrl, [tokens[clockmakerIdx]]);
+
+    const afterClose = (await request(server.baseUrl, '/api/host-state')).json;
+    check('the moment the window actually closes, day has already arrived — no observable in-between state', afterClose.phase === 'day', afterClose.phase);
+    const barberSeatAfter = afterClose.players.find(p => p.id === barberId);
+    check('and the Barber now correctly shows dead', barberSeatAfter && barberSeatAfter.alive === false, JSON.stringify(barberSeatAfter));
+    check('the death is now visible in deaths[]', afterClose.deaths.some(d => d.name === barberName), JSON.stringify(afterClose.deaths));
+
+    // The pre-committed swap actually applied, since the Barber genuinely
+    // died — confirmed via each swapped player's own private state.
+    const [clockmakerAfter, empathAfter] = await Promise.all([
+      request(server.baseUrl, `/api/state?token=${tokens[clockmakerIdx]}`),
+      request(server.baseUrl, `/api/state?token=${tokens[empathIdx]}`),
+    ]);
+    check('the pre-committed swap actually applied — the Clockmaker is now the Empath', clockmakerAfter.json.you.character.id === 'empath', clockmakerAfter.json.you.character.id);
+    check('...and the Empath is now the Clockmaker', empathAfter.json.you.character.id === 'clockmaker', empathAfter.json.you.character.id);
   } finally {
     await server.stop();
   }

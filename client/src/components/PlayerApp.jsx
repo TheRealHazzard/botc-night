@@ -83,7 +83,7 @@ export default function PlayerApp({ P, token, onChangeUser, onOpenLeaderControls
       {P.phase === 'over' && <GameOverCard victory={P.victory} />}
 
       {P.phase === 'night' && P.prompt && (
-        <NightPromptCard key={`${P.nightNumber}:${P.wave}`} P={P} token={token} />
+        <NightPromptCard key={P.nightNumber} P={P} token={token} />
       )}
       {P.phase === 'night' && !P.prompt && P.you.alive && <NightWaitingCard />}
 

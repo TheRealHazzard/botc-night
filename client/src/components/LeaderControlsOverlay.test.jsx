@@ -301,7 +301,6 @@ describe('LeaderControlsOverlay', () => {
       render(<LeaderControlsOverlay open={true} onClose={() => {}} />);
       push(dayState());
       expect(screen.getByText('Night window (seconds)').closest('.settings-num-row').querySelector('input').value).toBe('60');
-      expect(screen.getByText('Second-wave window (seconds)').closest('.settings-num-row').querySelector('input').value).toBe('20');
       expect(screen.getByText('Vote window (seconds)').closest('.settings-num-row').querySelector('input').value).toBe('20');
     });
 

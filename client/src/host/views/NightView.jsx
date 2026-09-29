@@ -8,15 +8,14 @@ import WhimBeat from '../components/WhimBeat.jsx';
 import { useSpeak } from '../hooks/useSpeak.js';
 import { useWhimBeat } from '../hooks/useWhimBeat.js';
 
-export default function NightView({ players, nightNumber, wave, windowEndsAt, windowTotalSeconds, config, script, scriptChars, activeScriptMeta, muted, log, ringSlotRef, fadeClass = '' }) {
-  const again = wave === 2;
-  const line = again ? 'Something is not finished.' : 'Close your eyes. The town sleeps.';
-  useSpeak(line, { dread: again, muted });
+export default function NightView({ players, nightNumber, windowEndsAt, windowTotalSeconds, config, script, scriptChars, activeScriptMeta, muted, log, ringSlotRef, fadeClass = '' }) {
+  const line = 'Close your eyes. The town sleeps.';
+  useSpeak(line, { muted });
   const whim = useWhimBeat(log);
 
   const acted = players.filter(p => p.submitted).length;
   const living = players.filter(p => p.alive).length;
-  const label = `Night ${nightNumber}${again ? ' — again' : ''}`;
+  const label = `Night ${nightNumber}`;
 
   const main = (
     <div className="stage-main">
@@ -35,12 +34,12 @@ export default function NightView({ players, nightNumber, wave, windowEndsAt, wi
 
   const right = (
     <div className="sidepanel">
-      <SidepanelCard icon="clock" title={again ? 'Second window' : 'Night window'}>
+      <SidepanelCard icon="clock" title="Night window">
         {windowEndsAt && (
           <div className="timerbox">
             <Countdown
               windowEndsAt={windowEndsAt}
-              total={windowTotalSeconds ?? (again ? config.wave2Seconds : config.windowSeconds)}
+              total={windowTotalSeconds ?? config.windowSeconds}
             />
           </div>
         )}

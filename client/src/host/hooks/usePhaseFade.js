@@ -57,7 +57,7 @@ export function usePhaseFade(S, { muted = false } = {}) {
 
   useEffect(() => {
     if (!S) return;
-    const key = `${S.phase}:${S.nightNumber}:${S.wave}`;
+    const key = `${S.phase}:${S.nightNumber}`;
     const changed = key !== lastKeyRef.current;
     lastKeyRef.current = key;
 

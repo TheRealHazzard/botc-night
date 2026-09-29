@@ -8,32 +8,26 @@ const players = [
   { id: 'p2', name: 'Bo', alive: false, connected: true, submitted: false, color: null },
 ];
 const activeScriptMeta = { id: 'tb', name: 'Trouble Brewing', difficulty: 1, description: 'x', decidedGames: 0 };
-const config = { windowSeconds: 60, wave2Seconds: 20 };
+const config = { windowSeconds: 60 };
 
 describe('NightView', () => {
   beforeEach(() => mockFetch({ '/api/tokens': {}, '/trivia.json': [] }));
 
   it('shows the night counter, dread narration, and answered count', () => {
-    render(<NightView players={players} nightNumber={2} wave={1} windowEndsAt={Date.now() + 15000} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />);
+    render(<NightView players={players} nightNumber={2} windowEndsAt={Date.now() + 15000} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />);
     expect(screen.getByText('Night 2')).toBeInTheDocument();
     expect(screen.getByText('Close your eyes. The town sleeps.')).toBeInTheDocument();
     // p2 is dead, so "living" counts only Ada — 1 of 1, not 1 of 2.
     expect(screen.getByText((_, node) => node?.textContent === '1 of 1 have answered.')).toBeInTheDocument();
   });
 
-  it('wave 2 shows the "again" label and the more dread-toned line', () => {
-    render(<NightView players={players} nightNumber={2} wave={2} windowEndsAt={Date.now() + 15000} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />);
-    expect(screen.getByText('Night 2 — again')).toBeInTheDocument();
-    expect(screen.getByText('Something is not finished.')).toBeInTheDocument();
-  });
-
   it('shows the countdown timer when a window is open', () => {
-    render(<NightView players={players} nightNumber={1} wave={1} windowEndsAt={Date.now() + 8000} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />);
+    render(<NightView players={players} nightNumber={1} windowEndsAt={Date.now() + 8000} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />);
     expect(screen.getByText('8')).toBeInTheDocument();
   });
 
   it('shows no timer once the window is null', () => {
-    const { container } = render(<NightView players={players} nightNumber={1} wave={1} windowEndsAt={null} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />);
+    const { container } = render(<NightView players={players} nightNumber={1} windowEndsAt={null} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />);
     expect(container.querySelector('.clockwrap')).not.toBeInTheDocument();
   });
 
@@ -50,7 +44,7 @@ describe('NightView', () => {
   it('the ring reads windowTotalSeconds, not live config — a host changing Timing settings mid-window does not desync it', () => {
     const windowEndsAt = Date.now() + 8000;
     const { container, rerender } = render(
-      <NightView players={players} nightNumber={1} wave={1} windowEndsAt={windowEndsAt} windowTotalSeconds={20} config={{ windowSeconds: 20, wave2Seconds: 20 }} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
+      <NightView players={players} nightNumber={1} windowEndsAt={windowEndsAt} windowTotalSeconds={20} config={{ windowSeconds: 20 }} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
     );
     expect(ringDashoffset(container)).toBe(expectedDashoffset(8, 20));
 
@@ -58,7 +52,7 @@ describe('NightView', () => {
     // phase gate) — config.windowSeconds changes, but windowTotalSeconds
     // (what this window actually started from) does not.
     rerender(
-      <NightView players={players} nightNumber={1} wave={1} windowEndsAt={windowEndsAt} windowTotalSeconds={20} config={{ windowSeconds: 90, wave2Seconds: 20 }} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
+      <NightView players={players} nightNumber={1} windowEndsAt={windowEndsAt} windowTotalSeconds={20} config={{ windowSeconds: 90 }} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
     );
     expect(ringDashoffset(container)).toBe(expectedDashoffset(8, 20));
   });
@@ -66,27 +60,19 @@ describe('NightView', () => {
   it('falls back to a live config recompute only when windowTotalSeconds is absent (a window opened before this field existed)', () => {
     const windowEndsAt = Date.now() + 8000;
     const { container } = render(
-      <NightView players={players} nightNumber={1} wave={1} windowEndsAt={windowEndsAt} config={{ windowSeconds: 90, wave2Seconds: 20 }} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
+      <NightView players={players} nightNumber={1} windowEndsAt={windowEndsAt} config={{ windowSeconds: 90 }} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
     );
     expect(ringDashoffset(container)).toBe(expectedDashoffset(8, 90));
   });
 
-  it('wave 2 falls back to config.wave2Seconds, not windowSeconds, when windowTotalSeconds is absent', () => {
-    const windowEndsAt = Date.now() + 8000;
-    const { container } = render(
-      <NightView players={players} nightNumber={1} wave={2} windowEndsAt={windowEndsAt} config={{ windowSeconds: 90, wave2Seconds: 20 }} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
-    );
-    expect(ringDashoffset(container)).toBe(expectedDashoffset(8, 20));
-  });
-
   it('a fresh whim-roll log line shows the beat; nothing shows on the initial mount', () => {
     const { rerender } = render(
-      <NightView players={players} nightNumber={2} wave={1} windowEndsAt={null} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} log={[]} />
+      <NightView players={players} nightNumber={2} windowEndsAt={null} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} log={[]} />
     );
     expect(screen.queryByText('A quiet decision, unseen.')).not.toBeInTheDocument();
 
     const whimLog = [{ night: 2, phase: 'night', text: 'A quiet decision was made, unseen.', secret: false }];
-    rerender(<NightView players={players} nightNumber={2} wave={1} windowEndsAt={null} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} log={whimLog} />);
+    rerender(<NightView players={players} nightNumber={2} windowEndsAt={null} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} log={whimLog} />);
     expect(screen.getByText('A quiet decision, unseen.')).toBeInTheDocument();
   });
 });

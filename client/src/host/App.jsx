@@ -262,7 +262,7 @@ export default function App() {
 
   const phaseLabel =
     displayS.phase === "night"
-      ? `Night ${displayS.nightNumber}${displayS.wave === 2 ? " — again" : ""}`
+      ? `Night ${displayS.nightNumber}`
       : displayS.phase === "day"
         ? `Day ${displayS.nightNumber}`
         : displayS.phase;
@@ -363,7 +363,6 @@ export default function App() {
               <NightView
                 players={displayS.players}
                 nightNumber={displayS.nightNumber}
-                wave={displayS.wave}
                 windowEndsAt={displayS.windowEndsAt}
                 windowTotalSeconds={displayS.windowTotalSeconds}
                 config={displayS.config}

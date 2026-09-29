@@ -44,7 +44,7 @@ function waitUntil(fn, timeoutMs, intervalMs = 200) {
     check('the custom roster (with an outsider slot, as required for the Butler) is accepted', scriptRes.json && scriptRes.json.ok === true, JSON.stringify(scriptRes.json));
     await request(server.baseUrl, '/api/table/config', {
       method: 'POST',
-      body: { config: { voteWindowSeconds: 2, windowSeconds: 6, wave2Seconds: 3 } },
+      body: { config: { voteWindowSeconds: 2, windowSeconds: 6 } },
     });
 
     const names = ['Ada', 'Bo', 'Cy', 'Di', 'Ed', 'Fi'];
