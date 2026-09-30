@@ -13,7 +13,7 @@ const {
   triggerPixieIfNeeded, applyCannibalTransform, resolveRavenkeeperChoice,
   logEvent, outsiderDiedToday, minionDiedToday, somebodyDiedYesterday,
   numberSignal, falseNumber, logTrueValue, evilNeighbourCount, evilPairCount, pairInfo,
-  decide,
+  decide, INTERNAL_ONLY_STATUSES,
 } = H;
 
 // One registry entry per active character (real night prompt and/or
@@ -1752,7 +1752,7 @@ module.exports = {
   minionDiedToday, triggerMoonchildIfNeeded, triggerDeathHooks, resolveMastermindDay,
   resolveDayVote, gameSummary, resolveMadness, buildSavantStatements, evaluateClaim,
   activeScriptPool, applyConfigPatch, buildStorytellerContext, BUCKET4_IDS,
-  applyCannibalTransform, resolveRavenkeeperChoice,
+  applyCannibalTransform, resolveRavenkeeperChoice, INTERNAL_ONLY_STATUSES,
   // Exposed for tools/audit-abilities.js's generic per-character invariant
   // checks, which need to iterate every entry rather than dispatch by id —
   // nothing inside game/ itself needs this, since engine.js's own functions

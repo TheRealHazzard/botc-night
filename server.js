@@ -425,16 +425,6 @@ function pushPlayer(playerId) {
   for (const res of set) write(res, payload);
 }
 
-// Internal bookkeeping that happens to live in the same p.statuses bag as
-// real reminder tokens, but was never meant to be read by anyone — a night
-// number threshold, a stashed player id from last night's choice, or a
-// flag that's redundant with another one shown right next to it. Kept out
-// of the observer view instead of showing up as a meaningless raw key.
-const INTERNAL_ONLY_STATUSES = new Set([
-  'poisonedUntilNight', 'drunkUntilNight', 'exorcistLastTarget', 'daLastTarget',
-  'diedTonight', 'zombuulFaked',
-]);
-
 /** Shared by the live SSE push and the one-shot polling snapshot below —
     the observer view sees everything, so it only ever attaches to a
     simulation. */
@@ -454,7 +444,7 @@ function simPayload() {
         trueCharacter: E.trueChar(p) ? E.trueChar(p).name : null,
         trueCharacterId: p.characterId,
         believed: p.believedId,
-        statuses: Object.keys(p.statuses).filter(k => !INTERNAL_ONLY_STATUSES.has(k)),
+        statuses: Object.keys(p.statuses).filter(k => !E.INTERNAL_ONLY_STATUSES.has(k)),
         choice: (submitted ? submitted.targets : []).map(id => {
           const t = E.byId(game, id);
           return t ? t.name : id;

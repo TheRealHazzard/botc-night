@@ -431,6 +431,49 @@ const MERCY_ELIGIBLE_IDS = new Set([
   'fortuneteller', 'washerwoman', 'librarian', 'investigator', 'chef', 'empath', 'undertaker', 'ravenkeeper',
 ]);
 
+/** Internal bookkeeping that happens to live in the same p.statuses bag as
+    real reminder tokens, but was never meant to be read by anyone — used
+    by both the Spy's own grimoire (game/abilities/tb.js — a *real* player
+    reading this live) and server.js's Dry Run observer payload (a host
+    debugging view). Used to be two separate, independently-maintained
+    lists (the Spy's own inline single-key filter, and a 6-key
+    INTERNAL_ONLY_STATUSES in server.js) that had already drifted apart
+    and were both stale against the ~50 status keys actually in use across
+    tb/bmr/sv/carousel — new characters kept adding statuses without
+    anyone remembering either list existed, so both a real Spy and the Dry
+    Run observer were showing raw, meaningless tags like "grandchildId" or
+    "jugglerGuesses" (an array — Object.keys() only ever returns the KEY,
+    never what it holds, so an array/object-valued status can never render
+    as a sensible bare tag no matter what it's named). One shared list,
+    grouped by why each key is here:
+    - a night-number threshold, not a fact ("poisoned until when", not
+      "is poisoned" — poisoned itself is shown separately)
+    - a stashed player id from a previous choice (Exorcist/Devil's
+      Advocate/Pukka's own last target, a Grandmother's grandchild, an
+      Evil Twin's twin, a Pixie's reveal, a Bounty Hunter's target) — a
+      bare key conveys nothing without the id resolved to a name, which
+      this shared list has no access to; showing a tag with no value is
+      worse than not showing one
+    - a day number or array/object value, same "the key alone means
+      nothing" problem (Gossip's claim day, the Savant's visit day, the
+      Juggler's stored guesses, Mutant/Cerenovus's madness reasons, the
+      Balloonist's seen-teams set)
+    - redundant with a different, already-shown status for the same fact
+      (No Dashii/Cannibal's own poison markers duplicate the plain
+      `poisoned` tag already shown right next to them; a night's
+      diedTonight duplicates `alive: false` itself) */
+const INTERNAL_ONLY_STATUSES = new Set([
+  // Night-number thresholds, not facts
+  'poisonedUntilNight', 'drunkUntilNight', 'gossipClaimDay', 'savantVisitDay',
+  // Stashed ids from a previous choice
+  'exorcistLastTarget', 'daLastTarget', 'pukkaLastTarget', 'grandchildId',
+  'evilTwinId', 'twinId', 'pixieRevealedId', 'bountyHunterTargetId',
+  // Day numbers / arrays / objects — meaningless as a bare key
+  'gossipClaimTrue', 'jugglerGuesses', 'madReasons', 'balloonistSeenTypes',
+  // Redundant with a different status already shown for the same fact
+  'diedTonight', 'zombuulFaked', 'noDashiiPoisoned', 'cannibalPoisoned',
+]);
+
 /**
  * At most once a game, and only when good is clearly losing (more evil
  * alive than good — a stricter bar than The Whim's endgame stakes check),
@@ -914,5 +957,5 @@ module.exports = {
   minionNominatedToday, demonVotedToday, vortoxActive,
   numberSignal, falseNumber, logTrueValue, evilNeighbourCount, evilPairCount, pairInfo,
   resultCount, resultYesNo, resultPointer, resolveRavenkeeperChoice,
-  decide,
+  decide, INTERNAL_ONLY_STATUSES,
 };

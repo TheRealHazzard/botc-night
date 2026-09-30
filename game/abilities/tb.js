@@ -263,7 +263,10 @@ module.exports = (h) => [
           character: shown[i].character,
           believedCharacter: shown[i].believedCharacter,
           alive: x.alive,
-          statuses: Object.keys(x.statuses).filter(k => k !== 'poisonedUntilNight'),
+          // h.INTERNAL_ONLY_STATUSES (game/helpers.js) — shared with
+          // server.js's own Dry Run observer view, which used to keep an
+          // independent, differently-incomplete copy of this same idea.
+          statuses: Object.keys(x.statuses).filter(k => !h.INTERNAL_ONLY_STATUSES.has(k)),
         })),
       };
     },

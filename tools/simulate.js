@@ -711,6 +711,51 @@ console.log('\nSpy grimoire: also shows what the Drunk (and Lunatic) believe the
     spyRow && (spyRow.believedCharacter === null || spyRow.believedCharacter === undefined));
 }
 
+console.log('\nSpy grimoire: internal bookkeeping stays out of the shown statuses');
+{
+  // Real gap found on review: the Spy's own filter only ever excluded one
+  // key (poisonedUntilNight), while ~50 status keys have accumulated
+  // across tb/bmr/sv/carousel since — a real Spy was seeing raw,
+  // meaningless tags like "grandchildId" or "jugglerGuesses" (an array;
+  // Object.keys() only returns the key, never what it holds, so it could
+  // never render as a sensible tag regardless of name). Now backed by the
+  // same shared h.INTERNAL_ONLY_STATUSES set server.js's Dry Run observer
+  // uses, instead of two independently-drifting lists.
+  const mk = (id, characterId) => ({ id, name: id, characterId, believedId: characterId, alive: true, statuses: {} });
+  const g = E.newGame();
+  g.nightNumber = 2; g.phase = 'night'; g.results = {};
+  g.players = [
+    mk('spy1', 'spy'), mk('imp1', 'imp'), mk('t1', 'chef'), mk('t2', 'soldier'), mk('t3', 'slayer'),
+  ];
+  const target = g.players.find(p => p.id === 't1');
+  // A mix of genuinely meaningful statuses (should still show) and
+  // internal-only bookkeeping (should now be hidden) on the same player.
+  // diedTonight is deliberately NOT included here — resolveNight's own
+  // "reset per-night markers" step unconditionally clears it before any
+  // character's resolve() runs at all (including the Spy's own), so it
+  // could never appear in a same-night grimoire regardless of this
+  // filter; testing it here would pass for the wrong reason.
+  target.statuses.poisoned = true;
+  target.statuses.master = true;
+  target.statuses.grandchildId = 'imp1';
+  target.statuses.evilTwinId = 'imp1';
+  target.statuses.jugglerGuesses = [{ playerId: 'imp1', characterId: 'imp' }];
+  target.statuses.gossipClaimDay = 2;
+  target.statuses.cannibalPoisoned = true; // redundant with `poisoned`, already shown
+  target.statuses.poisonedUntilNight = 2;
+
+  await E.resolveNight(g);
+  const row = g.results.spy1.grimoire.find(r => r.name === 't1');
+  check('meaningful statuses still show (poisoned, master)',
+    row.statuses.includes('poisoned') && row.statuses.includes('master'), JSON.stringify(row.statuses));
+  check('id-reference bookkeeping is hidden (grandchildId, evilTwinId)',
+    !row.statuses.includes('grandchildId') && !row.statuses.includes('evilTwinId'), JSON.stringify(row.statuses));
+  check('array/day-number bookkeeping is hidden (jugglerGuesses, gossipClaimDay)',
+    !row.statuses.includes('jugglerGuesses') && !row.statuses.includes('gossipClaimDay'), JSON.stringify(row.statuses));
+  check('redundant/night-threshold bookkeeping is hidden (cannibalPoisoned, poisonedUntilNight)',
+    !row.statuses.includes('cannibalPoisoned') && !row.statuses.includes('poisonedUntilNight'), JSON.stringify(row.statuses));
+}
+
 console.log('\nSpy/Recluse as a registered subject for Washerwoman-type reveals');
 {
   const mk = (id, characterId) => ({ id, name: id, characterId, believedId: characterId, alive: true, statuses: {} });
