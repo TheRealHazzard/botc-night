@@ -80,6 +80,29 @@ if (drunk) {
   console.log('  --    no Drunk in this bag');
 }
 
+console.log('\nDrunk: zero spare townsfolk (a tight custom roster)');
+{
+  // Can't happen on the real Trouble Brewing sheet (13 townsfolk options,
+  // never all dealt at once alongside a Drunk within the 5-15 player
+  // range) — only reachable via a deliberately tight custom roster, which
+  // this forces: exactly 3 townsfolk options for 6 players' own exact
+  // requirement (townsfolk:3), leaving nothing spare for the Drunk to
+  // falsely believe.
+  const gTight = E.newGame();
+  gTight.script = 'custom';
+  gTight.customRoster = ['chef', 'empath', 'soldier', 'drunk', 'poisoner', 'imp'];
+  seat(gTight, 6);
+  E.dealRoles(gTight);
+  const drunkTight = gTight.players.find(p => p.characterId === 'drunk');
+  check('a real Drunk was dealt in this tight roster', !!drunkTight);
+  check('every townsfolk option was actually dealt, leaving nothing spare',
+    ['chef', 'empath', 'soldier'].every(id => gTight.players.some(p => p.characterId === id)));
+  check('the Drunk still never believes they\'re the Drunk, even with no spare townsfolk',
+    drunkTight && drunkTight.believedId !== 'drunk', drunkTight && drunkTight.believedId);
+  check('the fallback belief is still a real townsfolk character',
+    drunkTight && E.char(drunkTight.believedId) && E.char(drunkTight.believedId).team === 'townsfolk');
+}
+
 console.log('\nNight 1');
 g.nightNumber = 1; g.phase = 'night'; g.wave = 1;
 

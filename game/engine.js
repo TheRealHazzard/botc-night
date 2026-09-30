@@ -291,7 +291,18 @@ function dealRoles(g, presetAssignment, puzzlemasterId) {
   if (drunkPlayer) {
     const inPlay = new Set(g.players.map(p => p.characterId));
     const candidates = of('townsfolk').filter(c => !inPlay.has(c.id));
-    if (candidates.length) drunkPlayer.believedId = pick(candidates).id;
+    // Can't happen on the real Trouble Brewing sheet (13 townsfolk options
+    // never all fit in play at once alongside a Drunk within the 5-15
+    // player range) — only reachable via the script builder, with a
+    // custom roster deliberately leaving zero spare townsfolk. Falling
+    // back to the in-play pool isn't the official "not really in play"
+    // shape, but it's strictly better than the alternative this used to
+    // silently do: leave believedId as 'drunk', meaning the Drunk
+    // correctly knows they're the Drunk — the one thing the ability
+    // guarantees can never happen. requireEnough('townsfolk', ...) above
+    // already guarantees this pool itself is never empty.
+    const pool = candidates.length ? candidates : of('townsfolk');
+    drunkPlayer.believedId = pick(pool).id;
   }
 
   // Fortune Teller's red herring: one good player always registers as the Demon.
