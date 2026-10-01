@@ -88,4 +88,31 @@ describe('soundEngine', () => {
   it('stopAmbience: safe to call with nothing currently running', () => {
     expect(() => stopAmbience()).not.toThrow();
   });
+
+  it('startAmbience: tension defaults to 0 — the untouched two-oscillator bed', () => {
+    startAmbience('night', false);
+    expect(toneCalls.length).toBe(2);
+    stopAmbience();
+  });
+
+  it('startAmbience: tension > 0 adds a third tritone voice, night only', () => {
+    startAmbience('night', false, 0.6);
+    expect(toneCalls.length).toBe(3);
+    const tritone = toneCalls[2].freq;
+    // A tritone above osc1's 55Hz, give or take floating-point rounding.
+    expect(tritone).toBeCloseTo(55 * Math.pow(2, 6 / 12), 1);
+    stopAmbience();
+  });
+
+  it('startAmbience: tension stays silent on the third voice during the day — day gets louder/brighter, not dissonant', () => {
+    startAmbience('day', false, 0.6);
+    expect(toneCalls.length).toBe(2);
+    stopAmbience();
+  });
+
+  it('startAmbience: tension is clamped to [0, 1] — an out-of-range value does not throw or misbehave', () => {
+    expect(() => startAmbience('night', false, 5)).not.toThrow();
+    expect(toneCalls.length).toBe(3); // still just the one extra voice, not something wilder
+    stopAmbience();
+  });
 });

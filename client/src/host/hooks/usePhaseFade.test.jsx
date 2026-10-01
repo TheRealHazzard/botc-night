@@ -178,6 +178,30 @@ describe('usePhaseFade', () => {
     expect(toneCalls.some(c => c.freq > 150)).toBe(true); // playVictory('good') triad, only now
   });
 
+  it('ambience tension tracks how many players have died — a grimmer night bed once the body count climbs', () => {
+    stubReducedMotion(false);
+    installFakeAudioContext();
+    const allAlive = { phase: 'night', nightNumber: 2, deaths: [], victory: null, players: [{ alive: true }, { alive: true }, { alive: true }, { alive: true }] };
+    const halfDead = { phase: 'night', nightNumber: 2, deaths: [], victory: null, players: [{ alive: true }, { alive: true }, { alive: false }, { alive: false }] };
+
+    // Two separate hook instances, each going straight from day into
+    // night once, so playNightFalls' own one-shot chime (unaffected by
+    // tension) contributes an identical, fixed number of tones either
+    // way — only startAmbience's extra tritone voice should differ.
+    const first = renderHook(({ S }) => usePhaseFade(S), { initialProps: { S: day } });
+    resetAudioCalls();
+    act(() => first.rerender({ S: allAlive }));
+    const noTensionCount = toneCalls.length;
+
+    resetAudioCalls();
+    const second = renderHook(({ S }) => usePhaseFade(S), { initialProps: { S: day } });
+    resetAudioCalls();
+    act(() => second.rerender({ S: halfDead }));
+    const withTensionCount = toneCalls.length;
+
+    expect(withTensionCount).toBe(noTensionCount + 1);
+  });
+
   it('an "over" transition with no pickable blow just fades normally and plays victory immediately', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     stubReducedMotion(false);

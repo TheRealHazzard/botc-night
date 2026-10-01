@@ -14,6 +14,17 @@ import { usePrefersReducedMotion } from './usePrefersReducedMotion.js';
 const TRANS_MS = { dusk: 950, dawn: 660, over: 560, reveal: 300, plain: 380 };
 const TRANS_KIND = { night: 'dusk', day: 'dawn', over: 'over', reveal: 'reveal' };
 
+// How dire the game has gotten, for startAmbience's `tension` — plain
+// fraction-dead, not a BOTC-aware "how close to a demon majority" read:
+// the ambience bed is a felt thing, not a strategic signal, and a host
+// glancing at the grimoire already sees exactly who's alive regardless.
+function tensionOf(S) {
+  const total = S.players ? S.players.length : 0;
+  if (!total) return 0;
+  const dead = S.players.filter(p => !p.alive).length;
+  return dead / total;
+}
+
 /** Reproduces render()'s own changed/lastPhaseKey detection, phase-entry
     sound cues, and the 4 named fade transitions — short-circuited by the
     fatal-blow sequencer exactly the way render() does, before the normal
@@ -87,8 +98,8 @@ export function usePhaseFade(S, { muted = false } = {}) {
     const willFlash = hasRenderedRef.current && S.phase === 'over' && !reduceMotion && !!pickFatalBlow(S);
     if (willFlash) return; // the fatal-blow sequencer owns this transition instead
 
-    if (S.phase === 'night') { playNightFalls(muted); startAmbience('night', muted); }
-    else if (S.phase === 'day') { playDayBreaks(muted); startAmbience('day', muted); }
+    if (S.phase === 'night') { playNightFalls(muted); startAmbience('night', muted, tensionOf(S)); }
+    else if (S.phase === 'day') { playDayBreaks(muted); startAmbience('day', muted, tensionOf(S)); }
     else {
       // Lobby, reveal, and the reveal-of-the-truth over screen are all
       // meant to sit in quiet, not carry night's or day's bed under them.

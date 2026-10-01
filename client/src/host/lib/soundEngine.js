@@ -178,11 +178,11 @@ export function suspendAudioContext() {
 // Two detuned sub-oscillators plus a looping filtered-noise layer, all
 // through one gain node so fading the bed in/out (and swapping night for
 // day) is a single ramp rather than juggling several node lifetimes.
-let ambience = null; // { osc1, osc2, noiseSrc, gainNode, kind } | null
+let ambience = null; // { osc1, osc2, osc3, noiseSrc, gainNode, kind } | null
 
 function teardownAmbience(fadeSec) {
   if (!ambience) return;
-  const { osc1, osc2, noiseSrc, gainNode } = ambience;
+  const { osc1, osc2, osc3, noiseSrc, gainNode } = ambience;
   ambience = null;
   const ctx = getAudioCtx();
   const t0 = ctx.currentTime;
@@ -193,7 +193,7 @@ function teardownAmbience(fadeSec) {
   // than stopping immediately and cutting the ramp off audibly) lets the
   // bed actually die away instead of clicking off.
   setTimeout(() => {
-    [osc1, osc2, noiseSrc].forEach(n => { try { n.stop(); } catch (e) { /* already stopped */ } });
+    [osc1, osc2, osc3, noiseSrc].forEach(n => { if (n) try { n.stop(); } catch (e) { /* already stopped */ } });
   }, fadeSec * 1000 + 80);
 }
 
@@ -201,8 +201,18 @@ function teardownAmbience(fadeSec) {
    different `kind` to swap it, or `stopAmbience()` to fade it out with
    nothing to replace it (reveal, lobby, game over — moments meant to sit in
    quiet). Safe to call while `muted`: just leaves nothing running, same as
-   every other cue in this file. */
-export function startAmbience(kind, muted) {
+   every other cue in this file.
+
+   `tension` (0–1, default 0) is how dire the game has gotten — the caller's
+   job to compute (see usePhaseFade.js, which derives it from how many
+   players are left). At 0 this is identical to the original fixed bed; as
+   it climbs, the bed itself tightens — louder, a brighter noise floor, and
+   (night only) a quiet tritone drone fades in underneath the two clean
+   sub-oscillators. Every parameter is still ramped/set the same way it
+   always was, just toward a tension-scaled target instead of a fixed one,
+   so the bed never visibly changes gear, only gradually comes apart. */
+export function startAmbience(kind, muted, tension = 0) {
+  tension = Math.max(0, Math.min(1, tension));
   teardownAmbience(0.8);
   if (muted) return;
   const ctx = getAudioCtx();
@@ -215,7 +225,8 @@ export function startAmbience(kind, muted) {
   gainNode.connect(wetSend);
   wetSend.connect(reverbSend);
   gainNode.gain.setValueAtTime(0.0001, ctx.currentTime);
-  gainNode.gain.linearRampToValueAtTime(night ? 0.05 : 0.032, ctx.currentTime + 2.5);
+  const targetGain = (night ? 0.05 : 0.032) + (night ? 0.02 : 0.015) * tension;
+  gainNode.gain.linearRampToValueAtTime(targetGain, ctx.currentTime + 2.5);
 
   const osc1 = ctx.createOscillator();
   osc1.type = 'sine';
@@ -234,6 +245,25 @@ export function startAmbience(kind, muted) {
   osc2Gain.connect(gainNode);
   osc2.start();
 
+  // A third voice with nothing to say until the game actually has stakes —
+  // a tritone above the night drone, faded in by `tension` rather than
+  // switched on, so the net visibly tightens rather than audibly changing
+  // gear. Night only: day's unease is about scrutiny, not dread, so it
+  // stays consonant and just gets a little louder/brighter instead.
+  let osc3 = null;
+  if (night && tension > 0) {
+    osc3 = ctx.createOscillator();
+    osc3.type = 'sine';
+    osc3.frequency.value = 55.0 * Math.pow(2, 6 / 12); // a tritone above osc1
+    osc3.detune.value = 5;
+    const osc3Gain = ctx.createGain();
+    osc3Gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+    osc3Gain.gain.linearRampToValueAtTime(0.22 * tension, ctx.currentTime + 2.5);
+    osc3.connect(osc3Gain);
+    osc3Gain.connect(gainNode);
+    osc3.start();
+  }
+
   const noiseDuration = 4;
   const length = Math.floor(ctx.sampleRate * noiseDuration);
   const buffer = ctx.createBuffer(1, length, ctx.sampleRate);
@@ -244,15 +274,15 @@ export function startAmbience(kind, muted) {
   noiseSrc.loop = true;
   const noiseFilter = ctx.createBiquadFilter();
   noiseFilter.type = 'lowpass';
-  noiseFilter.frequency.value = night ? 180 : 520;
+  noiseFilter.frequency.value = (night ? 180 : 520) + (night ? 120 : 200) * tension;
   const noiseGain = ctx.createGain();
-  noiseGain.gain.value = night ? 0.4 : 0.16;
+  noiseGain.gain.value = (night ? 0.4 : 0.16) + (night ? 0.25 : 0.1) * tension;
   noiseSrc.connect(noiseFilter);
   noiseFilter.connect(noiseGain);
   noiseGain.connect(gainNode);
   noiseSrc.start();
 
-  ambience = { osc1, osc2, noiseSrc, gainNode, kind };
+  ambience = { osc1, osc2, osc3, noiseSrc, gainNode, kind };
 }
 
 export function stopAmbience() {
