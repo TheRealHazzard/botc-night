@@ -1163,20 +1163,107 @@ function voteHandler(body) {
   return { status: 200, payload: { ok: true } };
 }
 
+const BOT_CLAIM_SYSTEM =
+  'You are role-playing one player in a game of Blood on the Clocktower, during the day phase. ' +
+  'You know your own believed character, any private information your ability has already given you, ' +
+  'and everything claimed publicly so far today. Decide whether to publicly claim a character now, ' +
+  'and if so, exactly what to say.\n\n' +
+  'A player whose believed character is good usually benefits from claiming it and sharing real ' +
+  'information early, to help the town find the Demon — but may hold back if the information looks ' +
+  'dangerous to reveal yet. A player whose believed character is evil usually benefits from claiming a ' +
+  'plausible Townsfolk or Outsider role not already truthfully claimed, with invented information ' +
+  'consistent with everything said publicly so far — a good bluff never contradicts an existing claim. ' +
+  'Never pick a character already claimed by someone else unless you intend a contradiction on purpose.\n\n' +
+  'Reason about what this specific player, with this personality, would actually do here — not what is ' +
+  'abstractly optimal.';
+
+function botClaimSchema(g) {
+  return {
+    type: 'object',
+    properties: {
+      reasoning: { type: 'string' },
+      shouldClaim: { type: 'boolean' },
+      claimedCharacterId: { type: 'string', enum: E.activeScriptPool(g).map(c => c.id) },
+      statement: { type: 'string' },
+    },
+    required: ['reasoning', 'shouldClaim', 'claimedCharacterId', 'statement'],
+    additionalProperties: false,
+  };
+}
+
+/** What one bot actually knows, for its own claim/nominate/vote reasoning —
+    scoped to that player alone, never the omniscient ground truth
+    buildStorytellerContext/judgeFreeformClaim's own prompt uses. Uses the
+    player's BELIEVED character throughout, never their true one, for
+    exactly the reason E.heuristicBotClaim already does: a Drunk or
+    Marionette genuinely doesn't know they're wrong, so reasoning from
+    their true character would make them bluff on purpose when a real one
+    of them never would — only a genuine Minion/Demon (whose believed
+    character already IS their true one) reasons as evil here. */
+function botMemory(g, player) {
+  const believed = E.char(player.believedId) || E.trueChar(player);
+  return {
+    you: {
+      name: player.name,
+      believedCharacter: believed ? believed.name : null,
+      believedTeam: believed ? believed.team : null,
+      personality: player.personality || null,
+    },
+    // Each result's shown `body` text, exactly as this player was actually
+    // told it (possibly already falsified by poison/drunk) — never the
+    // ground truth behind it.
+    privateInfo: g.resultsLog.filter(r => r.playerId === player.id).map(r => r.body).filter(Boolean),
+    day: g.nightNumber,
+    alivePlayers: E.alive(g).map(p => p.name),
+    deadPlayers: g.players.filter(p => !p.alive).map(p => p.name),
+    publicClaims: g.claims.map(c => ({
+      day: c.day, player: c.playerName, claimedCharacter: c.claimedCharacterName, statement: c.statement,
+    })),
+  };
+}
+
+/** The LLM-driven replacement for E.heuristicBotClaim — same
+    {claimedCharacterId, statement} | null contract (null meaning "doesn't
+    claim this time," a genuine decision the schema allows for, not a
+    failure), so botsClaim() below doesn't need to know which one actually
+    answered. Off (or unconfigured, or any failure/malformed reply) falls
+    back to the heuristic synchronously — same "any failure degrades
+    gracefully" doctrine llmWhimJudge/judgeFreeformClaim already follow,
+    never a thrown error, never a stalled day. */
+async function llmBotClaim(g, player) {
+  if (!(g.config.llmStorytellerEnabled && llmConfigured())) return E.heuristicBotClaim(g, player);
+  const schema = botClaimSchema(g);
+  const validIds = new Set(schema.properties.claimedCharacterId.enum);
+  const result = await llmCall('bot-claim', {
+    system: BOT_CLAIM_SYSTEM,
+    prompt: `What this player knows:\n${JSON.stringify(botMemory(g, player))}`,
+    schema,
+    maxTokens: 250,
+  });
+  if (!result.ok) return E.heuristicBotClaim(g, player);
+  const data = result.data;
+  if (!data || typeof data.shouldClaim !== 'boolean') return E.heuristicBotClaim(g, player);
+  if (!data.shouldClaim) return null;
+  if (typeof data.claimedCharacterId !== 'string' || !validIds.has(data.claimedCharacterId)) {
+    return E.heuristicBotClaim(g, player);
+  }
+  const statement = typeof data.statement === 'string' && data.statement.trim()
+    ? data.statement.trim() : 'Nothing more to report yet.';
+  return { claimedCharacterId: data.claimedCharacterId, statement };
+}
+
 // Dry Run only (game.simulation) — every living bot who hasn't claimed yet
-// THIS GAME (not just today) gets one, via the heuristic placeholder for
-// now (see H.heuristicBotClaim's own comment on why it stays generic
-// rather than trying to fabricate convincing false information itself —
-// that's the LLM reasoning layer's job once it's wired in here). Called
-// once per day phase, before chooseExecution() below, which doesn't
-// actually read g.claims yet — this just gets claims recorded and visible
-// on the log/recap first, as its own reviewable step.
-function botsClaim() {
+// THIS GAME (not just today) gets one, via llmBotClaim (which falls back
+// to the heuristic placeholder on its own — see that function's own
+// comment). Called once per day phase, before chooseExecution() below,
+// which doesn't actually read g.claims yet — nominate/vote are still the
+// flat heuristic; this is only the claim content so far.
+async function botsClaim() {
   if (!game.simulation) return;
   const claimed = new Set(game.claims.map(c => c.playerId));
   for (const p of E.alive(game)) {
     if (claimed.has(p.id)) continue;
-    const claim = E.heuristicBotClaim(game, p);
+    const claim = await llmBotClaim(game, p);
     if (claim) E.recordClaim(game, p, claim.claimedCharacterId, claim.statement);
   }
 }
@@ -1401,7 +1488,7 @@ async function runSimStep() {
 
   if (game.phase === 'day') {
     if (!game.dayDone) {
-      botsClaim();
+      await botsClaim();
       // Most days end in an execution; some do not.
       const target = Math.random() < 0.78 ? chooseExecution() : null;
       await recordExecution(target ? target.id : null);
