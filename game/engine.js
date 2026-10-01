@@ -11,7 +11,7 @@ const {
   wouldBlockKill, randomKiller, checkKill, isEvil, isEvilRegistration, resolveWhim, setWhimJudge,
   heuristicWhim, WHIM_FIRING_HELPS_GOOD, maybeMercy, triggerMoonchildIfNeeded, flagAbnormal,
   triggerPixieIfNeeded, applyCannibalTransform, resolveRavenkeeperChoice,
-  logEvent, outsiderDiedToday, minionDiedToday, somebodyDiedYesterday,
+  logEvent, recordClaim, heuristicBotClaim, outsiderDiedToday, minionDiedToday, somebodyDiedYesterday,
   numberSignal, falseNumber, logTrueValue, evilNeighbourCount, evilPairCount, pairInfo,
   decide, INTERNAL_ONLY_STATUSES,
 } = H;
@@ -100,6 +100,11 @@ function newGame() {
     noExecutionToday: false,
     executionAttemptedToday: false, // at most one execution per day, including a blocked/survived one
     nominations: [],
+    // Public character claims — currently only ever populated for a full
+    // Dry Run (game.simulation), via server.js's botsClaim(). Flat and
+    // public-only: what was SAID, not what's true. See
+    // H.recordClaim/H.heuristicBotClaim.
+    claims: [],
     hint: null,
     log: [],
     // Who chose whom, night by night and day by day — kept only for the
@@ -1524,6 +1529,9 @@ function publicState(g) {
     // Nominations, who voted, and their outcome are never secret at a real
     // table — everyone in the room already sees all of this happen.
     nominations: g.nominations,
+    // Same visibility as nominations — a public claim is spoken out loud
+    // (or, for a Dry Run bot, the equivalent), never a secret.
+    claims: g.claims,
     log: g.revealed ? g.log : g.log.filter(l => !l.secret),
     gameSummary: g.revealed ? gameSummary(g) : null,
     actionLog: g.revealed ? g.actionLog : [],
@@ -1764,6 +1772,7 @@ module.exports = {
   resolveDayVote, gameSummary, resolveMadness, buildSavantStatements, evaluateClaim,
   activeScriptPool, applyConfigPatch, buildStorytellerContext, BUCKET4_IDS,
   applyCannibalTransform, resolveRavenkeeperChoice, INTERNAL_ONLY_STATUSES,
+  recordClaim, heuristicBotClaim,
   // Exposed for tools/audit-abilities.js's generic per-character invariant
   // checks, which need to iterate every entry rather than dispatch by id —
   // nothing inside game/ itself needs this, since engine.js's own functions

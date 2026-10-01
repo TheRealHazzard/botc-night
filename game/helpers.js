@@ -585,6 +585,56 @@ function logWhim(g) {
   logEvent(g, 'A quiet decision was made, unseen.', false);
 }
 
+/** Records a public character claim into g.claims (parallel to
+    g.nominations) and logs it visibly via logEvent, same as any other
+    public day event — so it flows into the post-game recap for free.
+    Deliberately flat and public-only: records what was SAID, not what's
+    true, the same split privateActionLog/resultsLog already keep
+    everywhere else in this file. Currently only ever called for a full
+    Dry Run (game.simulation) — see server.js's botsClaim(). */
+function recordClaim(g, player, claimedCharacterId, statement) {
+  const c = char(claimedCharacterId);
+  const entry = {
+    day: g.nightNumber,
+    playerId: player.id,
+    playerName: player.name,
+    claimedCharacterId,
+    claimedCharacterName: c ? c.name : claimedCharacterId,
+    statement,
+  };
+  g.claims.push(entry);
+  logEvent(g, `${player.name} claims the ${entry.claimedCharacterName}. "${statement}"`);
+  return entry;
+}
+
+/** A placeholder claim for a full Dry Run bot — what fills g.claims
+    whenever the LLM reasoning layer (game/llmStoryteller.js) is off or
+    fails over on a given call. Claims whatever character this player
+    actually BELIEVES they are (believedId, not characterId) — a Drunk
+    or Marionette claiming their own false belief needs no bluffing
+    logic at all, since they aren't lying. Only a demon/minion belief
+    (a real Minion/Demon, or the rare Lunatic who believes they ARE the
+    Demon) falls back to inventing a plausible not-in-play good role
+    instead, since no sane player publicly claims to be the Demon.
+    The statement stays deliberately generic — teaching a heuristic to
+    fabricate *consistent* false information is exactly the job the LLM
+    layer exists to do properly instead. Returns null only when there's
+    truly no good character left in this script's pool to bluff with
+    (a pathologically small custom roster), meaning this bot just
+    doesn't claim this game. */
+function heuristicBotClaim(g, player) {
+  const believed = char(player.believedId) || trueChar(player);
+  const safeToClaim = believed && believed.team !== 'demon' && believed.team !== 'minion';
+  if (safeToClaim) {
+    return { claimedCharacterId: believed.id, statement: 'Nothing more to report yet.' };
+  }
+  const alreadyClaimed = new Set(g.claims.map(c => c.claimedCharacterId));
+  const goodPool = activeScriptPool(g).filter(x => x.team === 'townsfolk' || x.team === 'outsider');
+  const bluffPool = goodPool.filter(x => !alreadyClaimed.has(x.id));
+  const bluff = pick(bluffPool.length ? bluffPool : goodPool);
+  return bluff ? { claimedCharacterId: bluff.id, statement: 'Nothing more to report yet.' } : null;
+}
+
 /**
  * The one place every death in the game is actually decided — the Imp's
  * night kill, execution, the Slayer's shot, and every BMR demon/minion kill
@@ -953,7 +1003,7 @@ module.exports = {
   resolveWhim, setWhimJudge, heuristicWhim, WHIM_FIRING_HELPS_GOOD, maybeMercy, triggerMoonchildIfNeeded,
   triggerPixieIfNeeded, applyCannibalTransform,
   reassignCharacter, flagAbnormal,
-  logEvent, logWhim, outsiderDiedToday, minionDiedToday, somebodyDiedYesterday,
+  logEvent, logWhim, recordClaim, heuristicBotClaim, outsiderDiedToday, minionDiedToday, somebodyDiedYesterday,
   minionNominatedToday, demonVotedToday, vortoxActive,
   numberSignal, falseNumber, logTrueValue, evilNeighbourCount, evilPairCount, pairInfo,
   resultCount, resultYesNo, resultPointer, resolveRavenkeeperChoice,

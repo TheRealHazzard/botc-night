@@ -1162,6 +1162,24 @@ function voteHandler(body) {
   return { status: 200, payload: { ok: true } };
 }
 
+// Dry Run only (game.simulation) — every living bot who hasn't claimed yet
+// THIS GAME (not just today) gets one, via the heuristic placeholder for
+// now (see H.heuristicBotClaim's own comment on why it stays generic
+// rather than trying to fabricate convincing false information itself —
+// that's the LLM reasoning layer's job once it's wired in here). Called
+// once per day phase, before chooseExecution() below, which doesn't
+// actually read g.claims yet — this just gets claims recorded and visible
+// on the log/recap first, as its own reviewable step.
+function botsClaim() {
+  if (!game.simulation) return;
+  const claimed = new Set(game.claims.map(c => c.playerId));
+  for (const p of E.alive(game)) {
+    if (claimed.has(p.id)) continue;
+    const claim = E.heuristicBotClaim(game, p);
+    if (claim) E.recordClaim(game, p, claim.claimedCharacterId, claim.statement);
+  }
+}
+
 /**
  * Bots have no discussion to reason from, so a uniform random execution finds
  * the Demon on day one far more often than a real table does. Weight it: evil
@@ -1377,6 +1395,7 @@ async function runSimStep() {
 
   if (game.phase === 'day') {
     if (!game.dayDone) {
+      botsClaim();
       // Most days end in an execution; some do not.
       const target = Math.random() < 0.78 ? chooseExecution() : null;
       await recordExecution(target ? target.id : null);

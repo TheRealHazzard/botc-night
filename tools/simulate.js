@@ -3414,6 +3414,76 @@ console.log('\nheuristicWhim (Option 1: the non-LLM judgment)');
     endgame > 0.5 && endgame < 0.75, `endgame fire rate: ${endgame}`);
 }
 
+console.log('\nBot claims (Dry Run day-phase placeholder, before the LLM reasoning layer)');
+{
+  const mk = (id, characterId, believedId) => ({
+    id, name: id, characterId, believedId: believedId || characterId, alive: true, statuses: {},
+  });
+
+  {
+    const g = E.newGame();
+    g.players = [mk('a', 'chef'), mk('b', 'imp'), mk('c', 'poisoner')];
+    const claim = E.heuristicBotClaim(g, g.players[0]);
+    check('a good-aligned bot claims its own believed character',
+      claim && claim.claimedCharacterId === 'chef', JSON.stringify(claim));
+  }
+
+  {
+    const g = E.newGame();
+    g.players = [mk('a', 'chef'), mk('b', 'imp'), mk('c', 'poisoner')];
+    const claim = E.heuristicBotClaim(g, g.players[1]); // the Imp
+    const c = claim && E.char(claim.claimedCharacterId);
+    check('an evil-aligned bot never claims its own true demon/minion character',
+      claim && c && c.team !== 'demon' && c.team !== 'minion', JSON.stringify(claim));
+  }
+
+  {
+    const g = E.newGame();
+    // A Drunk believes they're a Townsfolk (here: Soldier) — not lying,
+    // just claiming their own false belief, same as a real Drunk would.
+    g.players = [mk('a', 'drunk', 'soldier'), mk('b', 'imp')];
+    const claim = E.heuristicBotClaim(g, g.players[0]);
+    check('a Drunk claims their believed role, not the true "drunk" character',
+      claim && claim.claimedCharacterId === 'soldier', JSON.stringify(claim));
+  }
+
+  {
+    const g = E.newGame();
+    // The Lunatic believes they ARE the Demon — claiming that out loud
+    // would be a confession, so the heuristic has to override believedId
+    // here specifically, unlike the Drunk case above.
+    g.players = [mk('a', 'lunatic', 'imp'), mk('b', 'imp')];
+    const claim = E.heuristicBotClaim(g, g.players[0]);
+    const c = claim && E.char(claim.claimedCharacterId);
+    check('a Lunatic (believes they are the Demon) bluffs a good role instead of claiming the Demon',
+      claim && c && c.team !== 'demon' && c.team !== 'minion', JSON.stringify(claim));
+  }
+
+  {
+    const g = E.newGame();
+    g.players = [mk('a', 'imp'), mk('b', 'poisoner'), mk('c', 'chef')];
+    const first = E.heuristicBotClaim(g, g.players[0]);
+    E.recordClaim(g, g.players[0], first.claimedCharacterId, first.statement);
+    const second = E.heuristicBotClaim(g, g.players[1]);
+    check('a second evil bot avoids bluffing a character the first one already claimed',
+      second.claimedCharacterId !== first.claimedCharacterId,
+      `first=${first.claimedCharacterId}, second=${second.claimedCharacterId}`);
+  }
+
+  {
+    const g = E.newGame();
+    g.players = [mk('a', 'chef')];
+    const entry = E.recordClaim(g, g.players[0], 'chef', 'I counted 1 pair.');
+    check('recordClaim pushes a full entry onto g.claims',
+      g.claims.length === 1 && g.claims[0].playerId === 'a' && g.claims[0].claimedCharacterName === 'Chef',
+      JSON.stringify(g.claims[0]));
+    check('recordClaim logs the claim publicly (not secret)',
+      g.log.some(l => !l.secret && l.text.includes('claims the Chef')), JSON.stringify(g.log));
+    check("recordClaim's return value is the same entry pushed to g.claims",
+      entry === g.claims[0]);
+  }
+}
+
 console.log('\nEnd');
 g.revealed = true;
 check('reveal exposes the full grimoire',
