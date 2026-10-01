@@ -7,6 +7,7 @@ import ScriptBrowseRoster from '../components/script/ScriptBrowseRoster.jsx';
 import SidepanelCard from '../components/SidepanelCard.jsx';
 import QRCode from '../components/QRCode.jsx';
 import Icon from '../components/Icon.jsx';
+import AddBotsCard from '../components/AddBotsCard.jsx';
 import { useJoinAddress } from '../hooks/useJoinAddress.js';
 
 /** Browsing scripts takes over all three dashboard columns, not just the
@@ -24,6 +25,9 @@ export default function LobbyView({ players, script, scripts, setupRatio, browsi
 
   const activeMeta = scripts && (scripts.find(m => m.id === script) || scripts[0]);
   const hasQrEncoder = typeof window !== 'undefined' && !!window.QRCodeGen;
+  // Teensyville editions cap lower than everything else — see server.js's
+  // own SCRIPT_MAX_PLAYERS for the matching server-side clamp.
+  const room = Math.max(0, (activeMeta?.maxPlayers || 15) - players.length);
 
   const left = (
     <div className={'sidepanel' + (browsing ? ' sidepanel-fill' : '')}>
@@ -90,6 +94,7 @@ export default function LobbyView({ players, script, scripts, setupRatio, browsi
           <TriviaLine scriptId={script} compact />
         </div>
       </SidepanelCard>
+      <AddBotsCard room={room} />
     </div>
   );
 

@@ -86,6 +86,13 @@ describe('LobbyView', () => {
     expect(await screen.findByText('http://192.168.1.5:3000')).toBeInTheDocument();
   });
 
+  it('the add-bots card offers room up to the script\'s own cap, and disappears once the table is full', () => {
+    const teensy = { id: 'teensy', name: 'Teensy', difficulty: 1, playable: true, description: 'x', decidedGames: 0, maxPlayers: 7 };
+    const sevenPlayers = Array.from({ length: 7 }, (_, i) => ({ id: `p${i}`, name: `P${i}`, alive: true, connected: true, color: null }));
+    render(<LobbyView {...baseProps({ players: sevenPlayers, script: 'teensy', scripts: [...scripts, teensy] })} />);
+    expect(screen.queryByText(/short-handed/i)).not.toBeInTheDocument();
+  });
+
   describe('setupRatio — the Townsfolk/Outsider/Minion/Demon reference for the seated count', () => {
     const players = Array.from({ length: 8 }, (_, i) => ({ id: `p${i}`, name: `P${i}`, alive: true, connected: true, color: null }));
 
@@ -141,6 +148,14 @@ describe('LobbyView', () => {
       render(<LobbyView {...baseProps({ players, browsing: false, browsedMeta: false })} />);
       expect(screen.getByText('The town gathers.')).toBeInTheDocument();
       expect(screen.getByText(/join here/i)).toBeInTheDocument();
+    });
+
+    it('the "Short-handed?" add-bots card is gone while browsing, back once not', () => {
+      const { rerender } = render(<LobbyView {...baseProps({ players, browsing: true, browseIndex: 0, browsedMeta: scripts[0] })} />);
+      expect(screen.queryByText(/short-handed/i)).not.toBeInTheDocument();
+
+      rerender(<LobbyView {...baseProps({ players, browsing: false, browsedMeta: false })} />);
+      expect(screen.getByText(/short-handed/i)).toBeInTheDocument();
     });
 
     it('a locked browsed script still shows its roster (locked only affects the header\'s Choose button)', () => {
