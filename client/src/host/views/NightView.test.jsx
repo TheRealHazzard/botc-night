@@ -16,9 +16,26 @@ describe('NightView', () => {
   it('shows the night counter, dread narration, and answered count', () => {
     render(<NightView players={players} nightNumber={2} windowEndsAt={Date.now() + 15000} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />);
     expect(screen.getByText('Night 2')).toBeInTheDocument();
-    expect(screen.getByText('Close your eyes. The town sleeps.')).toBeInTheDocument();
+    expect(document.querySelector('.narration.dread')).toBeInTheDocument();
     // p2 is dead, so "living" counts only Ada — 1 of 1, not 1 of 2.
     expect(screen.getByText((_, node) => node?.textContent === '1 of 1 have answered.')).toBeInTheDocument();
+  });
+
+  it('night 1 always opens with the canonical line', () => {
+    render(<NightView players={players} nightNumber={1} windowEndsAt={Date.now() + 15000} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />);
+    expect(screen.getByText('Close your eyes. The town sleeps.')).toBeInTheDocument();
+  });
+
+  it('later nights rotate the opening line instead of repeating night 1\'s verbatim', () => {
+    render(<NightView players={players} nightNumber={3} windowEndsAt={Date.now() + 15000} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />);
+    expect(screen.queryByText('Close your eyes. The town sleeps.')).not.toBeInTheDocument();
+  });
+
+  it('is deterministic — the same night number and death count always produce the same line, not a fresh roll on every render', () => {
+    const { rerender } = render(<NightView players={players} nightNumber={3} windowEndsAt={Date.now() + 15000} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />);
+    const first = document.querySelector('.narration.dread').textContent;
+    rerender(<NightView players={players} nightNumber={3} windowEndsAt={Date.now() + 8000} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />);
+    expect(document.querySelector('.narration.dread').textContent).toBe(first);
   });
 
   it('shows the countdown timer when a window is open', () => {

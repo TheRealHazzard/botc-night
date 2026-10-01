@@ -162,9 +162,9 @@ describe("App", () => {
     // "Day 3" legitimately appears twice — the header's phase pill and the
     // in-stage DayCounterLabel are two separate, both-correct occurrences.
     expect(screen.getAllByText("Day 3")).toHaveLength(2);
-    expect(
-      screen.getByText("Everyone wakes. That should worry you."),
-    ).toBeInTheDocument();
+    // Exact wording rotates on later silent days (see narratorLines.js) —
+    // this test only cares that dispatch landed on DayView's own markup.
+    expect(document.querySelector(".deaths")).toBeInTheDocument();
   });
 
   it("the mute button reflects and toggles the sound engine state", async () => {

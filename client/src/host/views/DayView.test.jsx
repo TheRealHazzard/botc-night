@@ -35,6 +35,13 @@ describe('DayView', () => {
     expect(container.querySelector('.deaths svg.icon')).toBeFalsy();
   });
 
+  it('a later silent day rotates the line instead of repeating day 1\'s verbatim', () => {
+    render(
+      <DayView players={players} nightNumber={3} deaths={[]} nominations={[]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
+    );
+    expect(screen.queryByText('Everyone wakes. That should worry you.')).not.toBeInTheDocument();
+  });
+
   // The wiki is explicit: "Add a shroud as normal. Do not say that the
   // Demon has died." DayView never even receives a mastermindExtraDay
   // prop any more — nothing here should announce or otherwise reveal it.

@@ -13,6 +13,7 @@ import MinorBeatOverlay from '../components/MinorBeatOverlay.jsx';
 import RoomPacingNudge from '../components/RoomPacingNudge.jsx';
 import { useSpeak } from '../hooks/useSpeak.js';
 import { useWhimBeat } from '../hooks/useWhimBeat.js';
+import { noDeathDayLine } from '../lib/narratorLines.js';
 import { useMinorBeat } from '../hooks/useMinorBeat.js';
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion.js';
 import { useRoomPacing } from '../hooks/useRoomPacing.js';
@@ -22,7 +23,7 @@ import { leadingNominee } from '../../lib/leadingNominee.js';
 
 export default function DayView({ players, nightNumber, deaths, nominations, config, script, scriptChars, activeScriptMeta, muted, log = [], dayStartedAt, ringSlotRef, fadeClass = '' }) {
   const lastNight = deaths.filter(d => d.night === nightNumber && d.cause !== 'execution');
-  const line = lastNight.length ? `${lastNight.map(d => d.name).join(' and ')} did not wake.` : 'Everyone wakes. That should worry you.';
+  const line = lastNight.length ? `${lastNight.map(d => d.name).join(' and ')} did not wake.` : noDeathDayLine(nightNumber);
   useSpeak(line, { dread: !!lastNight.length, muted });
   const whim = useWhimBeat(log);
   const reduceMotion = usePrefersReducedMotion();

@@ -7,10 +7,12 @@ import Countdown from '../components/Countdown.jsx';
 import WhimBeat from '../components/WhimBeat.jsx';
 import { useSpeak } from '../hooks/useSpeak.js';
 import { useWhimBeat } from '../hooks/useWhimBeat.js';
+import { nightOpenLine } from '../lib/narratorLines.js';
 
 export default function NightView({ players, nightNumber, windowEndsAt, windowTotalSeconds, config, script, scriptChars, activeScriptMeta, muted, log, ringSlotRef, fadeClass = '' }) {
-  const line = 'Close your eyes. The town sleeps.';
-  useSpeak(line, { muted });
+  const deathsSoFar = players.filter(p => !p.alive).length;
+  const line = nightOpenLine(nightNumber, deathsSoFar);
+  useSpeak(line, { dread: deathsSoFar > 0, muted });
   const whim = useWhimBeat(log);
 
   const acted = players.filter(p => p.submitted).length;
