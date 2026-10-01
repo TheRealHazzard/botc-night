@@ -327,6 +327,14 @@ const WHIM_SYSTEM = {
     'judgment call, not a fixed rate — the goal is to help whichever side is currently losing, ' +
     'invisibly. Given the game state, decide whether to save this good player from execution, and give ' +
     'one short sentence of reasoning.',
+  'sage-recluse-demon':
+    'You are a Blood on the Clocktower Storyteller deciding whether the Recluse\'s ambiguous ' +
+    'registration should mislead the Sage right now: "the Recluse might register as the Demon to the ' +
+    'Sage," an official clarification of how the two interact. Real Storyteller guidance treats this as ' +
+    'a judgment call, not a fixed rate — the goal is to help whichever side is currently losing, ' +
+    'invisibly, since naming the Recluse instead of the real Demon keeps the real Demon hidden and ' +
+    'wastes the town\'s suspicion. Given the game state, decide whether the Sage should see the Recluse ' +
+    'in place of the real Demon this time, and give one short sentence of reasoning.',
 };
 
 // The reasoning text above (this.reason on the confirm record) can freely
@@ -514,7 +522,7 @@ function maybeBluffBeat() {
   if (Math.random() < 1 / 6) game.bluffBeatAt = Date.now();
 }
 
-function startNight() {
+async function startNight() {
   // The Mastermind's bonus day: "Night falls" with nobody executed is
   // itself one of the wiki's own two outcomes ("if... no player is
   // executed, declare that the game ends and good wins"), not a dead end
@@ -539,7 +547,7 @@ function startNight() {
     // Mayor's win conditions shouldn't care which one happened — only
     // whether executedToday actually landed.
     game.noExecutionToday = !game.executedToday;
-    E.resolveMadness(game);
+    await E.resolveMadness(game);
     if (finishIfOver()) return;
   }
   flushNightResults();
@@ -711,7 +719,7 @@ async function recordExecution(playerId) {
         game.deaths.push({ night: game.nightNumber, name: p.name, cause: 'execution', killedByDemon: false, phase: 'day' });
         E.logEvent(game, `${p.name} was executed.`);
         executedPlayer = p;
-        E.triggerDeathHooks(game, p, { killedByDemon: false });
+        await E.triggerDeathHooks(game, p, { killedByDemon: false });
         E.applyCannibalTransform(game, p);
       }
     } else {
@@ -769,7 +777,7 @@ async function recordExecution(playerId) {
       if (p.statuses.evilTwinId) game.evilTwinGoodExecuted = true;
       game.deaths.push({ night: game.nightNumber, name: p.name, cause: 'execution', killedByDemon: false, phase: 'day' });
       E.logEvent(game, `${p.name} was executed.`);
-      E.triggerDeathHooks(game, p, { killedByDemon: false });
+      await E.triggerDeathHooks(game, p, { killedByDemon: false });
       E.applyCannibalTransform(game, p);
 
       // Minstrel: everyone else is drunk until dusk tomorrow, once a Minion
@@ -1012,7 +1020,7 @@ function botChoice(p, prompt) {
     reimplementation that could quietly drift from it. Returns {status,
     payload} instead of calling json(res, ...) directly, so the route
     handler and a bot caller can each do what they need with the result. */
-function nominateHandler(body) {
+async function nominateHandler(body) {
   // Players nominate themselves now (a token identifies them, same as
   // every other player action route) — the host's own two-dropdown
   // fallback in NominationPanel is kept for a dead phone/no signal, still
@@ -1052,7 +1060,7 @@ function nominateHandler(body) {
         nominator.alive = false;
         game.deaths.push({ night: game.nightNumber, name: nominator.name, cause: 'virgin', killedByDemon: false, phase: 'day' });
         E.logEvent(game, `${nominator.name} nominated the Virgin and was executed immediately.`);
-        E.triggerDeathHooks(game, nominator, { killedByDemon: false });
+        await E.triggerDeathHooks(game, nominator, { killedByDemon: false });
         E.succeedDemon(game, nominator);
       }
     }
@@ -1072,7 +1080,7 @@ function nominateHandler(body) {
       nominator.alive = false;
       game.deaths.push({ night: game.nightNumber, name: nominator.name, cause: 'witch', killedByDemon: false, phase: 'day' });
       E.logEvent(game, `${nominator.name} nominates despite the Witch's curse, and dies for it.`);
-      E.triggerDeathHooks(game, nominator, { killedByDemon: false });
+      await E.triggerDeathHooks(game, nominator, { killedByDemon: false });
       E.succeedDemon(game, nominator);
     }
   }
@@ -1096,7 +1104,7 @@ function nominateHandler(body) {
         golemKilled = true;
         game.deaths.push({ night: game.nightNumber, name: nominee.name, cause: 'golem', killedByDemon: false, phase: 'day' });
         E.logEvent(game, `${nominator.name} (the Golem) nominated ${nominee.name} — not the Demon, and they die.`);
-        E.triggerDeathHooks(game, nominee, { killedByDemon: false });
+        await E.triggerDeathHooks(game, nominee, { killedByDemon: false });
         E.succeedDemon(game, nominee);
       }
     } else {
@@ -1514,7 +1522,7 @@ function botVoteWeight(target, day) {
 // models either. Reuses nominateHandler() directly, so Virgin/Golem/Witch
 // triggers and the vote-window timer all work exactly as they would for a
 // real player's own nomination.
-function botsNominate() {
+async function botsNominate() {
   if (game.phase !== 'day' || game.simulation || !game.players.some(p => p.bot)) return;
   const today = game.nominations.filter(n => n.day === game.nightNumber);
   if (today.length) return; // someone already nominated today — bot or real player
@@ -1529,7 +1537,7 @@ function botsNominate() {
   const day = game.nightNumber;
   const nominee = candidates.reduce((best, p) => (botVoteWeight(p, day) > botVoteWeight(best, day) ? p : best), candidates[0]);
 
-  nominateHandler({ nominatorId: nominator.id, nomineeId: nominee.id });
+  await nominateHandler({ nominatorId: nominator.id, nomineeId: nominee.id });
 }
 
 // Fires whenever a nomination is actually open, regardless of who created
@@ -1623,9 +1631,9 @@ function scheduleSim(delay) {
   simTimer = setTimeout(runSimStep, delay);
 }
 
-function beginSimNight() {
+async function beginSimNight() {
   game.dayDone = false;
-  startNight();
+  await startNight();
   // Bots answer partway through the window so the countdown is watchable.
   setTimeout(botsAnswer, Math.max(400, game.config.windowSeconds * 400));
 }
@@ -1634,7 +1642,7 @@ async function runSimStep() {
   if (!game.simulation || game.paused || game.phase === 'over') return;
 
   if (game.phase === 'reveal') {
-    beginSimNight();
+    await beginSimNight();
     return;
   }
 
@@ -1656,7 +1664,7 @@ async function runSimStep() {
       if (!game.mastermindExtraDay) game.dayDone = true;
       scheduleSim(game.simSpeed * 600);
     } else {
-      beginSimNight();
+      await beginSimNight();
     }
     return;
   }
@@ -2489,7 +2497,7 @@ async function requestHandler(req, res) {
             target.alive = false;
             game.deaths.push({ night: game.nightNumber, name: target.name, cause: 'slayer', killedByDemon: false, phase: 'day' });
             E.logEvent(game, `${p.name} fired their shot at ${target.name} — the Demon falls.`);
-            E.triggerDeathHooks(game, target, { killedByDemon: false });
+            await E.triggerDeathHooks(game, target, { killedByDemon: false });
             E.succeedDemon(game, target);
           }
         } else {
@@ -2764,7 +2772,7 @@ async function requestHandler(req, res) {
             target.alive = false;
             game.deaths.push({ night: game.nightNumber, name: target.name, cause: 'moonchild', killedByDemon: false, phase: game.phase });
             E.logEvent(game, `${p.name}'s Moonchild choice kills ${target.name}.`);
-            E.triggerDeathHooks(game, target, { killedByDemon: false });
+            await E.triggerDeathHooks(game, target, { killedByDemon: false });
             E.succeedDemon(game, target);
           }
         } else {
@@ -2939,7 +2947,7 @@ async function requestHandler(req, res) {
       /* ---- table controls: hold no secrets, so anyone at the table may use them ---- */
 
       if (route === '/api/table/nominate') {
-        const { status, payload } = nominateHandler(body);
+        const { status, payload } = await nominateHandler(body);
         return json(res, status, payload);
       }
 
@@ -3139,7 +3147,7 @@ async function requestHandler(req, res) {
         if (game.phase !== 'reveal' && game.phase !== 'day') {
           return json(res, 409, { error: 'Cannot begin the night now.' });
         }
-        startNight();
+        await startNight();
         return json(res, 200, { ok: true });
       }
 

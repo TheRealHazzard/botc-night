@@ -176,16 +176,46 @@ module.exports = (h) => [
     // the general rule resolveNight now enforces. onDeath sidesteps the
     // whole issue: it only ever fires once a death is actually applied.
     resolve() {},
-    onDeath(g, player, { killedByDemon, results }) {
+    async onDeath(g, player, { killedByDemon, results }) {
       if (!killedByDemon) return;
       const broken = h.impaired(player);
       const demon = g.players.find(x => h.trueChar(x).team === 'demon');
       const others = g.players.filter(x => x.id !== player.id);
       const impaired = broken || h.vortoxActive(g);
       let shown;
+      // Same "truthfulness compromised" meaning logTrueValue's own
+      // `impaired` field always carries — starts equal to the local
+      // `impaired` above, but also flips true the moment the
+      // Recluse-as-Demon whim below actually fires, even though neither
+      // poison nor Vortox caused it. Otherwise pivotalMoment()'s own
+      // "misled" check (game/history.js) — which only ever looks at
+      // entries already flagged impaired — would silently never
+      // consider a table that really was misled by this.
+      let misled = impaired;
       if (!impaired && demon) {
-        const decoy = h.pick(others.filter(x => x.id !== demon.id));
-        shown = h.shuffle([demon, decoy]);
+        // Jinx found auditing against the official wiki: "the Recluse
+        // might register as the Demon to the Sage" — same Storyteller-
+        // judgment shape as the existing Recluse/Spy registration-
+        // ambiguity whim (isEvilRegistration), just naming a SPECIFIC
+        // character rather than a plain evil/good read, so it gets its
+        // own whim kind instead of reusing that one. Only even
+        // considered on the branch where Sage would otherwise correctly
+        // point at the real Demon — the impaired branch below already
+        // produces a false pair of its own, for an unrelated reason.
+        const recluse = g.players.find(x => x.alive && h.trueChar(x) && h.trueChar(x).id === 'recluse');
+        let namedAsDemon = demon;
+        if (recluse && await h.resolveWhim(g, { kind: 'sage-recluse-demon', target: recluse })) {
+          namedAsDemon = recluse;
+          misled = true;
+        }
+        // Excludes the REAL Demon too, not just whoever ended up in the
+        // "named as Demon" slot — same bug class the impaired branch
+        // below already guards against (its own comment explains why):
+        // without this, the whim firing could still show the real Demon
+        // anyway, by coincidence, in the decoy slot.
+        const decoyExclude = new Set([namedAsDemon.id, demon.id]);
+        const decoy = h.pick(others.filter(x => !decoyExclude.has(x.id)));
+        shown = h.shuffle([namedAsDemon, decoy]);
       } else {
         // The whole point of this branch is a *false* pair — it has to
         // exclude the real Demon too, or "false" info can still name the
@@ -194,7 +224,7 @@ module.exports = (h) => [
         // so this was the likeliest way anyone would ever notice.
         shown = h.excludingPick(others, demon ? [demon.id] : [], 2);
       }
-      h.logTrueValue(g, { playerId: player.id, characterId: 'sage', type: 'pointer', trueValue: demon ? demon.id : null, shown: shown.map(x => x.id), impaired });
+      h.logTrueValue(g, { playerId: player.id, characterId: 'sage', type: 'pointer', trueValue: demon ? demon.id : null, shown: shown.map(x => x.id), impaired: misled });
       results[player.id] = { title: 'Sage', body: 'The Demon is one of these two players.', names: shown.map(x => x.name) };
     },
   },

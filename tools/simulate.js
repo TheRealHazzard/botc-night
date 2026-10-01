@@ -1855,6 +1855,55 @@ console.log('\nSV: Mathematician');
   check('Mathematician counts both players the Snake Charmer swap flagged', g.results.math.body.includes('2'));
 }
 
+console.log('\nSV: Mathematician counts the Drunk, the Marionette, and a divergent Lunatic');
+{
+  // Jinxes found auditing against the official wiki, none of them
+  // previously wired in: the Drunk's and Marionette's believed abilities
+  // are unconditionally impaired (see impaired()'s own fix above), so both
+  // unconditionally count every night they act; the Lunatic counts
+  // specifically when her own "point" doesn't land on the real Demon's
+  // actual kill.
+  const mkB = (id, characterId, believedId) => ({ id, name: id, characterId, believedId: believedId || characterId, alive: true, statuses: {} });
+
+  {
+    const g = E.newGame();
+    g.script = 'sv'; g.nightNumber = 2; g.phase = 'night'; g.results = {};
+    g.players = [mkB('math', 'mathematician'), mkB('dr', 'drunk', 'empath'), mkB('imp1', 'imp'), mkB('t1', 'oracle'), mkB('t2', 'chef')];
+    g.pending = {};
+    await E.resolveNight(g, 1);
+    check('the Mathematician counts a Drunk who acted tonight', g.results.math.body.includes('1'), g.results.math && g.results.math.body);
+  }
+
+  {
+    const g = E.newGame();
+    g.script = 'sv'; g.nightNumber = 2; g.phase = 'night'; g.results = {};
+    g.players = [mkB('math', 'mathematician'), mkB('ma', 'marionette', 'fortuneteller'), mkB('imp1', 'imp'), mkB('t1', 'oracle'), mkB('t2', 'chef')];
+    g.pending = { ma: { targets: ['imp1', 't1'], decoy: false } };
+    await E.resolveNight(g, 1);
+    check('the Mathematician counts a Marionette who acted tonight', g.results.math.body.includes('1'), g.results.math && g.results.math.body);
+  }
+
+  {
+    const g = E.newGame();
+    g.script = 'bmr'; g.nightNumber = 2; g.phase = 'night'; g.results = {};
+    g.players = [mkB('math', 'mathematician'), mkB('lu', 'lunatic', 'imp'), mkB('imp1', 'imp'), mkB('t1', 'empath'), mkB('t2', 'chef')];
+    g.pending = { lu: { targets: ['t1'], decoy: false }, imp1: { targets: ['t2'], decoy: false } };
+    await E.resolveNight(g, 1);
+    check('the Mathematician counts a Lunatic who pointed at someone other than the real kill',
+      g.results.math.body.includes('1'), g.results.math && g.results.math.body);
+  }
+
+  {
+    const g = E.newGame();
+    g.script = 'bmr'; g.nightNumber = 2; g.phase = 'night'; g.results = {};
+    g.players = [mkB('math', 'mathematician'), mkB('lu', 'lunatic', 'imp'), mkB('imp1', 'imp'), mkB('t1', 'empath'), mkB('t2', 'chef')];
+    g.pending = { lu: { targets: ['t2'], decoy: false }, imp1: { targets: ['t2'], decoy: false } };
+    await E.resolveNight(g, 1);
+    check("the Mathematician does NOT count a Lunatic whose point happened to match the real kill",
+      g.results.math.body.includes('0'), g.results.math && g.results.math.body);
+  }
+}
+
 console.log('\nSV: Flowergirl and Town Crier');
 {
   const mk = (id, characterId) => ({ id, name: id, characterId, believedId: characterId, alive: true, statuses: {} });
@@ -1953,6 +2002,79 @@ console.log('\nSV: Sage');
     if (g3.results.sg.names.includes('imp1')) sawRealDemon = true;
   }
   check(`a poisoned Sage's false pair never actually includes the real Demon (${trials} trials)`, !sawRealDemon);
+
+  // Jinx found auditing against the official wiki: "the Recluse might
+  // register as the Demon to the Sage." Forced via setWhimJudge, same
+  // injection pattern "The Whim: judge injection" below uses — a live
+  // game always has a real judge attached (server.js's own
+  // E.setWhimJudge(llmWhimJudge)), this file never does by default.
+  {
+    E.setWhimJudge(async () => ({ fire: true, reason: 'test judge says the Recluse registers as the Demon' }));
+    const g4 = E.newGame();
+    g4.script = 'sv'; g4.nightNumber = 2; g4.phase = 'night'; g4.results = {};
+    g4.players = [mk('sg', 'sage'), mk('imp1', 'imp'), mk('re', 'recluse'), mk('t1', 'oracle')];
+    g4.pending = { imp1: { targets: ['sg'], decoy: false } };
+    await E.resolveNight(g4, 1);
+    check('when the whim fires, the Sage sees the Recluse in place of the real Demon',
+      g4.results.sg.names.includes('re') && !g4.results.sg.names.includes('imp1'),
+      JSON.stringify(g4.results.sg.names));
+    const lastTV = g4.trueValueLog[g4.trueValueLog.length - 1];
+    check('the trueValueLog entry is flagged impaired (misled), even though nobody was actually poisoned',
+      lastTV && lastTV.impaired === true && lastTV.trueValue === 'imp1', JSON.stringify(lastTV));
+  }
+
+  {
+    E.setWhimJudge(async () => ({ fire: false, reason: 'test judge says no' }));
+    const g5 = E.newGame();
+    g5.script = 'sv'; g5.nightNumber = 2; g5.phase = 'night'; g5.results = {};
+    g5.players = [mk('sg', 'sage'), mk('imp1', 'imp'), mk('re', 'recluse'), mk('t1', 'oracle')];
+    g5.pending = { imp1: { targets: ['sg'], decoy: false } };
+    await E.resolveNight(g5, 1);
+    check('when the whim does not fire, the Sage still sees the real Demon, Recluse or not',
+      g5.results.sg.names.includes('imp1'), JSON.stringify(g5.results.sg.names));
+  }
+
+  {
+    // No living Recluse at all — nothing to consult a whim over in the
+    // first place, same as isEvilRegistration never applying to a table
+    // with no Recluse or Spy in play.
+    E.setWhimJudge(async () => ({ fire: true, reason: 'would fire, but there is no Recluse to name' }));
+    const g6 = E.newGame();
+    g6.script = 'sv'; g6.nightNumber = 2; g6.phase = 'night'; g6.results = {};
+    g6.players = [mk('sg', 'sage'), mk('imp1', 'imp'), mk('t1', 'oracle')];
+    g6.pending = { imp1: { targets: ['sg'], decoy: false } };
+    await E.resolveNight(g6, 1);
+    check('with no Recluse in play, the Sage always sees the real Demon regardless of the judge',
+      g6.results.sg.names.includes('imp1'), JSON.stringify(g6.results.sg.names));
+  }
+
+  {
+    // Same probabilistic-bug shape as the 200-trial poisoned check above,
+    // and for the same reason: a decoy pool that merely excludes the
+    // Recluse (not the real Demon too) could still show the real Demon
+    // anyway, by chance, in the decoy slot — a larger roster than the
+    // single-candidate one just above actually gives that chance room to
+    // happen if the exclusion is ever wrong again.
+    E.setWhimJudge(async () => ({ fire: true, reason: 'test judge says yes' }));
+    let sawRealDemon = false;
+    const trials = 200;
+    for (let i = 0; i < trials; i++) {
+      const g7 = E.newGame();
+      g7.script = 'sv'; g7.nightNumber = 2; g7.phase = 'night'; g7.results = {};
+      g7.players = [
+        mk('sg', 'sage'), mk('imp1', 'imp'), mk('re', 'recluse'),
+        mk('t1', 'oracle'), mk('t2', 'witch'), mk('t3', 'snakecharmer'), mk('t4', 'dreamer'),
+      ];
+      g7.pending = { imp1: { targets: ['sg'], decoy: false } };
+      await E.resolveNight(g7, 1);
+      if (g7.results.sg.names.includes('imp1')) sawRealDemon = true;
+    }
+    check(`when the whim fires, the real Demon never appears either named or as the decoy (${trials} trials)`, !sawRealDemon);
+  }
+
+  // setWhimJudge is module-level, global state, not per-game — see "The
+  // Whim: judge injection" section's own identical cleanup note below.
+  E.setWhimJudge(null);
 }
 
 console.log('\nSV: Snake Charmer');
@@ -3041,6 +3163,23 @@ console.log('\nCarousel: Cannibal (execution-triggered)');
   const goodExecutee2 = g2.players.find(p => p.id === 't1'); // already "dead" above; reused just as a good execution event
   E.applyCannibalTransform(g2, goodExecutee2);
   check('the poison clears once a good player is later executed', !cannibal2.statuses.poisoned);
+}
+
+console.log('\nMarionette: always impaired, same as the Drunk');
+{
+  // Official ruling, found while auditing jinxes: "treat the Marionette as
+  // if they were drunk" — mechanically identical (may get false info, does
+  // not wake for Minion Info), distinct only in what she doesn't know (her
+  // own alignment). impaired() used to miss her entirely, meaning a
+  // Marionette who believed herself an info role got that role's real,
+  // true answer — not a jinx nuance, an actual leak to the evil team.
+  const marionette = { id: 'm', characterId: 'marionette', believedId: 'empath', alive: true, statuses: {} };
+  check('a Marionette is always impaired, with no poison/drunk status needed',
+    E.impaired(marionette) === true);
+
+  const notYetMarionette = { id: 'm2', characterId: 'empath', believedId: 'empath', alive: true, statuses: {} };
+  check('a real (non-Marionette) good character with the same statuses is not impaired by this alone',
+    E.impaired(notYetMarionette) === false);
 }
 
 console.log('\nCarousel: Marionette (dealRoles + deliverOpeningInfo)');

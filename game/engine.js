@@ -684,12 +684,18 @@ function deliverOpeningInfo(g, results) {
  * can only ever trigger from a night kill anyway, since only the Demon
  * kills at night).
  */
-function triggerDeathHooks(g, player, { killedByDemon = false, results } = {}) {
+async function triggerDeathHooks(g, player, { killedByDemon = false, results } = {}) {
   triggerMoonchildIfNeeded(g, player);
   triggerPixieIfNeeded(g, player);
   const entry = REGISTRY[player.characterId];
   if (entry && entry.onDeath) {
-    entry.onDeath(g, player, { killedByDemon, results: results || g.results });
+    // await works whether a given character's onDeath is itself async or
+    // plain-synchronous (awaiting a non-promise resolves immediately) —
+    // same "every caller stays correct either way" reasoning resolveNight's
+    // own resolve() dispatch already relies on. Sage's is the one that
+    // actually needs this: its Recluse-might-register-as-Demon whim
+    // consults resolveWhim(), which is itself async.
+    await entry.onDeath(g, player, { killedByDemon, results: results || g.results });
   }
 }
 
@@ -765,8 +771,37 @@ async function resolveNight(g) {
   }
 
   const deaths = [];
+  // The Lunatic's own "pointed at" target tonight, if any — compared
+  // against the real Demon's actual kill, checked at the top of every
+  // later iteration below (not live during her own turn: her night-order
+  // slot runs before every demon's own, so the real kill isn't decided
+  // yet when she acts) — and specifically not just once after this whole
+  // loop finishes, either: the Mathematician's own turn runs INSIDE this
+  // same loop too (she's simply last in night order), so a check placed
+  // after the loop would run too late to ever reach her own read of
+  // g.abnormalTonight.
+  let lunaticPointedAt = null;
 
   for (const { player: p, character: c } of order) {
+    // Reconciles the instant a real Demon kill becomes known (checked
+    // fresh every iteration — cheap, and self-clearing once resolved) so
+    // it's never stale by the Mathematician's own turn, later this same
+    // loop. See lunaticPointedAt's own comment above for why not after
+    // the whole loop.
+    if (lunaticPointedAt !== null) {
+      const demonKillIds = deaths.filter(d => d.killedByDemon).map(d => d.player.id);
+      if (demonKillIds.length) {
+        // .some() via .includes() on the id list, not a single id — a
+        // Demon that kills more than once a night (Shabaloth) still has a
+        // real answer: did the Lunatic's one point land on ANY of them.
+        if (!demonKillIds.includes(lunaticPointedAt)) {
+          const lunatic = g.players.find(x => x.characterId === 'lunatic');
+          if (lunatic) flagAbnormal(g, lunatic);
+        }
+        lunaticPointedAt = null;
+      }
+    }
+
     // A player killed earlier THIS SAME night (by an earlier character in
     // tonight's order — the Demon, typically) never wakes for their own
     // later turn, same as the real rules — but p.alive itself isn't
@@ -782,6 +817,16 @@ async function resolveNight(g) {
     // A decoy submission is never allowed to drive a real ability.
     const action = submitted && !submitted.decoy ? submitted : null;
     const broken = impaired(p);
+    // The Mathematician: "learns if the Drunk's/Marionette's ability
+    // yielded false info or failed to work properly" (two of the official
+    // jinxes found auditing against the wiki) — both are unconditionally
+    // impaired by definition (see impaired()'s own comment), so both
+    // unconditionally count, every night they actually act. Checked on
+    // true characterId, same as impaired() itself, never the believed one
+    // — a Townsfolk who merely got poisoned this one night isn't either of
+    // these, and doesn't flag (that's the real jinx's actual scope, not
+    // "any falsified result" more broadly).
+    if (p.characterId === 'drunk' || p.characterId === 'marionette') flagAbnormal(g, p);
     // The Mercy — checked for every acting player, every night, but a cheap
     // no-op for anyone not both impaired and eligible (see maybeMercy's own
     // early-outs), so this needs no per-character wiring anywhere else:
@@ -808,6 +853,11 @@ async function resolveNight(g) {
           results[demon.id].body += ` The Lunatic pointed at ${names} tonight.`;
         }
         logEvent(g, `Lunatic (believing themselves the demon) pointed at ${names} — no real effect.`, true);
+        // A single-target point, same as every real demon's own kill choice
+        // — recorded here, compared against the real kill once `deaths` is
+        // fully settled (see that comparison's own comment for why not
+        // live, right here).
+        lunaticPointedAt = chosen[0].id;
       }
       continue;
     }
@@ -930,7 +980,7 @@ async function resolveNight(g) {
     // Golem) as a night death.
     g.deaths.push({ night: g.nightNumber, name: d.player.name, cause: d.cause, killedByDemon: !!d.killedByDemon, phase: 'night' });
     logEvent(g, `${d.player.name} died in the night (${d.cause}).`, true);
-    triggerDeathHooks(g, d.player, { killedByDemon: !!d.killedByDemon, results });
+    await triggerDeathHooks(g, d.player, { killedByDemon: !!d.killedByDemon, results });
     if (!d.skipSuccession) succeedDemon(g, d.player);
 
     // The Ravenkeeper: "if you die at night, choose a player: you learn
@@ -1063,7 +1113,7 @@ function resolveMastermindDay(g, executedPlayer) {
  * are cleared after one check either way; Mutant's own isn't, since it's
  * permanent for the rest of the game.
  */
-function resolveMadness(g) {
+async function resolveMadness(g) {
   for (const p of alive(g)) {
     if (!p.statuses.madReasons || !p.statuses.madReasons.length) continue;
     if (!p.statuses.madClaimedToday && decide(g, `mad-execution:${p.id}:${g.nightNumber}`, () => Math.random() < g.config.madExecutionChance)) {
@@ -1082,7 +1132,7 @@ function resolveMadness(g) {
         if (p.statuses.evilTwinId) g.evilTwinGoodExecuted = true;
         g.deaths.push({ night: g.nightNumber, name: p.name, cause: 'madness', killedByDemon: false, phase: 'day' });
         logEvent(g, `${p.name} didn't act mad enough and is executed for it.`);
-        triggerDeathHooks(g, p, { killedByDemon: false });
+        await triggerDeathHooks(g, p, { killedByDemon: false });
         applyCannibalTransform(g, p);
         succeedDemon(g, p);
       }

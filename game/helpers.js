@@ -80,10 +80,18 @@ const actingChar = p => char(p.believedId);
 /** The character they truly are. */
 const trueChar = p => char(p.characterId);
 
-/** Poisoned, drunk-until-dusk (Sailor/Innkeeper/Courtier), or the Drunk
-    themselves: their ability does not work and they don't know. */
+/** Poisoned, drunk-until-dusk (Sailor/Innkeeper/Courtier), the Drunk
+    themselves, or the Marionette: their ability does not work and they
+    don't know. The Marionette's own official ruling is explicit — "treat
+    the Marionette as if they were drunk" — mechanically identical to the
+    Drunk (may get false information, does not wake for Minion Info),
+    distinct only in what she doesn't know (her own alignment), not in
+    whether her believed ability actually works. Missing here meant a
+    Marionette who believed herself an info role (Empath, Fortune Teller,
+    ...) got that role's real, true answer — not a Mathematician-counting
+    nuance, an actual information leak to the evil team. */
 function impaired(p) {
-  return !!p.statuses.poisoned || !!p.statuses.drunk || p.characterId === 'drunk';
+  return !!p.statuses.poisoned || !!p.statuses.drunk || p.characterId === 'drunk' || p.characterId === 'marionette';
 }
 
 /** The doctrine every impaired yes/no info role follows: wrong, never
@@ -318,6 +326,10 @@ const WHIM_LEGACY_CHANCE = {
   // pre-existing host slider to read here — this flat 0.5 only ever
   // matters when no judge is attached at all (tools/simulate.js).
   'mercy': () => 0.5,
+  // Same reasoning as 'mercy' above — a jinx found auditing against the
+  // official wiki ("the Recluse might register as the Demon to the
+  // Sage"), not a replaced roll, so no pre-existing host slider either.
+  'sage-recluse-demon': () => 0.5,
 };
 
 // Whether firing a given whim kind serves good or evil, once it actually
@@ -332,6 +344,11 @@ const WHIM_FIRING_HELPS_GOOD = {
   'pacifist-save': true,
   'registration-ambiguity': false,
   'mercy': true,
+  // Firing this one keeps the real Demon hidden behind the Recluse's
+  // name instead — same polarity as registration-ambiguity above, for
+  // the same reason (a good player's name absorbs suspicion that
+  // belonged on the real evil one).
+  'sage-recluse-demon': false,
 };
 
 /** The Confirm — a host-facing, advisory-only record of a whim decision
