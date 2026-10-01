@@ -3482,6 +3482,28 @@ console.log('\nBot claims (Dry Run day-phase placeholder, before the LLM reasoni
     check("recordClaim's return value is the same entry pushed to g.claims",
       entry === g.claims[0]);
   }
+
+  {
+    const g = E.newGame();
+    const p = { ...mk('a', 'chef'), personality: 'aggressive' };
+    g.players = [p];
+    const claim = E.heuristicBotClaim(g, p);
+    check("a bot with a personality assigned gets that personality's flavored statement, not the generic default",
+      claim.statement === "I'll say it plainly — nothing to hide.", JSON.stringify(claim));
+  }
+
+  {
+    const g = E.newGame();
+    g.players = [mk('a', 'chef')]; // no .personality field at all
+    const claim = E.heuristicBotClaim(g, g.players[0]);
+    check('a player with no personality assigned (a real player, or a bot outside a Dry Run) still gets the plain generic statement',
+      claim.statement === 'Nothing more to report yet.', JSON.stringify(claim));
+  }
+
+  check('BOT_PERSONALITIES is a real, non-empty pool, each entry carrying both an id and a blurb',
+    Array.isArray(E.BOT_PERSONALITIES) && E.BOT_PERSONALITIES.length > 1 &&
+    E.BOT_PERSONALITIES.every(x => typeof x.id === 'string' && typeof x.blurb === 'string'),
+    JSON.stringify(E.BOT_PERSONALITIES));
 }
 
 console.log('\nEnd');

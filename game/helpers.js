@@ -585,6 +585,38 @@ function logWhim(g) {
   logEvent(g, 'A quiet decision was made, unseen.', false);
 }
 
+/** A small fixed pool of play styles for a full Dry Run's bots — assigned
+    once per bot at game start (see server.js's startSimulation()), never
+    re-rolled mid-game. `blurb` is written for an LLM system prompt ("play
+    this player as {blurb}"), not used yet since the reasoning layer isn't
+    wired in — today it only flavors heuristicBotClaim's statement text
+    below, via CLAIM_STATEMENT_BY_PERSONALITY. Cosmetic to the engine: it
+    never changes what's mechanically legal, only tone, so it's exactly as
+    safe to ignore as every other heuristic placeholder in this file —
+    a player with no personality assigned (a real player, or a bot outside
+    a Dry Run) just gets the plain generic statement. */
+const BOT_PERSONALITIES = [
+  { id: 'cautious', blurb: 'cautious — slow to accuse, hard to read' },
+  { id: 'aggressive', blurb: 'aggressive — quick to accuse, pushes hard' },
+  { id: 'logical', blurb: 'logical — reasons out loud, sticks to the facts' },
+  { id: 'chatty', blurb: 'chatty — talks a lot, fills silence' },
+  { id: 'suspicious', blurb: 'suspicious of everyone — trusts no claim at face value' },
+  { id: 'trusting', blurb: 'trusting — takes claims at face value unless given a reason not to' },
+];
+
+const CLAIM_STATEMENT_BY_PERSONALITY = {
+  cautious: "I'd rather not say too much yet.",
+  aggressive: "I'll say it plainly — nothing to hide.",
+  logical: 'Nothing further to report, for the record.',
+  chatty: 'Happy to share — nothing more to add right now, though!',
+  suspicious: "I'm watching closely. Nothing to report from me yet.",
+  trusting: "I'm sure we'll figure this out together. Nothing more from me yet.",
+};
+
+function claimStatementFor(player) {
+  return (player.personality && CLAIM_STATEMENT_BY_PERSONALITY[player.personality]) || 'Nothing more to report yet.';
+}
+
 /** Records a public character claim into g.claims (parallel to
     g.nominations) and logs it visibly via logEvent, same as any other
     public day event — so it flows into the post-game recap for free.
@@ -626,13 +658,13 @@ function heuristicBotClaim(g, player) {
   const believed = char(player.believedId) || trueChar(player);
   const safeToClaim = believed && believed.team !== 'demon' && believed.team !== 'minion';
   if (safeToClaim) {
-    return { claimedCharacterId: believed.id, statement: 'Nothing more to report yet.' };
+    return { claimedCharacterId: believed.id, statement: claimStatementFor(player) };
   }
   const alreadyClaimed = new Set(g.claims.map(c => c.claimedCharacterId));
   const goodPool = activeScriptPool(g).filter(x => x.team === 'townsfolk' || x.team === 'outsider');
   const bluffPool = goodPool.filter(x => !alreadyClaimed.has(x.id));
   const bluff = pick(bluffPool.length ? bluffPool : goodPool);
-  return bluff ? { claimedCharacterId: bluff.id, statement: 'Nothing more to report yet.' } : null;
+  return bluff ? { claimedCharacterId: bluff.id, statement: claimStatementFor(player) } : null;
 }
 
 /**
@@ -1003,7 +1035,7 @@ module.exports = {
   resolveWhim, setWhimJudge, heuristicWhim, WHIM_FIRING_HELPS_GOOD, maybeMercy, triggerMoonchildIfNeeded,
   triggerPixieIfNeeded, applyCannibalTransform,
   reassignCharacter, flagAbnormal,
-  logEvent, logWhim, recordClaim, heuristicBotClaim, outsiderDiedToday, minionDiedToday, somebodyDiedYesterday,
+  logEvent, logWhim, recordClaim, heuristicBotClaim, BOT_PERSONALITIES, outsiderDiedToday, minionDiedToday, somebodyDiedYesterday,
   minionNominatedToday, demonVotedToday, vortoxActive,
   numberSignal, falseNumber, logTrueValue, evilNeighbourCount, evilPairCount, pairInfo,
   resultCount, resultYesNo, resultPointer, resolveRavenkeeperChoice,

@@ -11,7 +11,7 @@ const {
   wouldBlockKill, randomKiller, checkKill, isEvil, isEvilRegistration, resolveWhim, setWhimJudge,
   heuristicWhim, WHIM_FIRING_HELPS_GOOD, maybeMercy, triggerMoonchildIfNeeded, flagAbnormal,
   triggerPixieIfNeeded, applyCannibalTransform, resolveRavenkeeperChoice,
-  logEvent, recordClaim, heuristicBotClaim, outsiderDiedToday, minionDiedToday, somebodyDiedYesterday,
+  logEvent, recordClaim, heuristicBotClaim, BOT_PERSONALITIES, outsiderDiedToday, minionDiedToday, somebodyDiedYesterday,
   numberSignal, falseNumber, logTrueValue, evilNeighbourCount, evilPairCount, pairInfo,
   decide, INTERNAL_ONLY_STATUSES,
 } = H;
@@ -1772,7 +1772,7 @@ module.exports = {
   resolveDayVote, gameSummary, resolveMadness, buildSavantStatements, evaluateClaim,
   activeScriptPool, applyConfigPatch, buildStorytellerContext, BUCKET4_IDS,
   applyCannibalTransform, resolveRavenkeeperChoice, INTERNAL_ONLY_STATUSES,
-  recordClaim, heuristicBotClaim,
+  recordClaim, heuristicBotClaim, BOT_PERSONALITIES,
   // Exposed for tools/audit-abilities.js's generic per-character invariant
   // checks, which need to iterate every entry rather than dispatch by id —
   // nothing inside game/ itself needs this, since engine.js's own functions

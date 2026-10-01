@@ -444,6 +444,7 @@ function simPayload() {
         trueCharacter: E.trueChar(p) ? E.trueChar(p).name : null,
         trueCharacterId: p.characterId,
         believed: p.believedId,
+        personality: p.personality || null,
         statuses: Object.keys(p.statuses).filter(k => !E.INTERNAL_ONLY_STATUSES.has(k)),
         choice: (submitted ? submitted.targets : []).map(id => {
           const t = E.byId(game, id);
@@ -1354,6 +1355,11 @@ function startSimulation({ players = 9, speed = 5, script = 'tb', config } = {})
       // Lets a real phone watch this seat's real player rendering.
       // Safe to hand out freely — there's no real secret behind a bot.
       token: crypto.randomBytes(16).toString('hex'),
+      // A play style, not a role — see BOT_PERSONALITIES' own comment in
+      // game/helpers.js. Assigned once here and never touched again;
+      // heuristicBotClaim() reads it, and it's the field an eventual LLM
+      // reasoning layer would fold into its system prompt.
+      personality: pickOne(E.BOT_PERSONALITIES).id,
     });
   }
   try {
