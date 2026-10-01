@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { installFakeAudioContext, resetAudioCalls, toneCalls, noiseCalls, lifecycleCalls } from '../../../test/fakeAudioContext.js';
-import { playNightFalls, playDayBreaks, playImpactSting, playVictory, suspendAudioContext, startAmbience, stopAmbience } from './soundEngine.js';
+import { playNightFalls, playDayBreaks, playDeathToll, playImpactSting, playVictory, suspendAudioContext, startAmbience, stopAmbience } from './soundEngine.js';
 
 describe('soundEngine', () => {
   beforeEach(() => {
@@ -114,5 +114,30 @@ describe('soundEngine', () => {
     expect(() => startAmbience('night', false, 5)).not.toThrow();
     expect(toneCalls.length).toBe(3); // still just the one extra voice, not something wilder
     stopAmbience();
+  });
+
+  it('playDeathToll: zero deaths plays nothing', () => {
+    playDeathToll(0, false);
+    expect(toneCalls.length).toBe(0);
+    expect(noiseCalls.length).toBe(0);
+  });
+
+  it('playDeathToll: one toll per death', () => {
+    playDeathToll(3, false);
+    // tone() itself fires two detuned oscillators per call (see tone()'s
+    // own layering) — 3 tolls is 3 noise cracks, but 6 oscillator starts.
+    expect(toneCalls.length).toBe(6);
+    expect(noiseCalls.length).toBe(3);
+  });
+
+  it('playDeathToll: an unreasonably large count is capped, not left to schedule an unbounded run', () => {
+    playDeathToll(50, false);
+    expect(noiseCalls.length).toBe(5);
+  });
+
+  it('playDeathToll: muted plays nothing', () => {
+    playDeathToll(3, true);
+    expect(toneCalls.length).toBe(0);
+    expect(noiseCalls.length).toBe(0);
   });
 });

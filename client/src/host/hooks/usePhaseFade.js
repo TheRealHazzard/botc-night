@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { pickFatalBlow } from '../lib/pickFatalBlow.js';
-import { playNightFalls, playDayBreaks, playVictory, startAmbience, stopAmbience } from '../lib/soundEngine.js';
+import { playNightFalls, playDayBreaks, playDeathToll, playVictory, startAmbience, stopAmbience } from '../lib/soundEngine.js';
 import { useFatalBlowSequencer } from './useFatalBlowSequencer.js';
 import { usePrefersReducedMotion } from './usePrefersReducedMotion.js';
 
@@ -23,6 +23,14 @@ function tensionOf(S) {
   if (!total) return 0;
   const dead = S.players.filter(p => !p.alive).length;
   return dead / total;
+}
+
+// Same filter DayView.jsx uses for its own "X did not wake" line — night
+// deaths credited to the night that just ended, executions excluded
+// (those happen later in the day itself, not at dawn).
+function nightDeathCount(S) {
+  if (!S.deaths) return 0;
+  return S.deaths.filter(d => d.night === S.nightNumber && d.cause !== 'execution').length;
 }
 
 /** Reproduces render()'s own changed/lastPhaseKey detection, phase-entry
@@ -99,7 +107,7 @@ export function usePhaseFade(S, { muted = false } = {}) {
     if (willFlash) return; // the fatal-blow sequencer owns this transition instead
 
     if (S.phase === 'night') { playNightFalls(muted); startAmbience('night', muted, tensionOf(S)); }
-    else if (S.phase === 'day') { playDayBreaks(muted); startAmbience('day', muted, tensionOf(S)); }
+    else if (S.phase === 'day') { playDayBreaks(muted); playDeathToll(nightDeathCount(S), muted); startAmbience('day', muted, tensionOf(S)); }
     else {
       // Lobby, reveal, and the reveal-of-the-truth over screen are all
       // meant to sit in quiet, not carry night's or day's bed under them.

@@ -141,6 +141,26 @@ export function playDayBreaks(muted) {
   tone(293.66, { duration: 1.5, type: 'triangle', attack: 0.14, delay: 0.16, gain: 0.14, filterFreq: 1300, detune: 4, wet: 0.28, muted });
 }
 
+export function playDeathToll(count, muted) {
+  // A soft, low toll per night death revealed at dawn. playImpactSting
+  // is reserved for the single death the game spotlights as a fatal
+  // blow at the very end — every OTHER death, the ordinary case on an
+  // ordinary day, used to get no acknowledgment beyond playDayBreaks'
+  // same cheerful-ish chime and the narrator reading names. Quieter and
+  // slower than the sting: this is grief, not a jump scare. Staggered
+  // so more than one death in a night (Fang Gu's transform, Zombuul
+  // alongside a Minion's own kill, ...) reads as a sequence of losses,
+  // not one blur; capped well above anything a real table would ever
+  // see in one night, just so a pathological state can't schedule an
+  // unbounded run of tones.
+  const n = Math.max(0, Math.min(5, count));
+  for (let i = 0; i < n; i++) {
+    const delay = i * 0.55;
+    tone(73.42, { duration: 1.1, attack: 0.02, delay, gain: 0.15, filterFreq: 260, detune: 3, wet: 0.5, muted });
+    noiseBurst({ duration: 0.3, gain: 0.05, delay, filterFreq: 300, wet: 0.5, muted });
+  }
+}
+
 export function playImpactSting(muted) {
   // A sub-bass thud, a short bandpass "crack" for the transient, and a low
   // rumble tail — three different textures, the way a real impact layers,

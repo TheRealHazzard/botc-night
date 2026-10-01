@@ -1,12 +1,18 @@
+import { useState } from 'react';
 import DashboardLayout from '../components/DashboardLayout.jsx';
 import GameLeftPanel from '../components/GameLeftPanel.jsx';
 import SidepanelCard from '../components/SidepanelCard.jsx';
 import Icon from '../components/Icon.jsx';
 import { useSpeak } from '../hooks/useSpeak.js';
+import { revealLine } from '../lib/narratorLines.js';
 import { post } from '../../lib/api.js';
 
 export default function RevealView({ scriptChars, activeScriptMeta, muted, ringSlotRef, fadeClass = '' }) {
-  useSpeak('Look at your hands. Learn what you are.', { dread: true, muted });
+  // Captured once per mount — App.jsx only mounts RevealView while
+  // phase === 'reveal', so this is stable for this game's whole reveal
+  // phase and fresh again for the next game's.
+  const [seed] = useState(() => Date.now());
+  useSpeak(revealLine(seed), { dread: true, muted });
 
   const main = (
     <div className="stage-main">

@@ -202,6 +202,35 @@ describe('usePhaseFade', () => {
     expect(withTensionCount).toBe(noTensionCount + 1);
   });
 
+  it('a day entry with night deaths plays an extra toll per death, on top of the day-breaks chime', () => {
+    stubReducedMotion(false);
+    installFakeAudioContext();
+    const quietDay = { phase: 'day', nightNumber: 2, deaths: [], victory: null, players: [] };
+    const griefDay = { phase: 'day', nightNumber: 2, deaths: [{ name: 'Fay', night: 2, cause: 'demon' }, { name: 'Bo', night: 2, cause: 'minion' }], victory: null, players: [] };
+    const oldExecution = { phase: 'day', nightNumber: 2, deaths: [{ name: 'X', night: 1, cause: 'execution' }], victory: null, players: [] };
+
+    const first = renderHook(({ S }) => usePhaseFade(S), { initialProps: { S: night } });
+    resetAudioCalls();
+    act(() => first.rerender({ S: quietDay }));
+    const quietCount = toneCalls.length;
+
+    const second = renderHook(({ S }) => usePhaseFade(S), { initialProps: { S: night } });
+    resetAudioCalls();
+    act(() => second.rerender({ S: griefDay }));
+    const griefCount = toneCalls.length;
+
+    // Two night deaths this round, both credited to the toll — neither an
+    // unrelated prior day's execution nor a death from a different night.
+    // Each toll fires tone()'s own two detuned oscillators, so +2 deaths
+    // is +4 oscillator starts.
+    expect(griefCount).toBe(quietCount + 4);
+
+    const third = renderHook(({ S }) => usePhaseFade(S), { initialProps: { S: night } });
+    resetAudioCalls();
+    act(() => third.rerender({ S: oldExecution }));
+    expect(toneCalls.length).toBe(quietCount); // an execution, and from the prior day — no toll
+  });
+
   it('an "over" transition with no pickable blow just fades normally and plays victory immediately', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     stubReducedMotion(false);

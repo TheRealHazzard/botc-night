@@ -64,3 +64,22 @@ export function noDeathDayLine(nightNumber) {
   if (nightNumber <= 1) return NO_DEATH_DAY_ONE;
   return pick(NO_DEATH_DAY, `noDeathDay:${nightNumber}`);
 }
+
+const REVEAL_LINES = [
+  'Look at your hands. Learn what you are.',
+  'Look down. Learn what you are, just this once.',
+  'Open your hands. See who you really are tonight.',
+  'Look at your hands now. You will not get another look.',
+  'Look down. Whatever you are, you are now.',
+];
+
+/** Only said once per game, so there's no in-game repetition to fix —
+    but a group playing several games in one sitting (SessionStatsCard
+    exists for exactly that) would otherwise hear this exact line every
+    single time. `seed` is the caller's job to pick, since this module
+    has no notion of "which game" — anything that's stable for one
+    game's reveal phase and differs from the last one works (RevealView
+    uses a value captured once per mount). */
+export function revealLine(seed) {
+  return pick(REVEAL_LINES, `reveal:${seed}`);
+}

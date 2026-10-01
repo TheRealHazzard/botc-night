@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { nightOpenLine, noDeathDayLine } from './narratorLines.js';
+import { nightOpenLine, noDeathDayLine, revealLine } from './narratorLines.js';
 
 describe('narratorLines', () => {
   it('nightOpenLine always returns the canonical opener on night 1, regardless of deaths', () => {
@@ -41,5 +41,16 @@ describe('narratorLines', () => {
 
   it('noDeathDayLine is deterministic', () => {
     expect(noDeathDayLine(3)).toBe(noDeathDayLine(3));
+  });
+
+  it('revealLine is deterministic for the same seed', () => {
+    expect(revealLine(1234)).toBe(revealLine(1234));
+    expect(revealLine('a-game')).toBe(revealLine('a-game'));
+  });
+
+  it('revealLine varies across different seeds', () => {
+    const seen = new Set();
+    for (let s = 0; s < 20; s++) seen.add(revealLine(s));
+    expect(seen.size).toBeGreaterThan(1);
   });
 });
