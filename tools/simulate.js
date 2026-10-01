@@ -2888,6 +2888,11 @@ console.log('\napplyConfigPatch');
   const g6 = E.newGame();
   E.applyConfigPatch(g6, { llmStorytellerEnabled: 'yes' });
   check('llmStorytellerEnabled is coerced to a real boolean', g6.config.llmStorytellerEnabled === true);
+
+  const g7 = E.newGame();
+  check('licensedAmbientMusic defaults to off', g7.config.licensedAmbientMusic === false);
+  E.applyConfigPatch(g7, { licensedAmbientMusic: 'yes' });
+  check('licensedAmbientMusic is coerced to a real boolean, same as llmStorytellerEnabled', g7.config.licensedAmbientMusic === true);
 }
 
 console.log('\nbuildStorytellerContext');

@@ -80,6 +80,10 @@ function newGame() {
       voteWindowSeconds: 30, // how long a nomination stays open for votes
       disabledCharacterIds: [], // Bucket 4 toggle — see BUCKET4_IDS in helpers.js
       llmStorytellerEnabled: false, // see game/llmStoryteller.js
+      // Off by default — the synthesized bed (soundEngine.js) ships no
+      // audio files and has tension-scaling this doesn't; see
+      // MUSIC-CREDITS.md for what plays when this is on.
+      licensedAmbientMusic: false,
     },
     players: [],
     pending: {},
@@ -1288,6 +1292,10 @@ function applyConfigPatch(g, patch) {
 
   if ('llmStorytellerEnabled' in patch) {
     g.config.llmStorytellerEnabled = !!patch.llmStorytellerEnabled;
+  }
+
+  if ('licensedAmbientMusic' in patch) {
+    g.config.licensedAmbientMusic = !!patch.licensedAmbientMusic;
   }
 }
 

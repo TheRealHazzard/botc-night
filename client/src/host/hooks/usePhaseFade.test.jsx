@@ -202,6 +202,34 @@ describe('usePhaseFade', () => {
     expect(withTensionCount).toBe(noTensionCount + 1);
   });
 
+  it('game.config.licensedAmbientMusic routes ambience to the licensed <audio> track instead of the synthesized bed', () => {
+    let instances = [];
+    class FakeAudio {
+      constructor() { this.src = ''; this.loop = false; this.volume = 1; instances.push(this); }
+      play() { return Promise.resolve(); }
+      pause() {}
+    }
+    vi.stubGlobal('Audio', FakeAudio);
+    stubReducedMotion(false);
+    installFakeAudioContext();
+    const licensedNight = {
+      phase: 'night', nightNumber: 1, deaths: [], victory: null,
+      config: { licensedAmbientMusic: true },
+    };
+
+    const { rerender } = renderHook(({ S }) => usePhaseFade(S), { initialProps: { S: lobby } });
+    resetAudioCalls();
+    act(() => rerender({ S: licensedNight }));
+
+    expect(instances.length).toBe(1); // the licensed path actually ran
+    expect(instances[0].src).toBe('/audio/ambient/night-stay-the-course.mp3');
+    // startAmbience's own synthesized oscillators never fired — only
+    // playNightFalls' fixed one-shot chime did.
+    const synthesizedAmbienceOscillators = toneCalls.length;
+    expect(synthesizedAmbienceOscillators).toBeGreaterThan(0); // playNightFalls still fired
+    expect(instances[0].volume).toBe(0); // the synthesized bed's own tritone/tension logic never touched this element
+  });
+
   it('a day entry with night deaths plays an extra toll per death, on top of the day-breaks chime', () => {
     stubReducedMotion(false);
     installFakeAudioContext();

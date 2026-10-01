@@ -1,8 +1,23 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { pickFatalBlow } from '../lib/pickFatalBlow.js';
 import { playNightFalls, playDayBreaks, playDeathToll, playVictory, startAmbience, stopAmbience } from '../lib/soundEngine.js';
+import { startLicensedAmbience, stopLicensedAmbience } from '../lib/licensedAmbience.js';
 import { useFatalBlowSequencer } from './useFatalBlowSequencer.js';
 import { usePrefersReducedMotion } from './usePrefersReducedMotion.js';
+
+// game.config.licensedAmbientMusic (off by default — see MUSIC-CREDITS.md)
+// picks which of the two ambience sources actually plays; everything else
+// below calls these two names and never checks the config itself, so a
+// table can flip the setting without either call site needing to know
+// which source it's actually driving. startLicensedAmbience ignores the
+// tension argument it's never asked for (same "extra arg, just ignored"
+// tolerance this codebase already leans on elsewhere) — only the
+// synthesized bed scales with it.
+function ambienceFns(S) {
+  return (S && S.config && S.config.licensedAmbientMusic)
+    ? { start: startLicensedAmbience, stop: stopLicensedAmbience }
+    : { start: startAmbience, stop: stopAmbience };
+}
 
 // dusk/dawn are wider than the stage-wide fade alone needs — styles.css
 // layers a per-seat sweep on top of it (each .rseat catches the transition
@@ -106,12 +121,13 @@ export function usePhaseFade(S, { muted = false } = {}) {
     const willFlash = hasRenderedRef.current && S.phase === 'over' && !reduceMotion && !!pickFatalBlow(S);
     if (willFlash) return; // the fatal-blow sequencer owns this transition instead
 
-    if (S.phase === 'night') { playNightFalls(muted); startAmbience('night', muted, tensionOf(S)); }
-    else if (S.phase === 'day') { playDayBreaks(muted); playDeathToll(nightDeathCount(S), muted); startAmbience('day', muted, tensionOf(S)); }
+    const ambience = ambienceFns(S);
+    if (S.phase === 'night') { playNightFalls(muted); ambience.start('night', muted, tensionOf(S)); }
+    else if (S.phase === 'day') { playDayBreaks(muted); playDeathToll(nightDeathCount(S), muted); ambience.start('day', muted, tensionOf(S)); }
     else {
       // Lobby, reveal, and the reveal-of-the-truth over screen are all
       // meant to sit in quiet, not carry night's or day's bed under them.
-      stopAmbience();
+      ambience.stop();
       if (S.phase === 'over' && S.victory) playVictory(S.victory.winner, muted);
     }
 
@@ -145,7 +161,7 @@ export function usePhaseFade(S, { muted = false } = {}) {
     // This path short-circuits the effect above entirely (see `willFlash`),
     // so it's the only place left to stop whatever bed was playing before
     // the game ended.
-    stopAmbience();
+    ambienceFns(S).stop();
     if (S?.victory) playVictory(S.victory.winner, muted);
   }, [S, muted, fatalBlow.finish]);
 

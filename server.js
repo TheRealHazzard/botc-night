@@ -1683,6 +1683,11 @@ const MIME = {
   '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
   '.webp': 'image/webp', '.gif': 'image/gif', '.svg': 'image/svg+xml',
   '.avif': 'image/avif', '.md': 'text/markdown',
+  // The licensed ambient tracks under public/audio/ambient/ — see
+  // MUSIC-CREDITS.md. Without a real audio/* content-type, <audio>'s own
+  // seeking/duration handling in some browsers gets unreliable even
+  // though playback itself often still works by content-sniffing alone.
+  '.mp3': 'audio/mpeg',
 };
 
 const TOKEN_DIR = path.join(PUBLIC, 'tokens');

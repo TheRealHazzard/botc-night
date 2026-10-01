@@ -5,6 +5,7 @@ import WhimSection from './settings/WhimSection.jsx';
 import RosterSection from './settings/RosterSection.jsx';
 import LlmSection from './settings/LlmSection.jsx';
 import NanoleafSection from './settings/NanoleafSection.jsx';
+import AmbientAudioSection from './settings/AmbientAudioSection.jsx';
 import { showToast } from '../../lib/toast.js';
 
 export default function SettingsOverlay({ config, phase, llmConfigured, llmProvider, llmModel, patchConfig, onClose }) {
@@ -38,6 +39,7 @@ export default function SettingsOverlay({ config, phase, llmConfigured, llmProvi
         <div className="settings-col">
           <LlmSection config={config} llmConfigured={llmConfigured} llmProvider={llmProvider} llmModel={llmModel} patch={patch} />
           <NanoleafSection />
+          <AmbientAudioSection config={config} patch={patch} />
         </div>
       </div>
     </div>
