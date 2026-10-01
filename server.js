@@ -960,6 +960,14 @@ const BOT_NAMES = ['Ava', 'Marcus', 'Priya', 'Diego', 'Freya', 'Kenji', 'Nadia',
 let simTimer = null;
 
 const pickOne = arr => arr[Math.floor(Math.random() * arr.length)];
+const shuffleArr = arr => {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+};
 
 /** Bots choose plausibly rather than optimally — enough to watch, not to win. */
 function botChoice(p, prompt) {
@@ -1202,23 +1210,37 @@ function botClaimSchema(g) {
     character already IS their true one) reasons as evil here. */
 function botMemory(g, player) {
   const believed = E.char(player.believedId) || E.trueChar(player);
+  const personalityEntry = player.personality && E.BOT_PERSONALITIES.find(x => x.id === player.personality);
   return {
     you: {
       name: player.name,
       believedCharacter: believed ? believed.name : null,
       believedTeam: believed ? believed.team : null,
-      personality: player.personality || null,
+      personality: personalityEntry ? personalityEntry.blurb : null,
     },
     // Each result's shown `body` text, exactly as this player was actually
     // told it (possibly already falsified by poison/drunk) — never the
     // ground truth behind it.
     privateInfo: g.resultsLog.filter(r => r.playerId === player.id).map(r => r.body).filter(Boolean),
     day: g.nightNumber,
-    alivePlayers: E.alive(g).map(p => p.name),
-    deadPlayers: g.players.filter(p => !p.alive).map(p => p.name),
+    // {id, name} pairs, not bare names — botNominateSchema's nomineeId enum
+    // is drawn from player ids ('sim0', 'sim1', ...), which are never
+    // otherwise shown anywhere else in this object. A nominate call that
+    // only ever saw names would have no way to produce a valid id at all.
+    alivePlayers: E.alive(g).map(p => ({ id: p.id, name: p.name })),
+    deadPlayers: g.players.filter(p => !p.alive).map(p => ({ id: p.id, name: p.name })),
     publicClaims: g.claims.map(c => ({
       day: c.day, player: c.playerName, claimedCharacter: c.claimedCharacterName, statement: c.statement,
     })),
+    // Built from g.deaths rather than g.nominations — a Dry Run resolves
+    // each day's execution as one internal decision (see
+    // llmChooseExecution below), never through the real timed nomination/
+    // vote-window machinery /api/table/nominate uses, so g.nominations
+    // stays empty here. This still gives a bot the one thing that matters
+    // for its own reasoning: who was executed on which day.
+    executionHistory: g.deaths
+      .filter(d => d.cause === 'execution')
+      .map(d => ({ day: d.night, executed: d.name })),
   };
 }
 
@@ -1268,6 +1290,98 @@ async function botsClaim() {
   }
 }
 
+const BOT_NOMINATE_SYSTEM =
+  'You are role-playing one player in a game of Blood on the Clocktower, during the day phase, deciding ' +
+  'whether to nominate someone for execution. You know your own believed character and alignment, any ' +
+  'private information, and every claim and execution made publicly so far.\n\n' +
+  'Base suspicion on contradictions between claims, players who haven\'t claimed at all, who was executed ' +
+  'on past days, and anything your own private information tells you directly. A player whose believed ' +
+  'character is good should nominate whoever seems most likely evil given the public picture. A player ' +
+  'whose believed character is evil should nominate to protect themselves and their allies — sometimes ' +
+  'that means nominating a townsfolk to cast suspicion elsewhere, sometimes it means staying quiet.\n\n' +
+  'Most days, most players should NOT nominate — only nominate when you have a real reason to. Factor in ' +
+  'this player\'s own personality, given in their own data below.';
+
+const BOT_VOTE_SYSTEM =
+  'You are role-playing one player in a game of Blood on the Clocktower, deciding how to vote on the ' +
+  'player currently nominated for execution. You know your own believed character and alignment, any ' +
+  'private information, and everything claimed and executed publicly so far, including this nominee\'s ' +
+  'own claim.\n\n' +
+  'A player whose believed character is good should vote yes when the public evidence points at the ' +
+  'nominee being evil, no otherwise. A player whose believed character is evil should usually protect ' +
+  'their own allies and themselves with a no vote — but voting yes on a weak ally, or even each other, ' +
+  'can sometimes be the better disguise than a suspicious block of no votes.\n\n' +
+  'Factor in this player\'s own personality, given in their own data below.';
+
+const BOT_VOTE_SCHEMA = {
+  type: 'object',
+  properties: {
+    reasoning: { type: 'string' },
+    vote: { type: 'string', enum: ['yes', 'no'] },
+  },
+  required: ['reasoning', 'vote'],
+  additionalProperties: false,
+};
+
+function botNominateSchema(g, excludeId) {
+  return {
+    type: 'object',
+    properties: {
+      reasoning: { type: 'string' },
+      shouldNominate: { type: 'boolean' },
+      nomineeId: { type: 'string', enum: E.alive(g).filter(p => p.id !== excludeId).map(p => p.id) },
+    },
+    required: ['reasoning', 'shouldNominate', 'nomineeId'],
+    additionalProperties: false,
+  };
+}
+
+/** One bot's own nominate decision. Return contract (distinct from
+    llmBotClaim's — there's no single heuristic equivalent for "did THIS
+    bot want to nominate," so a per-bot failure has to be distinguishable
+    from a genuine "no" rather than silently read as one):
+      - a player id  → this bot wants to nominate that player
+      - null         → a genuine "no, not this time"
+      - undefined    → the call itself failed or came back malformed;
+                        the caller (llmChooseExecution) treats this as a
+                        reason to abandon the whole day's LLM-driven
+                        resolution, not just this one bot's answer. */
+async function llmBotNominate(g, player) {
+  const schema = botNominateSchema(g, player.id);
+  if (!schema.properties.nomineeId.enum.length) return null; // nobody else alive to nominate
+  const result = await llmCall('bot-nominate', {
+    system: BOT_NOMINATE_SYSTEM,
+    prompt: `What this player knows:\n${JSON.stringify(botMemory(g, player))}`,
+    schema,
+    maxTokens: 250,
+  });
+  if (!result.ok) return undefined;
+  const data = result.data;
+  if (!data || typeof data.shouldNominate !== 'boolean') return undefined;
+  if (!data.shouldNominate) return null;
+  const validIds = new Set(schema.properties.nomineeId.enum);
+  if (typeof data.nomineeId !== 'string' || !validIds.has(data.nomineeId)) return undefined;
+  return data.nomineeId;
+}
+
+/** One bot's own vote on the current nominee. 'yes' | 'no' on a real
+    answer, undefined on any failure or malformed reply — same "abandon
+    the whole day's LLM resolution, don't half-trust a broken call"
+    contract llmBotNominate's own comment explains. */
+async function llmBotVote(g, player, nomineeId) {
+  const nominee = E.byId(g, nomineeId);
+  const result = await llmCall('bot-vote', {
+    system: BOT_VOTE_SYSTEM,
+    prompt: `What this player knows:\n${JSON.stringify(botMemory(g, player))}\n\n` +
+      `The player currently nominated for execution: ${nominee ? nominee.name : nomineeId}`,
+    schema: BOT_VOTE_SCHEMA,
+    maxTokens: 200,
+  });
+  if (!result.ok) return undefined;
+  const vote = result.data && result.data.vote;
+  return ['yes', 'no'].includes(vote) ? vote : undefined;
+}
+
 /**
  * Bots have no discussion to reason from, so a uniform random execution finds
  * the Demon on day one far more often than a real table does. Weight it: evil
@@ -1295,6 +1409,44 @@ function chooseExecution() {
     if (roll <= 0) return w.p;
   }
   return weighted[weighted.length - 1].p;
+}
+
+/** The LLM-driven replacement for chooseExecution() — reasons from real
+    claims and execution history instead of a flat per-character weight.
+    Asks bots, in a random order, whether each wants to nominate (mirrors
+    botsNominate()'s own "exactly one bot-initiated nomination per day"
+    shape — stops at the first real "yes"); if someone does, every living
+    bot then votes on them, tallied against the same majority threshold
+    /api/table/nominate itself uses (Math.ceil(living/2)).
+
+    Any call failure anywhere in this sequence falls back to
+    chooseExecution() for the WHOLE day, not just the one bot whose call
+    failed — this stays one atomic "how did today's execution get
+    decided" choice, never a hybrid of some bots reasoned-about and
+    others heuristic-guessed within the same day. "Nobody wanted to
+    nominate today" and "the vote didn't reach threshold" are both
+    genuine, reasoned outcomes, not failures — they return null (no
+    execution), the same as a real day that never qualifies one. */
+async function llmChooseExecution(g) {
+  const living = E.alive(g);
+  if (!living.length) return null;
+
+  let nomineeId = null;
+  for (const p of shuffleArr(living)) {
+    const result = await llmBotNominate(g, p);
+    if (result === undefined) return chooseExecution();
+    if (result) { nomineeId = result; break; }
+  }
+  if (!nomineeId) return null;
+
+  let yes = 0;
+  for (const p of living) {
+    const vote = await llmBotVote(g, p, nomineeId);
+    if (vote === undefined) return chooseExecution();
+    if (vote === 'yes') yes++;
+  }
+  const threshold = Math.ceil(living.length / 2);
+  return yes >= threshold ? E.byId(g, nomineeId) : null;
 }
 
 // Gated on actual bot seats being present, not on game.simulation — a real
@@ -1489,8 +1641,12 @@ async function runSimStep() {
   if (game.phase === 'day') {
     if (!game.dayDone) {
       await botsClaim();
-      // Most days end in an execution; some do not.
-      const target = Math.random() < 0.78 ? chooseExecution() : null;
+      // Most days end in an execution; some do not. With the LLM
+      // Storyteller on, that split falls naturally out of the bots' own
+      // nominate reasoning (see BOT_NOMINATE_SYSTEM: "most players should
+      // NOT nominate") rather than a flat coin flip layered on top of it.
+      const llmOn = game.config.llmStorytellerEnabled && llmConfigured();
+      const target = llmOn ? await llmChooseExecution(game) : (Math.random() < 0.78 ? chooseExecution() : null);
       await recordExecution(target ? target.id : null);
       if (game.phase === 'over') return;
       // The Mastermind's bonus day: recordExecution() just bought one more
