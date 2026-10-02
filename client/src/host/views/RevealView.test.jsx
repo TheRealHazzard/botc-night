@@ -19,14 +19,16 @@ describe('RevealView', () => {
     expect(screen.getByText('Look at your hands.')).toBeInTheDocument();
   });
 
-  it('shows Night falls plainly on the right, with no duplicate copy anywhere else', () => {
+  it('shows Night falls plainly on the Controls tab, with no duplicate copy anywhere else', async () => {
     render(<RevealView scriptChars={[]} activeScriptMeta={activeScriptMeta} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Controls' }));
     expect(screen.getAllByText(/night falls/i)).toHaveLength(1);
   });
 
   it('Night falls posts /api/table/night', async () => {
     const fetchMock = mockFetch({ '/api/tokens': {}, '/api/table/night': {} });
     render(<RevealView scriptChars={[]} activeScriptMeta={activeScriptMeta} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Controls' }));
     await userEvent.click(screen.getAllByText(/night falls/i)[0]);
     expect(fetchMock.calls.some(c => c.url.includes('/api/table/night'))).toBe(true);
   });

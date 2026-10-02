@@ -33,6 +33,9 @@ function check(label, ok, detail) {
       adaptiveAudioEnabled: false,
       narrationVarietyEnabled: false,
       shareCardEnabled: false,
+      licensedAmbientMusic: true,
+      narratorPersona: 'droll',
+      adaptiveDrama: true,
     };
     const patchRes = await request(server.baseUrl, '/api/table/config', { method: 'POST', body: { config: patch } });
     check('the config patch is accepted', patchRes.status === 200 && !patchRes.json.error, JSON.stringify(patchRes));

@@ -17,6 +17,14 @@ class FakeNode {
   get innerHTML() { return this._html; }
   set innerHTML(v) { this._html = String(v); this.children = []; }
   get firstChild() { return this.children[0] || null; }
+  // Missing until now — games.html's own renderDetail() calls
+  // `summary.lastChild.append(...)` to attach the shareable-recap line
+  // to whichever <p> it just appended, and with this absent the real
+  // bug was invisible: `undefined.append` throws, which the page's own
+  // fetch chain silently turns into "Could not load this game." (its
+  // genuine network-failure fallback), so the detail view *looked*
+  // like it just hadn't finished loading rather than having crashed.
+  get lastChild() { return this.children[this.children.length - 1] || null; }
   setAttribute(k, v) { this.attrs[k] = v; }
   append(...nodes) { for (const n of nodes) this.appendChild(n); }
   appendChild(n) { if (n == null) throw new Error('appendChild(null)'); n.parent = this; this.children.push(n); return n; }

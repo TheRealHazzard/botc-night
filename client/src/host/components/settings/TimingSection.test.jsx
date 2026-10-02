@@ -2,13 +2,13 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import TimingSection from './TimingSection.jsx';
 
-const config = { windowSeconds: 60, wave2Seconds: 20, voteWindowSeconds: 20 };
+const config = { windowSeconds: 60, voteWindowSeconds: 20 };
 
 describe('TimingSection', () => {
-  it('shows the three timing fields at their current values', () => {
+  it('shows the timing fields at their current values', () => {
     render(<TimingSection config={config} patch={() => {}} />);
     expect(screen.getByText('Night window (seconds)')).toBeInTheDocument();
-    expect(screen.getAllByRole('spinbutton')).toHaveLength(3);
+    expect(screen.getAllByRole('spinbutton')).toHaveLength(2);
   });
 
   it('typing digit-by-digit commits only once, on blur/change — not per keystroke', () => {

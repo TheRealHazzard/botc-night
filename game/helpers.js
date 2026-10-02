@@ -80,10 +80,18 @@ const actingChar = p => char(p.believedId);
 /** The character they truly are. */
 const trueChar = p => char(p.characterId);
 
-/** Poisoned, drunk-until-dusk (Sailor/Innkeeper/Courtier), or the Drunk
-    themselves: their ability does not work and they don't know. */
+/** Poisoned, drunk-until-dusk (Sailor/Innkeeper/Courtier), the Drunk
+    themselves, or the Marionette: their ability does not work and they
+    don't know. The Marionette's own official ruling is explicit — "treat
+    the Marionette as if they were drunk" — mechanically identical to the
+    Drunk (may get false information, does not wake for Minion Info),
+    distinct only in what she doesn't know (her own alignment), not in
+    whether her believed ability actually works. Missing here meant a
+    Marionette who believed herself an info role (Empath, Fortune Teller,
+    ...) got that role's real, true answer — not a Mathematician-counting
+    nuance, an actual information leak to the evil team. */
 function impaired(p) {
-  return !!p.statuses.poisoned || !!p.statuses.drunk || p.characterId === 'drunk';
+  return !!p.statuses.poisoned || !!p.statuses.drunk || p.characterId === 'drunk' || p.characterId === 'marionette';
 }
 
 /** The doctrine every impaired yes/no info role follows: wrong, never
@@ -274,12 +282,31 @@ function decide(g, tag, computeFresh, toLogValue) {
     killing whoever's safest to remove. At bias 0 every candidate weighs
     the same (pick()'s plain uniform draw); weight scales linearly with
     today's own nomination count as bias rises to 1. */
+/** adaptiveDrama's one real hook — mirrors dramaBias's own single-purpose
+    scope exactly, just computed live instead of read off a fixed dial. A
+    human Storyteller tunes "how dramatic tonight feels" by instinct, which
+    drifts game to game; this makes that instinct a real, checkable
+    function of how the game is actually going right now: nearly everyone
+    still alive is nothing-at-stake territory (bias near 0, close to a
+    coin flip), while an endgame down to a handful of players leans hard
+    into whoever the table's own conversation has already centered on
+    (bias climbing toward 1) — same lever dramaBias always was, just no
+    longer requiring the host to have guessed the right number at setup. */
+function effectiveDramaBias(g) {
+  if (!g.config.adaptiveDrama) return g.config.dramaBias;
+  const total = g.players.length;
+  if (!total) return g.config.dramaBias;
+  const livingFraction = alive(g).length / total;
+  return Math.max(0, Math.min(1, 1 - livingFraction));
+}
+
 function dramaticPick(g, candidates) {
   const picked = decide(g, 'dramatic-pick:' + g.nightNumber, () => {
-    if (!g.config.dramaBias) return pick(candidates);
+    const bias = effectiveDramaBias(g);
+    if (!bias) return pick(candidates);
     const weights = candidates.map(x => {
       const nominatedCount = g.nominations.filter(n => n.nomineeId === x.id).length;
-      return 1 + g.config.dramaBias * nominatedCount;
+      return 1 + bias * nominatedCount;
     });
     const total = weights.reduce((sum, w) => sum + w, 0);
     let roll = Math.random() * total;
@@ -318,6 +345,10 @@ const WHIM_LEGACY_CHANCE = {
   // pre-existing host slider to read here — this flat 0.5 only ever
   // matters when no judge is attached at all (tools/simulate.js).
   'mercy': () => 0.5,
+  // Same reasoning as 'mercy' above — a jinx found auditing against the
+  // official wiki ("the Recluse might register as the Demon to the
+  // Sage"), not a replaced roll, so no pre-existing host slider either.
+  'sage-recluse-demon': () => 0.5,
 };
 
 // Whether firing a given whim kind serves good or evil, once it actually
@@ -332,6 +363,11 @@ const WHIM_FIRING_HELPS_GOOD = {
   'pacifist-save': true,
   'registration-ambiguity': false,
   'mercy': true,
+  // Firing this one keeps the real Demon hidden behind the Recluse's
+  // name instead — same polarity as registration-ambiguity above, for
+  // the same reason (a good player's name absorbs suspicion that
+  // belonged on the real evil one).
+  'sage-recluse-demon': false,
 };
 
 /** The Confirm — a host-facing, advisory-only record of a whim decision
@@ -431,6 +467,49 @@ const MERCY_ELIGIBLE_IDS = new Set([
   'fortuneteller', 'washerwoman', 'librarian', 'investigator', 'chef', 'empath', 'undertaker', 'ravenkeeper',
 ]);
 
+/** Internal bookkeeping that happens to live in the same p.statuses bag as
+    real reminder tokens, but was never meant to be read by anyone — used
+    by both the Spy's own grimoire (game/abilities/tb.js — a *real* player
+    reading this live) and server.js's Dry Run observer payload (a host
+    debugging view). Used to be two separate, independently-maintained
+    lists (the Spy's own inline single-key filter, and a 6-key
+    INTERNAL_ONLY_STATUSES in server.js) that had already drifted apart
+    and were both stale against the ~50 status keys actually in use across
+    tb/bmr/sv/carousel — new characters kept adding statuses without
+    anyone remembering either list existed, so both a real Spy and the Dry
+    Run observer were showing raw, meaningless tags like "grandchildId" or
+    "jugglerGuesses" (an array — Object.keys() only ever returns the KEY,
+    never what it holds, so an array/object-valued status can never render
+    as a sensible bare tag no matter what it's named). One shared list,
+    grouped by why each key is here:
+    - a night-number threshold, not a fact ("poisoned until when", not
+      "is poisoned" — poisoned itself is shown separately)
+    - a stashed player id from a previous choice (Exorcist/Devil's
+      Advocate/Pukka's own last target, a Grandmother's grandchild, an
+      Evil Twin's twin, a Pixie's reveal, a Bounty Hunter's target) — a
+      bare key conveys nothing without the id resolved to a name, which
+      this shared list has no access to; showing a tag with no value is
+      worse than not showing one
+    - a day number or array/object value, same "the key alone means
+      nothing" problem (Gossip's claim day, the Savant's visit day, the
+      Juggler's stored guesses, Mutant/Cerenovus's madness reasons, the
+      Balloonist's seen-teams set)
+    - redundant with a different, already-shown status for the same fact
+      (No Dashii/Cannibal's own poison markers duplicate the plain
+      `poisoned` tag already shown right next to them; a night's
+      diedTonight duplicates `alive: false` itself) */
+const INTERNAL_ONLY_STATUSES = new Set([
+  // Night-number thresholds, not facts
+  'poisonedUntilNight', 'drunkUntilNight', 'gossipClaimDay', 'savantVisitDay',
+  // Stashed ids from a previous choice
+  'exorcistLastTarget', 'daLastTarget', 'pukkaLastTarget', 'grandchildId',
+  'evilTwinId', 'twinId', 'pixieRevealedId', 'bountyHunterTargetId',
+  // Day numbers / arrays / objects — meaningless as a bare key
+  'gossipClaimTrue', 'jugglerGuesses', 'madReasons', 'balloonistSeenTypes',
+  // Redundant with a different status already shown for the same fact
+  'diedTonight', 'zombuulFaked', 'noDashiiPoisoned', 'cannibalPoisoned',
+]);
+
 /**
  * At most once a game, and only when good is clearly losing (more evil
  * alive than good — a stricter bar than The Whim's endgame stakes check),
@@ -503,8 +582,13 @@ function heuristicWhim(g, ctx) {
   // that side is the one currently behind.
   const sideNeedsHelp = helpsGood ? margin <= 0 : margin >= 0;
   let chance = 0.5; // same baseline this bucket has always defaulted to
-  if (sideNeedsHelp) chance *= 1.4;
-  if (living.length <= 5) chance *= 1.2; // a whim matters more in the endgame than on night one
+  // Real report: 0.5 * 1.4 * 1.2 = 0.84 (a Mayor redirect firing at 84% in
+  // the endgame, silently, with no host-visible reason until the game was
+  // nearly over) read as "the Mayor is unkillable," not "a nudge for
+  // whoever's behind" — the whole point of this function. Softened to a
+  // real nudge, not near-immunity: 0.5 * 1.2 * 1.1 = 0.66 at most now.
+  if (sideNeedsHelp) chance *= 1.2;
+  if (living.length <= 5) chance *= 1.1; // a whim matters more in the endgame than on night one
   const fire = Math.random() < Math.min(chance, 0.9);
   const trailingSide = sideNeedsHelp ? (helpsGood ? 'good' : 'evil') : null;
   const reason = trailingSide
@@ -535,6 +619,88 @@ async function randomKiller(g, pool, excludeId, opts = { demonAttack: true }) {
 // live, not just after g.revealed — that's the whole point of surfacing it.
 function logWhim(g) {
   logEvent(g, 'A quiet decision was made, unseen.', false);
+}
+
+/** A small fixed pool of play styles for a full Dry Run's bots — assigned
+    once per bot at game start (see server.js's startSimulation()), never
+    re-rolled mid-game. `blurb` is written for an LLM system prompt ("play
+    this player as {blurb}"), not used yet since the reasoning layer isn't
+    wired in — today it only flavors heuristicBotClaim's statement text
+    below, via CLAIM_STATEMENT_BY_PERSONALITY. Cosmetic to the engine: it
+    never changes what's mechanically legal, only tone, so it's exactly as
+    safe to ignore as every other heuristic placeholder in this file —
+    a player with no personality assigned (a real player, or a bot outside
+    a Dry Run) just gets the plain generic statement. */
+const BOT_PERSONALITIES = [
+  { id: 'cautious', blurb: 'cautious — slow to accuse, hard to read' },
+  { id: 'aggressive', blurb: 'aggressive — quick to accuse, pushes hard' },
+  { id: 'logical', blurb: 'logical — reasons out loud, sticks to the facts' },
+  { id: 'chatty', blurb: 'chatty — talks a lot, fills silence' },
+  { id: 'suspicious', blurb: 'suspicious of everyone — trusts no claim at face value' },
+  { id: 'trusting', blurb: 'trusting — takes claims at face value unless given a reason not to' },
+];
+
+const CLAIM_STATEMENT_BY_PERSONALITY = {
+  cautious: "I'd rather not say too much yet.",
+  aggressive: "I'll say it plainly — nothing to hide.",
+  logical: 'Nothing further to report, for the record.',
+  chatty: 'Happy to share — nothing more to add right now, though!',
+  suspicious: "I'm watching closely. Nothing to report from me yet.",
+  trusting: "I'm sure we'll figure this out together. Nothing more from me yet.",
+};
+
+function claimStatementFor(player) {
+  return (player.personality && CLAIM_STATEMENT_BY_PERSONALITY[player.personality]) || 'Nothing more to report yet.';
+}
+
+/** Records a public character claim into g.claims (parallel to
+    g.nominations) and logs it visibly via logEvent, same as any other
+    public day event — so it flows into the post-game recap for free.
+    Deliberately flat and public-only: records what was SAID, not what's
+    true, the same split privateActionLog/resultsLog already keep
+    everywhere else in this file. Currently only ever called for a full
+    Dry Run (game.simulation) — see server.js's botsClaim(). */
+function recordClaim(g, player, claimedCharacterId, statement) {
+  const c = char(claimedCharacterId);
+  const entry = {
+    day: g.nightNumber,
+    playerId: player.id,
+    playerName: player.name,
+    claimedCharacterId,
+    claimedCharacterName: c ? c.name : claimedCharacterId,
+    statement,
+  };
+  g.claims.push(entry);
+  logEvent(g, `${player.name} claims the ${entry.claimedCharacterName}. "${statement}"`);
+  return entry;
+}
+
+/** A placeholder claim for a full Dry Run bot — what fills g.claims
+    whenever the LLM reasoning layer (game/llmStoryteller.js) is off or
+    fails over on a given call. Claims whatever character this player
+    actually BELIEVES they are (believedId, not characterId) — a Drunk
+    or Marionette claiming their own false belief needs no bluffing
+    logic at all, since they aren't lying. Only a demon/minion belief
+    (a real Minion/Demon, or the rare Lunatic who believes they ARE the
+    Demon) falls back to inventing a plausible not-in-play good role
+    instead, since no sane player publicly claims to be the Demon.
+    The statement stays deliberately generic — teaching a heuristic to
+    fabricate *consistent* false information is exactly the job the LLM
+    layer exists to do properly instead. Returns null only when there's
+    truly no good character left in this script's pool to bluff with
+    (a pathologically small custom roster), meaning this bot just
+    doesn't claim this game. */
+function heuristicBotClaim(g, player) {
+  const believed = char(player.believedId) || trueChar(player);
+  const safeToClaim = believed && believed.team !== 'demon' && believed.team !== 'minion';
+  if (safeToClaim) {
+    return { claimedCharacterId: believed.id, statement: claimStatementFor(player) };
+  }
+  const alreadyClaimed = new Set(g.claims.map(c => c.claimedCharacterId));
+  const goodPool = activeScriptPool(g).filter(x => x.team === 'townsfolk' || x.team === 'outsider');
+  const bluffPool = goodPool.filter(x => !alreadyClaimed.has(x.id));
+  const bluff = pick(bluffPool.length ? bluffPool : goodPool);
+  return bluff ? { claimedCharacterId: bluff.id, statement: claimStatementFor(player) } : null;
 }
 
 /**
@@ -759,7 +925,39 @@ function falseNumber(trueValue, max) {
     instead of just the ones that actually have something to log. See
     game.trueValueLog's own comment in engine.js for what reads this. */
 function logTrueValue(g, entry) {
-  g.trueValueLog.push({ night: g.nightNumber, ...entry });
+  // playerName resolved here, centrally, rather than at each of this
+  // function's dozen call sites — same reasoning as blockedKills'
+  // targetName (helpers.js's own checkKill): this record outlives the
+  // live game object, so a bare playerId is useless to anything reading
+  // it back later.
+  const player = byId(g, entry.playerId);
+  g.trueValueLog.push({ night: g.nightNumber, ...entry, playerName: player ? player.name : null });
+}
+
+/** The Ravenkeeper's actual reveal — "choose a player: you learn their
+    character" — factored out so both callers get identical impairment/
+    Mercy/logTrueValue treatment: engine.js's resolveNight (a bot, resolved
+    immediately the moment they die — no day-phase UI to act through) and
+    server.js's /api/ravenkeeper-choice (a real player, on the day
+    immediately following). Returns the result object to assign into
+    results[p.id]/g.results[p.id] — deliberately not writing either object
+    itself, since the two callers stash it in different places (see each
+    one's own comment). Returns null for an invalid target (unknown, or
+    themself) — the caller decides what to do with that; a real player's
+    request is a 400, a bot's is silently skipped, same as `broken` never
+    being computed for a candidate pool of zero elsewhere in this file. */
+async function resolveRavenkeeperChoice(g, p, targetId) {
+  const target = byId(g, targetId);
+  if (!target || target.id === p.id) return null;
+  const broken = impaired(p) && !(await maybeMercy(g, p));
+  const trueCharacter = trueChar(target);
+  let shown = trueCharacter;
+  if (broken) {
+    const others = activeScriptPool(g).filter(x => x.id !== shown.id);
+    shown = pick(others);
+  }
+  logTrueValue(g, { playerId: p.id, characterId: 'ravenkeeper', type: 'pointer', trueValue: trueCharacter.id, shown: shown.id, impaired: broken });
+  return { title: 'Ravenkeeper', body: `${target.name} is the ${shown.name}.` };
 }
 
 // Same `pendingDeaths` treatment as livingNeighbors above, for the same
@@ -873,9 +1071,9 @@ module.exports = {
   resolveWhim, setWhimJudge, heuristicWhim, WHIM_FIRING_HELPS_GOOD, maybeMercy, triggerMoonchildIfNeeded,
   triggerPixieIfNeeded, applyCannibalTransform,
   reassignCharacter, flagAbnormal,
-  logEvent, logWhim, outsiderDiedToday, minionDiedToday, somebodyDiedYesterday,
+  logEvent, logWhim, recordClaim, heuristicBotClaim, BOT_PERSONALITIES, outsiderDiedToday, minionDiedToday, somebodyDiedYesterday,
   minionNominatedToday, demonVotedToday, vortoxActive,
   numberSignal, falseNumber, logTrueValue, evilNeighbourCount, evilPairCount, pairInfo,
-  resultCount, resultYesNo, resultPointer,
-  decide,
+  resultCount, resultYesNo, resultPointer, resolveRavenkeeperChoice,
+  decide, INTERNAL_ONLY_STATUSES, effectiveDramaBias,
 };

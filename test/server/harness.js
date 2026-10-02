@@ -11,6 +11,7 @@
    parallel implementation of it. */
 
 const { spawn } = require('child_process');
+const http = require('http');
 const net = require('net');
 const fs = require('fs');
 const os = require('os');
@@ -56,6 +57,14 @@ async function startServer({ env = {} } = {}) {
       DATA_DIR: dataDir,
       LLM_PROVIDER: '',
       ANTHROPIC_API_KEY: '',
+      // Spread last, after the blank defaults above — a caller that
+      // actually wants a live LLM path exercised (see llmDryRunExecution.js
+      // and harness.js's own startMockOllama) needs its own LLM_PROVIDER/
+      // OLLAMA_HOST to really take effect, not get silently overwritten by
+      // them. This parameter existed but was never actually wired into the
+      // spawned env at all until now — nothing else in this suite passes
+      // it, so every other test's always-blank default is unaffected.
+      ...env,
     },
     stdio: ['ignore', 'ignore', 'pipe'],
   });
@@ -180,4 +189,54 @@ async function answerAllNightPrompts(baseUrl, tokens) {
   }
 }
 
-module.exports = { startServer, request, shuffle, answerAllNightPrompts };
+/** A minimal stand-in for a local Ollama server, so an LLM-backed code path
+    (bot claim/nominate/vote reasoning, the whim judge, Gossip/Savant/
+    Artist) can be driven through its REAL network call and REAL response
+    parsing — not just the "LLM off" fallback this harness's own
+    startServer() otherwise forces every test down (see its own comment:
+    LLM_PROVIDER/ANTHROPIC_API_KEY are blanked by default, deliberately,
+    for a hermetic suite with no live model and no per-call cost).
+    Point a test's own startServer() at this instead, via
+    `env: { LLM_PROVIDER: 'ollama', OLLAMA_HOST: mock.baseUrl }`.
+
+    `responder(requestBody)` receives the exact body askOllama() sent
+    ({model, messages, stream, format, options}) and returns the plain
+    object to hand back as the model's reply — this mock does the JSON
+    stringify/wrap into Ollama's own `{message:{content}}` response shape,
+    so a test's responder only has to reason about this project's own
+    request/response contract, not Ollama's transport details. Throw from
+    `responder` (or return undefined) to simulate a malformed/failed call —
+    the mock answers 500 in that case, which askOllama() already turns
+    into `{ok:false, reason:'http-500'}` the same as a real outage would. */
+function startMockOllama(responder) {
+  return new Promise((resolve, reject) => {
+    const server = http.createServer((req, res) => {
+      if (req.method !== 'POST' || !req.url.endsWith('/api/chat')) {
+        res.writeHead(404).end();
+        return;
+      }
+      let raw = '';
+      req.on('data', c => { raw += c; });
+      req.on('end', () => {
+        let reply;
+        try {
+          const body = JSON.parse(raw);
+          reply = responder(body);
+        } catch (e) { reply = undefined; }
+        if (reply === undefined) { res.writeHead(500).end(); return; }
+        res.writeHead(200, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ message: { content: JSON.stringify(reply) } }));
+      });
+    });
+    server.on('error', reject);
+    server.listen(0, '127.0.0.1', () => {
+      const { port } = server.address();
+      resolve({
+        baseUrl: `http://127.0.0.1:${port}`,
+        stop: () => new Promise(r => server.close(r)),
+      });
+    });
+  });
+}
+
+module.exports = { startServer, request, shuffle, answerAllNightPrompts, startMockOllama };

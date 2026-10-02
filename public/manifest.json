@@ -5,8 +5,8 @@
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#0a0806",
-  "theme_color": "#0a0806",
+  "background_color": "#0d0811",
+  "theme_color": "#0d0811",
   "description": "Your private seat at the table.",
   "icons": [
     {

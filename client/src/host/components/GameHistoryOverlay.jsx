@@ -3,6 +3,18 @@ import LeaderboardPanel from './LeaderboardPanel.jsx';
 
 const EDITION_NAMES = { tb: 'Trouble Brewing', bmr: 'Bad Moon Rising', sv: 'Sects & Violets', custom: 'Custom script' };
 
+// Matches the kind strings resolveWhim()'s callers pass as ctx.kind (see
+// WHIM_SYSTEM in server.js) — human labels for the same four judgment
+// calls the live WhimConfirmCard already names, just read back here from
+// the persisted record instead of a live SSE push.
+const WHIM_KIND_LABELS = {
+  'mayor-redirect': 'Mayor redirect',
+  'registration-ambiguity': 'Misregistration',
+  'pacifist-save': 'Pacifist save',
+  'sage-recluse-demon': 'Sage/Recluse ambiguity',
+};
+function whimLabel(kind) { return WHIM_KIND_LABELS[kind] || kind; }
+
 function fmtPct(x) { return x == null ? '—' : Math.round(x * 100) + '%'; }
 function isGoodTeam(team) { return team === 'townsfolk' || team === 'outsider'; }
 function fmtDate(ms) {
@@ -114,23 +126,25 @@ function GameList({ onSelect }) {
         )}
         {loaded && !failed && games.length > 0 && (
           <>
-            <table className="powerlog-table">
-              <thead>
-                <tr><th>Date</th><th>Script</th><th>Players</th><th>Winner</th></tr>
-              </thead>
-              <tbody>
-                {games.map(g => (
-                  <tr key={g.id} className="gh-clickable" onClick={() => onSelect(g.id)}>
-                    <td>{fmtDate(g.endedAt)}</td>
-                    <td>{EDITION_NAMES[g.edition] || g.edition}</td>
-                    <td className="mono">{g.playerCount}</td>
-                    <td className={g.winner === 'good' ? 'gh-win' : g.winner === 'evil' ? 'gh-loss' : ''}>
-                      {g.winner ? (g.winner === 'good' ? 'Good' : 'Evil') : '—'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <div className="table-scroll">
+              <table className="powerlog-table">
+                <thead>
+                  <tr><th>Date</th><th>Script</th><th>Players</th><th>Winner</th></tr>
+                </thead>
+                <tbody>
+                  {games.map(g => (
+                    <tr key={g.id} className="gh-clickable" onClick={() => onSelect(g.id)}>
+                      <td>{fmtDate(g.endedAt)}</td>
+                      <td>{EDITION_NAMES[g.edition] || g.edition}</td>
+                      <td className="mono">{g.playerCount}</td>
+                      <td className={g.winner === 'good' ? 'gh-win' : g.winner === 'evil' ? 'gh-loss' : ''}>
+                        {g.winner ? (g.winner === 'good' ? 'Good' : 'Evil') : '—'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
             {nextBefore && (
               <button type="button" className="gh-loadmore" onClick={() => loadPage(nextBefore, includeBots)}>Load more</button>
             )}
@@ -198,25 +212,27 @@ function GameDetail({ id, onBack }) {
 
           <div className="lb-panel">
             <h3>Roster</h3>
-            <table className="powerlog-table">
-              <thead><tr><th>Name</th><th>Role</th><th>Outcome</th></tr></thead>
-              <tbody>
-                {game.players.map((p, i) => {
-                  const good = isGoodTeam(p.team);
-                  const outcomeText = p.won == null ? '—' : p.won ? 'Won' : 'Lost';
-                  return (
-                    <tr key={i}>
-                      <td><span className={p.alive ? undefined : 'deadname'}>{p.name || p.seatName}</span></td>
-                      <td className={good ? 'gh-role-good' : 'gh-role-evil'}>
-                        <span className={'gh-align-dot ' + (good ? 'good' : 'evil')} />
-                        {p.characterName || p.characterId || 'unknown'}
-                      </td>
-                      <td className={p.won ? 'gh-win' : p.won === false ? 'gh-loss' : ''}>{outcomeText}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+            <div className="table-scroll">
+              <table className="powerlog-table">
+                <thead><tr><th>Name</th><th>Role</th><th>Outcome</th></tr></thead>
+                <tbody>
+                  {game.players.map((p, i) => {
+                    const good = isGoodTeam(p.team);
+                    const outcomeText = p.won == null ? '—' : p.won ? 'Won' : 'Lost';
+                    return (
+                      <tr key={i}>
+                        <td><span className={p.alive ? undefined : 'deadname'}>{p.name || p.seatName}</span></td>
+                        <td className={good ? 'gh-role-good' : 'gh-role-evil'}>
+                          <span className={'gh-align-dot ' + (good ? 'good' : 'evil')} />
+                          {p.characterName || p.characterId || 'unknown'}
+                        </td>
+                        <td className={p.won ? 'gh-win' : p.won === false ? 'gh-loss' : ''}>{outcomeText}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
 
           <div className="lb-panel">
@@ -239,8 +255,55 @@ function GameDetail({ id, onBack }) {
               ))}
             </div>
           </div>
+
+          <WhimCallsPanel decisionLog={game.decisionLog} />
         </>
       )}
     </>
+  );
+}
+
+// The post-game answer to "why should I trust the AI's calls" — every
+// Bucket-1 judgment resolveWhim() ever made this game (game/helpers.js),
+// fired or not, with whatever one-sentence reasoning the judge gave.
+// Deliberately only ever shown here, after the game is over and this
+// record is already final: showing it live would let a player read the
+// Storyteller's own hand instead of just playing the table in front of
+// them. Renders nothing for an older game recorded before decisionLog
+// existed, or one that never actually hit a whim-eligible moment.
+function WhimCallsPanel({ decisionLog }) {
+  const calls = (decisionLog || [])
+    .filter(e => typeof e.tag === 'string' && e.tag.startsWith('whim:'))
+    .map(e => ({
+      night: e.night,
+      kind: e.tag.slice('whim:'.length),
+      fired: !!(e.value && e.value.fired),
+      reason: (e.value && e.value.reason) || null,
+    }));
+  if (!calls.length) return null;
+
+  return (
+    <div className="lb-panel">
+      <h3>Storyteller's calls</h3>
+      <p className="sub">
+        Every borderline judgment call made this game, and why — shown now that the game is
+        over, so it can't be used to read the table while it's still being played.
+      </p>
+      <div className="table-scroll">
+        <table className="powerlog-table">
+          <thead><tr><th>Night</th><th>Call</th><th>Outcome</th><th>Reasoning</th></tr></thead>
+          <tbody>
+            {calls.map((c, i) => (
+              <tr key={i}>
+                <td>{c.night}</td>
+                <td>{whimLabel(c.kind)}</td>
+                <td>{c.fired ? 'Fired' : 'Did not fire'}</td>
+                <td>{c.reason || '—'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
   );
 }

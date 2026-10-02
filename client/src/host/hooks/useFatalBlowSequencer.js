@@ -22,7 +22,7 @@ export function useFatalBlowSequencer(S, { muted = false, reduceMotion = false }
 
   useEffect(() => {
     if (!S) return;
-    const key = `${S.phase}:${S.nightNumber}:${S.wave}`;
+    const key = `${S.phase}:${S.nightNumber}`;
     const changed = key !== lastKeyRef.current;
     const coldStart = !hasSeenRef.current;
     lastKeyRef.current = key;
@@ -42,7 +42,7 @@ export function useFatalBlowSequencer(S, { muted = false, reduceMotion = false }
     // preference changes — not on every unrelated S update (a night's
     // worth of votes/reconnects shouldn't re-evaluate this).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [S?.phase, S?.nightNumber, S?.wave, reduceMotion]);
+  }, [S?.phase, S?.nightNumber, reduceMotion]);
 
   const finish = useCallback(() => setState({ stage: 'done', blow: null }), []);
 

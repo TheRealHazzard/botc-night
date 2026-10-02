@@ -57,4 +57,31 @@ describe('pickFatalBlow', () => {
     };
     expect(pickFatalBlow(state).icon).toBe('crosshair');
   });
+
+  it('once players (and so true characters) are known, the text is character-flavored, not the plain mechanical line', () => {
+    const state = {
+      deaths: [{ name: 'Bo', cause: 'execution' }],
+      victory: { reason: 'Evil wins.' },
+      players: [{ name: 'Bo', characterId: 'imp' }],
+    };
+    expect(pickFatalBlow(state)).toEqual({ icon: 'scroll', text: "Bo's evil dies with the body it wore." });
+  });
+
+  it('falls back to the plain mechanical line when the dead player cannot be matched in players[]', () => {
+    const state = {
+      deaths: [{ name: 'Bo', cause: 'execution' }],
+      victory: { reason: 'Evil wins.' },
+      players: [{ name: 'SomeoneElse', characterId: 'imp' }],
+    };
+    expect(pickFatalBlow(state)).toEqual({ icon: 'scroll', text: 'Bo is executed.' });
+  });
+
+  it("the Evil Twin's twin and Vortox endings stay as their own specific lines, not a character epitaph", () => {
+    const state = {
+      deaths: [{ name: 'Cass', cause: 'execution' }],
+      victory: { conditionId: 'evilTwinTwinExecuted', reason: "The Evil Twin's twin was executed." },
+      players: [{ name: 'Cass', characterId: 'imp' }],
+    };
+    expect(pickFatalBlow(state).text).toBe("Cass was the Evil Twin's twin all along.");
+  });
 });

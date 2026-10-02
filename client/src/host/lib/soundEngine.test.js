@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { installFakeAudioContext, resetAudioCalls, toneCalls, noiseCalls, lifecycleCalls } from '../../../test/fakeAudioContext.js';
 import {
-  playNightFalls, playDayBreaks, playImpactSting, playVictory, playNotableChime,
+  playNightFalls, playDayBreaks, playDeathToll, playImpactSting, playVictory, playNotableChime,
   suspendAudioContext, startAmbience, stopAmbience, setTensionIntensity,
 } from './soundEngine.js';
 
@@ -122,5 +122,57 @@ describe('soundEngine', () => {
     expect(() => setTensionIntensity(5)).not.toThrow();
     expect(() => setTensionIntensity(-1)).not.toThrow();
     stopAmbience();
+  });
+
+  it('startAmbience: tension defaults to 0 — just the two base oscillators + the silent-at-rest tension layer', () => {
+    startAmbience('night', false);
+    expect(toneCalls.length).toBe(3);
+    stopAmbience();
+  });
+
+  it('startAmbience: tension > 0 adds a fourth tritone voice, night only', () => {
+    startAmbience('night', false, 0.6);
+    expect(toneCalls.length).toBe(4);
+    const tritone = toneCalls[2].freq;
+    // A tritone above osc1's 55Hz, give or take floating-point rounding.
+    expect(tritone).toBeCloseTo(55 * Math.pow(2, 6 / 12), 1);
+    stopAmbience();
+  });
+
+  it('startAmbience: tension stays silent on the tritone voice during the day — day gets louder/brighter, not dissonant', () => {
+    startAmbience('day', false, 0.6);
+    expect(toneCalls.length).toBe(3);
+    stopAmbience();
+  });
+
+  it('startAmbience: tension is clamped to [0, 1] — an out-of-range value does not throw or misbehave', () => {
+    expect(() => startAmbience('night', false, 5)).not.toThrow();
+    expect(toneCalls.length).toBe(4); // still just the one extra voice, not something wilder
+    stopAmbience();
+  });
+
+  it('playDeathToll: zero deaths plays nothing', () => {
+    playDeathToll(0, false);
+    expect(toneCalls.length).toBe(0);
+    expect(noiseCalls.length).toBe(0);
+  });
+
+  it('playDeathToll: one toll per death', () => {
+    playDeathToll(3, false);
+    // tone() itself fires two detuned oscillators per call (see tone()'s
+    // own layering) — 3 tolls is 3 noise cracks, but 6 oscillator starts.
+    expect(toneCalls.length).toBe(6);
+    expect(noiseCalls.length).toBe(3);
+  });
+
+  it('playDeathToll: an unreasonably large count is capped, not left to schedule an unbounded run', () => {
+    playDeathToll(50, false);
+    expect(noiseCalls.length).toBe(5);
+  });
+
+  it('playDeathToll: muted plays nothing', () => {
+    playDeathToll(3, true);
+    expect(toneCalls.length).toBe(0);
+    expect(noiseCalls.length).toBe(0);
   });
 });

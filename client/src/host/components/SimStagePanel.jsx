@@ -7,7 +7,7 @@ import Countdown from './Countdown.jsx';
 // picture, not a phase-specific screen).
 export default function SimStagePanel({ t }) {
   const phaseLabel =
-    t.phase === 'night' ? `Night ${t.nightNumber}${t.wave === 2 ? ' — again' : ''}`
+    t.phase === 'night' ? `Night ${t.nightNumber}`
     : t.phase === 'day' ? `Day ${t.nightNumber}`
     : t.phase;
 
@@ -19,7 +19,7 @@ export default function SimStagePanel({ t }) {
 
       {t.phase === 'night' && (
         <>
-          <div className="narration dread">{t.wave === 2 ? 'Something is not finished.' : 'Close your eyes.'}</div>
+          <div className="narration dread">Close your eyes.</div>
           {t.windowEndsAt && <Countdown windowEndsAt={t.windowEndsAt} total={t.windowTotalSeconds || 60} />}
           <p className="sub">
             {t.players.filter(p => p.submitted).length} of {aliveCount} have answered

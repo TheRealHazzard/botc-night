@@ -1,3 +1,5 @@
+import { deathLineFor } from './deathLines.js';
+
 // Decides which death/ending gets a dramatic full-screen flash before the
 // reveal fades in. Priority: the Slayer's shot beats everything (it's the
 // one moment a player earned themselves), then two specific game-ending
@@ -15,8 +17,21 @@ export function pickFatalBlow(state) {
   // silently stop being recognized the moment a different variant landed.
   const conditionId = state.victory && state.victory.conditionId;
 
+  // Character-aware flavor for the plain cases below (slayer/execution/
+  // night-kill) — safe here specifically: this function is only ever
+  // called once game.phase is 'over' (see useFatalBlowSequencer), by
+  // which point every true character is already revealed, the same
+  // moment OverView's own roster already shows it on screen. Falls back
+  // to the existing mechanical line (never null) if this death's
+  // character can't be found for some reason.
+  const flavor = (fallback) => {
+    if (!lastDeath || !state.players) return fallback;
+    const p = state.players.find(x => x.name === lastDeath.name);
+    return (p && deathLineFor(p.characterId, lastDeath.name)) || fallback;
+  };
+
   if (lastDeath && lastDeath.cause === 'slayer') {
-    return { icon: 'crosshair', text: `${lastDeath.name} falls.` };
+    return { icon: 'crosshair', text: flavor(`${lastDeath.name} falls.`) };
   }
   if (conditionId === 'evilTwinTwinExecuted') {
     return {
@@ -28,11 +43,11 @@ export function pickFatalBlow(state) {
     return { icon: 'bolt', text: 'Every read was false. The Vortox wins.' };
   }
   if (lastDeath && lastDeath.cause === 'execution') {
-    return { icon: 'scroll', text: `${lastDeath.name} is executed.` };
+    return { icon: 'scroll', text: flavor(`${lastDeath.name} is executed.`) };
   }
   const nightKillCauses = ['demon', 'minion', 'gossip', 'gambler', 'tinker', 'grandmother-link', 'fanggu-transform'];
   if (lastDeath && nightKillCauses.includes(lastDeath.cause)) {
-    return { icon: 'moon', text: `The night claims ${lastDeath.name}.` };
+    return { icon: 'moon', text: flavor(`The night claims ${lastDeath.name}.`) };
   }
   return null;
 }

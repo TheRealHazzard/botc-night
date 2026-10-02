@@ -1,18 +1,21 @@
 import { useState, useEffect, useRef } from 'react';
-import DashboardLayout from '../components/DashboardLayout.jsx';
+import GameStage from '../components/GameStage.jsx';
 import DayCounterLabel from '../components/DayCounterLabel.jsx';
 import TriviaLine from '../components/TriviaLine.jsx';
-import GameLeftPanel from '../components/GameLeftPanel.jsx';
+import ScriptRosterCard from '../components/ScriptRosterCard.jsx';
+import ScriptViewPanel from '../components/script/ScriptViewPanel.jsx';
 import SidepanelCard from '../components/SidepanelCard.jsx';
 import NominationList from '../components/NominationList.jsx';
 import NominateAction from '../components/NominateAction.jsx';
 import DayReport from '../components/DayReport.jsx';
 import Icon from '../components/Icon.jsx';
 import WhimBeat from '../components/WhimBeat.jsx';
+import VoiceVisualizer from '../components/VoiceVisualizer.jsx';
 import MinorBeatOverlay from '../components/MinorBeatOverlay.jsx';
 import RoomPacingNudge from '../components/RoomPacingNudge.jsx';
 import { useSpeak } from '../hooks/useSpeak.js';
 import { useWhimBeat } from '../hooks/useWhimBeat.js';
+import { noDeathDayLine } from '../lib/narratorLines.js';
 import { useMinorBeat } from '../hooks/useMinorBeat.js';
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion.js';
 import { useRoomPacing } from '../hooks/useRoomPacing.js';
@@ -20,9 +23,9 @@ import { post } from '../../lib/api.js';
 import { showToast } from '../../lib/toast.js';
 import { leadingNominee } from '../../lib/leadingNominee.js';
 
-export default function DayView({ players, nightNumber, deaths, nominations, config, script, scriptChars, activeScriptMeta, muted, log = [], dayStartedAt, ringSlotRef, fadeClass = '' }) {
+export default function DayView({ players, nightNumber, deaths, nominations, config, script, scriptChars, activeScriptMeta, muted, log = [], dayStartedAt, ringSlotRef, narrationSlot, fadeClass = '' }) {
   const lastNight = deaths.filter(d => d.night === nightNumber && d.cause !== 'execution');
-  const line = lastNight.length ? `${lastNight.map(d => d.name).join(' and ')} did not wake.` : 'Everyone wakes. That should worry you.';
+  const line = lastNight.length ? `${lastNight.map(d => d.name).join(' and ')} did not wake.` : noDeathDayLine(nightNumber, config.narratorPersona);
   useSpeak(line, { dread: !!lastNight.length, muted });
   const whim = useWhimBeat(log);
   const reduceMotion = usePrefersReducedMotion();
@@ -44,53 +47,56 @@ export default function DayView({ players, nightNumber, deaths, nominations, con
   // conditional render), so that's passed as a literal rather than a prop.
   const pacing = useRoomPacing('day', dayStartedAt, nightNumber, livingCount, anyOpen);
 
-  const main = (
-    <div className="stage-main">
-      <div className={`fade-wrap stage-narration ${fadeClass}`}>
-        <DayCounterLabel text={`Day ${nightNumber}`} />
-        <div className="narration">Dawn.</div>
-        <div className="deaths">
-          {lastNight.length > 0 && <Icon name="skull" size={18} />}
-          <span>{line}</span>
-        </div>
-        {/* No Mastermind hint here on purpose — the wiki is explicit: "Add a
-            shroud as normal. Do not say that the Demon has died." The bonus
-            day has to look exactly like any other day, including the fully
-            ordinary possibility that night just falls with nobody executed
-            (see server.js's resolveMastermindBonusDay). */}
-        {whim && <WhimBeat />}
-        <RoomPacingNudge level={pacing} />
+  const narration = (
+    <div className={`fade-wrap stage-narration ${fadeClass}`}>
+      <DayCounterLabel text={`Day ${nightNumber}`} />
+      <div className="narration">Dawn.</div>
+      <div className="deaths">
+        {lastNight.length > 0 && <Icon name="skull" size={18} />}
+        <span>{line}</span>
       </div>
-      {/* The ring itself lives outside this view now (App.jsx renders it
-          permanently via a portal, exempt from fade-wrap's fade) — this
-          slot is where it visually lands. ring-zone is the ring's own
-          dedicated row, so it centers independently of narration's
-          height instead of overlapping or being pushed off-screen. */}
-      <div className="ring-zone">
-        <div className="ring-slot" ref={ringSlotRef} />
-      </div>
+      <VoiceVisualizer />
+      {/* No Mastermind hint here on purpose — the wiki is explicit: "Add a
+          shroud as normal. Do not say that the Demon has died." The bonus
+          day has to look exactly like any other day, including the fully
+          ordinary possibility that night just falls with nobody executed
+          (see server.js's resolveMastermindBonusDay). */}
+      {whim && <WhimBeat />}
+      <RoomPacingNudge level={pacing} />
     </div>
   );
 
-  const left = <GameLeftPanel scriptChars={scriptChars} activeScriptMeta={activeScriptMeta} />;
-
-  const right = (
-    <div className="sidepanel">
-      <NominationList nominations={nominations} nightNumber={nightNumber} players={players} voteWindowSeconds={config.voteWindowSeconds} />
-      <DayReport deaths={deaths} players={players} nightNumber={nightNumber} />
-      {anyOpen && <TriviaLine scriptId={script} compact />}
-      <SidepanelCard icon="gear" title="Storyteller controls">
-        <div className="sidepanel-card-stack">
-          <NominateAction nominations={nominations} nightNumber={nightNumber} players={players} />
-          <DayActions players={players} nominations={nominations} nightNumber={nightNumber} anyOpen={anyOpen} />
-        </div>
-      </SidepanelCard>
-    </div>
-  );
+  const tabs = [
+    { id: 'characters', label: 'Characters', content: <ScriptRosterCard characters={scriptChars} /> },
+    { id: 'script', label: 'Script', content: activeScriptMeta ? <ScriptViewPanel meta={activeScriptMeta} locked /> : null },
+    {
+      id: 'controls',
+      label: 'Controls',
+      content: (
+        <>
+          <NominationList nominations={nominations} nightNumber={nightNumber} players={players} voteWindowSeconds={config.voteWindowSeconds} />
+          <DayReport deaths={deaths} players={players} nightNumber={nightNumber} />
+          {anyOpen && <TriviaLine scriptId={script} compact />}
+          <SidepanelCard icon="gear" title="Storyteller controls">
+            <div className="sidepanel-card-stack">
+              <NominateAction nominations={nominations} nightNumber={nightNumber} players={players} />
+              <DayActions players={players} nominations={nominations} nightNumber={nightNumber} anyOpen={anyOpen} />
+            </div>
+          </SidepanelCard>
+        </>
+      ),
+    },
+  ];
 
   return (
     <>
-      <DashboardLayout left={left} main={main} right={right} fadeClass={`fade-wrap ${fadeClass}`} />
+      <GameStage
+        narration={narration}
+        narrationSlot={narrationSlot}
+        ringSlotRef={ringSlotRef}
+        tabs={tabs}
+        fadeClass={`fade-wrap ${fadeClass}`}
+      />
       {minorBeat && <MinorBeatOverlay name={minorBeat.name} />}
     </>
   );

@@ -5,9 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Character Checklist</title>
 <meta name="theme-color" content="#f2e8d3" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#18130f" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#0d0811" media="(prefers-color-scheme: dark)">
 <link rel="icon" href="/icons/icon-32.png">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700&family=Cormorant+Garamond:wght@500;600;700&family=Spectral:ital,wght@0,400;0,500;1,400&family=Space+Mono:wght@400;700&display=swap">
+<!-- Loaded unconditionally — its tokens only get CONSUMED below inside
+     the dark-mode blocks, so this is a no-op in light mode. See
+     clocktower-dark.css's own comment. -->
+<link rel="stylesheet" href="/clocktower-dark.css">
 <style>
 :root{
   --ink:#18130f; --ink-2:#241c15; --ink-3:#3a2e22;
@@ -25,14 +29,14 @@
    this comment for why. Light mode (above) is untouched. */
 @media (prefers-color-scheme: dark){
   :root:not([data-theme="light"]){
-    --bg:#0d0811; --bg-2:#160e1a; --panel-border:#2e1d34;
-    --text:#e8dcc4; --text-dim:#95886e; --accent:#b8863f; --accent-text:#241a0c;
+    --bg: var(--void); --bg-2: var(--surface); --panel-border: var(--line);
+    --text: var(--bone); --text-dim: var(--bone-dim); --accent: var(--brass); --accent-text:#241a0c;
     --shadow: 0 2px 14px rgba(0,0,0,.45);
   }
 }
 :root[data-theme="dark"]{
-  --bg:#0d0811; --bg-2:#160e1a; --panel-border:#2e1d34;
-  --text:#e8dcc4; --text-dim:#95886e; --accent:#b8863f; --accent-text:#241a0c;
+  --bg: var(--void); --bg-2: var(--surface); --panel-border: var(--line);
+  --text: var(--bone); --text-dim: var(--bone-dim); --accent: var(--brass); --accent-text:#241a0c;
   --shadow: 0 2px 14px rgba(0,0,0,.45);
 }
 

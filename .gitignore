@@ -20,7 +20,9 @@ public/team-icons/*
 public/BOTC Assets/
 
 # Player profiles and game history are this table's own data, not the app's
-data/
+# — anchored to the repo root so this doesn't also swallow game/data/, which
+# holds real committed source data (e.g. the jinx seed snapshot).
+/data/
 
 # Locally-generated LAN HTTPS cert (mkcert) — private key + machine/IP
 # specific, never committed. Run `npm run cert:lan` to (re)generate.

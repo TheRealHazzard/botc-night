@@ -48,4 +48,6 @@ export const ICON_PATHS = {
   dice: '<rect x="4" y="4" width="16" height="16" rx="3.5"/><circle cx="8.5" cy="8.5" r="1.1" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.1" fill="currentColor" stroke="none"/><circle cx="15.5" cy="15.5" r="1.1" fill="currentColor" stroke="none"/>',
   trophy:
     '<path d="M7 4h10v4a5 5 0 0 1-10 0V4Z"/><path d="M7 5H4.5A2.5 2.5 0 0 0 7 9.7M17 5h2.5A2.5 2.5 0 0 1 17 9.7"/><path d="M12 13v4"/><path d="M8.5 21h7"/><path d="M10 21c0-1.8.8-2.6 2-4 1.2 1.4 2 2.2 2 4"/>',
+  display:
+    '<rect x="3" y="4" width="18" height="12" rx="1.5"/><path d="M8 20h8M12 16v4"/>',
 };

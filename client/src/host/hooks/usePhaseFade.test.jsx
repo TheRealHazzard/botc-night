@@ -178,6 +178,87 @@ describe('usePhaseFade', () => {
     expect(toneCalls.some(c => c.freq > 150)).toBe(true); // playVictory('good') triad, only now
   });
 
+  it('ambience tension tracks how many players have died — a grimmer night bed once the body count climbs', () => {
+    stubReducedMotion(false);
+    installFakeAudioContext();
+    const allAlive = { phase: 'night', nightNumber: 2, deaths: [], victory: null, players: [{ alive: true }, { alive: true }, { alive: true }, { alive: true }] };
+    const halfDead = { phase: 'night', nightNumber: 2, deaths: [], victory: null, players: [{ alive: true }, { alive: true }, { alive: false }, { alive: false }] };
+
+    // Two separate hook instances, each going straight from day into
+    // night once, so playNightFalls' own one-shot chime (unaffected by
+    // tension) contributes an identical, fixed number of tones either
+    // way — only startAmbience's extra tritone voice should differ.
+    const first = renderHook(({ S }) => usePhaseFade(S), { initialProps: { S: day } });
+    resetAudioCalls();
+    act(() => first.rerender({ S: allAlive }));
+    const noTensionCount = toneCalls.length;
+
+    resetAudioCalls();
+    const second = renderHook(({ S }) => usePhaseFade(S), { initialProps: { S: day } });
+    resetAudioCalls();
+    act(() => second.rerender({ S: halfDead }));
+    const withTensionCount = toneCalls.length;
+
+    expect(withTensionCount).toBe(noTensionCount + 1);
+  });
+
+  it('game.config.licensedAmbientMusic routes ambience to the licensed <audio> track instead of the synthesized bed', () => {
+    let instances = [];
+    class FakeAudio {
+      constructor() { this.src = ''; this.loop = false; this.volume = 1; instances.push(this); }
+      play() { return Promise.resolve(); }
+      pause() {}
+    }
+    vi.stubGlobal('Audio', FakeAudio);
+    stubReducedMotion(false);
+    installFakeAudioContext();
+    const licensedNight = {
+      phase: 'night', nightNumber: 1, deaths: [], victory: null,
+      config: { licensedAmbientMusic: true },
+    };
+
+    const { rerender } = renderHook(({ S }) => usePhaseFade(S), { initialProps: { S: lobby } });
+    resetAudioCalls();
+    act(() => rerender({ S: licensedNight }));
+
+    expect(instances.length).toBe(1); // the licensed path actually ran
+    expect(instances[0].src).toBe('/audio/ambient/night-stay-the-course.mp3');
+    // startAmbience's own synthesized oscillators never fired — only
+    // playNightFalls' fixed one-shot chime did.
+    const synthesizedAmbienceOscillators = toneCalls.length;
+    expect(synthesizedAmbienceOscillators).toBeGreaterThan(0); // playNightFalls still fired
+    expect(instances[0].volume).toBe(0); // the synthesized bed's own tritone/tension logic never touched this element
+  });
+
+  it('a day entry with night deaths plays an extra toll per death, on top of the day-breaks chime', () => {
+    stubReducedMotion(false);
+    installFakeAudioContext();
+    const quietDay = { phase: 'day', nightNumber: 2, deaths: [], victory: null, players: [] };
+    const griefDay = { phase: 'day', nightNumber: 2, deaths: [{ name: 'Fay', night: 2, cause: 'demon' }, { name: 'Bo', night: 2, cause: 'minion' }], victory: null, players: [] };
+    const oldExecution = { phase: 'day', nightNumber: 2, deaths: [{ name: 'X', night: 1, cause: 'execution' }], victory: null, players: [] };
+
+    const first = renderHook(({ S }) => usePhaseFade(S), { initialProps: { S: night } });
+    resetAudioCalls();
+    act(() => first.rerender({ S: quietDay }));
+    const quietCount = toneCalls.length;
+
+    const second = renderHook(({ S }) => usePhaseFade(S), { initialProps: { S: night } });
+    resetAudioCalls();
+    act(() => second.rerender({ S: griefDay }));
+    const griefCount = toneCalls.length;
+
+    // Two night deaths this round, both credited to the toll — neither an
+    // unrelated prior day's execution nor a death from a different night.
+    // Each toll fires tone()'s own two detuned oscillators, so +2 deaths
+    // is +4 oscillator starts.
+    expect(griefCount).toBe(quietCount + 4);
+
+    const third = renderHook(({ S }) => usePhaseFade(S), { initialProps: { S: night } });
+    resetAudioCalls();
+    act(() => third.rerender({ S: oldExecution }));
+    expect(toneCalls.length).toBe(quietCount); // an execution, and from the prior day — no toll
+  });
+
   it('an "over" transition with no pickable blow just fades normally and plays victory immediately', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     stubReducedMotion(false);

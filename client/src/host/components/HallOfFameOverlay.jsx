@@ -50,39 +50,41 @@ export default function HallOfFameOverlay({ onClose }) {
               {!ranked.length ? (
                 <p className="sub">Nobody's finished a game yet — this fills in the first time one does.</p>
               ) : (
-                <table className="powerlog-table">
-                  <thead>
-                    <tr>
-                      <th></th>
-                      <th>Name</th>
-                      <th>Games</th>
-                      <th>Wins</th>
-                      <th>Win rate</th>
-                      <th>Streak</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {ranked.map((p, i) => (
-                      <tr key={p.id}>
-                        <td className="hof-rank mono">#{i + 1}</td>
-                        <td>
-                          <span className="hof-namecell">
-                            <span className="hof-avatar" style={{ background: p.color ? p.color.hex : '#4d5b66' }}>{initial(p.name)}</span>
-                            {p.name}
-                          </span>
-                        </td>
-                        <td className="mono">{p.gamesPlayed}</td>
-                        <td className="mono">{p.wins}</td>
-                        <td className="mono">{fmtPct(p.winRate)}</td>
-                        <td className="mono">
-                          {p.currentWinStreak > 1
-                            ? <span className="hof-streak">{p.currentWinStreak} in a row</span>
-                            : p.longestWinStreak > 1 ? `best: ${p.longestWinStreak}` : '—'}
-                        </td>
+                <div className="table-scroll">
+                  <table className="powerlog-table">
+                    <thead>
+                      <tr>
+                        <th></th>
+                        <th>Name</th>
+                        <th>Games</th>
+                        <th>Wins</th>
+                        <th>Win rate</th>
+                        <th>Streak</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {ranked.map((p, i) => (
+                        <tr key={p.id}>
+                          <td className="hof-rank mono">#{i + 1}</td>
+                          <td>
+                            <span className="hof-namecell">
+                              <span className="hof-avatar" style={{ background: p.color ? p.color.hex : '#4d5b66' }}>{initial(p.name)}</span>
+                              {p.name}
+                            </span>
+                          </td>
+                          <td className="mono">{p.gamesPlayed}</td>
+                          <td className="mono">{p.wins}</td>
+                          <td className="mono">{fmtPct(p.winRate)}</td>
+                          <td className="mono">
+                            {p.currentWinStreak > 1
+                              ? <span className="hof-streak">{p.currentWinStreak} in a row</span>
+                              : p.longestWinStreak > 1 ? `best: ${p.longestWinStreak}` : '—'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               )}
             </div>
 

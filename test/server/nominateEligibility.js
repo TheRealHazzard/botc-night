@@ -40,7 +40,7 @@ function waitUntil(fn, timeoutMs, intervalMs = 200) {
     });
     await request(server.baseUrl, '/api/table/config', {
       method: 'POST',
-      body: { config: { voteWindowSeconds: 2, windowSeconds: 5, wave2Seconds: 3 } },
+      body: { config: { voteWindowSeconds: 2, windowSeconds: 5 } },
     });
 
     const names = ['Ada', 'Bo', 'Cy', 'Di', 'Ed'];

@@ -6,8 +6,9 @@
 // small shared primitive — livingNeighbors, reassignCharacter, or
 // flagAbnormal, all in helpers.js), Group 3 (Evil Twin/Fang Gu/
 // Vigormortis/Vortox — real engine.js changes, see
-// game/abilities/README.md), Barber (a named wave-2 special case in
-// engine.js, not a registry-driven ability at all), and Cerenovus. Savant,
+// game/abilities/README.md), Barber (a named special case in engine.js,
+// not a registry-driven ability at all — see barberSwapAddon), and
+// Cerenovus. Savant,
 // Artist, and Mutant have no entry here at all — same as Slayer/Gossip/
 // Moonchild in tb.js/bmr.js, they're purely day-phase or passive (see
 // server.js's /api/savant-visit, /api/artist-question, /api/mad-claim, and
@@ -175,16 +176,46 @@ module.exports = (h) => [
     // the general rule resolveNight now enforces. onDeath sidesteps the
     // whole issue: it only ever fires once a death is actually applied.
     resolve() {},
-    onDeath(g, player, { killedByDemon, results }) {
+    async onDeath(g, player, { killedByDemon, results }) {
       if (!killedByDemon) return;
       const broken = h.impaired(player);
       const demon = g.players.find(x => h.trueChar(x).team === 'demon');
       const others = g.players.filter(x => x.id !== player.id);
       const impaired = broken || h.vortoxActive(g);
       let shown;
+      // Same "truthfulness compromised" meaning logTrueValue's own
+      // `impaired` field always carries — starts equal to the local
+      // `impaired` above, but also flips true the moment the
+      // Recluse-as-Demon whim below actually fires, even though neither
+      // poison nor Vortox caused it. Otherwise pivotalMoment()'s own
+      // "misled" check (game/history.js) — which only ever looks at
+      // entries already flagged impaired — would silently never
+      // consider a table that really was misled by this.
+      let misled = impaired;
       if (!impaired && demon) {
-        const decoy = h.pick(others.filter(x => x.id !== demon.id));
-        shown = h.shuffle([demon, decoy]);
+        // Jinx found auditing against the official wiki: "the Recluse
+        // might register as the Demon to the Sage" — same Storyteller-
+        // judgment shape as the existing Recluse/Spy registration-
+        // ambiguity whim (isEvilRegistration), just naming a SPECIFIC
+        // character rather than a plain evil/good read, so it gets its
+        // own whim kind instead of reusing that one. Only even
+        // considered on the branch where Sage would otherwise correctly
+        // point at the real Demon — the impaired branch below already
+        // produces a false pair of its own, for an unrelated reason.
+        const recluse = g.players.find(x => x.alive && h.trueChar(x) && h.trueChar(x).id === 'recluse');
+        let namedAsDemon = demon;
+        if (recluse && await h.resolveWhim(g, { kind: 'sage-recluse-demon', target: recluse })) {
+          namedAsDemon = recluse;
+          misled = true;
+        }
+        // Excludes the REAL Demon too, not just whoever ended up in the
+        // "named as Demon" slot — same bug class the impaired branch
+        // below already guards against (its own comment explains why):
+        // without this, the whim firing could still show the real Demon
+        // anyway, by coincidence, in the decoy slot.
+        const decoyExclude = new Set([namedAsDemon.id, demon.id]);
+        const decoy = h.pick(others.filter(x => !decoyExclude.has(x.id)));
+        shown = h.shuffle([namedAsDemon, decoy]);
       } else {
         // The whole point of this branch is a *false* pair — it has to
         // exclude the real Demon too, or "false" info can still name the
@@ -193,7 +224,7 @@ module.exports = (h) => [
         // so this was the likeliest way anyone would ever notice.
         shown = h.excludingPick(others, demon ? [demon.id] : [], 2);
       }
-      h.logTrueValue(g, { playerId: player.id, characterId: 'sage', type: 'pointer', trueValue: demon ? demon.id : null, shown: shown.map(x => x.id), impaired });
+      h.logTrueValue(g, { playerId: player.id, characterId: 'sage', type: 'pointer', trueValue: demon ? demon.id : null, shown: shown.map(x => x.id), impaired: misled });
       results[player.id] = { title: 'Sage', body: 'The Demon is one of these two players.', names: shown.map(x => x.name) };
     },
   },
@@ -311,8 +342,9 @@ module.exports = (h) => [
     // characters.json gives this a real otherNightOrder (the physical
     // Storyteller sheet still wakes that slot to check "did they die
     // today?"), but resolve() is never actually reached: a dead player is
-    // excluded from actingTonight() entirely (the Ravenkeeper is the one
-    // named exception). The effect is implemented via onDeath instead,
+    // excluded from actingTonight() entirely (Vigormortis's own "keeps
+    // their ability" Minion is the one named exception). The effect is
+    // implemented via onDeath instead,
     // fired the instant the death is applied — resolve stays a no-op purely
     // so the shape is safe to call.
     resolve() {},
@@ -333,13 +365,15 @@ module.exports = (h) => [
     // otherNightOrder in characters.json for the physical sheet's sake, but
     // this player is dead by the time the ability matters, and the
     // *actor* the ability actually needs (the Demon) isn't this player at
-    // all. onDeath below flags the Demon; engine.js's promptFor and
-    // resolveNight implement the real prompt and swap directly as a named
-    // wave-2 special case (search both for "barberSwapPending"), the same
-    // way the Lunatic/Exorcist-block/Goon-flip interactions already live
-    // outside the registry rather than being forced into one character's
-    // shape. resolve() stays a no-op purely so a still-living Barber's
-    // decoy dispatch is safe to call.
+    // all. onDeath below flags the Demon; engine.js's promptFor
+    // (barberSwapAddon) and resolveNight implement the real prompt and
+    // swap directly as a named special case (search both for
+    // "barberSwapPending") — folded into the Demon's own turn, not a
+    // separate prompt or window of its own, same way the Lunatic/
+    // Exorcist-block/Goon-flip interactions already live outside the
+    // registry rather than being forced into one character's shape.
+    // resolve() stays a no-op purely so a still-living Barber's decoy
+    // dispatch is safe to call.
     choiceCount: () => 0,
     targets: () => [],
     text: () => '',

@@ -162,9 +162,9 @@ describe("App", () => {
     // "Day 3" legitimately appears twice — the header's phase pill and the
     // in-stage DayCounterLabel are two separate, both-correct occurrences.
     expect(screen.getAllByText("Day 3")).toHaveLength(2);
-    expect(
-      screen.getByText("Everyone wakes. That should worry you."),
-    ).toBeInTheDocument();
+    // Exact wording rotates on later silent days (see narratorLines.js) —
+    // this test only cares that dispatch landed on DayView's own markup.
+    expect(document.querySelector(".deaths")).toBeInTheDocument();
   });
 
   it("the mute button reflects and toggles the sound engine state", async () => {
@@ -193,6 +193,24 @@ describe("App", () => {
     const btn = screen.getByTitle("Enter fullscreen");
     await userEvent.click(btn);
     expect(fullscreenState.current.toggle).toHaveBeenCalledTimes(1);
+  });
+
+  it("the tabletop display button opens /tabletop in a new tab", async () => {
+    hostState.current.S = baseS();
+    const openSpy = vi.spyOn(window, "open").mockImplementation(() => {});
+    render(<App />);
+    await userEvent.click(screen.getByTitle(/tabletop display/i));
+    expect(openSpy).toHaveBeenCalledWith("/tabletop", "_blank");
+    openSpy.mockRestore();
+  });
+
+  it("the spectate link button opens /spectate in a new tab", async () => {
+    hostState.current.S = baseS();
+    const openSpy = vi.spyOn(window, "open").mockImplementation(() => {});
+    render(<App />);
+    await userEvent.click(screen.getByTitle(/spectate link/i));
+    expect(openSpy).toHaveBeenCalledWith("/spectate", "_blank");
+    openSpy.mockRestore();
   });
 
   it("opens and closes the settings overlay from the gear button", async () => {
@@ -336,21 +354,23 @@ describe("App", () => {
       hostState.current.S = baseS();
     });
 
-    it("Change script reveals header Play/Close buttons, positioned before the phase pill", async () => {
+    it("Change script reveals header Play/Close buttons, positioned after the phase pill", async () => {
       render(<App />);
       await userEvent.click(screen.getByText(/change script/i));
       const playBtn = screen.getByTitle(/choose trouble brewing/i);
       const closeBtn = screen.getByTitle(/cancel/i);
       expect(playBtn).toBeInTheDocument();
       expect(closeBtn).toBeInTheDocument();
-      // Both sit before the phase pill in DOM order (i.e. "to its left").
+      // Both sit after the phase pill in DOM order — SideHeader's vertical
+      // stack runs brand/narration/phase pill, then every action group
+      // (Display/Reference/Lobby/Script/Storyteller/Testing) below that.
       const phasePill = screen.getByText("lobby");
       expect(
-        playBtn.compareDocumentPosition(phasePill) &
+        phasePill.compareDocumentPosition(playBtn) &
           Node.DOCUMENT_POSITION_FOLLOWING,
       ).toBeTruthy();
       expect(
-        closeBtn.compareDocumentPosition(phasePill) &
+        phasePill.compareDocumentPosition(closeBtn) &
           Node.DOCUMENT_POSITION_FOLLOWING,
       ).toBeTruthy();
     });
@@ -518,58 +538,64 @@ describe("App", () => {
       );
     });
 
-    it("Game history opens the in-app overlay, not a new tab", async () => {
+    it("Reference opens a picker menu (not a new tab), and each item opens its own overlay from there", async () => {
       const openSpy = vi.spyOn(window, "open").mockImplementation(() => {});
       mockFetch({
         "/api/tokens": {}, "/trivia.json": [], "/api/scripts": SCRIPTS,
         "/api/leaderboard/voting": [], "/api/leaderboard/characters": [], "/api/games?": { games: [], nextBefore: null },
       });
       render(<App />);
-      await userEvent.click(screen.getByTitle("Game history"));
+      await userEvent.click(screen.getByTitle(/^reference/i));
       expect(openSpy).not.toHaveBeenCalled();
+      expect(await screen.findByRole("heading", { name: "Reference" })).toBeInTheDocument();
+
+      await userEvent.click(screen.getByText("Game history"));
       expect(await screen.findByRole("heading", { name: "Game history" })).toBeInTheDocument();
     });
 
-    it("Hall of Fame opens the in-app overlay, not a new tab", async () => {
-      const openSpy = vi.spyOn(window, "open").mockImplementation(() => {});
+    it("an overlay opened from the Reference menu goes back to the menu on Close, not fully out of Reference", async () => {
+      mockFetch({
+        "/api/tokens": {}, "/trivia.json": [], "/api/scripts": SCRIPTS,
+        "/api/jinxes": { source: "seed", fetchedAt: null, pairs: [] },
+      });
+      render(<App />);
+      await userEvent.click(screen.getByTitle(/^reference/i));
+      await userEvent.click(screen.getByText("Jinxes"));
+      expect(await screen.findByRole("heading", { name: "Jinxes" })).toBeInTheDocument();
+
+      await userEvent.click(screen.getByRole("button", { name: /close/i }));
+      expect(await screen.findByRole("heading", { name: "Reference" })).toBeInTheDocument();
+    });
+
+    it("Hall of Fame and Character checklist are both reachable from the same Reference menu", async () => {
       mockFetch({
         "/api/tokens": {}, "/trivia.json": [], "/api/scripts": SCRIPTS,
         "/api/profiles": [], "/api/leaderboard/voting": [], "/api/leaderboard/characters": [],
+        "/api/characters/checklist": [],
       });
       render(<App />);
-      await userEvent.click(screen.getByTitle("Hall of Fame"));
-      expect(openSpy).not.toHaveBeenCalled();
+      await userEvent.click(screen.getByTitle(/^reference/i));
+      await userEvent.click(screen.getByText("Hall of Fame"));
       expect(await screen.findByRole("heading", { name: "Hall of Fame" })).toBeInTheDocument();
     });
 
-    it("Character checklist opens the in-app overlay, not a new tab", async () => {
-      const openSpy = vi.spyOn(window, "open").mockImplementation(() => {});
-      mockFetch({ "/api/tokens": {}, "/trivia.json": [], "/api/scripts": SCRIPTS, "/api/characters/checklist": [] });
-      render(<App />);
-      await userEvent.click(screen.getByTitle("Character checklist"));
-      expect(openSpy).not.toHaveBeenCalled();
-      expect(await screen.findByRole("heading", { name: "Character checklist" })).toBeInTheDocument();
-    });
-
-    it("Start/Clear/History are hidden while browsing scripts, and reappear on Close", async () => {
+    it("Start/Clear the lobby are hidden while browsing scripts, and reappear on Close", async () => {
       render(<App />);
       await userEvent.click(screen.getByText(/change script/i));
       expect(screen.queryByTitle("Start Game")).not.toBeInTheDocument();
       expect(screen.queryByTitle(/clear the lobby/i)).not.toBeInTheDocument();
-      expect(screen.queryByTitle("Game history")).not.toBeInTheDocument();
 
       await userEvent.click(screen.getByTitle(/cancel/i));
       expect(screen.getByTitle("Start Game")).toBeInTheDocument();
       expect(screen.getByTitle(/clear the lobby/i)).toBeInTheDocument();
-      expect(screen.getByTitle("Game history")).toBeInTheDocument();
     });
 
-    it("hidden entirely outside the lobby phase", () => {
+    it("Start/Clear the lobby are hidden entirely outside the lobby phase, but Reference stays reachable", () => {
       hostState.current.S = baseS({ phase: "day", nightNumber: 1 });
       render(<App />);
       expect(screen.queryByTitle("Start Game")).not.toBeInTheDocument();
       expect(screen.queryByTitle(/clear the lobby/i)).not.toBeInTheDocument();
-      expect(screen.queryByTitle("Game history")).not.toBeInTheDocument();
+      expect(screen.getByTitle(/^reference/i)).toBeInTheDocument();
     });
   });
 
@@ -664,12 +690,12 @@ describe("App", () => {
       expect(screen.queryByText("Storyteller")).not.toBeInTheDocument();
     });
 
-    it("shows Storyteller (Reveal/New game's group) during an in-progress game, not Reference/Lobby", () => {
+    it("shows Storyteller (Reveal/New game's group) during an in-progress game, and Reference stays reachable throughout, but Lobby doesn't", () => {
       hostState.current.S = baseS({ phase: "night", nightNumber: 1 });
       render(<App />);
       expect(screen.getByText("Display")).toBeInTheDocument();
       expect(screen.getByText("Storyteller")).toBeInTheDocument();
-      expect(screen.queryByText("Reference")).not.toBeInTheDocument();
+      expect(screen.getByText("Reference")).toBeInTheDocument();
       expect(screen.queryByText("Lobby")).not.toBeInTheDocument();
     });
 

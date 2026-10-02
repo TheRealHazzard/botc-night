@@ -91,6 +91,8 @@ describe('OverView', () => {
   it('the Power log button only appears with a non-empty actionLog, and opens the overlay', async () => {
     baseMocks();
     const { rerender } = render(<OverView players={players} victory={null} gameSummary={null} log={[]} actionLog={[]} nightNumber={1} />);
+    // Power log now lives on the Controls tab, alongside session stats.
+    await userEvent.click(screen.getByRole('button', { name: 'Controls' }));
     expect(screen.queryByText('Power log')).not.toBeInTheDocument();
 
     rerender(<OverView players={players} victory={null} gameSummary={null} log={[]} actionLog={[{ night: 1, phase: 'night', playerId: 'p1', targets: ['Bo'] }]} nightNumber={1} />);
@@ -98,16 +100,18 @@ describe('OverView', () => {
     expect(screen.getByText('Power log', { selector: 'h2' })).toBeInTheDocument();
   });
 
-  it('the Power log button also appears with a non-empty resultsLog, even when actionLog is empty (a game of pure info roles)', () => {
+  it('the Power log button also appears with a non-empty resultsLog, even when actionLog is empty (a game of pure info roles)', async () => {
     baseMocks();
     const resultsLog = [{ night: 1, playerId: 'p1', playerName: 'Ada', characterId: 'empath', characterName: 'Empath', title: 'Empath', body: 'Evil living neighbours: 0' }];
     render(<OverView players={players} victory={null} gameSummary={null} log={[]} actionLog={[]} resultsLog={resultsLog} nightNumber={1} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Controls' }));
     expect(screen.getByText('Power log')).toBeInTheDocument();
   });
 
-  it('shows revealed character names in the roster', () => {
+  it('shows revealed character names in the roster', async () => {
     baseMocks();
     render(<OverView players={players} victory={null} gameSummary={null} log={[]} actionLog={[]} nightNumber={1} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Roster' }));
     expect(screen.getByText('Full roster')).toBeInTheDocument();
     expect(screen.getByText('Empath')).toBeInTheDocument();
     expect(screen.getByText('Imp')).toBeInTheDocument();
@@ -116,19 +120,23 @@ describe('OverView', () => {
   it("shows a player's career line once their profile stats resolve", async () => {
     baseMocks({ '/api/profile': { found: true, stats: { gamesPlayed: 5, winRate: 0.6 } } });
     render(<OverView players={players} victory={null} gameSummary={null} log={[]} actionLog={[]} nightNumber={1} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Roster' }));
     expect(await screen.findAllByText(/5 games · 60% win rate/)).toHaveLength(2);
   });
 
   it('the Share button appears by default (shareCardEnabled unset) and opens the overlay', async () => {
     baseMocks();
     render(<OverView players={players} victory={null} gameSummary={null} log={[]} actionLog={[]} nightNumber={1} />);
+    // Share this game now lives on the Controls tab, alongside Power log and session stats.
+    await userEvent.click(screen.getByRole('button', { name: 'Controls' }));
     await userEvent.click(screen.getByText('Share this game'));
     expect(screen.getByText('Share this game', { selector: 'h2' })).toBeInTheDocument();
   });
 
-  it('the Share button is hidden when shareCardEnabled is explicitly off', () => {
+  it('the Share button is hidden when shareCardEnabled is explicitly off', async () => {
     baseMocks();
     render(<OverView players={players} victory={null} gameSummary={null} log={[]} actionLog={[]} nightNumber={1} shareCardEnabled={false} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Controls' }));
     expect(screen.queryByText('Share this game')).not.toBeInTheDocument();
   });
 });
