@@ -5,10 +5,18 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Game Recap</title>
 <meta name="theme-color" content="#f2e8d3" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#18130f" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#0d0811" media="(prefers-color-scheme: dark)">
 <meta name="description" content="A finished Blood on the Clocktower game, recapped — who won, and how close it got.">
 <link rel="icon" href="/icons/icon-32.png">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700&family=Cormorant+Garamond:wght@500;600;700&family=Spectral:ital,wght@0,400;0,500;1,400&family=Space+Mono:wght@400;700&display=swap">
+<!-- Loaded unconditionally — its tokens (--void/--surface/--line/--bone/
+     --brass/...) only ever get CONSUMED below inside the dark-mode
+     blocks, so this is a no-op in light mode, but it's what lets this
+     page's own --bg/--text/--accent reference the one real source of
+     truth (client/src/theme.css) instead of a second hardcoded copy of
+     the same hex values tabletop.html/spectate.html also used to carry
+     independently. -->
+<link rel="stylesheet" href="/clocktower-dark.css">
 <style>
 :root{
   --ink:#18130f; --ink-2:#241c15; --ink-3:#3a2e22;
@@ -21,19 +29,16 @@
   --text:#2a2015; --text-dim:#6b5f4c; --accent: var(--oxblood); --accent-text:#fff8ef;
   --shadow: 0 2px 10px rgba(30,20,10,.10);
 }
-/* Dark-mode surfaces/text/accent realigned to client/src/theme.css's
-   canonical void/surface/line/bone/brass — see games.html's own copy of
-   this comment for why. Light mode (above) is untouched. */
 @media (prefers-color-scheme: dark){
   :root:not([data-theme="light"]){
-    --bg:#0d0811; --bg-2:#160e1a; --panel-border:#2e1d34;
-    --text:#e8dcc4; --text-dim:#95886e; --accent:#b8863f; --accent-text:#241a0c;
+    --bg: var(--void); --bg-2: var(--surface); --panel-border: var(--line);
+    --text: var(--bone); --text-dim: var(--bone-dim); --accent: var(--brass); --accent-text:#241a0c;
     --shadow: 0 2px 14px rgba(0,0,0,.45);
   }
 }
 :root[data-theme="dark"]{
-  --bg:#0d0811; --bg-2:#160e1a; --panel-border:#2e1d34;
-  --text:#e8dcc4; --text-dim:#95886e; --accent:#b8863f; --accent-text:#241a0c;
+  --bg: var(--void); --bg-2: var(--surface); --panel-border: var(--line);
+  --text: var(--bone); --text-dim: var(--bone-dim); --accent: var(--brass); --accent-text:#241a0c;
   --shadow: 0 2px 14px rgba(0,0,0,.45);
 }
 
@@ -79,6 +84,13 @@ h1,h2{font-family:'Cormorant Garamond',Georgia,serif; font-weight:600; margin:0 
 .empty{color:var(--text-dim); text-align:center; padding:60px 4px}
 footer{text-align:center; margin-top:28px}
 footer a{color:var(--text-dim); font-size:.82rem; text-decoration:underline; text-underline-offset:3px}
+.listenbtn{
+  display:inline-flex; align-items:center; gap:8px; margin:0 0 16px; padding:9px 16px;
+  border-radius:100px; border:1px solid var(--panel-border); background:var(--bg-2);
+  color:var(--text); font-family:'Space Mono',monospace; font-size:.78rem; cursor:pointer;
+}
+.listenbtn:hover{border-color:var(--accent)}
+.listenbtn.playing{color:var(--accent); border-color:var(--accent)}
 </style>
 </head>
 <body>
@@ -111,6 +123,20 @@ function render(recap) {
   banner.append(el('div', 'meta', `${recap.playerCount} players · ${edition} · ${fmtDate(recap.endedAt)}`));
   view.append(banner);
 
+  // A human Storyteller never produces a replayable recap of their own
+  // session — this is one botc-night can, built from the exact same
+  // narration this page already renders as text, just read aloud instead
+  // (or in addition). Feature-detected, same as useSpeak's own speech.js —
+  // this is a static page with no bundler, so the handful of lines of
+  // Web Speech API calls are duplicated here rather than shared with it.
+  if ('speechSynthesis' in window) {
+    const listenBtn = el('button', 'listenbtn');
+    listenBtn.type = 'button';
+    listenBtn.textContent = '▶ Listen to the recap';
+    listenBtn.addEventListener('click', () => toggleListen(recap, listenBtn));
+    view.append(listenBtn);
+  }
+
   if (recap.narration.length) {
     const panel = el('div', 'panel');
     panel.append(el('h2', null, 'How it went'));
@@ -123,6 +149,42 @@ function render(recap) {
   const foot = el('footer');
   foot.append(el('span', null, 'Recapped by botc-night, an AI Storyteller for Blood on the Clocktower.'));
   view.append(foot);
+}
+
+let speaking = false;
+function toggleListen(recap, btn) {
+  if (speaking) {
+    window.speechSynthesis.cancel();
+    speaking = false;
+    btn.classList.remove('playing');
+    btn.textContent = '▶ Listen to the recap';
+    return;
+  }
+
+  const lines = [recap.winner === 'good' ? 'Good wins.' : recap.winner === 'evil' ? 'Evil wins.' : 'The game ended.'];
+  if (recap.reason) lines.push(recap.reason);
+  (recap.narration || []).forEach(line => lines.push(line));
+
+  speaking = true;
+  btn.classList.add('playing');
+  btn.textContent = '■ Stop';
+  window.speechSynthesis.cancel();
+  // Queued, not concatenated into one utterance — speechSynthesis plays
+  // several queued utterances back to back on its own, and queuing keeps
+  // each sentence's own pacing intact rather than one long run-on line.
+  lines.forEach((line, i) => {
+    const u = new SpeechSynthesisUtterance(line);
+    u.rate = 0.84;
+    u.pitch = 0.55;
+    if (i === lines.length - 1) {
+      u.onend = () => {
+        speaking = false;
+        btn.classList.remove('playing');
+        btn.textContent = '▶ Listen to the recap';
+      };
+    }
+    window.speechSynthesis.speak(u);
+  });
 }
 
 const id = new URLSearchParams(location.search).get('id');

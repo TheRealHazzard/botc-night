@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { resumeAudioContext, suspendAudioContext } from '../lib/soundEngine.js';
 import { primeLicensedAudio, stopLicensedAmbience } from '../lib/licensedAmbience.js';
+import { stopSpeaking } from '../lib/speech.js';
 
 const STORAGE_KEY = 'botc-host-muted';
 
@@ -27,7 +28,7 @@ export function useSoundEngine() {
       // playing (same "guards starting, not stopping" gap — startLicensedAmbience
       // only checks `muted` on its own next call, never on a call already
       // underway).
-      if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+      stopSpeaking();
       suspendAudioContext();
       stopLicensedAmbience();
     } else {

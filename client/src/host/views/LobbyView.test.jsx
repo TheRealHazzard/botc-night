@@ -83,6 +83,8 @@ describe('LobbyView', () => {
 
   it('shows the join address once resolved, falling back to "finding the address…" first', async () => {
     render(<LobbyView {...baseProps()} />);
+    // Join/QR now lives on the Controls tab, beside Script.
+    await userEvent.click(screen.getByRole('button', { name: 'Controls' }));
     expect(await screen.findByText('http://192.168.1.5:3000')).toBeInTheDocument();
   });
 
@@ -144,17 +146,19 @@ describe('LobbyView', () => {
       expect(onBrowse).toHaveBeenCalledWith(1);
     });
 
-    it('not browsing (browsedMeta false) restores the normal ring+QR view even with players seated', () => {
+    it('not browsing (browsedMeta false) restores the normal ring+QR view even with players seated', async () => {
       render(<LobbyView {...baseProps({ players, browsing: false, browsedMeta: false })} />);
       expect(screen.getByText('The town gathers.')).toBeInTheDocument();
+      await userEvent.click(screen.getByRole('button', { name: 'Controls' }));
       expect(screen.getByText(/join here/i)).toBeInTheDocument();
     });
 
-    it('the "Short-handed?" add-bots card is gone while browsing, back once not', () => {
+    it('the "Short-handed?" add-bots card is gone while browsing, back once not', async () => {
       const { rerender } = render(<LobbyView {...baseProps({ players, browsing: true, browseIndex: 0, browsedMeta: scripts[0] })} />);
       expect(screen.queryByText(/short-handed/i)).not.toBeInTheDocument();
 
       rerender(<LobbyView {...baseProps({ players, browsing: false, browsedMeta: false })} />);
+      await userEvent.click(screen.getByRole('button', { name: 'Controls' }));
       expect(screen.getByText(/short-handed/i)).toBeInTheDocument();
     });
 

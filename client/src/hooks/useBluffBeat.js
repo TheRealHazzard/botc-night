@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useValueBeat } from './useValueBeat.js';
 
 /** The Bluff — a rare, deliberately meaningless flicker, shared by the
     host TV and every player's phone at once. A human Storyteller sells a
@@ -9,27 +9,12 @@ import { useEffect, useRef, useState } from 'react';
     `bluffBeatAt` is a bare timestamp server.js rolls independently of any
     real game fact (see maybeBluffBeat in server.js). Never fires for a
     beat already in state when this first mounts (a fresh reconnect
-    landing mid-game isn't "one just happened"), only for a genuinely new
-    arrival — same baseline-then-diff shape as the host's own
-    useWhimBeat.js. */
+    landing mid-game isn't "one just happened"), only for a genuinely new,
+    truthy arrival — same baseline-then-diff shape useValueBeat itself
+    gives every caller. */
 export function useBluffBeat(bluffBeatAt) {
-  const [beat, setBeat] = useState(false);
-  // undefined, not null — bluffBeatAt itself is legitimately null before
-  // the first beat of the game, so that value can't double as the "no
-  // baseline established yet" sentinel the way useWhimBeat.js's own
-  // list-length check gets away with.
-  const seenRef = useRef(undefined);
-
-  useEffect(() => {
-    if (seenRef.current === undefined) { seenRef.current = bluffBeatAt; return; }
-    if (bluffBeatAt && bluffBeatAt !== seenRef.current) {
-      seenRef.current = bluffBeatAt;
-      setBeat(true);
-      const t = setTimeout(() => setBeat(false), 1400);
-      return () => clearTimeout(t);
-    }
-    seenRef.current = bluffBeatAt;
-  }, [bluffBeatAt]);
-
-  return beat;
+  return useValueBeat(bluffBeatAt, {
+    shouldFire: (prev, next) => !!next && next !== prev,
+    durationMs: 1400,
+  });
 }

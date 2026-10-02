@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import NightView from './NightView.jsx';
 import { mockFetch } from '../../../test/fetchMock.js';
 
@@ -13,10 +14,12 @@ const config = { windowSeconds: 60 };
 describe('NightView', () => {
   beforeEach(() => mockFetch({ '/api/tokens': {}, '/trivia.json': [] }));
 
-  it('shows the night counter, dread narration, and answered count', () => {
+  it('shows the night counter, dread narration, and answered count', async () => {
     render(<NightView players={players} nightNumber={2} windowEndsAt={Date.now() + 15000} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />);
     expect(screen.getByText('Night 2')).toBeInTheDocument();
     expect(document.querySelector('.narration.dread')).toBeInTheDocument();
+    // "X of Y answered" now lives on the Controls tab, beside the night window.
+    await userEvent.click(screen.getByRole('button', { name: 'Controls' }));
     // p2 is dead, so "living" counts only Ada — 1 of 1, not 1 of 2.
     expect(screen.getByText((_, node) => node?.textContent === '1 of 1 have answered.')).toBeInTheDocument();
   });
@@ -38,13 +41,15 @@ describe('NightView', () => {
     expect(document.querySelector('.narration.dread').textContent).toBe(first);
   });
 
-  it('shows the countdown timer when a window is open', () => {
+  it('shows the countdown timer when a window is open', async () => {
     render(<NightView players={players} nightNumber={1} windowEndsAt={Date.now() + 8000} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Controls' }));
     expect(screen.getByText('8')).toBeInTheDocument();
   });
 
-  it('shows no timer once the window is null', () => {
+  it('shows no timer once the window is null', async () => {
     const { container } = render(<NightView players={players} nightNumber={1} windowEndsAt={null} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Controls' }));
     expect(container.querySelector('.clockwrap')).not.toBeInTheDocument();
   });
 
@@ -58,11 +63,12 @@ describe('NightView', () => {
   };
   const ringDashoffset = container => container.querySelectorAll('.ring-svg circle')[1].getAttribute('stroke-dashoffset');
 
-  it('the ring reads windowTotalSeconds, not live config — a host changing Timing settings mid-window does not desync it', () => {
+  it('the ring reads windowTotalSeconds, not live config — a host changing Timing settings mid-window does not desync it', async () => {
     const windowEndsAt = Date.now() + 8000;
     const { container, rerender } = render(
       <NightView players={players} nightNumber={1} windowEndsAt={windowEndsAt} windowTotalSeconds={20} config={{ windowSeconds: 20 }} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
     );
+    await userEvent.click(screen.getByRole('button', { name: 'Controls' }));
     expect(ringDashoffset(container)).toBe(expectedDashoffset(8, 20));
 
     // The host adjusts Timing settings mid-window (SettingsOverlay has no
@@ -74,11 +80,12 @@ describe('NightView', () => {
     expect(ringDashoffset(container)).toBe(expectedDashoffset(8, 20));
   });
 
-  it('falls back to a live config recompute only when windowTotalSeconds is absent (a window opened before this field existed)', () => {
+  it('falls back to a live config recompute only when windowTotalSeconds is absent (a window opened before this field existed)', async () => {
     const windowEndsAt = Date.now() + 8000;
     const { container } = render(
       <NightView players={players} nightNumber={1} windowEndsAt={windowEndsAt} config={{ windowSeconds: 90 }} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
     );
+    await userEvent.click(screen.getByRole('button', { name: 'Controls' }));
     expect(ringDashoffset(container)).toBe(expectedDashoffset(8, 90));
   });
 

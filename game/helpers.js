@@ -282,12 +282,31 @@ function decide(g, tag, computeFresh, toLogValue) {
     killing whoever's safest to remove. At bias 0 every candidate weighs
     the same (pick()'s plain uniform draw); weight scales linearly with
     today's own nomination count as bias rises to 1. */
+/** adaptiveDrama's one real hook — mirrors dramaBias's own single-purpose
+    scope exactly, just computed live instead of read off a fixed dial. A
+    human Storyteller tunes "how dramatic tonight feels" by instinct, which
+    drifts game to game; this makes that instinct a real, checkable
+    function of how the game is actually going right now: nearly everyone
+    still alive is nothing-at-stake territory (bias near 0, close to a
+    coin flip), while an endgame down to a handful of players leans hard
+    into whoever the table's own conversation has already centered on
+    (bias climbing toward 1) — same lever dramaBias always was, just no
+    longer requiring the host to have guessed the right number at setup. */
+function effectiveDramaBias(g) {
+  if (!g.config.adaptiveDrama) return g.config.dramaBias;
+  const total = g.players.length;
+  if (!total) return g.config.dramaBias;
+  const livingFraction = alive(g).length / total;
+  return Math.max(0, Math.min(1, 1 - livingFraction));
+}
+
 function dramaticPick(g, candidates) {
   const picked = decide(g, 'dramatic-pick:' + g.nightNumber, () => {
-    if (!g.config.dramaBias) return pick(candidates);
+    const bias = effectiveDramaBias(g);
+    if (!bias) return pick(candidates);
     const weights = candidates.map(x => {
       const nominatedCount = g.nominations.filter(n => n.nomineeId === x.id).length;
-      return 1 + g.config.dramaBias * nominatedCount;
+      return 1 + bias * nominatedCount;
     });
     const total = weights.reduce((sum, w) => sum + w, 0);
     let roll = Math.random() * total;
@@ -1056,5 +1075,5 @@ module.exports = {
   minionNominatedToday, demonVotedToday, vortoxActive,
   numberSignal, falseNumber, logTrueValue, evilNeighbourCount, evilPairCount, pairInfo,
   resultCount, resultYesNo, resultPointer, resolveRavenkeeperChoice,
-  decide, INTERNAL_ONLY_STATUSES,
+  decide, INTERNAL_ONLY_STATUSES, effectiveDramaBias,
 };

@@ -13,6 +13,7 @@ const { COLOR_PALETTE } = require('./game/colors');
 const { askStoryteller, status: llmStatus } = require('./game/llmStoryteller');
 const Nanoleaf = require('./game/nanoleaf');
 const { noteFor } = require('./game/characterNotes');
+const Jinx = require('./game/jinxData');
 
 const PORT = process.env.PORT || 3000;
 // A second, HTTPS listener alongside the plain one above — installability
@@ -50,6 +51,13 @@ let voteTimer = null;
 const hostStreams = new Set();
 const playerStreams = new Map(); // playerId -> Set<res>
 const simStreams = new Set();    // observer view — simulations only
+// Read-only spectators — people following along without a seat (or the
+// host's own extra privilege). Safe to broadcast the exact same payload
+// the host screen gets: hostState()/publicState() is already engineered
+// to hold nothing secret pre-reveal (no characterId/team per seat, whim
+// reasons redacted — see logWhimConfirm's own comment in helpers.js), so
+// this needs no separate, narrower payload of its own.
+const spectatorStreams = new Set();
 
 function write(res, payload) {
   // A dead phone's socket can still be in this set for a moment before its
@@ -423,6 +431,11 @@ function pushHost() {
   maybeTriggerNanoleaf();
   const payload = hostState();
   for (const res of hostStreams) write(res, payload);
+  // Piggybacks on every one of pushHost()'s own ~20 call sites (not just
+  // the ones that happen to go through pushAll() below) — a spectator
+  // should see a lobby join, a reclaim, or any other host-visible change
+  // exactly as promptly as the host's own screen does, not a subset of it.
+  for (const res of spectatorStreams) write(res, payload);
 }
 
 function pushPlayer(playerId) {
@@ -628,7 +641,14 @@ function endNight() {
   // not instant" head-start botsAnswer's own night-window delay already
   // gives a real device. botsNominate() itself no-ops for a true
   // simulation (that keeps its own faster path in runSimStep below).
-  else if (game.players.some(p => p.bot)) setTimeout(botsNominate, 3000);
+  // Claims land first (1.2s) so botsNominate's own LLM reasoning (3s) has
+  // real claims to react to instead of an empty board — same ordering
+  // runSimStep's day branch already keeps, just spread across real time
+  // instead of resolved in one synchronous pass.
+  else if (game.players.some(p => p.bot)) {
+    setTimeout(() => { botsClaim().then(pushAll); }, 1200);
+    setTimeout(botsNominate, 3000);
+  }
 }
 
 /** A nomination's voting window has run out — lock in whoever voted, apply
@@ -1282,16 +1302,20 @@ async function llmBotClaim(g, player) {
   return { claimedCharacterId: data.claimedCharacterId, statement };
 }
 
-// Dry Run only (game.simulation) — every living bot who hasn't claimed yet
-// THIS GAME (not just today) gets one, via llmBotClaim (which falls back
-// to the heuristic placeholder on its own — see that function's own
-// comment). Called once per day phase, before chooseExecution() below,
-// which doesn't actually read g.claims yet — nominate/vote are still the
-// flat heuristic; this is only the claim content so far.
+// Any bot seat, not just a true Dry Run (game.simulation) — a real table
+// padded with bots via /api/table/add-bots (the "solo practice" case: one
+// real player, the rest bots) needs its bots claiming too, or the whole
+// claim-and-suspect loop a real table runs on just never happens for them.
+// Every living BOT who hasn't claimed yet THIS GAME (not just today) gets
+// one, via llmBotClaim (which falls back to the heuristic placeholder on
+// its own — see that function's own comment). Filtered to `p.bot` only —
+// unlike the sim path (where every seat already is one), a mixed table has
+// a real player's own seat in E.alive(game) too, and this must never claim
+// on their behalf.
 async function botsClaim() {
-  if (!game.simulation) return;
+  if (!game.players.some(p => p.bot)) return;
   const claimed = new Set(game.claims.map(c => c.playerId));
-  for (const p of E.alive(game)) {
+  for (const p of E.alive(game).filter(p => p.bot)) {
     if (claimed.has(p.id)) continue;
     const claim = await llmBotClaim(game, p);
     if (claim) E.recordClaim(game, p, claim.claimedCharacterId, claim.statement);
@@ -1526,11 +1550,33 @@ async function botsNominate() {
   if (game.phase !== 'day' || game.simulation || !game.players.some(p => p.bot)) return;
   const today = game.nominations.filter(n => n.day === game.nightNumber);
   if (today.length) return; // someone already nominated today — bot or real player
-  if (Math.random() >= 0.78) return;
 
   const living = E.alive(game);
   const bots = living.filter(p => p.bot);
   if (!bots.length || living.length < 2) return;
+
+  // Real reasoning over claims/suspicion instead of the flat heuristic
+  // below, for the same "solo practice" mixed tables botsClaim() above
+  // now serves — mirrors llmChooseExecution's own nominate loop, just
+  // routed through nominateHandler() so Virgin/Golem/Witch triggers and
+  // the live vote window still fire exactly as they would for a real
+  // player's own nomination (llmChooseExecution bypasses all of that,
+  // which is fine for a sim with no such UI to drive, not here).
+  if (game.config.llmStorytellerEnabled && llmConfigured()) {
+    let failed = false;
+    for (const p of shuffleArr(bots)) {
+      const result = await llmBotNominate(game, p);
+      if (result === undefined) { failed = true; break; }
+      if (result) { await nominateHandler({ nominatorId: p.id, nomineeId: result }); return; }
+    }
+    // Every bot reasoned about it and all genuinely said no — a real,
+    // reasoned quiet day, not a failure. Only an actual call failure
+    // (`failed`) falls through to the flat heuristic below, same "don't
+    // half-trust a broken call" doctrine llmChooseExecution follows.
+    if (!failed) return;
+  }
+
+  if (Math.random() >= 0.78) return;
   const nominator = pickOne(bots);
   const candidates = living.filter(p => p.id !== nominator.id);
   if (!candidates.length) return;
@@ -1545,16 +1591,29 @@ async function botsNominate() {
 // botsNominate above), casting a vote isn't something to race a real
 // player for, so every living bot just votes shortly after the window
 // opens (scheduled from nominateHandler itself).
-function botsVote() {
+async function botsVote() {
   if (game.phase !== 'day' || !game.players.some(p => p.bot)) return;
   const nom = game.nominations.find(n => n.day === game.nightNumber && !n.closed);
   if (!nom) return;
   const nominee = E.byId(game, nom.nomineeId);
   if (!nominee) return;
   const day = game.nightNumber;
+  const unvoted = () => E.alive(game).filter(p => p.bot && !nom.votes.some(v => v.playerId === p.id));
+
+  if (game.config.llmStorytellerEnabled && llmConfigured()) {
+    for (const p of unvoted()) {
+      const vote = await llmBotVote(game, p, nom.nomineeId);
+      if (vote === undefined) break; // a real call failure — finish the rest with the flat heuristic below
+      voteHandler({ playerId: p.id, vote });
+    }
+  }
+
+  // Covers both the no-LLM default and finishing off whatever the LLM
+  // branch above left unvoted after a genuine call failure — nom.votes is
+  // re-read fresh each time via unvoted(), so nobody who already cast a
+  // real reasoned vote above gets overwritten here.
   const yesChance = botVoteWeight(nominee, day);
-  for (const p of E.alive(game)) {
-    if (!p.bot || nom.votes.some(v => v.playerId === p.id)) continue;
+  for (const p of unvoted()) {
     voteHandler({ playerId: p.id, vote: Math.random() < yesChance ? 'yes' : 'no' });
   }
 }
@@ -1710,6 +1769,19 @@ function tokenManifest() {
     manifest[id] = '/tokens/' + encodeURIComponent(file);
   }
   return manifest;
+}
+
+/** Adds display name/team to each jinx pair's two character ids —
+    jinxData.js itself stays pure (ids only, no engine/character-metadata
+    dependency); this is the one place that enrichment actually happens,
+    for the one real consumer (JinxesOverlay.jsx) that wants a name and a
+    token to show, not a raw id. */
+function enrichJinxPairs(pairs) {
+  const meta = id => {
+    const c = E.char(id);
+    return { id, name: c ? c.name : id, team: c ? c.team : null };
+  };
+  return pairs.map(p => ({ ...p, a: meta(p.a), b: meta(p.b) }));
 }
 
 function serveFile(res, file) {
@@ -1887,7 +1959,7 @@ function isHostRoute(route) {
   if (route.startsWith('/api/table/')) return true;
   if (route.startsWith('/api/sim/')) return true;
   return ['/host', '/host-events', '/simulate', '/sim-events',
-    '/api/host-state', '/api/sim-state'].includes(route);
+    '/api/host-state', '/api/sim-state', '/tabletop'].includes(route);
 }
 
 const GATE_EXEMPT = new Set([
@@ -1952,6 +2024,16 @@ async function requestHandler(req, res) {
       if (route === '/hall-of-fame') return serveFile(res, 'hall-of-fame.html');
       if (route === '/recap') return serveFile(res, 'recap.html');
       if (route === '/characters') return serveFile(res, 'characters.html');
+      // A big-text, read-only second screen for the table itself to watch
+      // (night phase, countdown, reveal) — gated by the host code, not the
+      // player one, since it rides the same /host-events stream the real
+      // dashboard uses (see isHostRoute() above). Meant to be opened on
+      // whatever device is already signed in as host, same as /host itself.
+      if (route === '/tabletop') return serveFile(res, 'tabletop.html');
+      // A read-only narration feed for people following along without a
+      // seat — table-code gated like any player, not the host's extra
+      // privilege (see /spectate-events above and pushHost()'s comment).
+      if (route === '/spectate') return serveFile(res, 'spectate.html');
 
       // Explicit route (rather than falling through to the generic static
       // fallback below) so this always carries Cache-Control: no-cache —
@@ -1986,9 +2068,34 @@ async function requestHandler(req, res) {
         return;
       }
 
+      if (route === '/spectate-events') {
+        // Table-code gated only (not in isHostRoute() below) — same
+        // privilege level as a real player's own /events stream, not the
+        // host's extra one. See pushHost()'s own comment for why this
+        // payload is safe to share at all.
+        spectatorStreams.add(res);
+        openStream(req, res, () => spectatorStreams.delete(res));
+        write(res, hostState());
+        return;
+      }
+
       if (route === '/api/tokens') {
         // Scanned per request so dropping in new art needs no restart.
         return json(res, 200, tokenManifest());
+      }
+
+      if (route === '/api/jinxes') {
+        // The current table's own roster, not every character this build
+        // knows about — a jinx between two characters nobody's playing
+        // today isn't useful noise to show. Reads whatever's cached
+        // (refreshed at boot, or via /api/jinxes/refresh below) rather
+        // than hitting the network on every page load.
+        const record = Jinx.loadCached();
+        const rosterIds = E.activeScriptPool(game).map(c => c.id);
+        return json(res, 200, {
+          source: record.source, fetchedAt: record.fetchedAt,
+          pairs: enrichJinxPairs(Jinx.jinxesForRoster(rosterIds, record)),
+        });
       }
 
       if (route === '/api/scripts') {
@@ -2282,6 +2389,18 @@ async function requestHandler(req, res) {
 
     if (req.method === 'POST') {
       const body = await readBody(req);
+
+      if (route === '/api/jinxes/refresh') {
+        // Explicit, host-triggered "try the network again right now" —
+        // same refreshJinxCache() boot already calls, just on demand for
+        // whoever doubts the cached copy is current.
+        const record = await Jinx.refreshJinxCache();
+        const rosterIds = E.activeScriptPool(game).map(c => c.id);
+        return json(res, 200, {
+          source: record.source, fetchedAt: record.fetchedAt,
+          pairs: enrichJinxPairs(Jinx.jinxesForRoster(rosterIds, record)),
+        });
+      }
 
       if (route === '/api/enter-table-code' || route === '/api/enter-host-code') {
         const wantsHost = route === '/api/enter-host-code';
@@ -3317,6 +3436,11 @@ server.listen(PORT, () => {
     candidates.forEach(c => console.log(`    ${c.address}  (${c.name})${c.address === ip ? '  <- chosen' : ''}`));
   }
   console.log('');
+  // Best-effort, fire-and-forget — a dead/slow connection at boot should
+  // never delay the table from actually opening. Falls back to whatever's
+  // already cached, then the committed seed, on any failure; see
+  // jinxData.js's own header comment.
+  Jinx.refreshJinxCache().catch(() => {});
 });
 
 if (httpsServer) {

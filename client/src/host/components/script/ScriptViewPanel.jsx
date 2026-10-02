@@ -3,18 +3,18 @@ import ScriptDifficultyPanel from './ScriptDifficultyPanel.jsx';
 import ScriptGamesPanel from './ScriptGamesPanel.jsx';
 import Icon from '../Icon.jsx';
 
-/** The left dashboard panel's "normal" state — badge, name, the same
+/** The Script tab's "normal" state — badge, name, the same
     difficulty/games-record panels, and a short description (the tagline
     only, meta.description). Used identically in the lobby (locked=false,
-    "Change script" opens the selector) and in-game (locked=true, toggled
-    in from the character roster tabs, "Change script" visibly disabled
-    since the script can't change mid-game) — genuinely the same
-    component, not two similar ones.
+    "Change script" opens the selector) and in-game (locked=true, as the
+    Script tab beside Characters/Controls, "Change script" visibly
+    disabled since the script can't change mid-game) — genuinely the
+    same component, not two similar ones.
 
     `onChangeScript` is owned by whichever parent conditionally renders
-    this vs. the browsing UI (LobbyView's 3-panel takeover, or
-    GameLeftPanel's locked in-game view) — this component only ever asks
-    to be swapped out, it doesn't own that toggle state itself. */
+    this vs. the browsing UI (LobbyView's 3-panel takeover, or a phase
+    view's own locked Script tab) — this component only ever asks to be
+    swapped out, it doesn't own that toggle state itself. */
 export default function ScriptViewPanel({ meta, locked = false, onChangeScript, onBuildScript }) {
   return (
     <div className="script-view-panel">

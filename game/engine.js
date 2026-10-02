@@ -8,7 +8,7 @@ const {
   DATA, CHARACTERS, SETUP_TABLE, char, scriptPool, BUCKET4_IDS, activeScriptPool,
   shuffle, pick, take, excludingPick,
   byId, byToken, alive, actingChar, trueChar, impaired, impairedFlip, publiclyAlive,
-  wouldBlockKill, randomKiller, checkKill, isEvil, isEvilRegistration, resolveWhim, setWhimJudge,
+  wouldBlockKill, randomKiller, checkKill, isEvil, isEvilRegistration, resolveWhim, setWhimJudge, effectiveDramaBias,
   heuristicWhim, WHIM_FIRING_HELPS_GOOD, maybeMercy, triggerMoonchildIfNeeded, flagAbnormal,
   triggerPixieIfNeeded, applyCannibalTransform, resolveRavenkeeperChoice,
   logEvent, recordClaim, heuristicBotClaim, BOT_PERSONALITIES, outsiderDiedToday, minionDiedToday, somebodyDiedYesterday,
@@ -68,6 +68,11 @@ function newGame() {
       windowSeconds: 60,
       hintNights: [1, 2],      // the dead stop talking after this
       dramaBias: 0.5,          // 0 = coldly random, 1 = maximum tension
+      // When on, dramaBias above is ignored in favor of a live value
+      // computed each time from how far into the game it is — see
+      // effectiveDramaBias() in helpers.js. Off by default so an existing
+      // table's own hand-tuned dial keeps working exactly as before.
+      adaptiveDrama: false,
       // These *Chance knobs are one of three ways this codebase models an
       // ability that reads like it needs a Storyteller — see
       // ABILITY_PATTERNS.md before adding a new one of any of the three.
@@ -84,6 +89,10 @@ function newGame() {
       // audio files and has tension-scaling this doesn't; see
       // MUSIC-CREDITS.md for what plays when this is on.
       licensedAmbientMusic: false,
+      // Narration flavor-text voice — see client/src/host/lib/narratorLines.js's
+      // own NARRATOR_PERSONAS. Purely cosmetic: nothing here changes what's
+      // mechanically legal, only which line pool the host's narration reads from.
+      narratorPersona: 'dramatic',
     },
     players: [],
     pending: {},
@@ -104,10 +113,12 @@ function newGame() {
     noExecutionToday: false,
     executionAttemptedToday: false, // at most one execution per day, including a blocked/survived one
     nominations: [],
-    // Public character claims — currently only ever populated for a full
-    // Dry Run (game.simulation), via server.js's botsClaim(). Flat and
-    // public-only: what was SAID, not what's true. See
-    // H.recordClaim/H.heuristicBotClaim.
+    // Public character claims — populated by bot seats only, via server.js's
+    // botsClaim(): a full Dry Run (game.simulation), or a real table padded
+    // with bots via /api/table/add-bots (the "solo practice" case). A real
+    // player's own claim, if any, would need its own UI/route to add here —
+    // nothing currently writes one on their behalf. Flat and public-only:
+    // what was SAID, not what's true. See H.recordClaim/H.heuristicBotClaim.
     claims: [],
     hint: null,
     log: [],
@@ -1297,6 +1308,15 @@ function applyConfigPatch(g, patch) {
   if ('licensedAmbientMusic' in patch) {
     g.config.licensedAmbientMusic = !!patch.licensedAmbientMusic;
   }
+
+  if ('narratorPersona' in patch) {
+    const v = String(patch.narratorPersona);
+    if (['dramatic', 'strict', 'droll'].includes(v)) g.config.narratorPersona = v;
+  }
+
+  if ('adaptiveDrama' in patch) {
+    g.config.adaptiveDrama = !!patch.adaptiveDrama;
+  }
 }
 
 /**
@@ -1529,6 +1549,11 @@ function publicState(g) {
     script: g.script,
     hint: g.hint,
     config: g.config,
+    // Only ever differs from config.dramaBias when adaptiveDrama is on —
+    // the host's actual live readout of what the AI is doing right now,
+    // not just the dial it would otherwise be reading. See
+    // effectiveDramaBias() in helpers.js for the formula.
+    liveDramaBias: H.effectiveDramaBias(g),
     // The official Townsfolk/Outsider/Minion/Demon split for however many
     // are seated right now — Baron/Fang Gu/Godfather/Vigormortis can still
     // shift Outsiders once roles are actually dealt (see dealRoles), so
@@ -1826,6 +1851,7 @@ module.exports = {
   checkVictory, applyPoliticianFlip, succeedDemon, trueChar, impaired, impairedFlip,
   checkKill, wouldBlockKill, publiclyAlive, randomKiller, logTrueValue,
   isEvil, isEvilRegistration, resolveWhim, setWhimJudge, heuristicWhim, WHIM_FIRING_HELPS_GOOD, maybeMercy,
+  effectiveDramaBias,
   minionDiedToday, triggerMoonchildIfNeeded, triggerDeathHooks, resolveMastermindDay,
   resolveDayVote, gameSummary, resolveMadness, buildSavantStatements, evaluateClaim,
   activeScriptPool, applyConfigPatch, buildStorytellerContext, BUCKET4_IDS,

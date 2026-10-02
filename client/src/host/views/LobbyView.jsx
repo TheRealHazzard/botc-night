@@ -1,4 +1,5 @@
 import DashboardLayout from '../components/DashboardLayout.jsx';
+import GameStage from '../components/GameStage.jsx';
 import TriviaLine from '../components/TriviaLine.jsx';
 import ScriptViewPanel from '../components/script/ScriptViewPanel.jsx';
 import ScriptSelectorList from '../components/script/ScriptSelectorList.jsx';
@@ -10,17 +11,18 @@ import Icon from '../components/Icon.jsx';
 import AddBotsCard from '../components/AddBotsCard.jsx';
 import { useJoinAddress } from '../hooks/useJoinAddress.js';
 
-/** Browsing scripts takes over all three dashboard columns, not just the
-    left one — the list stays put as the index (left), the browsed
-    script gets a big preview in place of the ring (center), and its
-    playable roster shows on the right in place of the QR/actions. The
+/** Browsing scripts still takes over all three of the OLD dashboard
+    columns via the original DashboardLayout, unchanged — the list stays
+    put as the index (left), the browsed script gets a big preview in
+    place of the ring (center), and its playable roster shows on the
+    right in place of the QR/actions. That's a deliberate, self-contained
+    full takeover of the stage distinct from the normal idle lobby below
+    (which uses the newer GameStage/side-header layout instead), so it's
+    left exactly as it was rather than forced into the new shape too. The
     actual commit/back-out (Choose/Cancel) live in the header now, not
     down here — see App.jsx, which owns the browsing state this view is
-    controlled by. Start Game/Clear the lobby/Game history moved to the
-    header too (same App.jsx), for the same reason: a taskbar full of
-    icon buttons reads as one coherent toolbar, not a pile of buttons
-    competing with the QR code for the same narrow column. */
-export default function LobbyView({ players, script, scripts, setupRatio, browsing, browseIndex, browsedMeta, onBrowse, onEnterBrowse, onBuildScript, ringSlotRef, fadeClass = '' }) {
+    controlled by. */
+export default function LobbyView({ players, script, scripts, setupRatio, browsing, browseIndex, browsedMeta, onBrowse, onEnterBrowse, onBuildScript, ringSlotRef, narrationSlot, fadeClass = '' }) {
   const joinAddr = useJoinAddress();
 
   const activeMeta = scripts && (scripts.find(m => m.id === script) || scripts[0]);
@@ -29,74 +31,85 @@ export default function LobbyView({ players, script, scripts, setupRatio, browsi
   // own SCRIPT_MAX_PLAYERS for the matching server-side clamp.
   const room = Math.max(0, (activeMeta?.maxPlayers || 15) - players.length);
 
-  const left = (
-    <div className={'sidepanel' + (browsing ? ' sidepanel-fill' : '')}>
-      {browsing ? (
-        <>
-          <div className="sidepanel-title"><Icon name="scroll" size={13} /><span>Choose a script</span></div>
-          <ScriptSelectorList scripts={scripts} browseIndex={browseIndex} currentScriptId={script} onBrowse={onBrowse} />
-        </>
-      ) : activeMeta ? (
-        <ScriptViewPanel meta={activeMeta} onChangeScript={onEnterBrowse} onBuildScript={onBuildScript} />
+  if (browsing) {
+    const left = (
+      <div className="sidepanel sidepanel-fill">
+        <div className="sidepanel-title"><Icon name="scroll" size={13} /><span>Choose a script</span></div>
+        <ScriptSelectorList scripts={scripts} browseIndex={browseIndex} currentScriptId={script} onBrowse={onBrowse} />
+      </div>
+    );
+    const main = (
+      <div className="stage-main">
+        <div className={`fade-wrap stage-narration ${fadeClass}`}>
+          {browsedMeta && <ScriptBrowsePreview meta={browsedMeta} />}
+        </div>
+        {/* Always mounted — unmounting here would drop the ring's portal
+            target (it lives permanently in App.jsx) — just visually
+            hidden while this preview panel takes over the column. */}
+        <div className="ring-zone">
+          <div className="ring-slot ring-slot-hidden" ref={ringSlotRef} />
+        </div>
+      </div>
+    );
+    const right = browsedMeta && <ScriptBrowseRoster meta={browsedMeta} />;
+    return <DashboardLayout left={left} main={main} right={right} fadeClass={`fade-wrap ${fadeClass}`} />;
+  }
+
+  const narration = (
+    <div className={`fade-wrap stage-narration ${fadeClass}`}>
+      <div className="narration">{players.length ? 'The town gathers.' : 'The town is still empty.'}</div>
+      {players.length > 0 ? (
+        <div className="sub">
+          {players.length} seated
+          {setupRatio && (
+            <span className="setup-ratio">
+              {' '}· {setupRatio.townsfolk} Townsfolk · {setupRatio.outsider} Outsider{setupRatio.outsider === 1 ? '' : 's'} ·{' '}
+              {setupRatio.minion} Minion{setupRatio.minion === 1 ? '' : 's'} · {setupRatio.demon} Demon{setupRatio.demon === 1 ? '' : 's'}
+            </span>
+          )}
+        </div>
       ) : (
-        <div className="sub">Loading scripts…</div>
+        <div className="sub">Open that address on your phone to take a seat.</div>
       )}
     </div>
   );
 
-  const main = (
-    <div className="stage-main">
-      <div className={`fade-wrap stage-narration ${fadeClass}`}>
-        {browsedMeta ? (
-          <ScriptBrowsePreview meta={browsedMeta} />
-        ) : (
-          <>
-            <div className="narration">{players.length ? 'The town gathers.' : 'The town is still empty.'}</div>
-            {players.length > 0 ? (
-              <div className="sub">
-                {players.length} seated
-                {setupRatio && (
-                  <span className="setup-ratio">
-                    {' '}· {setupRatio.townsfolk} Townsfolk · {setupRatio.outsider} Outsider{setupRatio.outsider === 1 ? '' : 's'} ·{' '}
-                    {setupRatio.minion} Minion{setupRatio.minion === 1 ? '' : 's'} · {setupRatio.demon} Demon{setupRatio.demon === 1 ? '' : 's'}
-                  </span>
-                )}
-              </div>
-            ) : (
-              <div className="sub">Open that address on your phone to take a seat.</div>
-            )}
-          </>
-        )}
-      </div>
-      {/* Always mounted — the ring is empty-but-present before anyone's
-          seated (consistent with "the ring is constantly on screen", not
-          a special case), and only visually hidden (not unmounted) while
-          browsing scripts, since the preview panel takes over this
-          column. Unmounting here would drop the portal target and defeat
-          the whole point of the ring living permanently in App.jsx. */}
-      <div className="ring-zone">
-        <div className={'ring-slot' + (browsedMeta ? ' ring-slot-hidden' : '')} ref={ringSlotRef} />
-      </div>
-    </div>
-  );
+  const tabs = [
+    {
+      id: 'script',
+      label: 'Script',
+      content: activeMeta
+        ? <ScriptViewPanel meta={activeMeta} onChangeScript={onEnterBrowse} onBuildScript={onBuildScript} />
+        : <div className="sub">Loading scripts…</div>,
+    },
+    {
+      id: 'controls',
+      label: 'Controls',
+      content: (
+        <>
+          <SidepanelCard icon="users" title="Join Here">
+            <div className="joinwrap">
+              {joinAddr && hasQrEncoder ? (
+                <div className="joinqr"><QRCode text={joinAddr} /></div>
+              ) : (
+                <div className="sub">{joinAddr || 'finding the address…'}</div>
+              )}
+              <TriviaLine scriptId={script} compact />
+            </div>
+          </SidepanelCard>
+          <AddBotsCard room={room} />
+        </>
+      ),
+    },
+  ];
 
-  const right = browsedMeta ? (
-    <ScriptBrowseRoster meta={browsedMeta} />
-  ) : (
-    <div className="sidepanel">
-      <SidepanelCard icon="users" title="Join Here">
-        <div className="joinwrap">
-          {joinAddr && hasQrEncoder ? (
-            <div className="joinqr"><QRCode text={joinAddr} /></div>
-          ) : (
-            <div className="sub">{joinAddr || 'finding the address…'}</div>
-          )}
-          <TriviaLine scriptId={script} compact />
-        </div>
-      </SidepanelCard>
-      <AddBotsCard room={room} />
-    </div>
+  return (
+    <GameStage
+      narration={narration}
+      narrationSlot={narrationSlot}
+      ringSlotRef={ringSlotRef}
+      tabs={tabs}
+      fadeClass={`fade-wrap ${fadeClass}`}
+    />
   );
-
-  return <DashboardLayout left={left} main={main} right={right} fadeClass={`fade-wrap ${fadeClass}`} />;
 }

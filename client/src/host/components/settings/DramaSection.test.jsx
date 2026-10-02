@@ -42,4 +42,24 @@ describe('DramaSection', () => {
     await userEvent.click(screen.getByLabelText('Night 1'));
     expect(patch).toHaveBeenCalledWith({ hintNights: [2] });
   });
+
+  it('adaptive pacing is off by default, and the slider stays enabled', () => {
+    render(<DramaSection config={config} patch={() => {}} />);
+    expect(screen.getByRole('checkbox', { name: /adaptive pacing/i })).not.toBeChecked();
+    expect(screen.getByRole('slider')).not.toBeDisabled();
+  });
+
+  it('toggling adaptive pacing on patches adaptiveDrama and disables the manual slider', async () => {
+    const patch = vi.fn();
+    render(<DramaSection config={config} patch={patch} />);
+    await userEvent.click(screen.getByRole('checkbox', { name: /adaptive pacing/i }));
+    expect(patch).toHaveBeenCalledWith({ adaptiveDrama: true });
+  });
+
+  it('once adaptive is on, the slider is disabled and shows the live computed value instead', () => {
+    render(<DramaSection config={{ ...config, adaptiveDrama: true }} patch={() => {}} liveDramaBias={0.73} />);
+    expect(screen.getByRole('checkbox', { name: /adaptive pacing/i })).toBeChecked();
+    expect(screen.getByRole('slider')).toBeDisabled();
+    expect(screen.getByText(/live: 0\.73/)).toBeInTheDocument();
+  });
 });

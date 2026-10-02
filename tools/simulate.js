@@ -1240,6 +1240,60 @@ console.log('\nBMR: randomKiller (shared Mayor-redirect resolver)');
   for (let i = 0; i < trials; i++) if ((await E.randomKiller(gBias1, gBias1.players)).id === 'a') aCountBias1++;
   check('dramaBias=1 clearly favors the most-nominated candidate over the flat-bias rate',
     aCountBias1 > aCountBias0 + trials * 0.15, `bias0 saw ${aCountBias0}/${trials}, bias1 saw ${aCountBias1}/${trials}`);
+
+  // adaptiveDrama: off by default, so effectiveDramaBias is just a pass-
+  // through to the static dial — every test above (and every existing
+  // table that's never touched this toggle) keeps working byte-for-byte
+  // identically.
+  const gOff = E.newGame();
+  gOff.config.dramaBias = 0.42;
+  gOff.players = [mk('a', 'chef'), mk('b', 'soldier')];
+  check('adaptiveDrama off reads the static dramaBias dial unchanged',
+    E.effectiveDramaBias(gOff) === 0.42);
+
+  // On, with the whole table still alive (nothing's at stake yet) -> bias
+  // near 0, regardless of whatever the static dial happens to say.
+  const gAdaptiveEarly = E.newGame();
+  gAdaptiveEarly.config.adaptiveDrama = true;
+  gAdaptiveEarly.config.dramaBias = 0.9;
+  gAdaptiveEarly.players = [mk('a', 'chef'), mk('b', 'soldier'), mk('c', 'empath'), mk('d', 'fool')];
+  check('adaptiveDrama on, everyone alive -> bias near 0 (nothing-at-stake territory)',
+    E.effectiveDramaBias(gAdaptiveEarly) === 0, `got ${E.effectiveDramaBias(gAdaptiveEarly)}`);
+
+  // On, with only 1 of 4 seats left alive (deep endgame) -> bias near 1.
+  const gAdaptiveLate = E.newGame();
+  gAdaptiveLate.config.adaptiveDrama = true;
+  gAdaptiveLate.config.dramaBias = 0;
+  gAdaptiveLate.players = [
+    mk('a', 'chef'), mk('b', 'soldier'), mk('c', 'empath'), mk('d', 'fool'),
+  ];
+  gAdaptiveLate.players[1].alive = false;
+  gAdaptiveLate.players[2].alive = false;
+  gAdaptiveLate.players[3].alive = false;
+  check('adaptiveDrama on, 1 of 4 left alive -> bias near 1 (deep endgame), regardless of the static dial',
+    Math.abs(E.effectiveDramaBias(gAdaptiveLate) - 0.75) < 1e-9, `got ${E.effectiveDramaBias(gAdaptiveLate)}`);
+
+  check('effectiveDramaBias never throws or returns NaN on an empty/undealt table',
+    E.effectiveDramaBias(E.newGame()) === 0.5);
+
+  // Functional check, not just the formula: with adaptiveDrama on and the
+  // game deep in its endgame, randomKiller() actually leans into the
+  // most-nominated candidate — same behavior dramaBias=1 already proved
+  // above, now reached via live game state instead of a hand-set dial.
+  const gAdaptiveFunctional = E.newGame();
+  gAdaptiveFunctional.config.adaptiveDrama = true;
+  gAdaptiveFunctional.config.dramaBias = 0; // irrelevant once adaptive is on
+  gAdaptiveFunctional.players = [mk('a', 'chef'), mk('b', 'soldier'), mk('c', 'empath'), mk('d', 'fool')];
+  gAdaptiveFunctional.players[2].alive = false; // 3 of 4 alive -> live bias 0.25 (modest, not 0)
+  gAdaptiveFunctional.nominations = [{ nomineeId: 'a' }, { nomineeId: 'a' }, { nomineeId: 'a' }];
+  const livingCandidates = gAdaptiveFunctional.players.filter(p => p.alive);
+  let aCountAdaptive = 0;
+  for (let i = 0; i < trials; i++) if ((await E.randomKiller(gAdaptiveFunctional, livingCandidates)).id === 'a') aCountAdaptive++;
+  // Flat (bias 0) would land near 1/3 of 3 living candidates; a live bias
+  // of 0.25 lifts "a" to ~47% (weight 1.75 of 3.75) — well clear of flat,
+  // comfortably below the ~47% true mean given 400 trials.
+  check('adaptiveDrama on, functionally favors the most-nominated candidate in a late game, same direction a hand-set dramaBias>0 would',
+    aCountAdaptive > trials * 0.4, `saw a picked ${aCountAdaptive}/${trials}`);
 }
 
 console.log('\nBMR: Courtier');

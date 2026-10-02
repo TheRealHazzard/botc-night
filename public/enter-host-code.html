@@ -4,21 +4,22 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
   <title>Enter the host code</title>
+  <meta name="theme-color" content="#0d0811" />
+  <link rel="icon" href="/icons/icon-32.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link
     rel="stylesheet"
     href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700&family=Spectral:wght@400;600&display=swap"
   />
+  <!-- --void/--bone/--bone-dim/--oxblood/--oxblood-hi/--brass now come
+       from here instead of a local hardcoded copy — see
+       clocktower-dark.css's own comment. --surface/--surface-2/--line
+       below stay local; they were never claimed to track theme.css (its
+       real --line/--surface are purple-toned, these are deliberately
+       brown), only --void ever was. -->
+  <link rel="stylesheet" href="/clocktower-dark.css" />
   <style>
     :root {
-      /* Nudged to client/src/theme.css's own canonical --void so this
-         page's background can't silently drift from the live game's. */
-      --void: #0d0811;
-      --bone: #e8dcc4;
-      --bone-dim: #95886e;
-      --oxblood: #8e2226;
-      --oxblood-hi: #a92c2f;
-      --brass: #b8863f;
       --surface: #130e08;
       --surface-2: #1b130a;
       --line: #2a1e14;

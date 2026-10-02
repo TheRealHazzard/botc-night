@@ -53,4 +53,41 @@ describe('narratorLines', () => {
     for (let s = 0; s < 20; s++) seen.add(revealLine(s));
     expect(seen.size).toBeGreaterThan(1);
   });
+
+  it('an unknown persona falls back to dramatic rather than throwing', () => {
+    expect(nightOpenLine(4, 0, 'not-a-real-persona')).toBe(nightOpenLine(4, 0, 'dramatic'));
+    expect(nightOpenLine(4, 0)).toBe(nightOpenLine(4, 0, 'dramatic'));
+  });
+
+  it('canonical night 1 / day 1 lines ignore persona entirely', () => {
+    expect(nightOpenLine(1, 0, 'strict')).toBe('Close your eyes. The town sleeps.');
+    expect(nightOpenLine(1, 0, 'droll')).toBe('Close your eyes. The town sleeps.');
+    expect(noDeathDayLine(1, 'strict')).toBe('Everyone wakes. That should worry you.');
+    expect(noDeathDayLine(1, 'droll')).toBe('Everyone wakes. That should worry you.');
+  });
+
+  it('different personas land on different rotating lines at least some of the time', () => {
+    let anyDifferent = false;
+    for (let n = 2; n <= 10; n++) {
+      if (nightOpenLine(n, 0, 'strict') !== nightOpenLine(n, 0, 'droll')) anyDifferent = true;
+    }
+    expect(anyDifferent).toBe(true);
+  });
+
+  it('strict and droll night-open lines never collide with the dramatic pool\'s wording', () => {
+    for (let n = 2; n <= 6; n++) {
+      const dramatic = nightOpenLine(n, 0, 'dramatic');
+      expect(nightOpenLine(n, 0, 'strict')).not.toBe(dramatic);
+      expect(nightOpenLine(n, 0, 'droll')).not.toBe(dramatic);
+    }
+  });
+
+  it('revealLine is deterministic per (seed, persona) and varies by persona', () => {
+    expect(revealLine('g1', 'strict')).toBe(revealLine('g1', 'strict'));
+    let anyDifferent = false;
+    for (let s = 0; s < 10; s++) {
+      if (revealLine(s, 'dramatic') !== revealLine(s, 'droll')) anyDifferent = true;
+    }
+    expect(anyDifferent).toBe(true);
+  });
 });

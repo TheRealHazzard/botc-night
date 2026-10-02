@@ -16,7 +16,7 @@ import { showToast } from "../lib/toast.js";
 import { useWhimConfirm } from "./hooks/useWhimConfirm.js";
 import { useHostAnnouncement } from "./hooks/useHostAnnouncement.js";
 import { useBluffBeat } from "../hooks/useBluffBeat.js";
-import Icon from "./components/Icon.jsx";
+import SideHeader from "./components/SideHeader.jsx";
 import RingSeats from "./components/RingSeats.jsx";
 import ReclaimBanner from "./components/ReclaimBanner.jsx";
 import FatalFlashOverlay from "./components/FatalFlashOverlay.jsx";
@@ -26,9 +26,7 @@ import BluffBeat from "../components/BluffBeat.jsx";
 import SettingsOverlay from "./components/SettingsOverlay.jsx";
 import ScriptBuilderOverlay from "./components/ScriptBuilderOverlay.jsx";
 import ConfirmModal from "./components/ConfirmModal.jsx";
-import CharactersOverlay from "./components/CharactersOverlay.jsx";
-import HallOfFameOverlay from "./components/HallOfFameOverlay.jsx";
-import GameHistoryOverlay from "./components/GameHistoryOverlay.jsx";
+import ReferenceOverlay from "./components/ReferenceOverlay.jsx";
 import SimulateOverlay from "./components/SimulateOverlay.jsx";
 import LobbyView from "./views/LobbyView.jsx";
 import RevealView from "./views/RevealView.jsx";
@@ -78,6 +76,14 @@ export default function App() {
   const [ringSlot, setRingSlot] = useState(null);
   const registerRingSlot = useCallback(node => setRingSlot(node), []);
 
+  // Same trick, same reasoning, for narration text: SideHeader owns the
+  // persistent target node (its own .narration-slot div, part of the
+  // app's one permanent left column), and each phase view's own
+  // narration JSX — which genuinely does differ per view/phase, unlike
+  // the ring — gets portaled into it from GameStage.jsx.
+  const [narrationSlot, setNarrationSlot] = useState(null);
+  const registerNarrationSlot = useCallback(node => setNarrationSlot(node), []);
+
   // All three of these run unconditionally (Rules of Hooks — this is
   // above the `!displayS` early return below), but are only ever
   // *consumed* for the phase they're actually meaningful in:
@@ -101,9 +107,7 @@ export default function App() {
   const [pendingConfirm, setPendingConfirm] = useState(null);
   // In-app stand-ins for what used to be window.open(url, "_blank") — see
   // each overlay's own header comment for why.
-  const [viewingCharacters, setViewingCharacters] = useState(false);
-  const [viewingHallOfFame, setViewingHallOfFame] = useState(false);
-  const [viewingHistory, setViewingHistory] = useState(false);
+  const [viewingReference, setViewingReference] = useState(false);
   // Always reachable, not gated to the idle lobby like the three above —
   // starting a sim overwrites `game` itself (see server.js's own guard on
   // /api/sim/start), so a *running* sim is what the main dashboard is
@@ -164,14 +168,17 @@ export default function App() {
 
   if (!displayS)
     return (
-      <Header
-        muted={muted}
-        setMuted={setMuted}
-        fullscreen={fullscreen}
-        onOpenSettings={() => setSettingsOpen(true)}
-        phaseLabel=""
-        phaseIcon="clock"
-      />
+      <div className="app-shell">
+        <SideHeader
+          muted={muted}
+          setMuted={setMuted}
+          fullscreen={fullscreen}
+          onOpenSettings={() => setSettingsOpen(true)}
+          phaseLabel=""
+          phaseIcon="clock"
+          narrationSlotRef={registerNarrationSlot}
+        />
+      </div>
     );
 
   const activeScriptMeta =
@@ -290,125 +297,133 @@ export default function App() {
   return (
     <>
       <div className="sr-only" aria-live="polite">{announcement}</div>
-      <Header
-        muted={muted}
-        setMuted={setMuted}
-        fullscreen={fullscreen}
-        onOpenSettings={() => setSettingsOpen(true)}
-        phaseLabel={phaseLabel}
-        phaseIcon={PHASE_ICON[displayS.phase] || "clock"}
-        section={section}
-        onSection={setSection}
-        browsing={section === "game" && displayS.phase === "lobby" && browsing}
-        browsedMeta={browsedMeta}
-        confirming={confirming}
-        onConfirmScript={confirmScript}
-        onCancelBrowse={exitBrowse}
-        lobbyIdle={section === "game" && displayS.phase === "lobby" && !browsing}
-        playerCount={displayS.players.length}
-        onStartGame={startGame}
-        onClearLobby={clearLobby}
-        showGameControls={
-          section === "game" &&
-          (displayS.phase === "reveal" ||
-            displayS.phase === "night" ||
-            displayS.phase === "day" ||
-            displayS.phase === "over" ||
-            displayS.revealed)
-        }
-        onReveal={revealAll}
-        onNewGame={newGame}
-        onOpenHistory={() => setViewingHistory(true)}
-        onOpenHallOfFame={() => setViewingHallOfFame(true)}
-        onOpenCharacters={() => setViewingCharacters(true)}
-        onOpenSimulate={() => setViewingSimulate(true)}
-        textScale={textScale}
-        onCycleTextScale={cycleTextScale}
-      />
+      <div className="app-shell">
+        <SideHeader
+          muted={muted}
+          setMuted={setMuted}
+          fullscreen={fullscreen}
+          onOpenSettings={() => setSettingsOpen(true)}
+          phaseLabel={phaseLabel}
+          phaseIcon={PHASE_ICON[displayS.phase] || "clock"}
+          section={section}
+          onSection={setSection}
+          browsing={section === "game" && displayS.phase === "lobby" && browsing}
+          browsedMeta={browsedMeta}
+          confirming={confirming}
+          onConfirmScript={confirmScript}
+          onCancelBrowse={exitBrowse}
+          lobbyIdle={section === "game" && displayS.phase === "lobby" && !browsing}
+          playerCount={displayS.players.length}
+          onStartGame={startGame}
+          onClearLobby={clearLobby}
+          showGameControls={
+            section === "game" &&
+            (displayS.phase === "reveal" ||
+              displayS.phase === "night" ||
+              displayS.phase === "day" ||
+              displayS.phase === "over" ||
+              displayS.revealed)
+          }
+          onReveal={revealAll}
+          onNewGame={newGame}
+          onOpenReference={() => setViewingReference(true)}
+          onOpenSimulate={() => setViewingSimulate(true)}
+          textScale={textScale}
+          onCycleTextScale={cycleTextScale}
+          narrationSlotRef={registerNarrationSlot}
+        />
 
-      <ReclaimBanner pendingReclaims={S?.pendingReclaims} />
-      <ToastStack />
-
-      <main>
-        {section === "toolkit" ? (
-          <ToolkitView />
-        ) : (
-          <div className={stageClass}>
-            {displayS.phase === "lobby" && (
-              <LobbyView
-                players={displayS.players}
-                script={displayS.script}
-                scripts={scripts}
-                setupRatio={displayS.setupRatio}
-                browsing={browsing}
-                browseIndex={browseIndex}
-                browsedMeta={browsedMeta}
-                onBrowse={setBrowseIndex}
-                onEnterBrowse={enterBrowse}
-                onBuildScript={() => setBuildingScript(true)}
-                ringSlotRef={registerRingSlot}
-                fadeClass={fadeClass}
-              />
-            )}
-            {displayS.phase === "reveal" && (
-              <RevealView
-                scriptChars={scriptChars}
-                activeScriptMeta={activeScriptMeta}
-                muted={muted}
-                ringSlotRef={registerRingSlot}
-                fadeClass={fadeClass}
-              />
-            )}
-            {displayS.phase === "night" && (
-              <NightView
-                players={displayS.players}
-                nightNumber={displayS.nightNumber}
-                windowEndsAt={displayS.windowEndsAt}
-                windowTotalSeconds={displayS.windowTotalSeconds}
-                config={displayS.config}
-                script={displayS.script}
-                scriptChars={scriptChars}
-                activeScriptMeta={activeScriptMeta}
-                muted={muted}
-                log={displayS.log}
-                ringSlotRef={registerRingSlot}
-                fadeClass={fadeClass}
-              />
-            )}
-            {displayS.phase === "day" && (
-              <DayView
-                players={displayS.players}
-                nightNumber={displayS.nightNumber}
-                deaths={displayS.deaths}
-                nominations={displayS.nominations}
-                config={displayS.config}
-                script={displayS.script}
-                scriptChars={scriptChars}
-                activeScriptMeta={activeScriptMeta}
-                muted={muted}
-                log={displayS.log}
-                dayStartedAt={displayS.dayStartedAt}
-                ringSlotRef={registerRingSlot}
-                fadeClass={fadeClass}
-              />
-            )}
-            {(displayS.phase === "over" || displayS.revealed) && (
-              <OverView
-                players={displayS.players}
-                victory={displayS.victory}
-                gameSummary={displayS.gameSummary}
-                log={displayS.log}
-                actionLog={displayS.actionLog}
-                resultsLog={displayS.resultsLog}
-                nightNumber={displayS.nightNumber}
-                muted={muted}
-                ringSlotRef={registerRingSlot}
-                fadeClass={fadeClass}
-              />
-            )}
-          </div>
-        )}
-      </main>
+        <div className="stage-col">
+          <ReclaimBanner pendingReclaims={S?.pendingReclaims} />
+          <ToastStack />
+          <main>
+          {section === "toolkit" ? (
+            <ToolkitView />
+          ) : (
+            <div className={stageClass}>
+              {displayS.phase === "lobby" && (
+                <LobbyView
+                  players={displayS.players}
+                  script={displayS.script}
+                  scripts={scripts}
+                  setupRatio={displayS.setupRatio}
+                  browsing={browsing}
+                  browseIndex={browseIndex}
+                  browsedMeta={browsedMeta}
+                  onBrowse={setBrowseIndex}
+                  onEnterBrowse={enterBrowse}
+                  onBuildScript={() => setBuildingScript(true)}
+                  ringSlotRef={registerRingSlot}
+                  narrationSlot={narrationSlot}
+                  fadeClass={fadeClass}
+                />
+              )}
+              {displayS.phase === "reveal" && (
+                <RevealView
+                  config={displayS.config}
+                  scriptChars={scriptChars}
+                  activeScriptMeta={activeScriptMeta}
+                  muted={muted}
+                  ringSlotRef={registerRingSlot}
+                  narrationSlot={narrationSlot}
+                  fadeClass={fadeClass}
+                />
+              )}
+              {displayS.phase === "night" && (
+                <NightView
+                  players={displayS.players}
+                  nightNumber={displayS.nightNumber}
+                  windowEndsAt={displayS.windowEndsAt}
+                  windowTotalSeconds={displayS.windowTotalSeconds}
+                  config={displayS.config}
+                  script={displayS.script}
+                  scriptChars={scriptChars}
+                  activeScriptMeta={activeScriptMeta}
+                  muted={muted}
+                  log={displayS.log}
+                  ringSlotRef={registerRingSlot}
+                  narrationSlot={narrationSlot}
+                  fadeClass={fadeClass}
+                />
+              )}
+              {displayS.phase === "day" && (
+                <DayView
+                  players={displayS.players}
+                  nightNumber={displayS.nightNumber}
+                  deaths={displayS.deaths}
+                  nominations={displayS.nominations}
+                  config={displayS.config}
+                  script={displayS.script}
+                  scriptChars={scriptChars}
+                  activeScriptMeta={activeScriptMeta}
+                  muted={muted}
+                  log={displayS.log}
+                  dayStartedAt={displayS.dayStartedAt}
+                  ringSlotRef={registerRingSlot}
+                  narrationSlot={narrationSlot}
+                  fadeClass={fadeClass}
+                />
+              )}
+              {(displayS.phase === "over" || displayS.revealed) && (
+                <OverView
+                  players={displayS.players}
+                  victory={displayS.victory}
+                  gameSummary={displayS.gameSummary}
+                  log={displayS.log}
+                  actionLog={displayS.actionLog}
+                  resultsLog={displayS.resultsLog}
+                  nightNumber={displayS.nightNumber}
+                  muted={muted}
+                  ringSlotRef={registerRingSlot}
+                  narrationSlot={narrationSlot}
+                  fadeClass={fadeClass}
+                />
+              )}
+            </div>
+          )}
+          </main>
+        </div>
+      </div>
 
       {/* Permanently mounted — never unmounts on a phase change, unlike
           the views above. Portaled into whichever view's ring-slot node
@@ -446,6 +461,7 @@ export default function App() {
           llmConfigured={displayS.llmConfigured}
           llmProvider={displayS.llmProvider}
           llmModel={displayS.llmModel}
+          liveDramaBias={displayS.liveDramaBias}
           patchConfig={patchConfig}
           onClose={() => setSettingsOpen(false)}
         />
@@ -468,16 +484,8 @@ export default function App() {
         />
       )}
 
-      {viewingCharacters && (
-        <CharactersOverlay onClose={() => setViewingCharacters(false)} />
-      )}
-
-      {viewingHallOfFame && (
-        <HallOfFameOverlay onClose={() => setViewingHallOfFame(false)} />
-      )}
-
-      {viewingHistory && (
-        <GameHistoryOverlay onClose={() => setViewingHistory(false)} />
+      {viewingReference && (
+        <ReferenceOverlay onClose={() => setViewingReference(false)} />
       )}
 
       {viewingSimulate && (
@@ -488,240 +496,5 @@ export default function App() {
         />
       )}
     </>
-  );
-}
-
-function Header({
-  muted,
-  setMuted,
-  fullscreen,
-  onOpenSettings,
-  phaseLabel,
-  phaseIcon,
-  section,
-  onSection,
-  browsing,
-  browsedMeta,
-  confirming,
-  onConfirmScript,
-  onCancelBrowse,
-  lobbyIdle,
-  playerCount,
-  onStartGame,
-  onClearLobby,
-  showGameControls,
-  onReveal,
-  onNewGame,
-  onOpenHistory,
-  onOpenHallOfFame,
-  onOpenCharacters,
-  onOpenSimulate,
-  textScale,
-  onCycleTextScale,
-}) {
-  const locked = browsedMeta && browsedMeta.playable === false;
-  const canStart = playerCount >= 5;
-
-  return (
-    <header>
-      <span className="brand">
-        <img className="mark" src="/icons/botc-logo.png" alt="Blood On The Clocktower" />
-      </span>
-      <span className="header-right">
-        {onSection && (
-          <span className="section-toggle">
-            <button
-              type="button"
-              className={section === "game" ? "active" : ""}
-              onClick={() => onSection("game")}
-            >
-              Game
-            </button>
-            <button
-              type="button"
-              className={section === "toolkit" ? "active" : ""}
-              onClick={() => onSection("toolkit")}
-            >
-              Toolkit
-            </button>
-          </span>
-        )}
-        <span className="header-divider" aria-hidden="true" />
-        {/* Every button in this row used to be one long, unbroken strip of
-            icons with nothing but a hover tooltip to tell them apart — easy
-            to lose count of which icon does what, especially the further
-            right you go. Small uppercase captions split it into the same
-            chunks a host already thinks in, without adding a word to every
-            single button (see the roadmap's "header icon labeling" item). */}
-        <span className="header-group">
-          <span className="header-group-label">Display</span>
-          <button
-            type="button"
-            className="mutebtn"
-            onClick={onCycleTextScale}
-            aria-label={`Text size: ${Math.round(textScale * 100)}%. Tap to change.`}
-          >
-            Aa
-          </button>
-          <button
-            type="button"
-            className="mutebtn"
-            title="Table settings"
-            onClick={onOpenSettings}
-          >
-            <Icon name="gear" size={17} />
-          </button>
-          {fullscreen.supported && (
-            <button
-              type="button"
-              className="mutebtn"
-              title={
-                fullscreen.isFullscreen ? "Exit fullscreen" : "Enter fullscreen"
-              }
-              onClick={fullscreen.toggle}
-            >
-              <Icon
-                name={fullscreen.isFullscreen ? "collapse" : "expand"}
-                size={17}
-              />
-            </button>
-          )}
-          <button
-            type="button"
-            className={"mutebtn" + (muted ? "" : " on")}
-            title={
-              muted ? "Sound is off — tap to unmute" : "Sound is on — tap to mute"
-            }
-            onClick={() => setMuted(!muted)}
-          >
-            <Icon name={muted ? "speakerOff" : "speaker"} size={17} />
-          </button>
-        </span>
-        {lobbyIdle && (
-          <>
-            <span className="header-divider" aria-hidden="true" />
-            <span className="header-group">
-              <span className="header-group-label">Reference</span>
-              <button
-                type="button"
-                className="mutebtn"
-                title="Game history"
-                onClick={onOpenHistory}
-              >
-                <Icon name="scroll" size={17} />
-              </button>
-              <button
-                type="button"
-                className="mutebtn"
-                title="Hall of Fame"
-                onClick={onOpenHallOfFame}
-              >
-                <Icon name="trophy" size={17} />
-              </button>
-              <button
-                type="button"
-                className="mutebtn"
-                title="Character checklist"
-                onClick={onOpenCharacters}
-              >
-                <Icon name="check" size={17} />
-              </button>
-            </span>
-            <span className="header-divider" aria-hidden="true" />
-            <span className="header-group">
-              <span className="header-group-label">Lobby</span>
-              <button
-                type="button"
-                className="mutebtn"
-                title="Clear the lobby"
-                disabled={!playerCount}
-                onClick={onClearLobby}
-              >
-                <Icon name="refresh" size={17} />
-              </button>
-              <button
-                type="button"
-                className={"mutebtn" + (canStart ? " on" : "")}
-                title="Start Game"
-                disabled={!canStart}
-                onClick={onStartGame}
-              >
-                <Icon name="play" size={17} />
-              </button>
-            </span>
-          </>
-        )}
-        {browsing && browsedMeta && (
-          <>
-            <span className="header-divider" aria-hidden="true" />
-            <span className="header-group">
-              <span className="header-group-label">Script</span>
-              <button
-                type="button"
-                className={"mutebtn" + (locked ? "" : " on")}
-                title={locked ? "Coming soon" : `Choose ${browsedMeta.name}`}
-                disabled={locked || confirming}
-                onClick={onConfirmScript}
-              >
-                <Icon name="play" size={17} />
-              </button>
-              <button
-                type="button"
-                className="mutebtn"
-                title="Cancel — keep the current script"
-                onClick={onCancelBrowse}
-              >
-                <Icon name="close" size={17} />
-              </button>
-            </span>
-          </>
-        )}
-        {showGameControls && (
-          <>
-            <span className="header-divider" aria-hidden="true" />
-            <span className="header-group">
-              <span className="header-group-label">Storyteller</span>
-              <button
-                type="button"
-                className="mutebtn"
-                title="Reveal every role and end the game"
-                onClick={onReveal}
-              >
-                <Icon name="eye" size={17} />
-              </button>
-              <button
-                type="button"
-                className="mutebtn"
-                title="Clear the table and start a new game"
-                onClick={onNewGame}
-              >
-                <Icon name="refresh" size={17} />
-              </button>
-            </span>
-          </>
-        )}
-        <span className="header-divider" aria-hidden="true" />
-        {/* Always visible, not gated to lobbyIdle like Reference above —
-            starting a sim overwrites `game` itself, so a running sim is
-            what Night/Day/Over are already showing; this has to stay
-            reachable in any phase, not just an idle lobby. */}
-        <span className="header-group">
-          <span className="header-group-label">Testing</span>
-          <button
-            type="button"
-            className="mutebtn"
-            title="Dry Run — watch a table of bots play a full game"
-            onClick={onOpenSimulate}
-          >
-            <Icon name="dice" size={17} />
-          </button>
-        </span>
-        <span className="header-divider" aria-hidden="true" />
-        <span className="phase">
-          <Icon name={phaseIcon} size={14} />
-          <span>{phaseLabel}</span>
-        </span>
-      </span>
-    </header>
   );
 }
