@@ -23,15 +23,15 @@ export default function App() {
   const lastPhaseKeyRef = useRef('');
   useEffect(() => {
     if (!P) return;
-    const key = `${P.phase}:${P.nightNumber}:${P.wave}`;
+    const key = `${P.phase}:${P.nightNumber}`;
     if (key !== lastPhaseKeyRef.current) {
       lastPhaseKeyRef.current = key;
       if (P.phase === 'night' && navigator.vibrate) navigator.vibrate([90, 60, 90]);
     }
-  }, [P?.phase, P?.nightNumber, P?.wave]);
+  }, [P?.phase, P?.nightNumber]);
 
-  // The phase-key buzz above only fires on a night/day/wave transition — a
-  // result or a fresh prompt can land mid-wave with no phase-key change at
+  // The phase-key buzz above only fires on a night/day transition — a
+  // result or a fresh prompt can land mid-night with no phase-key change at
   // all (an info role's result arriving after someone else's action closes
   // the window early), and a phone left face-down would miss it entirely.
   // Content-keyed, not reference-keyed: P is a brand-new object every SSE

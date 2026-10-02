@@ -59,7 +59,6 @@ function buildMinimalGame(subjectId) {
   g.script = info ? (Array.isArray(info.edition) ? info.edition[0] : info.edition) : g.script;
   g.nightNumber = 2; // avoid accidentally tripping first-night-only branches
   g.phase = 'night';
-  g.wave = (REGISTRY[subjectId] && REGISTRY[subjectId].wave) || 1;
   g.results = {};
   const subject = mk('subject', subjectId);
   const fillers = FILLER_IDS.filter(id => id !== subjectId).map((id, i) => mk('filler' + i, id));
@@ -80,9 +79,6 @@ for (const id of Object.keys(REGISTRY)) {
     if (entry[field] !== undefined) {
       check(`${id}: ${field}, if present, is a function`, typeof entry[field] === 'function');
     }
-  }
-  if (entry.wave !== undefined) {
-    check(`${id}: wave, if present, is a number`, typeof entry.wave === 'number');
   }
   if (entry.usesOnceFlag !== undefined) {
     check(`${id}: usesOnceFlag, if present, is a boolean`, typeof entry.usesOnceFlag === 'boolean');

@@ -31,7 +31,14 @@ function autoAnswer(g) {
     const countOk = targets.length === prompt.count || (prompt.optional && targets.length === 0);
     if (countOk) {
       const characterGuess = prompt.guessCharacter ? prompt.characterOptions[0].id : undefined;
-      g.pending[p.id] = { targets, decoy: !!prompt.decoy, characterGuess };
+      // Sects & Violets' Barber-swap addon (engine.js's barberSwapAddon) —
+      // an independent extra field on a living Demon's own prompt, filled
+      // in alongside their real choice the same way botsAnswer() does in
+      // server.js, so a generic simulated game still exercises the swap
+      // whenever the Barber's actually in the roster and could plausibly
+      // die tonight.
+      const barberSwapTargets = prompt.barberSwap ? prompt.barberSwap.targets.slice(0, 2).map(t => t.id) : undefined;
+      g.pending[p.id] = { targets, decoy: !!prompt.decoy, characterGuess, barberSwapTargets };
     }
   }
 }
@@ -71,6 +78,29 @@ if (drunk) {
     drunk.believedId !== 'drunk' && !g.players.some(p => p.characterId === drunk.believedId));
 } else {
   console.log('  --    no Drunk in this bag');
+}
+
+console.log('\nDrunk: zero spare townsfolk (a tight custom roster)');
+{
+  // Can't happen on the real Trouble Brewing sheet (13 townsfolk options,
+  // never all dealt at once alongside a Drunk within the 5-15 player
+  // range) — only reachable via a deliberately tight custom roster, which
+  // this forces: exactly 3 townsfolk options for 6 players' own exact
+  // requirement (townsfolk:3), leaving nothing spare for the Drunk to
+  // falsely believe.
+  const gTight = E.newGame();
+  gTight.script = 'custom';
+  gTight.customRoster = ['chef', 'empath', 'soldier', 'drunk', 'poisoner', 'imp'];
+  seat(gTight, 6);
+  E.dealRoles(gTight);
+  const drunkTight = gTight.players.find(p => p.characterId === 'drunk');
+  check('a real Drunk was dealt in this tight roster', !!drunkTight);
+  check('every townsfolk option was actually dealt, leaving nothing spare',
+    ['chef', 'empath', 'soldier'].every(id => gTight.players.some(p => p.characterId === id)));
+  check('the Drunk still never believes they\'re the Drunk, even with no spare townsfolk',
+    drunkTight && drunkTight.believedId !== 'drunk', drunkTight && drunkTight.believedId);
+  check('the fallback belief is still a real townsfolk character',
+    drunkTight && E.char(drunkTight.believedId) && E.char(drunkTight.believedId).team === 'townsfolk');
 }
 
 console.log('\nNight 1');
@@ -170,23 +200,12 @@ check('a phone stream contains no other player\'s role', leaked.length === 0,
 
 console.log('\nNights 2-4');
 for (let n = 2; n <= 4; n++) {
-  g.nightNumber = n; g.phase = 'night'; g.wave = 1; g.pending = {}; g.results = {};
+  g.nightNumber = n; g.phase = 'night'; g.pending = {}; g.results = {};
   autoAnswer(g);
   const before = E.alive(g).length;
   await E.resolveNight(g);
   const after = E.alive(g).length;
   check(`night ${n} resolved (${before} -> ${after} alive)`, after <= before);
-
-  if (E.needsWaveTwo(g)) {
-    g.wave = 2; g.pending = {};
-    const rk = g.players.find(p => p.believedId === 'ravenkeeper' && p.statuses.diedTonight);
-    check('  ravenkeeper is asked only after dying', !!E.promptFor(g, rk));
-    autoAnswer(g);
-    await E.resolveNight(g, 2);
-    check('  ravenkeeper learned a character', !!g.results[rk.id]);
-    check('  wave 2 did not re-run the whole night',
-      g.players.filter(p => p.statuses.diedTonight).length >= 1);
-  }
   g.hint = E.generateHint(g);
 }
 
@@ -715,6 +734,51 @@ console.log('\nSpy grimoire: also shows what the Drunk (and Lunatic) believe the
     spyRow && (spyRow.believedCharacter === null || spyRow.believedCharacter === undefined));
 }
 
+console.log('\nSpy grimoire: internal bookkeeping stays out of the shown statuses');
+{
+  // Real gap found on review: the Spy's own filter only ever excluded one
+  // key (poisonedUntilNight), while ~50 status keys have accumulated
+  // across tb/bmr/sv/carousel since — a real Spy was seeing raw,
+  // meaningless tags like "grandchildId" or "jugglerGuesses" (an array;
+  // Object.keys() only returns the key, never what it holds, so it could
+  // never render as a sensible tag regardless of name). Now backed by the
+  // same shared h.INTERNAL_ONLY_STATUSES set server.js's Dry Run observer
+  // uses, instead of two independently-drifting lists.
+  const mk = (id, characterId) => ({ id, name: id, characterId, believedId: characterId, alive: true, statuses: {} });
+  const g = E.newGame();
+  g.nightNumber = 2; g.phase = 'night'; g.results = {};
+  g.players = [
+    mk('spy1', 'spy'), mk('imp1', 'imp'), mk('t1', 'chef'), mk('t2', 'soldier'), mk('t3', 'slayer'),
+  ];
+  const target = g.players.find(p => p.id === 't1');
+  // A mix of genuinely meaningful statuses (should still show) and
+  // internal-only bookkeeping (should now be hidden) on the same player.
+  // diedTonight is deliberately NOT included here — resolveNight's own
+  // "reset per-night markers" step unconditionally clears it before any
+  // character's resolve() runs at all (including the Spy's own), so it
+  // could never appear in a same-night grimoire regardless of this
+  // filter; testing it here would pass for the wrong reason.
+  target.statuses.poisoned = true;
+  target.statuses.master = true;
+  target.statuses.grandchildId = 'imp1';
+  target.statuses.evilTwinId = 'imp1';
+  target.statuses.jugglerGuesses = [{ playerId: 'imp1', characterId: 'imp' }];
+  target.statuses.gossipClaimDay = 2;
+  target.statuses.cannibalPoisoned = true; // redundant with `poisoned`, already shown
+  target.statuses.poisonedUntilNight = 2;
+
+  await E.resolveNight(g);
+  const row = g.results.spy1.grimoire.find(r => r.name === 't1');
+  check('meaningful statuses still show (poisoned, master)',
+    row.statuses.includes('poisoned') && row.statuses.includes('master'), JSON.stringify(row.statuses));
+  check('id-reference bookkeeping is hidden (grandchildId, evilTwinId)',
+    !row.statuses.includes('grandchildId') && !row.statuses.includes('evilTwinId'), JSON.stringify(row.statuses));
+  check('array/day-number bookkeeping is hidden (jugglerGuesses, gossipClaimDay)',
+    !row.statuses.includes('jugglerGuesses') && !row.statuses.includes('gossipClaimDay'), JSON.stringify(row.statuses));
+  check('redundant/night-threshold bookkeeping is hidden (cannibalPoisoned, poisonedUntilNight)',
+    !row.statuses.includes('cannibalPoisoned') && !row.statuses.includes('poisonedUntilNight'), JSON.stringify(row.statuses));
+}
+
 console.log('\nSpy/Recluse as a registered subject for Washerwoman-type reveals');
 {
   const mk = (id, characterId) => ({ id, name: id, characterId, believedId: characterId, alive: true, statuses: {} });
@@ -1176,6 +1240,60 @@ console.log('\nBMR: randomKiller (shared Mayor-redirect resolver)');
   for (let i = 0; i < trials; i++) if ((await E.randomKiller(gBias1, gBias1.players)).id === 'a') aCountBias1++;
   check('dramaBias=1 clearly favors the most-nominated candidate over the flat-bias rate',
     aCountBias1 > aCountBias0 + trials * 0.15, `bias0 saw ${aCountBias0}/${trials}, bias1 saw ${aCountBias1}/${trials}`);
+
+  // adaptiveDrama: off by default, so effectiveDramaBias is just a pass-
+  // through to the static dial — every test above (and every existing
+  // table that's never touched this toggle) keeps working byte-for-byte
+  // identically.
+  const gOff = E.newGame();
+  gOff.config.dramaBias = 0.42;
+  gOff.players = [mk('a', 'chef'), mk('b', 'soldier')];
+  check('adaptiveDrama off reads the static dramaBias dial unchanged',
+    E.effectiveDramaBias(gOff) === 0.42);
+
+  // On, with the whole table still alive (nothing's at stake yet) -> bias
+  // near 0, regardless of whatever the static dial happens to say.
+  const gAdaptiveEarly = E.newGame();
+  gAdaptiveEarly.config.adaptiveDrama = true;
+  gAdaptiveEarly.config.dramaBias = 0.9;
+  gAdaptiveEarly.players = [mk('a', 'chef'), mk('b', 'soldier'), mk('c', 'empath'), mk('d', 'fool')];
+  check('adaptiveDrama on, everyone alive -> bias near 0 (nothing-at-stake territory)',
+    E.effectiveDramaBias(gAdaptiveEarly) === 0, `got ${E.effectiveDramaBias(gAdaptiveEarly)}`);
+
+  // On, with only 1 of 4 seats left alive (deep endgame) -> bias near 1.
+  const gAdaptiveLate = E.newGame();
+  gAdaptiveLate.config.adaptiveDrama = true;
+  gAdaptiveLate.config.dramaBias = 0;
+  gAdaptiveLate.players = [
+    mk('a', 'chef'), mk('b', 'soldier'), mk('c', 'empath'), mk('d', 'fool'),
+  ];
+  gAdaptiveLate.players[1].alive = false;
+  gAdaptiveLate.players[2].alive = false;
+  gAdaptiveLate.players[3].alive = false;
+  check('adaptiveDrama on, 1 of 4 left alive -> bias near 1 (deep endgame), regardless of the static dial',
+    Math.abs(E.effectiveDramaBias(gAdaptiveLate) - 0.75) < 1e-9, `got ${E.effectiveDramaBias(gAdaptiveLate)}`);
+
+  check('effectiveDramaBias never throws or returns NaN on an empty/undealt table',
+    E.effectiveDramaBias(E.newGame()) === 0.5);
+
+  // Functional check, not just the formula: with adaptiveDrama on and the
+  // game deep in its endgame, randomKiller() actually leans into the
+  // most-nominated candidate — same behavior dramaBias=1 already proved
+  // above, now reached via live game state instead of a hand-set dial.
+  const gAdaptiveFunctional = E.newGame();
+  gAdaptiveFunctional.config.adaptiveDrama = true;
+  gAdaptiveFunctional.config.dramaBias = 0; // irrelevant once adaptive is on
+  gAdaptiveFunctional.players = [mk('a', 'chef'), mk('b', 'soldier'), mk('c', 'empath'), mk('d', 'fool')];
+  gAdaptiveFunctional.players[2].alive = false; // 3 of 4 alive -> live bias 0.25 (modest, not 0)
+  gAdaptiveFunctional.nominations = [{ nomineeId: 'a' }, { nomineeId: 'a' }, { nomineeId: 'a' }];
+  const livingCandidates = gAdaptiveFunctional.players.filter(p => p.alive);
+  let aCountAdaptive = 0;
+  for (let i = 0; i < trials; i++) if ((await E.randomKiller(gAdaptiveFunctional, livingCandidates)).id === 'a') aCountAdaptive++;
+  // Flat (bias 0) would land near 1/3 of 3 living candidates; a live bias
+  // of 0.25 lifts "a" to ~47% (weight 1.75 of 3.75) — well clear of flat,
+  // comfortably below the ~47% true mean given 400 trials.
+  check('adaptiveDrama on, functionally favors the most-nominated candidate in a late game, same direction a hand-set dramaBias>0 would',
+    aCountAdaptive > trials * 0.4, `saw a picked ${aCountAdaptive}/${trials}`);
 }
 
 console.log('\nBMR: Courtier');
@@ -1791,6 +1909,55 @@ console.log('\nSV: Mathematician');
   check('Mathematician counts both players the Snake Charmer swap flagged', g.results.math.body.includes('2'));
 }
 
+console.log('\nSV: Mathematician counts the Drunk, the Marionette, and a divergent Lunatic');
+{
+  // Jinxes found auditing against the official wiki, none of them
+  // previously wired in: the Drunk's and Marionette's believed abilities
+  // are unconditionally impaired (see impaired()'s own fix above), so both
+  // unconditionally count every night they act; the Lunatic counts
+  // specifically when her own "point" doesn't land on the real Demon's
+  // actual kill.
+  const mkB = (id, characterId, believedId) => ({ id, name: id, characterId, believedId: believedId || characterId, alive: true, statuses: {} });
+
+  {
+    const g = E.newGame();
+    g.script = 'sv'; g.nightNumber = 2; g.phase = 'night'; g.results = {};
+    g.players = [mkB('math', 'mathematician'), mkB('dr', 'drunk', 'empath'), mkB('imp1', 'imp'), mkB('t1', 'oracle'), mkB('t2', 'chef')];
+    g.pending = {};
+    await E.resolveNight(g, 1);
+    check('the Mathematician counts a Drunk who acted tonight', g.results.math.body.includes('1'), g.results.math && g.results.math.body);
+  }
+
+  {
+    const g = E.newGame();
+    g.script = 'sv'; g.nightNumber = 2; g.phase = 'night'; g.results = {};
+    g.players = [mkB('math', 'mathematician'), mkB('ma', 'marionette', 'fortuneteller'), mkB('imp1', 'imp'), mkB('t1', 'oracle'), mkB('t2', 'chef')];
+    g.pending = { ma: { targets: ['imp1', 't1'], decoy: false } };
+    await E.resolveNight(g, 1);
+    check('the Mathematician counts a Marionette who acted tonight', g.results.math.body.includes('1'), g.results.math && g.results.math.body);
+  }
+
+  {
+    const g = E.newGame();
+    g.script = 'bmr'; g.nightNumber = 2; g.phase = 'night'; g.results = {};
+    g.players = [mkB('math', 'mathematician'), mkB('lu', 'lunatic', 'imp'), mkB('imp1', 'imp'), mkB('t1', 'empath'), mkB('t2', 'chef')];
+    g.pending = { lu: { targets: ['t1'], decoy: false }, imp1: { targets: ['t2'], decoy: false } };
+    await E.resolveNight(g, 1);
+    check('the Mathematician counts a Lunatic who pointed at someone other than the real kill',
+      g.results.math.body.includes('1'), g.results.math && g.results.math.body);
+  }
+
+  {
+    const g = E.newGame();
+    g.script = 'bmr'; g.nightNumber = 2; g.phase = 'night'; g.results = {};
+    g.players = [mkB('math', 'mathematician'), mkB('lu', 'lunatic', 'imp'), mkB('imp1', 'imp'), mkB('t1', 'empath'), mkB('t2', 'chef')];
+    g.pending = { lu: { targets: ['t2'], decoy: false }, imp1: { targets: ['t2'], decoy: false } };
+    await E.resolveNight(g, 1);
+    check("the Mathematician does NOT count a Lunatic whose point happened to match the real kill",
+      g.results.math.body.includes('0'), g.results.math && g.results.math.body);
+  }
+}
+
 console.log('\nSV: Flowergirl and Town Crier');
 {
   const mk = (id, characterId) => ({ id, name: id, characterId, believedId: characterId, alive: true, statuses: {} });
@@ -1889,6 +2056,79 @@ console.log('\nSV: Sage');
     if (g3.results.sg.names.includes('imp1')) sawRealDemon = true;
   }
   check(`a poisoned Sage's false pair never actually includes the real Demon (${trials} trials)`, !sawRealDemon);
+
+  // Jinx found auditing against the official wiki: "the Recluse might
+  // register as the Demon to the Sage." Forced via setWhimJudge, same
+  // injection pattern "The Whim: judge injection" below uses — a live
+  // game always has a real judge attached (server.js's own
+  // E.setWhimJudge(llmWhimJudge)), this file never does by default.
+  {
+    E.setWhimJudge(async () => ({ fire: true, reason: 'test judge says the Recluse registers as the Demon' }));
+    const g4 = E.newGame();
+    g4.script = 'sv'; g4.nightNumber = 2; g4.phase = 'night'; g4.results = {};
+    g4.players = [mk('sg', 'sage'), mk('imp1', 'imp'), mk('re', 'recluse'), mk('t1', 'oracle')];
+    g4.pending = { imp1: { targets: ['sg'], decoy: false } };
+    await E.resolveNight(g4, 1);
+    check('when the whim fires, the Sage sees the Recluse in place of the real Demon',
+      g4.results.sg.names.includes('re') && !g4.results.sg.names.includes('imp1'),
+      JSON.stringify(g4.results.sg.names));
+    const lastTV = g4.trueValueLog[g4.trueValueLog.length - 1];
+    check('the trueValueLog entry is flagged impaired (misled), even though nobody was actually poisoned',
+      lastTV && lastTV.impaired === true && lastTV.trueValue === 'imp1', JSON.stringify(lastTV));
+  }
+
+  {
+    E.setWhimJudge(async () => ({ fire: false, reason: 'test judge says no' }));
+    const g5 = E.newGame();
+    g5.script = 'sv'; g5.nightNumber = 2; g5.phase = 'night'; g5.results = {};
+    g5.players = [mk('sg', 'sage'), mk('imp1', 'imp'), mk('re', 'recluse'), mk('t1', 'oracle')];
+    g5.pending = { imp1: { targets: ['sg'], decoy: false } };
+    await E.resolveNight(g5, 1);
+    check('when the whim does not fire, the Sage still sees the real Demon, Recluse or not',
+      g5.results.sg.names.includes('imp1'), JSON.stringify(g5.results.sg.names));
+  }
+
+  {
+    // No living Recluse at all — nothing to consult a whim over in the
+    // first place, same as isEvilRegistration never applying to a table
+    // with no Recluse or Spy in play.
+    E.setWhimJudge(async () => ({ fire: true, reason: 'would fire, but there is no Recluse to name' }));
+    const g6 = E.newGame();
+    g6.script = 'sv'; g6.nightNumber = 2; g6.phase = 'night'; g6.results = {};
+    g6.players = [mk('sg', 'sage'), mk('imp1', 'imp'), mk('t1', 'oracle')];
+    g6.pending = { imp1: { targets: ['sg'], decoy: false } };
+    await E.resolveNight(g6, 1);
+    check('with no Recluse in play, the Sage always sees the real Demon regardless of the judge',
+      g6.results.sg.names.includes('imp1'), JSON.stringify(g6.results.sg.names));
+  }
+
+  {
+    // Same probabilistic-bug shape as the 200-trial poisoned check above,
+    // and for the same reason: a decoy pool that merely excludes the
+    // Recluse (not the real Demon too) could still show the real Demon
+    // anyway, by chance, in the decoy slot — a larger roster than the
+    // single-candidate one just above actually gives that chance room to
+    // happen if the exclusion is ever wrong again.
+    E.setWhimJudge(async () => ({ fire: true, reason: 'test judge says yes' }));
+    let sawRealDemon = false;
+    const trials = 200;
+    for (let i = 0; i < trials; i++) {
+      const g7 = E.newGame();
+      g7.script = 'sv'; g7.nightNumber = 2; g7.phase = 'night'; g7.results = {};
+      g7.players = [
+        mk('sg', 'sage'), mk('imp1', 'imp'), mk('re', 'recluse'),
+        mk('t1', 'oracle'), mk('t2', 'witch'), mk('t3', 'snakecharmer'), mk('t4', 'dreamer'),
+      ];
+      g7.pending = { imp1: { targets: ['sg'], decoy: false } };
+      await E.resolveNight(g7, 1);
+      if (g7.results.sg.names.includes('imp1')) sawRealDemon = true;
+    }
+    check(`when the whim fires, the real Demon never appears either named or as the decoy (${trials} trials)`, !sawRealDemon);
+  }
+
+  // setWhimJudge is module-level, global state, not per-game — see "The
+  // Whim: judge injection" section's own identical cleanup note below.
+  E.setWhimJudge(null);
 }
 
 console.log('\nSV: Snake Charmer');
@@ -2261,60 +2501,79 @@ console.log('\nSV: Vortox — "no execution" win condition');
     E.checkVictory(g3) === null);
 }
 
-console.log('\nSV: Barber');
+console.log('\nSV: Barber (no wave 2 — the swap rides along with the Demon\'s own turn)');
 {
-  const mk = (id, characterId) => ({ id, name: id, characterId, believedId: characterId, alive: true, statuses: {} });
   // Vortox, not Fang Gu — a Fang Gu killing an Outsider triggers its own
   // transform mechanic instead of a plain death (see the Fang Gu tests
   // above), which would confuse what this test is isolating.
-  const g = E.newGame();
-  g.script = 'sv'; g.nightNumber = 2; g.phase = 'night'; g.wave = 1; g.results = {};
-  g.players = [mk('fg', 'vortox'), mk('ba', 'barber'), mk('t1', 'oracle'), mk('t2', 'dreamer')];
-  g.pending = { fg: { targets: ['ba'], decoy: false } };
-  await E.resolveNight(g, 1);
-  const fg = g.players.find(p => p.id === 'fg');
-  check("the Barber dies to the Demon's kill tonight", !g.players.find(p => p.id === 'ba').alive);
-  check('the Demon is flagged for a wave-2 barber-swap prompt', fg.statuses.barberSwapPending === true);
-  check('wave 2 is now needed', E.needsWaveTwo(g) === true);
-
-  g.wave = 2;
-  const prompt = E.promptFor(g, fg);
-  check('the Demon gets the synthetic barber-swap prompt in wave 2',
-    !!prompt && prompt.characterId === 'barber-swap' && prompt.count === 2 && prompt.optional === true);
-
-  g.pending = { fg: { targets: ['t1', 't2'], decoy: false } };
-  await E.resolveNight(g, 2);
-  const t1 = g.players.find(p => p.id === 't1'), t2 = g.players.find(p => p.id === 't2');
-  check('the swap exchanges their characters', t1.characterId === 'dreamer' && t2.characterId === 'oracle');
-  check('...and their believedId moves with it', t1.believedId === 'dreamer' && t2.believedId === 'oracle');
-  check('the pending flag is cleared after use', fg.statuses.barberSwapPending === false);
-}
-{
   const mk = (id, characterId) => ({ id, name: id, characterId, believedId: characterId, alive: true, statuses: {} });
   const g = E.newGame();
-  g.script = 'sv'; g.nightNumber = 2; g.phase = 'night'; g.wave = 2; g.results = {};
-  g.players = [mk('fg', 'fanggu'), mk('t1', 'oracle'), mk('t2', 'dreamer')];
-  g.players.find(p => p.id === 'fg').statuses.barberSwapPending = true;
-  g.pending = {};
-  await E.resolveNight(g, 2);
-  check('passing (no targets) leaves everyone unchanged', g.players.find(p => p.id === 't1').characterId === 'oracle');
+  g.script = 'sv'; g.nightNumber = 2; g.phase = 'night'; g.results = {};
+  g.players = [mk('fg', 'vortox'), mk('ba', 'barber'), mk('t1', 'oracle'), mk('t2', 'dreamer')];
+  const fg = g.players.find(p => p.id === 'fg');
+
+  // The Barber is still alive when the Demon's own prompt is built — this
+  // is exactly the "might die tonight" case, asked preemptively.
+  const beforePrompt = E.promptFor(g, fg);
+  check('a living Demon gets the addon while the Barber is still alive, marked NOT definite',
+    !!beforePrompt.barberSwap && beforePrompt.barberSwap.definite === false, JSON.stringify(beforePrompt.barberSwap));
+  check('the addon excludes another Demon but allows the Demon\'s own seat', beforePrompt.barberSwap.targets.some(t => t.id === 'fg'));
+
+  // The Demon's kill target AND their swap pick are submitted together, in
+  // the exact same action — no second submission, no second window.
+  g.pending = { fg: { targets: ['ba'], decoy: false, barberSwapTargets: ['t1', 't2'] } };
+  await E.resolveNight(g);
+  const t1 = g.players.find(p => p.id === 't1'), t2 = g.players.find(p => p.id === 't2');
+  check("the Barber died to the Demon's own kill tonight", !g.players.find(p => p.id === 'ba').alive);
+  check('the swap exchanges their characters, since the Barber really did die', t1.characterId === 'dreamer' && t2.characterId === 'oracle');
+  check('...and their believedId moves with it', t1.believedId === 'dreamer' && t2.believedId === 'oracle');
+  check('the pending flag is cleared after use, one-shot', fg.statuses.barberSwapPending === false);
+}
+{
+  // Passing — no swap targets submitted alongside the kill — leaves
+  // everyone's character untouched, even though the Barber genuinely died.
+  const mk = (id, characterId) => ({ id, name: id, characterId, believedId: characterId, alive: true, statuses: {} });
+  const g = E.newGame();
+  g.script = 'sv'; g.nightNumber = 2; g.phase = 'night'; g.results = {};
+  g.players = [mk('fg', 'vortox'), mk('ba', 'barber'), mk('t1', 'oracle'), mk('t2', 'dreamer')];
+  g.pending = { fg: { targets: ['ba'], decoy: false } }; // no barberSwapTargets at all
+  await E.resolveNight(g);
+  check('passing (no swap targets submitted) leaves everyone unchanged', g.players.find(p => p.id === 't1').characterId === 'oracle');
   check('the flag is still cleared even on a pass', g.players.find(p => p.id === 'fg').statuses.barberSwapPending === false);
 }
 {
+  // A poisoned Demon's pre-submitted swap choice silently fails to apply —
+  // same "may look like it worked, doesn't" doctrine the original wave-2
+  // version already had; unchanged by moving where the choice is captured.
   const mk = (id, characterId) => ({ id, name: id, characterId, believedId: characterId, alive: true, statuses: {} });
   const g = E.newGame();
-  g.script = 'sv'; g.nightNumber = 2; g.phase = 'night'; g.wave = 2; g.results = {};
-  g.players = [mk('fg', 'fanggu'), mk('t1', 'oracle'), mk('t2', 'dreamer')];
-  const fg = g.players.find(p => p.id === 'fg');
-  fg.statuses.barberSwapPending = true;
-  fg.statuses.poisoned = true;
-  g.pending = { fg: { targets: ['t1', 't2'], decoy: false } };
-  await E.resolveNight(g, 2);
+  g.script = 'sv'; g.nightNumber = 2; g.phase = 'night'; g.results = {};
+  g.players = [mk('fg', 'vortox'), mk('ba', 'barber'), mk('t1', 'oracle'), mk('t2', 'dreamer')];
+  g.players.find(p => p.id === 'fg').statuses.poisoned = true;
+  g.pending = { fg: { targets: ['ba'], decoy: false, barberSwapTargets: ['t1', 't2'] } };
+  await E.resolveNight(g);
   check('a poisoned Demon cannot use the barber-swap even if submitted', g.players.find(p => p.id === 't1').characterId === 'oracle');
+}
+{
+  // A chosen swap target who separately dies THIS SAME night (some other
+  // kill mechanism entirely) is no longer valid by the time the swap is
+  // actually applied — the whole point of re-validating post-resolution,
+  // not just trusting whatever the Demon saw when they first submitted.
+  const mk = (id, characterId) => ({ id, name: id, characterId, believedId: characterId, alive: true, statuses: {} });
+  const g = E.newGame();
+  g.script = 'sv'; g.nightNumber = 2; g.phase = 'night'; g.results = {};
+  g.players = [mk('fg', 'vortox'), mk('ba', 'barber'), mk('t1', 'oracle'), mk('t2', 'dreamer'), mk('tk', 'tinker')];
+  g.config.tinkerDeathChance = 1; // deterministic: the Tinker always dies this trial
+  g.pending = { fg: { targets: ['ba'], decoy: false, barberSwapTargets: ['t1', 'tk'] } };
+  await E.resolveNight(g);
+  check('the Tinker really did die from an unrelated mechanism this same night', !g.players.find(p => p.id === 'tk').alive);
+  check('the swap does not apply — one of the two chosen targets is no longer alive to swap',
+    g.players.find(p => p.id === 't1').characterId === 'oracle');
 }
 {
   // The other trigger: executed today (not killed tonight) — the exact
   // mechanism server.js's recordExecution already uses for every execution.
+  // Definite, not preemptive, by the time the Demon's next prompt is built.
   const mk = (id, characterId) => ({ id, name: id, characterId, believedId: characterId, alive: true, statuses: {} });
   const g = E.newGame();
   g.script = 'sv';
@@ -2323,20 +2582,169 @@ console.log('\nSV: Barber');
   g.players.push(ba);
   E.triggerDeathHooks(g, ba, { killedByDemon: false });
   check('executing the Barber flags a living Demon too', g.players.find(p => p.id === 'fg').statuses.barberSwapPending === true);
-  check('wave 2 is needed starting the next night', E.needsWaveTwo(g) === true);
 
-  g.nightNumber = 3; g.phase = 'night'; g.wave = 2;
+  g.nightNumber = 3; g.phase = 'night';
   const prompt = E.promptFor(g, g.players.find(p => p.id === 'fg'));
-  check('another living Demon is excluded from the swap targets', !prompt.targets.some(t => t.id === 'vg'));
-  check('a non-Demon player is still offered', prompt.targets.some(t => t.id === 't1'));
+  check('the addon is now marked definite, not just possible', prompt.barberSwap && prompt.barberSwap.definite === true);
+  check('another living Demon is excluded from the swap targets', !prompt.barberSwap.targets.some(t => t.id === 'vg'));
+  check('a non-Demon player is still offered', prompt.barberSwap.targets.some(t => t.id === 't1'));
 }
 {
   const mk = (id, characterId) => ({ id, name: id, characterId, believedId: characterId, alive: true, statuses: {} });
   const g = E.newGame();
-  g.script = 'sv'; g.nightNumber = 2; g.phase = 'night'; g.wave = 1;
+  g.script = 'sv'; g.nightNumber = 2; g.phase = 'night';
   g.players = [mk('ba', 'barber'), mk('t1', 'oracle')];
   const prompt = E.promptFor(g, g.players.find(p => p.id === 'ba'));
-  check('a living Barber has no active ability of their own — just a decoy', !!prompt && prompt.decoy === true);
+  check('a living Barber has no active ability of their own — just a decoy, and no addon (they\'re not the Demon)',
+    !!prompt && prompt.decoy === true && !prompt.barberSwap);
+}
+{
+  // No Barber at all in the script — the addon must never appear, for
+  // any Demon, ever.
+  const mk = (id, characterId) => ({ id, name: id, characterId, believedId: characterId, alive: true, statuses: {} });
+  const g = E.newGame();
+  g.script = 'tb'; g.nightNumber = 2; g.phase = 'night';
+  g.players = [mk('d', 'imp'), mk('t1', 'soldier')];
+  const prompt = E.promptFor(g, g.players.find(p => p.id === 'd'));
+  check('no Barber in the script -> no addon at all, even for a living Demon', !prompt.barberSwap);
+}
+
+console.log('\nDamsel (opening briefing must confirm she\'s in play, never who she is)');
+{
+  // The real bug: this used to read `${damsel.name} is the Damsel.`,
+  // naming her seat outright — a guaranteed, risk-free win for evil the
+  // instant day began, since /api/damsel-guess's whole premise (evil
+  // "guesses" and might be wrong) only holds if they genuinely don't know
+  // yet. boozling is one of the three scripts that actually carries her.
+  // 7+ players — below that, "evil stays in the dark" entirely (this same
+  // function's own small-game exception), so nothing would be told to
+  // anyone regardless of the Damsel, and this test would prove nothing.
+  const mk = (id, characterId) => ({ id, name: id, characterId, believedId: characterId, alive: true, statuses: {} });
+  const g = E.newGame();
+  g.script = 'boozling'; g.nightNumber = 1; g.phase = 'night'; g.results = {};
+  g.players = [
+    mk('dm', 'damsel'), mk('m1', 'poisoner'), mk('m2', 'baron'), mk('d', 'imp'),
+    mk('t1', 'soldier'), mk('t2', 'saint'), mk('t3', 'drunk'),
+  ];
+  await E.resolveNight(g);
+  const m1Body = g.results.m1.body, m2Body = g.results.m2.body;
+  check('a Minion is told the Damsel is in play', m1Body.includes('The Damsel is in play.'), m1Body);
+  check('...but is never told her actual seat/name', !m1Body.includes('dm'), m1Body);
+  check('every Minion gets the same treatment, not just one', m2Body.includes('The Damsel is in play.') && !m2Body.includes('dm'), m2Body);
+}
+{
+  // No Damsel in the roster at all -> no such line for anyone, and
+  // definitely never a false positive naming some other player.
+  const mk = (id, characterId) => ({ id, name: id, characterId, believedId: characterId, alive: true, statuses: {} });
+  const g = E.newGame();
+  g.script = 'tb'; g.nightNumber = 1; g.phase = 'night'; g.results = {};
+  g.players = [
+    mk('m1', 'poisoner'), mk('t1', 'soldier'), mk('d', 'imp'),
+    mk('t2', 'saint'), mk('t3', 'drunk'), mk('t4', 'virgin'), mk('t5', 'mayor'),
+  ];
+  await E.resolveNight(g);
+  check('no Damsel in the script -> no "Damsel" mention at all', !g.results.m1.body.includes('Damsel'), g.results.m1.body);
+}
+{
+  // The second, separate bug: privateState's damselGuess prompt itself was
+  // never gated on a Damsel actually being in the roster at all — every
+  // living Minion, in every game (Trouble Brewing included, which doesn't
+  // even carry the character), saw the "Guess the Damsel" prompt during
+  // the day. Caught live: a real table reported seeing it in a game with
+  // no Damsel dealt.
+  const mk = (id, characterId) => ({ id, name: id, characterId, believedId: characterId, alive: true, statuses: {} });
+  const gNoDamsel = E.newGame();
+  gNoDamsel.script = 'tb'; gNoDamsel.phase = 'day';
+  gNoDamsel.players = [mk('m1', 'poisoner'), mk('t1', 'soldier'), mk('d', 'imp')];
+  check('a living Minion in a Damsel-less game never gets the damselGuess prompt',
+    E.privateState(gNoDamsel, 'm1').damselGuess === null);
+
+  const gDamsel = E.newGame();
+  gDamsel.script = 'boozling'; gDamsel.phase = 'day';
+  gDamsel.players = [mk('dm', 'damsel'), mk('m1', 'poisoner'), mk('d', 'imp')];
+  const withDamsel = E.privateState(gDamsel, 'm1').damselGuess;
+  check('a living Minion in a real Damsel game DOES get the prompt', !!withDamsel, JSON.stringify(withDamsel));
+  check('the target list includes the Damsel herself, among everyone else', withDamsel && withDamsel.targets.some(t => t.id === 'dm'));
+
+  // The new Damsel-presence check is additive — every pre-existing gate
+  // still holds alongside it, not replaced by it.
+  check('a non-Minion in the same real Damsel game still never gets it', E.privateState(gDamsel, 'd').damselGuess === null);
+  gDamsel.damselGuessUsed = true;
+  check('a Minion in a real Damsel game, once the guess is already used, no longer gets it',
+    E.privateState(gDamsel, 'm1').damselGuess === null);
+}
+
+console.log('\nRavenkeeper (day-phase reveal, not wave 2)');
+{
+  const mk = (id, characterId, alive = true) => ({ id, name: id, characterId, believedId: characterId, alive, statuses: {} });
+
+  // A night kill on the Ravenkeeper no longer opens a second window on its
+  // own — see promptFor's own comments in engine.js for why (moved to a
+  // day-phase route after a real report: a player who'd just learned they
+  // died, needing to also read new instructions and choose a target
+  // inside that window's old 20-second deadline, and consistently losing
+  // that race). There's no wave-2 mechanism left in this codebase at all
+  // now — resolveNight only ever runs one pass, full stop.
+  const g = E.newGame();
+  g.script = 'tb'; g.nightNumber = 2; g.phase = 'night';
+  g.players = [mk('rk', 'ravenkeeper'), mk('t1', 'soldier'), mk('d', 'imp')];
+  g.pending = { d: { targets: ['rk'] } };
+  await E.resolveNight(g);
+  const rk = g.players.find(p => p.id === 'rk');
+  check('the Ravenkeeper actually died', rk.alive === false);
+  check('she has no night prompt of her own to answer', E.promptFor(g, rk) === null);
+  check('instead, she is left with a day-phase choice pending', rk.statuses.ravenkeeperPending === true);
+
+  // A real player's day-phase choice — server.js's /api/ravenkeeper-choice
+  // is a thin wrapper around exactly this.
+  const result = await E.resolveRavenkeeperChoice(g, rk, 't1');
+  check('resolveRavenkeeperChoice returns the reveal', result && result.body === 't1 is the Soldier.', JSON.stringify(result));
+  check('logTrueValue recorded the real answer, unfalsified', g.trueValueLog.some(
+    tv => tv.playerId === 'rk' && tv.characterId === 'ravenkeeper' && tv.trueValue === 'soldier' && tv.shown === 'soldier' && tv.impaired === false));
+
+  check('an unknown target is rejected, not silently resolved', await E.resolveRavenkeeperChoice(g, rk, 'nobody') === null);
+  check('targeting herself is rejected', await E.resolveRavenkeeperChoice(g, rk, 'rk') === null);
+
+  // Poisoned (or otherwise impaired): wrong, never silent — same doctrine
+  // as every other info role, see game/abilities/README.md.
+  const gPoisoned = E.newGame();
+  gPoisoned.script = 'tb';
+  gPoisoned.players = [mk('rk2', 'ravenkeeper'), mk('t2', 'soldier'), mk('d2', 'imp')];
+  gPoisoned.players.find(p => p.id === 'rk2').statuses.poisoned = true;
+  gPoisoned.mercyUsed = true; // deliberately pre-spent so Mercy can't quietly rescue this assertion
+  const poisonedResult = await E.resolveRavenkeeperChoice(gPoisoned, gPoisoned.players.find(p => p.id === 'rk2'), 't2');
+  check('a poisoned Ravenkeeper is still shown SOME character, never silent', !!poisonedResult, JSON.stringify(poisonedResult));
+  check('a poisoned Ravenkeeper\'s shown answer is false, not the real one', poisonedResult.body !== 't2 is the Soldier.', poisonedResult.body);
+  check('the false answer is still logged as impaired, with the real truth alongside it', gPoisoned.trueValueLog.some(
+    tv => tv.playerId === 'rk2' && tv.trueValue === 'soldier' && tv.impaired === true && tv.shown !== 'soldier'));
+
+  // The pending choice expires if never used, once night falls again — "the
+  // day immediately following the death," not indefinitely available.
+  const gExpire = E.newGame();
+  gExpire.script = 'tb'; gExpire.nightNumber = 2; gExpire.phase = 'night'; gExpire.wave = 1;
+  gExpire.players = [mk('rk3', 'ravenkeeper'), mk('t3', 'soldier'), mk('d3', 'imp')];
+  gExpire.pending = { d3: { targets: ['rk3'] } };
+  await E.resolveNight(gExpire, 1);
+  check('pending right after the death', gExpire.players.find(p => p.id === 'rk3').statuses.ravenkeeperPending === true);
+  gExpire.nightNumber = 3; gExpire.phase = 'night'; gExpire.wave = 1; gExpire.pending = {};
+  await E.resolveNight(gExpire, 1);
+  check('no longer pending once the next night\'s wave-1 reset has run', !gExpire.players.find(p => p.id === 'rk3').statuses.ravenkeeperPending);
+
+  // A bot has no day-phase UI to act through — resolveNight resolves a bot
+  // Ravenkeeper's reveal immediately instead of leaving it pending, so a
+  // full-bot game (npm run sim's own default, /api/sim/start) still
+  // exercises this reveal rather than silently losing it.
+  const gBot = E.newGame();
+  gBot.script = 'tb'; gBot.nightNumber = 2; gBot.phase = 'night'; gBot.wave = 1;
+  gBot.players = [
+    { ...mk('rkb', 'ravenkeeper'), bot: true },
+    mk('t4', 'soldier'), mk('d4', 'imp'),
+  ];
+  gBot.pending = { d4: { targets: ['rkb'] } };
+  await E.resolveNight(gBot, 1);
+  const rkb = gBot.players.find(p => p.id === 'rkb');
+  check('a bot Ravenkeeper is resolved immediately, not left pending', !rkb.statuses.ravenkeeperPending);
+  check('a bot Ravenkeeper still gets a real reveal', !!gBot.results.rkb, JSON.stringify(gBot.results.rkb));
 }
 
 console.log('\nSV: Mutant setup (dealRoles)');
@@ -2507,7 +2915,10 @@ console.log('\napplyConfigPatch');
   const g = E.newGame();
   E.applyConfigPatch(g, { mayorRedirectChance: 2, tinkerDeathChance: -1, windowSeconds: 3, wave2Seconds: 99999 });
   check('chance values are clamped to [0,1]', g.config.mayorRedirectChance === 1 && g.config.tinkerDeathChance === 0);
-  check('second values are clamped to a sane range', g.config.windowSeconds === 5 && g.config.wave2Seconds === 600);
+  check('second values are clamped to a sane range', g.config.windowSeconds === 5);
+  // No wave-2 mechanism is left in this codebase at all — wave2Seconds is
+  // just an unrecognized key now, same as any other unknown patch field.
+  check('wave2Seconds is no longer a real config key — silently ignored, not stored', !('wave2Seconds' in g.config));
 
   const g2 = E.newGame();
   E.applyConfigPatch(g2, { pacifistSaveChance: 0.42, notAKnownKey: 'hello', players: 'ignored' });
@@ -2531,6 +2942,11 @@ console.log('\napplyConfigPatch');
   const g6 = E.newGame();
   E.applyConfigPatch(g6, { llmStorytellerEnabled: 'yes' });
   check('llmStorytellerEnabled is coerced to a real boolean', g6.config.llmStorytellerEnabled === true);
+
+  const g7 = E.newGame();
+  check('licensedAmbientMusic defaults to off', g7.config.licensedAmbientMusic === false);
+  E.applyConfigPatch(g7, { licensedAmbientMusic: 'yes' });
+  check('licensedAmbientMusic is coerced to a real boolean, same as llmStorytellerEnabled', g7.config.licensedAmbientMusic === true);
 }
 
 console.log('\nbuildStorytellerContext');
@@ -2806,6 +3222,23 @@ console.log('\nCarousel: Cannibal (execution-triggered)');
   const goodExecutee2 = g2.players.find(p => p.id === 't1'); // already "dead" above; reused just as a good execution event
   E.applyCannibalTransform(g2, goodExecutee2);
   check('the poison clears once a good player is later executed', !cannibal2.statuses.poisoned);
+}
+
+console.log('\nMarionette: always impaired, same as the Drunk');
+{
+  // Official ruling, found while auditing jinxes: "treat the Marionette as
+  // if they were drunk" — mechanically identical (may get false info, does
+  // not wake for Minion Info), distinct only in what she doesn't know (her
+  // own alignment). impaired() used to miss her entirely, meaning a
+  // Marionette who believed herself an info role got that role's real,
+  // true answer — not a jinx nuance, an actual leak to the evil team.
+  const marionette = { id: 'm', characterId: 'marionette', believedId: 'empath', alive: true, statuses: {} };
+  check('a Marionette is always impaired, with no poison/drunk status needed',
+    E.impaired(marionette) === true);
+
+  const notYetMarionette = { id: 'm2', characterId: 'empath', believedId: 'empath', alive: true, statuses: {} };
+  check('a real (non-Marionette) good character with the same statuses is not impaired by this alone',
+    E.impaired(notYetMarionette) === false);
 }
 
 console.log('\nCarousel: Marionette (dealRoles + deliverOpeningInfo)');
@@ -3168,6 +3601,107 @@ console.log('\nheuristicWhim (Option 1: the non-LLM judgment)');
   ]); // 6 living, not endgame, good ahead
   check('a tight endgame fires more often than a larger, good-ahead midgame', endgame > midgame,
     `endgame=${endgame}, midgame=${midgame}`);
+
+  // Real report: a Mayor that felt unkillable — traced to this escalating
+  // all the way to 0.5 * 1.4 * 1.2 = 0.84 in the endgame, silently, with
+  // no host visibility until the Confirm card started showing up at
+  // <=5 living (by which point the pattern had already shaped the whole
+  // game). Softened to a real nudge, not near-immunity — locks in the new
+  // ceiling (0.5 * 1.2 * 1.1 = 0.66) so it can't silently climb back up.
+  check('the worst case (trailing side, endgame) stays a real nudge, not the old near-immunity',
+    endgame > 0.5 && endgame < 0.75, `endgame fire rate: ${endgame}`);
+}
+
+console.log('\nBot claims (Dry Run day-phase placeholder, before the LLM reasoning layer)');
+{
+  const mk = (id, characterId, believedId) => ({
+    id, name: id, characterId, believedId: believedId || characterId, alive: true, statuses: {},
+  });
+
+  {
+    const g = E.newGame();
+    g.players = [mk('a', 'chef'), mk('b', 'imp'), mk('c', 'poisoner')];
+    const claim = E.heuristicBotClaim(g, g.players[0]);
+    check('a good-aligned bot claims its own believed character',
+      claim && claim.claimedCharacterId === 'chef', JSON.stringify(claim));
+  }
+
+  {
+    const g = E.newGame();
+    g.players = [mk('a', 'chef'), mk('b', 'imp'), mk('c', 'poisoner')];
+    const claim = E.heuristicBotClaim(g, g.players[1]); // the Imp
+    const c = claim && E.char(claim.claimedCharacterId);
+    check('an evil-aligned bot never claims its own true demon/minion character',
+      claim && c && c.team !== 'demon' && c.team !== 'minion', JSON.stringify(claim));
+  }
+
+  {
+    const g = E.newGame();
+    // A Drunk believes they're a Townsfolk (here: Soldier) — not lying,
+    // just claiming their own false belief, same as a real Drunk would.
+    g.players = [mk('a', 'drunk', 'soldier'), mk('b', 'imp')];
+    const claim = E.heuristicBotClaim(g, g.players[0]);
+    check('a Drunk claims their believed role, not the true "drunk" character',
+      claim && claim.claimedCharacterId === 'soldier', JSON.stringify(claim));
+  }
+
+  {
+    const g = E.newGame();
+    // The Lunatic believes they ARE the Demon — claiming that out loud
+    // would be a confession, so the heuristic has to override believedId
+    // here specifically, unlike the Drunk case above.
+    g.players = [mk('a', 'lunatic', 'imp'), mk('b', 'imp')];
+    const claim = E.heuristicBotClaim(g, g.players[0]);
+    const c = claim && E.char(claim.claimedCharacterId);
+    check('a Lunatic (believes they are the Demon) bluffs a good role instead of claiming the Demon',
+      claim && c && c.team !== 'demon' && c.team !== 'minion', JSON.stringify(claim));
+  }
+
+  {
+    const g = E.newGame();
+    g.players = [mk('a', 'imp'), mk('b', 'poisoner'), mk('c', 'chef')];
+    const first = E.heuristicBotClaim(g, g.players[0]);
+    E.recordClaim(g, g.players[0], first.claimedCharacterId, first.statement);
+    const second = E.heuristicBotClaim(g, g.players[1]);
+    check('a second evil bot avoids bluffing a character the first one already claimed',
+      second.claimedCharacterId !== first.claimedCharacterId,
+      `first=${first.claimedCharacterId}, second=${second.claimedCharacterId}`);
+  }
+
+  {
+    const g = E.newGame();
+    g.players = [mk('a', 'chef')];
+    const entry = E.recordClaim(g, g.players[0], 'chef', 'I counted 1 pair.');
+    check('recordClaim pushes a full entry onto g.claims',
+      g.claims.length === 1 && g.claims[0].playerId === 'a' && g.claims[0].claimedCharacterName === 'Chef',
+      JSON.stringify(g.claims[0]));
+    check('recordClaim logs the claim publicly (not secret)',
+      g.log.some(l => !l.secret && l.text.includes('claims the Chef')), JSON.stringify(g.log));
+    check("recordClaim's return value is the same entry pushed to g.claims",
+      entry === g.claims[0]);
+  }
+
+  {
+    const g = E.newGame();
+    const p = { ...mk('a', 'chef'), personality: 'aggressive' };
+    g.players = [p];
+    const claim = E.heuristicBotClaim(g, p);
+    check("a bot with a personality assigned gets that personality's flavored statement, not the generic default",
+      claim.statement === "I'll say it plainly — nothing to hide.", JSON.stringify(claim));
+  }
+
+  {
+    const g = E.newGame();
+    g.players = [mk('a', 'chef')]; // no .personality field at all
+    const claim = E.heuristicBotClaim(g, g.players[0]);
+    check('a player with no personality assigned (a real player, or a bot outside a Dry Run) still gets the plain generic statement',
+      claim.statement === 'Nothing more to report yet.', JSON.stringify(claim));
+  }
+
+  check('BOT_PERSONALITIES is a real, non-empty pool, each entry carrying both an id and a blurb',
+    Array.isArray(E.BOT_PERSONALITIES) && E.BOT_PERSONALITIES.length > 1 &&
+    E.BOT_PERSONALITIES.every(x => typeof x.id === 'string' && typeof x.blurb === 'string'),
+    JSON.stringify(E.BOT_PERSONALITIES));
 }
 
 console.log('\nEnd');

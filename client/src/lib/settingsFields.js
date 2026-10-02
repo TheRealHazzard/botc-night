@@ -18,6 +18,5 @@ export const CHANCE_FIELDS = [
 
 export const SECONDS_FIELDS = [
   { key: 'windowSeconds', label: 'Night window (seconds)' },
-  { key: 'wave2Seconds', label: 'Second-wave window (seconds)' },
   { key: 'voteWindowSeconds', label: 'Vote window (seconds)' },
 ];

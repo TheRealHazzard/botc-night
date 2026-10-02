@@ -43,7 +43,7 @@ export default function PlayerApp({ P, token, onChangeUser, onOpenLeaderControls
 
   const choosingTarget =
     (P.phase === 'night' && P.prompt && !P.submitted) ||
-    !!P.moonchildChoice || !!P.klutzChoice || !!P.madClaim ||
+    !!P.moonchildChoice || !!P.klutzChoice || !!P.ravenkeeperChoice || !!P.madClaim ||
     (P.phase === 'day' && (nominating || !!P.slayerShot || !!P.damselGuess || !!P.gossipClaim || !!P.jugglerGuess || !!P.savantVisit || !!P.artistQuestion));
 
   return (
@@ -83,7 +83,7 @@ export default function PlayerApp({ P, token, onChangeUser, onOpenLeaderControls
       {P.phase === 'over' && <GameOverCard victory={P.victory} />}
 
       {P.phase === 'night' && P.prompt && (
-        <NightPromptCard key={`${P.nightNumber}:${P.wave}`} P={P} token={token} />
+        <NightPromptCard key={P.nightNumber} P={P} token={token} />
       )}
       {P.phase === 'night' && !P.prompt && P.you.alive && <NightWaitingCard />}
 
@@ -109,6 +109,18 @@ export default function PlayerApp({ P, token, onChangeUser, onOpenLeaderControls
           targets={P.klutzChoice.targets}
           buttonLabel="Choose"
           endpoint="/api/klutz-choice"
+          token={token}
+          onDone={() => {}}
+        />
+      )}
+
+      {P.ravenkeeperChoice && (
+        <SingleTargetChoice
+          title="The Ravenkeeper"
+          description="You died last night. Privately choose a player — you'll learn their character. This stays between you and your phone."
+          targets={P.ravenkeeperChoice.targets}
+          buttonLabel="Choose"
+          endpoint="/api/ravenkeeper-choice"
           token={token}
           onDone={() => {}}
         />

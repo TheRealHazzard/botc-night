@@ -12,6 +12,8 @@ const H = require('./game/history');
 const { COLOR_PALETTE } = require('./game/colors');
 const { askStoryteller, status: llmStatus } = require('./game/llmStoryteller');
 const Nanoleaf = require('./game/nanoleaf');
+const { noteFor } = require('./game/characterNotes');
+const Jinx = require('./game/jinxData');
 
 const PORT = process.env.PORT || 3000;
 // A second, HTTPS listener alongside the plain one above — installability
@@ -49,6 +51,13 @@ let voteTimer = null;
 const hostStreams = new Set();
 const playerStreams = new Map(); // playerId -> Set<res>
 const simStreams = new Set();    // observer view — simulations only
+// Read-only spectators — people following along without a seat (or the
+// host's own extra privilege). Safe to broadcast the exact same payload
+// the host screen gets: hostState()/publicState() is already engineered
+// to hold nothing secret pre-reveal (no characterId/team per seat, whim
+// reasons redacted — see logWhimConfirm's own comment in helpers.js), so
+// this needs no separate, narrower payload of its own.
+const spectatorStreams = new Set();
 
 function write(res, payload) {
   // A dead phone's socket can still be in this set for a moment before its
@@ -326,6 +335,14 @@ const WHIM_SYSTEM = {
     'judgment call, not a fixed rate — the goal is to help whichever side is currently losing, ' +
     'invisibly. Given the game state, decide whether to save this good player from execution, and give ' +
     'one short sentence of reasoning.',
+  'sage-recluse-demon':
+    'You are a Blood on the Clocktower Storyteller deciding whether the Recluse\'s ambiguous ' +
+    'registration should mislead the Sage right now: "the Recluse might register as the Demon to the ' +
+    'Sage," an official clarification of how the two interact. Real Storyteller guidance treats this as ' +
+    'a judgment call, not a fixed rate — the goal is to help whichever side is currently losing, ' +
+    'invisibly, since naming the Recluse instead of the real Demon keeps the real Demon hidden and ' +
+    'wastes the town\'s suspicion. Given the game state, decide whether the Sage should see the Recluse ' +
+    'in place of the real Demon this time, and give one short sentence of reasoning.',
 };
 
 // The reasoning text above (this.reason on the confirm record) can freely
@@ -414,6 +431,11 @@ function pushHost() {
   maybeTriggerNanoleaf();
   const payload = hostState();
   for (const res of hostStreams) write(res, payload);
+  // Piggybacks on every one of pushHost()'s own ~20 call sites (not just
+  // the ones that happen to go through pushAll() below) — a spectator
+  // should see a lobby join, a reclaim, or any other host-visible change
+  // exactly as promptly as the host's own screen does, not a subset of it.
+  for (const res of spectatorStreams) write(res, payload);
 }
 
 function pushPlayer(playerId) {
@@ -423,16 +445,6 @@ function pushPlayer(playerId) {
   if (!payload) return;
   for (const res of set) write(res, payload);
 }
-
-// Internal bookkeeping that happens to live in the same p.statuses bag as
-// real reminder tokens, but was never meant to be read by anyone — a night
-// number threshold, a stashed player id from last night's choice, or a
-// flag that's redundant with another one shown right next to it. Kept out
-// of the observer view instead of showing up as a meaningless raw key.
-const INTERNAL_ONLY_STATUSES = new Set([
-  'poisonedUntilNight', 'drunkUntilNight', 'exorcistLastTarget', 'daLastTarget',
-  'diedTonight', 'zombuulFaked',
-]);
 
 /** Shared by the live SSE push and the one-shot polling snapshot below —
     the observer view sees everything, so it only ever attaches to a
@@ -453,7 +465,8 @@ function simPayload() {
         trueCharacter: E.trueChar(p) ? E.trueChar(p).name : null,
         trueCharacterId: p.characterId,
         believed: p.believedId,
-        statuses: Object.keys(p.statuses).filter(k => !INTERNAL_ONLY_STATUSES.has(k)),
+        personality: p.personality || null,
+        statuses: Object.keys(p.statuses).filter(k => !E.INTERNAL_ONLY_STATUSES.has(k)),
         choice: (submitted ? submitted.targets : []).map(id => {
           const t = E.byId(game, id);
           return t ? t.name : id;
@@ -522,7 +535,7 @@ function maybeBluffBeat() {
   if (Math.random() < 1 / 6) game.bluffBeatAt = Date.now();
 }
 
-function startNight() {
+async function startNight() {
   // The Mastermind's bonus day: "Night falls" with nobody executed is
   // itself one of the wiki's own two outcomes ("if... no player is
   // executed, declare that the game ends and good wins"), not a dead end
@@ -547,13 +560,12 @@ function startNight() {
     // Mayor's win conditions shouldn't care which one happened — only
     // whether executedToday actually landed.
     game.noExecutionToday = !game.executedToday;
-    E.resolveMadness(game);
+    await E.resolveMadness(game);
     if (finishIfOver()) return;
   }
   flushNightResults();
   game.nightNumber += 1;
   game.phase = 'night';
-  game.wave = 1;
   game.pending = {};
   game.results = {};
   game.executedToday = game.executedToday || null;
@@ -578,40 +590,41 @@ function startNight() {
 // never be picked out as "the one with nothing real to do" — checking
 // "has everyone submitted SOMETHING" (real or decoy) preserves that: the
 // window closing early is a function of whoever happens to submit last,
-// never of who has a real action versus a decoy. A from-beyond prompt
-// (Ravenkeeper just-died in wave 2, a Vigormortis-kept Minion) also counts
-// itself in via the same promptFor check, no special-casing needed.
+// never of who has a real action versus a decoy. A from-beyond prompt (a
+// Vigormortis-kept Minion) also counts itself in via the same promptFor
+// check, no special-casing needed. A living Demon's own barberSwapAddon
+// (engine.js) never affects this either — it's an optional EXTRA field on
+// whatever prompt they already have, not a prompt of its own, so it was
+// never part of what "everyone" means here in the first place.
 function allSubmitted() {
   if (game.phase !== 'night') return false;
   const required = game.players.filter(p => E.promptFor(game, p));
   return required.length > 0 && required.every(p => game.pending[p.id]);
 }
 
+// One window, every night, full stop — there used to be a second, shorter
+// window (wave 2) for whatever needed to react to who died in the first
+// one (the Barber's swap, and — until it moved to a day-phase route of its
+// own — the Ravenkeeper's reveal). Both real problems: opening it at all
+// was itself a tell that something had happened overnight (every OTHER
+// living player got pushed a fresh decoy prompt too, whether or not
+// anything was actually being decided), and its short deadline cost a
+// real Ravenkeeper her one shot at a reveal (see server.js's own
+// /api/ravenkeeper-choice for that report). The Barber's swap is now
+// captured as an extra, optional part of the Demon's OWN turn instead
+// (engine.js's barberSwapAddon/promptFor), submitted in this same window
+// alongside their kill and applied by resolveNight only if the Barber
+// actually turns out to have died — so nothing here needs to wait for a
+// second round at all.
 async function closeWindow() {
   clearTimeout(windowTimer);
   if (game.phase !== 'night') return;
-
-  if (game.wave === 1) {
-    await E.resolveNight(game, 1);
-    if (E.needsWaveTwo(game)) {
-      game.wave = 2;
-      game.windowEndsAt = Date.now() + game.config.wave2Seconds * 1000;
-      game.windowTotalSeconds = game.config.wave2Seconds;
-      pushAll();
-      if (game.players.some(p => p.bot)) setTimeout(botsAnswer, Math.max(300, game.config.wave2Seconds * 400));
-      windowTimer = setTimeout(closeWindow, game.config.wave2Seconds * 1000);
-      return;
-    }
-  } else {
-    await E.resolveNight(game, 2);
-  }
-
+  await E.resolveNight(game, 1);
   endNight();
 }
 
 function endNight() {
   game.phase = 'day';
-  game.wave = 0;
   game.windowEndsAt = null;
   game.windowTotalSeconds = null;
   game.dayStartedAt = Date.now(); // The Read — see useRoomPacing.js
@@ -628,7 +641,14 @@ function endNight() {
   // not instant" head-start botsAnswer's own night-window delay already
   // gives a real device. botsNominate() itself no-ops for a true
   // simulation (that keeps its own faster path in runSimStep below).
-  else if (game.players.some(p => p.bot)) setTimeout(botsNominate, 3000);
+  // Claims land first (1.2s) so botsNominate's own LLM reasoning (3s) has
+  // real claims to react to instead of an empty board — same ordering
+  // runSimStep's day branch already keeps, just spread across real time
+  // instead of resolved in one synchronous pass.
+  else if (game.players.some(p => p.bot)) {
+    setTimeout(() => { botsClaim().then(pushAll); }, 1200);
+    setTimeout(botsNominate, 3000);
+  }
 }
 
 /** A nomination's voting window has run out — lock in whoever voted, apply
@@ -719,7 +739,7 @@ async function recordExecution(playerId) {
         game.deaths.push({ night: game.nightNumber, name: p.name, cause: 'execution', killedByDemon: false, phase: 'day' });
         E.logEvent(game, `${p.name} was executed.`);
         executedPlayer = p;
-        E.triggerDeathHooks(game, p, { killedByDemon: false });
+        await E.triggerDeathHooks(game, p, { killedByDemon: false });
         E.applyCannibalTransform(game, p);
       }
     } else {
@@ -777,7 +797,7 @@ async function recordExecution(playerId) {
       if (p.statuses.evilTwinId) game.evilTwinGoodExecuted = true;
       game.deaths.push({ night: game.nightNumber, name: p.name, cause: 'execution', killedByDemon: false, phase: 'day' });
       E.logEvent(game, `${p.name} was executed.`);
-      E.triggerDeathHooks(game, p, { killedByDemon: false });
+      await E.triggerDeathHooks(game, p, { killedByDemon: false });
       E.applyCannibalTransform(game, p);
 
       // Minstrel: everyone else is drunk until dusk tomorrow, once a Minion
@@ -968,6 +988,14 @@ const BOT_NAMES = ['Ava', 'Marcus', 'Priya', 'Diego', 'Freya', 'Kenji', 'Nadia',
 let simTimer = null;
 
 const pickOne = arr => arr[Math.floor(Math.random() * arr.length)];
+const shuffleArr = arr => {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+};
 
 /** Bots choose plausibly rather than optimally — enough to watch, not to win. */
 function botChoice(p, prompt) {
@@ -1012,7 +1040,7 @@ function botChoice(p, prompt) {
     reimplementation that could quietly drift from it. Returns {status,
     payload} instead of calling json(res, ...) directly, so the route
     handler and a bot caller can each do what they need with the result. */
-function nominateHandler(body) {
+async function nominateHandler(body) {
   // Players nominate themselves now (a token identifies them, same as
   // every other player action route) — the host's own two-dropdown
   // fallback in NominationPanel is kept for a dead phone/no signal, still
@@ -1052,7 +1080,7 @@ function nominateHandler(body) {
         nominator.alive = false;
         game.deaths.push({ night: game.nightNumber, name: nominator.name, cause: 'virgin', killedByDemon: false, phase: 'day' });
         E.logEvent(game, `${nominator.name} nominated the Virgin and was executed immediately.`);
-        E.triggerDeathHooks(game, nominator, { killedByDemon: false });
+        await E.triggerDeathHooks(game, nominator, { killedByDemon: false });
         E.succeedDemon(game, nominator);
       }
     }
@@ -1072,7 +1100,7 @@ function nominateHandler(body) {
       nominator.alive = false;
       game.deaths.push({ night: game.nightNumber, name: nominator.name, cause: 'witch', killedByDemon: false, phase: 'day' });
       E.logEvent(game, `${nominator.name} nominates despite the Witch's curse, and dies for it.`);
-      E.triggerDeathHooks(game, nominator, { killedByDemon: false });
+      await E.triggerDeathHooks(game, nominator, { killedByDemon: false });
       E.succeedDemon(game, nominator);
     }
   }
@@ -1096,7 +1124,7 @@ function nominateHandler(body) {
         golemKilled = true;
         game.deaths.push({ night: game.nightNumber, name: nominee.name, cause: 'golem', killedByDemon: false, phase: 'day' });
         E.logEvent(game, `${nominator.name} (the Golem) nominated ${nominee.name} — not the Demon, and they die.`);
-        E.triggerDeathHooks(game, nominee, { killedByDemon: false });
+        await E.triggerDeathHooks(game, nominee, { killedByDemon: false });
         E.succeedDemon(game, nominee);
       }
     } else {
@@ -1171,6 +1199,221 @@ function voteHandler(body) {
   return { status: 200, payload: { ok: true } };
 }
 
+const BOT_CLAIM_SYSTEM =
+  'You are role-playing one player in a game of Blood on the Clocktower, during the day phase. ' +
+  'You know your own believed character, any private information your ability has already given you, ' +
+  'and everything claimed publicly so far today. Decide whether to publicly claim a character now, ' +
+  'and if so, exactly what to say.\n\n' +
+  'A player whose believed character is good usually benefits from claiming it and sharing real ' +
+  'information early, to help the town find the Demon — but may hold back if the information looks ' +
+  'dangerous to reveal yet. A player whose believed character is evil usually benefits from claiming a ' +
+  'plausible Townsfolk or Outsider role not already truthfully claimed, with invented information ' +
+  'consistent with everything said publicly so far — a good bluff never contradicts an existing claim. ' +
+  'Never pick a character already claimed by someone else unless you intend a contradiction on purpose.\n\n' +
+  'Reason about what this specific player, with this personality, would actually do here — not what is ' +
+  'abstractly optimal.';
+
+function botClaimSchema(g) {
+  return {
+    type: 'object',
+    properties: {
+      reasoning: { type: 'string' },
+      shouldClaim: { type: 'boolean' },
+      claimedCharacterId: { type: 'string', enum: E.activeScriptPool(g).map(c => c.id) },
+      statement: { type: 'string' },
+    },
+    required: ['reasoning', 'shouldClaim', 'claimedCharacterId', 'statement'],
+    additionalProperties: false,
+  };
+}
+
+/** What one bot actually knows, for its own claim/nominate/vote reasoning —
+    scoped to that player alone, never the omniscient ground truth
+    buildStorytellerContext/judgeFreeformClaim's own prompt uses. Uses the
+    player's BELIEVED character throughout, never their true one, for
+    exactly the reason E.heuristicBotClaim already does: a Drunk or
+    Marionette genuinely doesn't know they're wrong, so reasoning from
+    their true character would make them bluff on purpose when a real one
+    of them never would — only a genuine Minion/Demon (whose believed
+    character already IS their true one) reasons as evil here. */
+function botMemory(g, player) {
+  const believed = E.char(player.believedId) || E.trueChar(player);
+  const personalityEntry = player.personality && E.BOT_PERSONALITIES.find(x => x.id === player.personality);
+  return {
+    you: {
+      name: player.name,
+      believedCharacter: believed ? believed.name : null,
+      believedTeam: believed ? believed.team : null,
+      personality: personalityEntry ? personalityEntry.blurb : null,
+    },
+    // Each result's shown `body` text, exactly as this player was actually
+    // told it (possibly already falsified by poison/drunk) — never the
+    // ground truth behind it.
+    privateInfo: g.resultsLog.filter(r => r.playerId === player.id).map(r => r.body).filter(Boolean),
+    day: g.nightNumber,
+    // {id, name} pairs, not bare names — botNominateSchema's nomineeId enum
+    // is drawn from player ids ('sim0', 'sim1', ...), which are never
+    // otherwise shown anywhere else in this object. A nominate call that
+    // only ever saw names would have no way to produce a valid id at all.
+    alivePlayers: E.alive(g).map(p => ({ id: p.id, name: p.name })),
+    deadPlayers: g.players.filter(p => !p.alive).map(p => ({ id: p.id, name: p.name })),
+    publicClaims: g.claims.map(c => ({
+      day: c.day, player: c.playerName, claimedCharacter: c.claimedCharacterName, statement: c.statement,
+    })),
+    // Built from g.deaths rather than g.nominations — a Dry Run resolves
+    // each day's execution as one internal decision (see
+    // llmChooseExecution below), never through the real timed nomination/
+    // vote-window machinery /api/table/nominate uses, so g.nominations
+    // stays empty here. This still gives a bot the one thing that matters
+    // for its own reasoning: who was executed on which day.
+    executionHistory: g.deaths
+      .filter(d => d.cause === 'execution')
+      .map(d => ({ day: d.night, executed: d.name })),
+  };
+}
+
+/** The LLM-driven replacement for E.heuristicBotClaim — same
+    {claimedCharacterId, statement} | null contract (null meaning "doesn't
+    claim this time," a genuine decision the schema allows for, not a
+    failure), so botsClaim() below doesn't need to know which one actually
+    answered. Off (or unconfigured, or any failure/malformed reply) falls
+    back to the heuristic synchronously — same "any failure degrades
+    gracefully" doctrine llmWhimJudge/judgeFreeformClaim already follow,
+    never a thrown error, never a stalled day. */
+async function llmBotClaim(g, player) {
+  if (!(g.config.llmStorytellerEnabled && llmConfigured())) return E.heuristicBotClaim(g, player);
+  const schema = botClaimSchema(g);
+  const validIds = new Set(schema.properties.claimedCharacterId.enum);
+  const result = await llmCall('bot-claim', {
+    system: BOT_CLAIM_SYSTEM,
+    prompt: `What this player knows:\n${JSON.stringify(botMemory(g, player))}`,
+    schema,
+    maxTokens: 250,
+  });
+  if (!result.ok) return E.heuristicBotClaim(g, player);
+  const data = result.data;
+  if (!data || typeof data.shouldClaim !== 'boolean') return E.heuristicBotClaim(g, player);
+  if (!data.shouldClaim) return null;
+  if (typeof data.claimedCharacterId !== 'string' || !validIds.has(data.claimedCharacterId)) {
+    return E.heuristicBotClaim(g, player);
+  }
+  const statement = typeof data.statement === 'string' && data.statement.trim()
+    ? data.statement.trim() : 'Nothing more to report yet.';
+  return { claimedCharacterId: data.claimedCharacterId, statement };
+}
+
+// Any bot seat, not just a true Dry Run (game.simulation) — a real table
+// padded with bots via /api/table/add-bots (the "solo practice" case: one
+// real player, the rest bots) needs its bots claiming too, or the whole
+// claim-and-suspect loop a real table runs on just never happens for them.
+// Every living BOT who hasn't claimed yet THIS GAME (not just today) gets
+// one, via llmBotClaim (which falls back to the heuristic placeholder on
+// its own — see that function's own comment). Filtered to `p.bot` only —
+// unlike the sim path (where every seat already is one), a mixed table has
+// a real player's own seat in E.alive(game) too, and this must never claim
+// on their behalf.
+async function botsClaim() {
+  if (!game.players.some(p => p.bot)) return;
+  const claimed = new Set(game.claims.map(c => c.playerId));
+  for (const p of E.alive(game).filter(p => p.bot)) {
+    if (claimed.has(p.id)) continue;
+    const claim = await llmBotClaim(game, p);
+    if (claim) E.recordClaim(game, p, claim.claimedCharacterId, claim.statement);
+  }
+}
+
+const BOT_NOMINATE_SYSTEM =
+  'You are role-playing one player in a game of Blood on the Clocktower, during the day phase, deciding ' +
+  'whether to nominate someone for execution. You know your own believed character and alignment, any ' +
+  'private information, and every claim and execution made publicly so far.\n\n' +
+  'Base suspicion on contradictions between claims, players who haven\'t claimed at all, who was executed ' +
+  'on past days, and anything your own private information tells you directly. A player whose believed ' +
+  'character is good should nominate whoever seems most likely evil given the public picture. A player ' +
+  'whose believed character is evil should nominate to protect themselves and their allies — sometimes ' +
+  'that means nominating a townsfolk to cast suspicion elsewhere, sometimes it means staying quiet.\n\n' +
+  'Most days, most players should NOT nominate — only nominate when you have a real reason to. Factor in ' +
+  'this player\'s own personality, given in their own data below.';
+
+const BOT_VOTE_SYSTEM =
+  'You are role-playing one player in a game of Blood on the Clocktower, deciding how to vote on the ' +
+  'player currently nominated for execution. You know your own believed character and alignment, any ' +
+  'private information, and everything claimed and executed publicly so far, including this nominee\'s ' +
+  'own claim.\n\n' +
+  'A player whose believed character is good should vote yes when the public evidence points at the ' +
+  'nominee being evil, no otherwise. A player whose believed character is evil should usually protect ' +
+  'their own allies and themselves with a no vote — but voting yes on a weak ally, or even each other, ' +
+  'can sometimes be the better disguise than a suspicious block of no votes.\n\n' +
+  'Factor in this player\'s own personality, given in their own data below.';
+
+const BOT_VOTE_SCHEMA = {
+  type: 'object',
+  properties: {
+    reasoning: { type: 'string' },
+    vote: { type: 'string', enum: ['yes', 'no'] },
+  },
+  required: ['reasoning', 'vote'],
+  additionalProperties: false,
+};
+
+function botNominateSchema(g, excludeId) {
+  return {
+    type: 'object',
+    properties: {
+      reasoning: { type: 'string' },
+      shouldNominate: { type: 'boolean' },
+      nomineeId: { type: 'string', enum: E.alive(g).filter(p => p.id !== excludeId).map(p => p.id) },
+    },
+    required: ['reasoning', 'shouldNominate', 'nomineeId'],
+    additionalProperties: false,
+  };
+}
+
+/** One bot's own nominate decision. Return contract (distinct from
+    llmBotClaim's — there's no single heuristic equivalent for "did THIS
+    bot want to nominate," so a per-bot failure has to be distinguishable
+    from a genuine "no" rather than silently read as one):
+      - a player id  → this bot wants to nominate that player
+      - null         → a genuine "no, not this time"
+      - undefined    → the call itself failed or came back malformed;
+                        the caller (llmChooseExecution) treats this as a
+                        reason to abandon the whole day's LLM-driven
+                        resolution, not just this one bot's answer. */
+async function llmBotNominate(g, player) {
+  const schema = botNominateSchema(g, player.id);
+  if (!schema.properties.nomineeId.enum.length) return null; // nobody else alive to nominate
+  const result = await llmCall('bot-nominate', {
+    system: BOT_NOMINATE_SYSTEM,
+    prompt: `What this player knows:\n${JSON.stringify(botMemory(g, player))}`,
+    schema,
+    maxTokens: 250,
+  });
+  if (!result.ok) return undefined;
+  const data = result.data;
+  if (!data || typeof data.shouldNominate !== 'boolean') return undefined;
+  if (!data.shouldNominate) return null;
+  const validIds = new Set(schema.properties.nomineeId.enum);
+  if (typeof data.nomineeId !== 'string' || !validIds.has(data.nomineeId)) return undefined;
+  return data.nomineeId;
+}
+
+/** One bot's own vote on the current nominee. 'yes' | 'no' on a real
+    answer, undefined on any failure or malformed reply — same "abandon
+    the whole day's LLM resolution, don't half-trust a broken call"
+    contract llmBotNominate's own comment explains. */
+async function llmBotVote(g, player, nomineeId) {
+  const nominee = E.byId(g, nomineeId);
+  const result = await llmCall('bot-vote', {
+    system: BOT_VOTE_SYSTEM,
+    prompt: `What this player knows:\n${JSON.stringify(botMemory(g, player))}\n\n` +
+      `The player currently nominated for execution: ${nominee ? nominee.name : nomineeId}`,
+    schema: BOT_VOTE_SCHEMA,
+    maxTokens: 200,
+  });
+  if (!result.ok) return undefined;
+  const vote = result.data && result.data.vote;
+  return ['yes', 'no'].includes(vote) ? vote : undefined;
+}
+
 /**
  * Bots have no discussion to reason from, so a uniform random execution finds
  * the Demon on day one far more often than a real table does. Weight it: evil
@@ -1200,6 +1443,44 @@ function chooseExecution() {
   return weighted[weighted.length - 1].p;
 }
 
+/** The LLM-driven replacement for chooseExecution() — reasons from real
+    claims and execution history instead of a flat per-character weight.
+    Asks bots, in a random order, whether each wants to nominate (mirrors
+    botsNominate()'s own "exactly one bot-initiated nomination per day"
+    shape — stops at the first real "yes"); if someone does, every living
+    bot then votes on them, tallied against the same majority threshold
+    /api/table/nominate itself uses (Math.ceil(living/2)).
+
+    Any call failure anywhere in this sequence falls back to
+    chooseExecution() for the WHOLE day, not just the one bot whose call
+    failed — this stays one atomic "how did today's execution get
+    decided" choice, never a hybrid of some bots reasoned-about and
+    others heuristic-guessed within the same day. "Nobody wanted to
+    nominate today" and "the vote didn't reach threshold" are both
+    genuine, reasoned outcomes, not failures — they return null (no
+    execution), the same as a real day that never qualifies one. */
+async function llmChooseExecution(g) {
+  const living = E.alive(g);
+  if (!living.length) return null;
+
+  let nomineeId = null;
+  for (const p of shuffleArr(living)) {
+    const result = await llmBotNominate(g, p);
+    if (result === undefined) return chooseExecution();
+    if (result) { nomineeId = result; break; }
+  }
+  if (!nomineeId) return null;
+
+  let yes = 0;
+  for (const p of living) {
+    const vote = await llmBotVote(g, p, nomineeId);
+    if (vote === undefined) return chooseExecution();
+    if (vote === 'yes') yes++;
+  }
+  const threshold = Math.ceil(living.length / 2);
+  return yes >= threshold ? E.byId(g, nomineeId) : null;
+}
+
 // Gated on actual bot seats being present, not on game.simulation — a real
 // game padded with bots via /api/table/add-bots needs its bots answered
 // too, without taking on simulation's much broader meaning (see that
@@ -1221,7 +1502,16 @@ function botsAnswer() {
     const countOk = targets.length === prompt.count || (prompt.optional && targets.length === 0);
     if (countOk) {
       const characterGuess = prompt.guessCharacter ? pickOne(prompt.characterOptions).id : undefined;
-      game.pending[p.id] = { targets, decoy: !!prompt.decoy, characterGuess };
+      // botChoice's own shape (targets/count/decoy/characterId) happens to
+      // match prompt.barberSwap closely enough to reuse directly — no
+      // decoy, no characterId, so it always lands on the generic
+      // shuffle-and-slice branch, exactly what a plain "pick 2" choice
+      // needs. A bot always takes the swap when it's offered (real players
+      // can decline), which is deliberate: a full-bot game (npm run sim,
+      // /api/sim/start) should keep actually exercising this ability, not
+      // silently stop the moment it's optional.
+      const barberSwapTargets = prompt.barberSwap ? botChoice(p, prompt.barberSwap) : undefined;
+      game.pending[p.id] = { targets, decoy: !!prompt.decoy, characterGuess, barberSwapTargets };
     }
   }
   pushAll();
@@ -1256,22 +1546,44 @@ function botVoteWeight(target, day) {
 // models either. Reuses nominateHandler() directly, so Virgin/Golem/Witch
 // triggers and the vote-window timer all work exactly as they would for a
 // real player's own nomination.
-function botsNominate() {
+async function botsNominate() {
   if (game.phase !== 'day' || game.simulation || !game.players.some(p => p.bot)) return;
   const today = game.nominations.filter(n => n.day === game.nightNumber);
   if (today.length) return; // someone already nominated today — bot or real player
-  if (Math.random() >= 0.78) return;
 
   const living = E.alive(game);
   const bots = living.filter(p => p.bot);
   if (!bots.length || living.length < 2) return;
+
+  // Real reasoning over claims/suspicion instead of the flat heuristic
+  // below, for the same "solo practice" mixed tables botsClaim() above
+  // now serves — mirrors llmChooseExecution's own nominate loop, just
+  // routed through nominateHandler() so Virgin/Golem/Witch triggers and
+  // the live vote window still fire exactly as they would for a real
+  // player's own nomination (llmChooseExecution bypasses all of that,
+  // which is fine for a sim with no such UI to drive, not here).
+  if (game.config.llmStorytellerEnabled && llmConfigured()) {
+    let failed = false;
+    for (const p of shuffleArr(bots)) {
+      const result = await llmBotNominate(game, p);
+      if (result === undefined) { failed = true; break; }
+      if (result) { await nominateHandler({ nominatorId: p.id, nomineeId: result }); return; }
+    }
+    // Every bot reasoned about it and all genuinely said no — a real,
+    // reasoned quiet day, not a failure. Only an actual call failure
+    // (`failed`) falls through to the flat heuristic below, same "don't
+    // half-trust a broken call" doctrine llmChooseExecution follows.
+    if (!failed) return;
+  }
+
+  if (Math.random() >= 0.78) return;
   const nominator = pickOne(bots);
   const candidates = living.filter(p => p.id !== nominator.id);
   if (!candidates.length) return;
   const day = game.nightNumber;
   const nominee = candidates.reduce((best, p) => (botVoteWeight(p, day) > botVoteWeight(best, day) ? p : best), candidates[0]);
 
-  nominateHandler({ nominatorId: nominator.id, nomineeId: nominee.id });
+  await nominateHandler({ nominatorId: nominator.id, nomineeId: nominee.id });
 }
 
 // Fires whenever a nomination is actually open, regardless of who created
@@ -1279,16 +1591,29 @@ function botsNominate() {
 // botsNominate above), casting a vote isn't something to race a real
 // player for, so every living bot just votes shortly after the window
 // opens (scheduled from nominateHandler itself).
-function botsVote() {
+async function botsVote() {
   if (game.phase !== 'day' || !game.players.some(p => p.bot)) return;
   const nom = game.nominations.find(n => n.day === game.nightNumber && !n.closed);
   if (!nom) return;
   const nominee = E.byId(game, nom.nomineeId);
   if (!nominee) return;
   const day = game.nightNumber;
+  const unvoted = () => E.alive(game).filter(p => p.bot && !nom.votes.some(v => v.playerId === p.id));
+
+  if (game.config.llmStorytellerEnabled && llmConfigured()) {
+    for (const p of unvoted()) {
+      const vote = await llmBotVote(game, p, nom.nomineeId);
+      if (vote === undefined) break; // a real call failure — finish the rest with the flat heuristic below
+      voteHandler({ playerId: p.id, vote });
+    }
+  }
+
+  // Covers both the no-LLM default and finishing off whatever the LLM
+  // branch above left unvoted after a genuine call failure — nom.votes is
+  // re-read fresh each time via unvoted(), so nobody who already cast a
+  // real reasoned vote above gets overwritten here.
   const yesChance = botVoteWeight(nominee, day);
-  for (const p of E.alive(game)) {
-    if (!p.bot || nom.votes.some(v => v.playerId === p.id)) continue;
+  for (const p of unvoted()) {
     voteHandler({ playerId: p.id, vote: Math.random() < yesChance ? 'yes' : 'no' });
   }
 }
@@ -1305,11 +1630,10 @@ function startSimulation({ players = 9, speed = 5, script = 'tb', config } = {})
   game.script = PLAYABLE_SCRIPTS.includes(script) ? script : 'tb';
   // A fresh E.newGame() above always resets config to defaults — apply any
   // requested overrides (Bucket 4's disabledCharacterIds, in particular)
-  // before windowSeconds/wave2Seconds get their own simulation-speed
-  // overrides below, so a config patch can't undo those.
+  // before windowSeconds gets its own simulation-speed override below, so
+  // a config patch can't undo that.
   if (config) E.applyConfigPatch(game, config);
   game.config.windowSeconds = speed;
-  game.config.wave2Seconds = Math.max(2, Math.round(speed / 2));
   game.simSpeed = speed;
 
   // A bot never goes through the real join flow's color picker, so without
@@ -1337,6 +1661,11 @@ function startSimulation({ players = 9, speed = 5, script = 'tb', config } = {})
       // Lets a real phone watch this seat's real player rendering.
       // Safe to hand out freely — there's no real secret behind a bot.
       token: crypto.randomBytes(16).toString('hex'),
+      // A play style, not a role — see BOT_PERSONALITIES' own comment in
+      // game/helpers.js. Assigned once here and never touched again;
+      // heuristicBotClaim() reads it, and it's the field an eventual LLM
+      // reasoning layer would fold into its system prompt.
+      personality: pickOne(E.BOT_PERSONALITIES).id,
     });
   }
   try {
@@ -1361,9 +1690,9 @@ function scheduleSim(delay) {
   simTimer = setTimeout(runSimStep, delay);
 }
 
-function beginSimNight() {
+async function beginSimNight() {
   game.dayDone = false;
-  startNight();
+  await startNight();
   // Bots answer partway through the window so the countdown is watchable.
   setTimeout(botsAnswer, Math.max(400, game.config.windowSeconds * 400));
 }
@@ -1372,14 +1701,19 @@ async function runSimStep() {
   if (!game.simulation || game.paused || game.phase === 'over') return;
 
   if (game.phase === 'reveal') {
-    beginSimNight();
+    await beginSimNight();
     return;
   }
 
   if (game.phase === 'day') {
     if (!game.dayDone) {
-      // Most days end in an execution; some do not.
-      const target = Math.random() < 0.78 ? chooseExecution() : null;
+      await botsClaim();
+      // Most days end in an execution; some do not. With the LLM
+      // Storyteller on, that split falls naturally out of the bots' own
+      // nominate reasoning (see BOT_NOMINATE_SYSTEM: "most players should
+      // NOT nominate") rather than a flat coin flip layered on top of it.
+      const llmOn = game.config.llmStorytellerEnabled && llmConfigured();
+      const target = llmOn ? await llmChooseExecution(game) : (Math.random() < 0.78 ? chooseExecution() : null);
       await recordExecution(target ? target.id : null);
       if (game.phase === 'over') return;
       // The Mastermind's bonus day: recordExecution() just bought one more
@@ -1389,7 +1723,7 @@ async function runSimStep() {
       if (!game.mastermindExtraDay) game.dayDone = true;
       scheduleSim(game.simSpeed * 600);
     } else {
-      beginSimNight();
+      await beginSimNight();
     }
     return;
   }
@@ -1408,6 +1742,11 @@ const MIME = {
   '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
   '.webp': 'image/webp', '.gif': 'image/gif', '.svg': 'image/svg+xml',
   '.avif': 'image/avif', '.md': 'text/markdown',
+  // The licensed ambient tracks under public/audio/ambient/ — see
+  // MUSIC-CREDITS.md. Without a real audio/* content-type, <audio>'s own
+  // seeking/duration handling in some browsers gets unreliable even
+  // though playback itself often still works by content-sniffing alone.
+  '.mp3': 'audio/mpeg',
 };
 
 const TOKEN_DIR = path.join(PUBLIC, 'tokens');
@@ -1430,6 +1769,19 @@ function tokenManifest() {
     manifest[id] = '/tokens/' + encodeURIComponent(file);
   }
   return manifest;
+}
+
+/** Adds display name/team to each jinx pair's two character ids —
+    jinxData.js itself stays pure (ids only, no engine/character-metadata
+    dependency); this is the one place that enrichment actually happens,
+    for the one real consumer (JinxesOverlay.jsx) that wants a name and a
+    token to show, not a raw id. */
+function enrichJinxPairs(pairs) {
+  const meta = id => {
+    const c = E.char(id);
+    return { id, name: c ? c.name : id, team: c ? c.team : null };
+  };
+  return pairs.map(p => ({ ...p, a: meta(p.a), b: meta(p.b) }));
 }
 
 function serveFile(res, file) {
@@ -1607,7 +1959,7 @@ function isHostRoute(route) {
   if (route.startsWith('/api/table/')) return true;
   if (route.startsWith('/api/sim/')) return true;
   return ['/host', '/host-events', '/simulate', '/sim-events',
-    '/api/host-state', '/api/sim-state'].includes(route);
+    '/api/host-state', '/api/sim-state', '/tabletop'].includes(route);
 }
 
 const GATE_EXEMPT = new Set([
@@ -1672,6 +2024,16 @@ async function requestHandler(req, res) {
       if (route === '/hall-of-fame') return serveFile(res, 'hall-of-fame.html');
       if (route === '/recap') return serveFile(res, 'recap.html');
       if (route === '/characters') return serveFile(res, 'characters.html');
+      // A big-text, read-only second screen for the table itself to watch
+      // (night phase, countdown, reveal) — gated by the host code, not the
+      // player one, since it rides the same /host-events stream the real
+      // dashboard uses (see isHostRoute() above). Meant to be opened on
+      // whatever device is already signed in as host, same as /host itself.
+      if (route === '/tabletop') return serveFile(res, 'tabletop.html');
+      // A read-only narration feed for people following along without a
+      // seat — table-code gated like any player, not the host's extra
+      // privilege (see /spectate-events above and pushHost()'s comment).
+      if (route === '/spectate') return serveFile(res, 'spectate.html');
 
       // Explicit route (rather than falling through to the generic static
       // fallback below) so this always carries Cache-Control: no-cache —
@@ -1706,9 +2068,34 @@ async function requestHandler(req, res) {
         return;
       }
 
+      if (route === '/spectate-events') {
+        // Table-code gated only (not in isHostRoute() below) — same
+        // privilege level as a real player's own /events stream, not the
+        // host's extra one. See pushHost()'s own comment for why this
+        // payload is safe to share at all.
+        spectatorStreams.add(res);
+        openStream(req, res, () => spectatorStreams.delete(res));
+        write(res, hostState());
+        return;
+      }
+
       if (route === '/api/tokens') {
         // Scanned per request so dropping in new art needs no restart.
         return json(res, 200, tokenManifest());
+      }
+
+      if (route === '/api/jinxes') {
+        // The current table's own roster, not every character this build
+        // knows about — a jinx between two characters nobody's playing
+        // today isn't useful noise to show. Reads whatever's cached
+        // (refreshed at boot, or via /api/jinxes/refresh below) rather
+        // than hitting the network on every page load.
+        const record = Jinx.loadCached();
+        const rosterIds = E.activeScriptPool(game).map(c => c.id);
+        return json(res, 200, {
+          source: record.source, fetchedAt: record.fetchedAt,
+          pairs: enrichJinxPairs(Jinx.jinxesForRoster(rosterIds, record)),
+        });
       }
 
       if (route === '/api/scripts') {
@@ -1723,6 +2110,14 @@ async function requestHandler(req, res) {
         // curated featuredCharacter (characters.json), which gets its
         // full ability text so the browse preview can give a real taste
         // of the script, not just a name and a team badge.
+        //
+        // `notes` (game/characterNotes.js) is a second, much smaller
+        // exception to that same "no ability text here" rule — not a
+        // character's ability, but a heads-up about how THIS app runs a
+        // specific character differently from what a table used to the
+        // physical game would expect. Almost always empty (see that
+        // file's own comment on how rarely a character earns one), so it
+        // costs this payload nothing in the common case.
         const namedScripts = E.DATA.meta.editions.map(ed => {
           const pool = E.scriptPool(ed.id);
           const featured = ed.featuredCharacter && E.char(ed.featuredCharacter);
@@ -1733,6 +2128,7 @@ async function requestHandler(req, res) {
             featuredCharacter: featured
               ? { id: featured.id, name: featured.name, team: featured.team, ability: featured.ability }
               : null,
+            notes: pool.map(c => ({ id: c.id, name: c.name, note: noteFor(c.id) })).filter(n => n.note),
             ...H.statsForEdition(ed.id),
           };
         });
@@ -1749,6 +2145,7 @@ async function requestHandler(req, res) {
             characterCount: pool.length,
             characters: pool.map(c => ({ id: c.id, name: c.name, team: c.team })),
             featuredCharacter: null,
+            notes: pool.map(c => ({ id: c.id, name: c.name, note: noteFor(c.id) })).filter(n => n.note),
             ...H.statsForEdition('custom'),
           });
         }
@@ -1993,6 +2390,18 @@ async function requestHandler(req, res) {
     if (req.method === 'POST') {
       const body = await readBody(req);
 
+      if (route === '/api/jinxes/refresh') {
+        // Explicit, host-triggered "try the network again right now" —
+        // same refreshJinxCache() boot already calls, just on demand for
+        // whoever doubts the cached copy is current.
+        const record = await Jinx.refreshJinxCache();
+        const rosterIds = E.activeScriptPool(game).map(c => c.id);
+        return json(res, 200, {
+          source: record.source, fetchedAt: record.fetchedAt,
+          pairs: enrichJinxPairs(Jinx.jinxesForRoster(rosterIds, record)),
+        });
+      }
+
       if (route === '/api/enter-table-code' || route === '/api/enter-host-code') {
         const wantsHost = route === '/api/enter-host-code';
         const hash = wantsHost ? HOST_HASH : TABLE_HASH;
@@ -2147,7 +2556,25 @@ async function requestHandler(req, res) {
             return json(res, 400, { error: 'A character guess is required.' });
           }
         }
-        game.pending[p.id] = { targets, decoy: !!prompt.decoy, characterGuess };
+        // Sects & Violets' Barber: an independent, always-optional extra
+        // choice riding along with this same submission (see engine.js's
+        // barberSwapAddon/promptFor) — never gated on prompt.optional,
+        // which describes the PRIMARY choice above and has nothing to do
+        // with this one. Validated the same way the primary choice is
+        // (every id really offered, exactly 2 or none), but kept as its
+        // own field rather than merged into `targets`, since resolveNight
+        // needs to tell "the Demon's kill target" and "the Demon's swap
+        // pick" apart later — see logPrivateAction's own comment on why.
+        let barberSwapTargets;
+        if (prompt.barberSwap) {
+          const raw = (body.barberSwapTargets || []).slice(0, 2);
+          const validSwap = raw.every(t => prompt.barberSwap.targets.some(x => x.id === t));
+          if (!validSwap || (raw.length !== 0 && raw.length !== 2)) {
+            return json(res, 400, { error: 'Invalid swap selection.' });
+          }
+          barberSwapTargets = raw;
+        }
+        game.pending[p.id] = { targets, decoy: !!prompt.decoy, characterGuess, barberSwapTargets };
         pushPlayer(p.id);
         pushHost();
         // Nobody left waiting on the clock once every real-or-decoy prompt
@@ -2194,7 +2621,7 @@ async function requestHandler(req, res) {
             target.alive = false;
             game.deaths.push({ night: game.nightNumber, name: target.name, cause: 'slayer', killedByDemon: false, phase: 'day' });
             E.logEvent(game, `${p.name} fired their shot at ${target.name} — the Demon falls.`);
-            E.triggerDeathHooks(game, target, { killedByDemon: false });
+            await E.triggerDeathHooks(game, target, { killedByDemon: false });
             E.succeedDemon(game, target);
           }
         } else {
@@ -2469,7 +2896,7 @@ async function requestHandler(req, res) {
             target.alive = false;
             game.deaths.push({ night: game.nightNumber, name: target.name, cause: 'moonchild', killedByDemon: false, phase: game.phase });
             E.logEvent(game, `${p.name}'s Moonchild choice kills ${target.name}.`);
-            E.triggerDeathHooks(game, target, { killedByDemon: false });
+            await E.triggerDeathHooks(game, target, { killedByDemon: false });
             E.succeedDemon(game, target);
           }
         } else {
@@ -2515,6 +2942,32 @@ async function requestHandler(req, res) {
         return json(res, 200, { ok: true });
       }
 
+      if (route === '/api/ravenkeeper-choice') {
+        // "If you die at night, you are woken to choose a player: you learn
+        // their character" — the choice itself now happens here, on the day
+        // immediately following the death, instead of the same night's
+        // wave-2 window (see game/abilities/tb.js's own comment on why: a
+        // real report of a player who'd just learned they died, needing to
+        // also read new instructions and pick a target inside wave 2's
+        // short window, and consistently losing that race). Private, unlike
+        // Moonchild/Klutz just above — nothing here is meant to be
+        // announced out loud, so the reveal lands in the normal result
+        // screen instead of a public log line.
+        const p = E.byToken(game, body.token);
+        if (!p) return json(res, 404, { error: 'Unknown player.' });
+        if (game.phase !== 'day') return json(res, 409, { error: 'Only during the day.' });
+        if (!p.statuses.ravenkeeperPending) return json(res, 409, { error: 'Nothing to choose.' });
+
+        const result = await E.resolveRavenkeeperChoice(game, p, body.targetId);
+        if (!result) return json(res, 400, { error: 'Invalid target.' });
+        p.statuses.ravenkeeperPending = false;
+        game.results[p.id] = result;
+        E.logEvent(game, `${p.name} (the Ravenkeeper) reflects on last night.`, true);
+        pushPlayer(p.id);
+        pushHost();
+        return json(res, 200, { ok: true });
+      }
+
       if (route === '/api/damsel-guess') {
         // "If a Minion publicly guesses you (once), your team loses" — a
         // public day action any living Minion can make, once ever across
@@ -2526,6 +2979,14 @@ async function requestHandler(req, res) {
         if (game.phase !== 'day') return json(res, 409, { error: 'Only during the day.' });
         if (!E.publiclyAlive(guesser) || E.trueChar(guesser).team !== 'minion') {
           return json(res, 400, { error: 'Only a living Minion may guess.' });
+        }
+        // The client only ever offers this button when privateState's own
+        // damselGuess field is set (which already checks this) — checked
+        // again here since a client-computed prompt is never trusted alone
+        // for anything that changes real game state, same as every other
+        // /api/* route in this file.
+        if (!game.players.some(x => x.characterId === 'damsel')) {
+          return json(res, 409, { error: 'There is no Damsel in this game.' });
         }
         if (game.damselGuessUsed) return json(res, 409, { error: 'That guess has already been used.' });
         // targetId, not guessedId — matches the {token, targetId} body
@@ -2610,7 +3071,7 @@ async function requestHandler(req, res) {
       /* ---- table controls: hold no secrets, so anyone at the table may use them ---- */
 
       if (route === '/api/table/nominate') {
-        const { status, payload } = nominateHandler(body);
+        const { status, payload } = await nominateHandler(body);
         return json(res, status, payload);
       }
 
@@ -2810,7 +3271,7 @@ async function requestHandler(req, res) {
         if (game.phase !== 'reveal' && game.phase !== 'day') {
           return json(res, 409, { error: 'Cannot begin the night now.' });
         }
-        startNight();
+        await startNight();
         return json(res, 200, { ok: true });
       }
 
@@ -2975,6 +3436,11 @@ server.listen(PORT, () => {
     candidates.forEach(c => console.log(`    ${c.address}  (${c.name})${c.address === ip ? '  <- chosen' : ''}`));
   }
   console.log('');
+  // Best-effort, fire-and-forget — a dead/slow connection at boot should
+  // never delay the table from actually opening. Falls back to whatever's
+  // already cached, then the committed seed, on any failure; see
+  // jinxData.js's own header comment.
+  Jinx.refreshJinxCache().catch(() => {});
 });
 
 if (httpsServer) {

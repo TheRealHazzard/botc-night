@@ -1,11 +1,11 @@
 'use strict';
 
 /* Unit tests for game/history.js's recap functions (closestVote,
-   biggestSwing, longestSurvivingEvil, recapNarration, recapFor) — all pure
-   functions of a game record object except recapFor, which reads
-   data/games.jsonl through getGame(). No file I/O needed for the first
-   four: every fixture here is a plain constructed record, never written
-   to disk, so this never touches real history data. */
+   biggestSwing, longestSurvivingEvil, pivotalMoment, recapNarration,
+   recapFor) — all pure functions of a game record object except recapFor,
+   which reads data/games.jsonl through getGame(). No file I/O needed for
+   the rest: every fixture here is a plain constructed record, never
+   written to disk, so this never touches real history data. */
 
 const H = require('../game/history');
 
@@ -147,6 +147,46 @@ console.log('\nlongestSurvivingEvil');
     JSON.stringify(curated));
 }
 
+console.log('\npivotalMoment');
+{
+  check('no candidate events at all -> null',
+    H.pivotalMoment({ blockedKills: [], trueValueLog: [], pivotalEvents: [] }) === null);
+
+  check('a blocked kill against someone already dead is not a save — excluded',
+    H.pivotalMoment({ blockedKills: [{ night: 3, reason: 'already-dead', targetName: 'Ada', phase: 'night' }] }) === null);
+
+  check('an impaired count that happened to land on the true value anyway did not mislead anyone — excluded',
+    H.pivotalMoment({ trueValueLog: [{ night: 2, impaired: true, type: 'count', trueValue: 1, shown: 1, characterId: 'empath', playerName: 'Bo' }] }) === null);
+
+  check('an impaired pointer whose shown candidates still include the true subject did not mislead anyone — excluded',
+    H.pivotalMoment({ trueValueLog: [{ night: 2, impaired: true, trueValue: 'p1', shown: ['p1', 'p2'], characterId: 'washerwoman', playerName: 'Bo' }] }) === null);
+
+  check('a non-impaired trueValueLog entry (a sober role) is never a candidate',
+    H.pivotalMoment({ trueValueLog: [{ night: 5, impaired: false, trueValue: 1, shown: 2, characterId: 'chef', playerName: 'Bo' }] }) === null);
+
+  const later = H.pivotalMoment({
+    blockedKills: [{ night: 1, reason: 'protected', targetName: 'Ada', phase: 'night' }],
+    trueValueLog: [{ night: 3, impaired: true, trueValue: 1, shown: 2, characterId: 'empath', playerName: 'Bo' }],
+  });
+  check('picks the later-night candidate over an earlier one, regardless of kind',
+    later && later.kind === 'false-info' && later.night === 3, JSON.stringify(later));
+
+  const sameNightTie = H.pivotalMoment({
+    blockedKills: [{ night: 4, reason: 'protected', targetName: 'Ada', phase: 'night' }],
+    pivotalEvents: [{ night: 4, type: 'goon-flip', goonName: 'Cy', chooserName: 'Di', resultingAlignment: 'evil' }],
+  });
+  check('a same-night tie breaks toward the higher-ranked kind — a Goon flip over a blocked kill',
+    sameNightTie && sameNightTie.kind === 'goon-flip', JSON.stringify(sameNightTie));
+
+  const blocked = H.pivotalMoment({ blockedKills: [{ night: 2, reason: 'protected', targetName: 'Ada', phase: 'night' }] });
+  check('a genuine blocked-kill candidate keeps its target/reason/phase, drops the internal rank field',
+    blocked && blocked.kind === 'blocked-kill' && blocked.targetName === 'Ada' && blocked.reason === 'protected' && !('rank' in blocked),
+    JSON.stringify(blocked));
+
+  const goon = H.pivotalMoment({ pivotalEvents: [{ night: 6, type: 'goon-flip', goonName: 'Cy', chooserName: 'Di', resultingAlignment: 'good' }] });
+  check('a goon-flip candidate keeps its resultingAlignment', goon && goon.resultingAlignment === 'good', JSON.stringify(goon));
+}
+
 console.log('\nrecapNarration');
 {
   const record = {
@@ -165,6 +205,22 @@ console.log('\nrecapNarration');
 
   check('an empty record produces no narration at all, not placeholder text',
     H.recapNarration({ players: [], nominations: [] }).length === 0);
+
+  const withPivotal = {
+    players: [], nominations: [],
+    blockedKills: [{ night: 4, reason: 'protected', targetName: 'Ada', phase: 'night' }],
+  };
+  const pivotalLines = H.recapNarration(withPivotal);
+  check('a blocked-kill pivotal moment reads as a plain sentence naming the save',
+    pivotalLines.some(l => l === "The pivotal moment: Ada should have died on Night 4, but didn't."),
+    JSON.stringify(pivotalLines));
+
+  const withExecutionSave = {
+    players: [], nominations: [],
+    blockedKills: [{ night: 2, reason: 'pacifist', targetName: 'Bo', phase: 'day' }],
+  };
+  check('a day-phase (execution) block reads as "about to be executed", not "should have died on Night N"',
+    H.recapNarration(withExecutionSave).some(l => l === 'The pivotal moment: Bo was about to be executed on Day 2, and survived.'));
 }
 
 console.log('\naggregate: win streaks (Phase 12: Hall of Fame)');

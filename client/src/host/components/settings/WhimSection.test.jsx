@@ -31,18 +31,24 @@ describe('WhimSection', () => {
     expect(patch).not.toHaveBeenCalled();
   });
 
-  it('shows no fallback-only note when the LLM Storyteller is off', () => {
-    render(<WhimSection config={{ ...config, llmStorytellerEnabled: false }} patch={() => {}} />);
-    expect(screen.queryByText(/fallback only/i)).not.toBeInTheDocument();
+  // True regardless of the LLM toggle — server.js wires a judge in
+  // unconditionally, and with the LLM off that judge still falls back to
+  // heuristicWhim's own dynamic call, never to the flat slider. The old
+  // version of this note only appeared once the LLM was switched on,
+  // which was itself the bug: it implied the slider was live the rest of
+  // the time, when a real table never actually rolls it at all.
+  it('flags the three dynamically-judged chances the same way whether the LLM Storyteller is on or off', () => {
+    for (const llmStorytellerEnabled of [false, true]) {
+      const { unmount } = render(<WhimSection config={{ ...config, llmStorytellerEnabled }} patch={() => {}} />);
+      expect(screen.getAllByText(/judged dynamically/i)).toHaveLength(3);
+      unmount();
+    }
   });
 
-  it('flags only the three chances a connected LLM Storyteller actually replaces, once it\'s on', () => {
-    render(<WhimSection config={{ ...config, llmStorytellerEnabled: true }} patch={() => {}} />);
-    expect(screen.getAllByText(/fallback only/i)).toHaveLength(3);
-    // Shabaloth/Tinker/Madness are read straight off config with no judge
-    // involved at all, in every configuration — never flagged either way.
-    expect(screen.getByText('Shabaloth regurgitate').closest('.lbl').textContent).not.toMatch(/fallback only/i);
-    expect(screen.getByText('Tinker death').closest('.lbl').textContent).not.toMatch(/fallback only/i);
-    expect(screen.getByText('Madness execution').closest('.lbl').textContent).not.toMatch(/fallback only/i);
+  it('flags only the three chances a real judge actually replaces — never Shabaloth/Tinker/Madness', () => {
+    render(<WhimSection config={config} patch={() => {}} />);
+    expect(screen.getByText('Shabaloth regurgitate').closest('.lbl').textContent).not.toMatch(/judged dynamically/i);
+    expect(screen.getByText('Tinker death').closest('.lbl').textContent).not.toMatch(/judged dynamically/i);
+    expect(screen.getByText('Madness execution').closest('.lbl').textContent).not.toMatch(/judged dynamically/i);
   });
 });

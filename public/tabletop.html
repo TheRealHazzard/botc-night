@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tabletop Display</title>
+<meta name="theme-color" content="#0d0811">
+<meta name="description" content="A big-text, glanceable screen for the whole table to see — phase, countdown, and reveal — no host controls.">
+<link rel="icon" href="/icons/icon-32.png">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700&family=Cormorant+Garamond:wght@600;700&family=Space+Mono:wght@400;700&display=swap">
+<!-- The host dashboard's own color tokens, shared with spectate.html —
+     see clocktower-dark.css's own comment for why this is a real link,
+     not another inline copy. No light mode: the host app itself commits
+     to this palette unconditionally, and so does this second screen. -->
+<link rel="stylesheet" href="/clocktower-dark.css">
+<style>
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0; min-height:100vh; min-height:100dvh; display:flex; flex-direction:column;
+  align-items:center; justify-content:center; text-align:center; gap:clamp(12px,3vh,32px);
+  background:var(--void); color:var(--bone); font-family:'Cormorant Garamond',Georgia,serif;
+  padding:5vh 6vw;
+  /* Same candlelit-parchment grain tile as the main dashboard
+     (host/styles.css's own body background-image) — a flat void reads
+     as a blank screen; this one line is what makes it feel like the
+     same room instead of a different, plainer app. */
+  background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHdpZHRoPScxMjAnIGhlaWdodD0nMTIwJz48ZmlsdGVyIGlkPSduJz48ZmVUdXJidWxlbmNlIHR5cGU9J2ZyYWN0YWxOb2lzZScgYmFzZUZyZXF1ZW5jeT0nMC44NScgbnVtT2N0YXZlcz0nMicgc3RpdGNoVGlsZXM9J3N0aXRjaCcvPjxmZUNvbG9yTWF0cml4IHR5cGU9J3NhdHVyYXRlJyB2YWx1ZXM9JzAnLz48L2ZpbHRlcj48cmVjdCB3aWR0aD0nMTAwJScgaGVpZ2h0PScxMDAlJyBmaWx0ZXI9J3VybCgjbiknIG9wYWNpdHk9JzAuMDUnLz48L3N2Zz4=");
+  background-repeat: repeat;
+}
+.eyebrow{
+  position:fixed; top:18px; left:0; right:0; text-align:center;
+  font-family:'Space Mono',monospace; font-size:.7rem; letter-spacing:.14em;
+  text-transform:uppercase; color:var(--bone-dim); opacity:.7;
+}
+.phasetag{
+  font-family:'Space Mono',monospace; font-size:clamp(1rem,2.4vw,1.6rem);
+  letter-spacing:.1em; text-transform:uppercase; color:var(--brass);
+}
+.big{
+  font-family:'Cinzel Decorative',serif; font-weight:700; line-height:1.1;
+  font-size:clamp(2.4rem,9vw,7rem); text-wrap:balance; margin:0;
+  color:var(--bone);
+}
+.big.dread{color:var(--ember)}
+.sub{color:var(--bone-dim); font-size:clamp(1rem,2vw,1.4rem)}
+.digits{
+  font-family:'Space Mono',monospace; font-weight:700; font-variant-numeric:tabular-nums;
+  font-size:clamp(3rem,14vw,10rem); color:var(--oxblood-hi);
+  text-shadow: 0 0 34px rgba(142, 34, 38, 0.42);
+}
+.digits.urgent{color:var(--ember); animation:pulse 1s ease-in-out infinite}
+@keyframes pulse{50%{opacity:.55}}
+/* Same flare-then-settle bloom as the main dashboard's own end-of-game
+   ring glow (host/styles.css's ring-verdict-good/evil) — the one moment
+   on this screen most worth a little drama, rather than just swapping
+   text color like every other phase change here does. */
+.banner{animation: banner-glow 1.8s cubic-bezier(0.16, 1, 0.3, 1) forwards}
+.banner.good{color:var(--good-hi)}
+.banner.evil{color:var(--oxblood-hi)}
+@keyframes banner-glow{
+  0%{ text-shadow: 0 0 0 rgba(0,0,0,0) }
+  45%{ text-shadow: 0 0 60px currentColor }
+  100%{ text-shadow: 0 0 28px currentColor }
+}
+@media (prefers-reduced-motion: reduce){
+  .digits.urgent{animation:none}
+  .banner{animation:none; text-shadow: 0 0 28px currentColor}
+}
+.fsbtn{
+  position:fixed; bottom:14px; right:16px; border:1px solid var(--line);
+  background:var(--surface); color:var(--bone-dim); border-radius:6px; padding:8px 12px;
+  font-family:'Space Mono',monospace; font-size:.75rem; cursor:pointer; opacity:.6;
+}
+.fsbtn:hover{opacity:1}
+</style>
+</head>
+<body>
+<div class="eyebrow">botc-night &middot; tabletop display</div>
+<div id="view"><div class="big">Connecting&hellip;</div></div>
+<button type="button" class="fsbtn" id="fsbtn" hidden>Fullscreen</button>
+
+<script>
+const el = (t, c, x) => { const n = document.createElement(t); if (c) n.className = c; if (x != null) n.textContent = x; return n; };
+
+function deathsLastNight(S) {
+  return (S.deaths || []).filter(d => d.night === S.nightNumber && d.cause !== 'execution');
+}
+
+// Mirrors Countdown.jsx's own math exactly (windowEndsAt/total are the
+// same epoch-ms + seconds shape the host dashboard already uses) — this
+// page has no React tree to share that component with, so the handful of
+// lines of arithmetic are duplicated rather than the whole component.
+function fmtClock(windowEndsAt, total) {
+  const left = Math.max(0, Math.ceil((windowEndsAt - Date.now()) / 1000));
+  const t = total || 1;
+  const mm = Math.floor(left / 60);
+  const ss = String(left % 60).padStart(2, '0');
+  return { text: mm > 0 ? `${mm}:${ss}` : `${left}`, urgent: left <= 10 };
+}
+
+function render(S) {
+  const view = document.getElementById('view');
+  view.innerHTML = '';
+  if (!S) { view.append(el('div', 'big', 'Connecting…')); return; }
+
+  if (S.phase === 'lobby') {
+    view.append(el('div', 'big', (S.players || []).length ? `${S.players.length} seated` : 'Waiting for players…'));
+    return;
+  }
+
+  if (S.phase === 'reveal') {
+    view.append(el('div', 'big dread', 'Look at your hands.'));
+    view.append(el('div', 'sub', 'Each of you now knows only yourself.'));
+    return;
+  }
+
+  if (S.phase === 'over' || S.revealed) {
+    const winner = S.victory && S.victory.winner;
+    const label = winner === 'good' ? 'Good wins' : winner === 'evil' ? 'Evil wins' : 'Game over';
+    const cls = winner === 'good' ? 'big banner good' : winner === 'evil' ? 'big banner evil' : 'big';
+    view.append(el('div', cls, label));
+    return;
+  }
+
+  if (S.phase === 'night') {
+    const dread = (S.players || []).some(p => !p.alive);
+    view.append(el('div', 'phasetag', `Night ${S.nightNumber}`));
+    view.append(el('div', 'big' + (dread ? ' dread' : ''), 'Close your eyes.'));
+    if (S.windowEndsAt) {
+      const { text, urgent } = fmtClock(S.windowEndsAt, S.windowTotalSeconds || (S.config && S.config.windowSeconds));
+      view.append(el('div', 'digits' + (urgent ? ' urgent' : ''), text));
+    }
+    return;
+  }
+
+  if (S.phase === 'day') {
+    const died = deathsLastNight(S);
+    view.append(el('div', 'phasetag', `Day ${S.nightNumber}`));
+    view.append(el('div', 'big' + (died.length ? ' dread' : ''),
+      died.length ? `${died.map(d => d.name).join(' and ')} did not wake.` : 'Everyone wakes.'));
+    return;
+  }
+
+  view.append(el('div', 'big', '—'));
+}
+
+let lastS = null;
+const es = new EventSource('/host-events');
+es.onmessage = e => { lastS = JSON.parse(e.data); render(lastS); };
+// EventSource reconnects on its own on a drop — this is a secondary,
+// glanceable screen, not the host's own control surface, so there's no
+// polling fallback here the way useHostState.js has for the real dashboard.
+
+// Only the countdown digits actually need a tick — re-rendering the whole
+// (tiny) screen every second is cheap enough that it's not worth a second
+// code path just for that.
+setInterval(() => { if (lastS) render(lastS); }, 1000);
+
+// Best-effort — a kiosk screen going to sleep mid-night defeats the whole
+// point of this page. Not every browser/context grants this; failure is
+// silent and harmless either way.
+if ('wakeLock' in navigator) {
+  navigator.wakeLock.request('screen').catch(() => {});
+}
+
+const fsbtn = document.getElementById('fsbtn');
+if (document.documentElement.requestFullscreen) {
+  fsbtn.hidden = false;
+  fsbtn.textContent = 'Fullscreen';
+  fsbtn.addEventListener('click', () => {
+    if (document.fullscreenElement) document.exitFullscreen();
+    else document.documentElement.requestFullscreen().catch(() => {});
+  });
+}
+</script>
+</body>
+</html>

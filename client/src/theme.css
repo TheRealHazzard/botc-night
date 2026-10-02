@@ -30,4 +30,9 @@
   --good:#5c86ab;
   --good-hi:#7aa0c2;
   --violet:#5b3f80;
+  /* Near-white text for a saturated oxblood/primary-colored surface
+     (a toast, a fatal-flash flood, a primary button) — previously two
+     different hardcoded hex values (#fff2e8 and #fff8ef) doing the exact
+     same job in both stylesheets, drifted apart with nothing to notice. */
+  --cream:#fff2e8;
 }

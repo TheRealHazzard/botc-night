@@ -1,6 +1,6 @@
 import { useCommittedInput } from '../../../hooks/useCommittedInput.js';
 
-export default function DramaSection({ config, patch }) {
+export default function DramaSection({ config, patch, liveDramaBias }) {
   const hintNights = config.hintNights || [];
 
   const toggleNight = n => {
@@ -12,7 +12,27 @@ export default function DramaSection({ config, patch }) {
   return (
     <div className="settings-section">
       <h3>Drama</h3>
-      <DramaBiasRow value={config.dramaBias} onCommit={v => patch({ dramaBias: Number(v) })} />
+      <div className="settings-row">
+        <div className="lbl">
+          <b>Adaptive pacing</b>
+          <span>let it tune itself live from how the game is going, instead of the fixed dial below</span>
+        </div>
+        <label className="toggle">
+          <input
+            type="checkbox"
+            aria-label="Adaptive pacing"
+            checked={!!config.adaptiveDrama}
+            onChange={e => patch({ adaptiveDrama: e.target.checked })}
+          />
+          <span className="track" />
+        </label>
+      </div>
+      <DramaBiasRow
+        value={config.dramaBias}
+        onCommit={v => patch({ dramaBias: Number(v) })}
+        disabled={!!config.adaptiveDrama}
+        liveValue={config.adaptiveDrama ? liveDramaBias : null}
+      />
       <div className="settings-row">
         <div className="lbl">
           <b>Hint nights</b>
@@ -31,16 +51,20 @@ export default function DramaSection({ config, patch }) {
   );
 }
 
-function DramaBiasRow({ value, onCommit }) {
+function DramaBiasRow({ value, onCommit, disabled, liveValue }) {
   const { ref, display, setDisplay } = useCommittedInput(value, onCommit);
   return (
     <div className="settings-row">
       <div className="lbl">
         <b>Drama bias</b>
-        <span>0 = coldly random, 1 = maximum tension</span>
+        <span>
+          {disabled
+            ? `0 = coldly random, 1 = maximum tension — right now, live: ${Number(liveValue ?? 0).toFixed(2)}`
+            : '0 = coldly random, 1 = maximum tension'}
+        </span>
       </div>
       <span className="val">{Number(display).toFixed(2)}</span>
-      <input ref={ref} type="range" min="0" max="1" step="0.05" value={display} onChange={e => setDisplay(e.target.value)} />
+      <input ref={ref} type="range" min="0" max="1" step="0.05" value={display} onChange={e => setDisplay(e.target.value)} disabled={disabled} />
     </div>
   );
 }

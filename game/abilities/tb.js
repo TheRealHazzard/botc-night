@@ -215,26 +215,16 @@ module.exports = (h) => [
     },
   },
 
-  {
-    id: 'ravenkeeper',
-    choiceCount: () => 1,
-    wave: 2,
-    acts: (g, p) => !!p.statuses.diedTonight,
-    targets: (g, p) => g.players.filter(x => x.id !== p.id),
-    text: () => 'You died. Choose a player: you learn their character.',
-    resolve(g, p, action, { broken, target, results }) {
-      const [t] = target(action && action.targets);
-      if (!t) return;
-      const trueCharacter = h.trueChar(t);
-      let shown = trueCharacter;
-      if (broken) {
-        const others = h.activeScriptPool(g).filter(x => x.id !== shown.id);
-        shown = h.pick(others);
-      }
-      h.logTrueValue(g, { playerId: p.id, characterId: 'ravenkeeper', type: 'pointer', trueValue: trueCharacter.id, shown: shown.id, impaired: broken });
-      results[p.id] = { title: 'Ravenkeeper', body: `${t.name} is the ${shown.name}.` };
-    },
-  },
+  // The Ravenkeeper has no entry here — "if you die at night, choose a
+  // player: you learn their character" no longer dispatches through
+  // actingTonight()/resolveNight at all. It moved to a day-phase route
+  // instead (server.js's /api/ravenkeeper-choice, backed by
+  // h.resolveRavenkeeperChoice in game/helpers.js) — same precedent as
+  // Savant/Fisherman/Artist in sv.js (see game/abilities/README.md):
+  // purely day-phase abilities live entirely outside the registry. A real
+  // report drove this: a player who'd just learned they died, needing to
+  // also read new instructions and choose a target within wave 2's short
+  // window, consistently lost that race.
 
   {
     id: 'spy',
@@ -273,7 +263,10 @@ module.exports = (h) => [
           character: shown[i].character,
           believedCharacter: shown[i].believedCharacter,
           alive: x.alive,
-          statuses: Object.keys(x.statuses).filter(k => k !== 'poisonedUntilNight'),
+          // h.INTERNAL_ONLY_STATUSES (game/helpers.js) — shared with
+          // server.js's own Dry Run observer view, which used to keep an
+          // independent, differently-incomplete copy of this same idea.
+          statuses: Object.keys(x.statuses).filter(k => !h.INTERNAL_ONLY_STATUSES.has(k)),
         })),
       };
     },

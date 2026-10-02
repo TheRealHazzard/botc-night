@@ -4,25 +4,25 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Dry Run</title>
-    <meta name="theme-color" content="#0a0806" />
+    <meta name="theme-color" content="#0d0811" />
     <link rel="icon" href="/icons/icon-32.png" />
     <link
       rel="stylesheet"
       href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700&family=Cormorant+Garamond:wght@600;700&family=Spectral:ital,wght@0,400;0,500;1,400&display=swap"
     />
+    <!-- --void/--bone/--oxblood/--ember/--brass now come from here
+         instead of a local hardcoded copy — see clocktower-dark.css's
+         own comment. --panel/--line/--bone-dim/--good/--evil below stay
+         local: --panel has no theme.css equivalent, --line is
+         deliberately a different (brown, not purple) shade here, and
+         --bone-dim/--good/--evil are each a different actual shade from
+         theme.css's own --bone-dim/--good/--good-hi, not just a rename. -->
+    <link rel="stylesheet" href="/clocktower-dark.css" />
     <style>
       :root {
-        /* Nudged to client/src/theme.css's own canonical --void so this
-           page's background can't silently drift from the live game's —
-           everything else here already matches theme.css closely. */
-        --void: #0d0811;
         --panel: #120d08;
         --line: #2c2016;
-        --bone: #e8dcc4;
         --bone-dim: #8d8067;
-        --oxblood: #8e2226;
-        --ember: #c4553a;
-        --brass: #b8863f;
         --good: #6f93b5;
         --evil: #d08a86;
       }
@@ -62,7 +62,10 @@
         border-bottom: 1px solid var(--line);
         position: sticky;
         top: 0;
-        background: #0a0806ee;
+        /* --void itself, not the slightly-off #0a0806 this used to hardcode
+           (same rgb(13,8,17) the real --void:#0d0811 resolves to, just with
+           alpha for the blur underneath to show through). */
+        background: rgba(13, 8, 17, 0.93);
         backdrop-filter: blur(6px);
         z-index: 5;
       }
@@ -389,7 +392,7 @@
         background-image: radial-gradient(
           ellipse at 50% -10%,
           #1b1209 0%,
-          #0a0806 60%
+          var(--void) 60%
         );
       }
       .phone h1 {

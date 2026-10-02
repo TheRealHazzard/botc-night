@@ -2,18 +2,17 @@ import { CHANCE_FIELDS } from '../../../lib/settingsFields.js';
 import { useCommittedInput } from '../../../hooks/useCommittedInput.js';
 
 export default function WhimSection({ config, patch }) {
-  const llmOn = !!config.llmStorytellerEnabled;
   return (
     <div className="settings-section">
       <h3>Storyteller whim</h3>
       {CHANCE_FIELDS.map(f => (
-        <ChanceRow key={f.key} field={f} value={config[f.key]} onCommit={v => patch({ [f.key]: Number(v) })} llmOn={llmOn} />
+        <ChanceRow key={f.key} field={f} value={config[f.key]} onCommit={v => patch({ [f.key]: Number(v) })} />
       ))}
     </div>
   );
 }
 
-function ChanceRow({ field, value, onCommit, llmOn }) {
+function ChanceRow({ field, value, onCommit }) {
   const { ref, display, setDisplay } = useCommittedInput(value, onCommit);
   return (
     <div className="settings-row">
@@ -21,10 +20,13 @@ function ChanceRow({ field, value, onCommit, llmOn }) {
         <b>{field.label}</b>
         <span>
           {field.help}
-          {/* Only worth saying while it's actually true — with the LLM
-              Storyteller off, all six chances below behave identically,
-              and the distinction would just be confusing noise. */}
-          {field.fallbackOnly && llmOn && ' — currently a fallback only; the LLM Storyteller judges this instead when it can.'}
+          {/* True regardless of the LLM Storyteller toggle, not just while
+              it's on — server.js wires a judge in unconditionally, and with
+              the LLM off (or unreachable) that judge falls back to
+              heuristicWhim's own dynamic "help whoever's behind" call, never
+              to this flat rate. The only place this slider is ever the real
+              rate is tools/simulate.js, which wires no judge in at all. */}
+          {field.fallbackOnly && ' — a real table never actually rolls this: it\'s judged dynamically instead (by the LLM Storyteller when it\'s on and reachable, otherwise by a "help whoever\'s behind" heuristic). Only affects the simulator.'}
         </span>
       </div>
       <span className="val">{Number(display).toFixed(2)}</span>

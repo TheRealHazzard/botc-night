@@ -9,6 +9,13 @@
 const fs = require('fs');
 const path = require('path');
 const { COLOR_PALETTE, byId: colorById } = require('./colors');
+// Static character data only — never game/engine.js or game/abilities/,
+// which would violate this file's whole "nothing in a live game depends on
+// this file" premise by wiring a dependency back the other way. A plain
+// JSON require has no such risk: no side effects, nothing to keep in sync
+// beyond the data file itself.
+const { characters: CHARACTERS } = JSON.parse(fs.readFileSync(path.join(__dirname, 'characters.json'), 'utf8'));
+const characterName = id => (CHARACTERS.find(c => c.id === id) || {}).name || id;
 
 // Overridable so tests can point this at an isolated temp directory instead
 // of polluting the real table's own history. Read once at require time,
@@ -473,6 +480,71 @@ function longestSurvivingEvil(record) {
   };
 }
 
+// The relative weight of each pivotalMoment() candidate kind, used only to
+// break a tie between two candidates from the same night (see below) — a
+// whole player's team changing (the Goon) reads as more game-swinging than
+// a single blocked kill, which in turn reads as more game-swinging than one
+// falsified piece of info a table may or may not have even acted on.
+const PIVOTAL_KIND_RANK = { 'goon-flip': 3, 'blocked-kill': 2, 'false-info': 1 };
+
+/** The single moment this game turned on, scored from the engine's own
+    counterfactual groundwork (checkKill()'s blockedKills, logTrueValue()'s
+    trueValueLog, and pivotalEvents — see their own comments in
+    game/engine.js and game/helpers.js for what each one captures and why).
+    Three structurally different event shapes, so there's no one true
+    "impact" number to compute across them — this uses the one signal that
+    applies to all three honestly: how late in the game it happened. A save
+    or a falsified count on the last night the table had left to act on it
+    is definitionally more of a turning point than the same event on night
+    1, which the table had the rest of the game to route around. Same-night
+    ties break by PIVOTAL_KIND_RANK above. */
+function pivotalMoment(record) {
+  const candidates = [];
+
+  for (const bk of record.blockedKills || []) {
+    // wouldBlockKill() (game/helpers.js) also returns 'already-dead' for a
+    // kill attempt against someone already gone — checkKill() logs that to
+    // blockedKills too, but nothing was ever actually going to happen to
+    // them, so it's not a save and not a candidate here.
+    if (bk.reason === 'already-dead') continue;
+    candidates.push({
+      kind: 'blocked-kill', night: bk.night, rank: PIVOTAL_KIND_RANK['blocked-kill'],
+      targetName: bk.targetName, reason: bk.reason, phase: bk.phase,
+    });
+  }
+
+  for (const tv of record.trueValueLog || []) {
+    if (!tv.impaired) continue;
+    // impaired only means "this roll was subject to falsification", not
+    // that it actually came out different from the truth — an impaired
+    // yes/no has a coin-flip chance of landing on the true answer anyway
+    // (see impairedFlip() in game/helpers.js). shown can be a single value
+    // (count/yesno, and pointer's undertaker/ravenkeeper shape) or an array
+    // of candidates presented (pointer's pairInfo shape) — either way, "the
+    // truth wasn't among what was shown" is the one check that means this
+    // genuinely could have misled the table.
+    const misled = Array.isArray(tv.shown) ? !tv.shown.includes(tv.trueValue) : tv.shown !== tv.trueValue;
+    if (!misled) continue;
+    candidates.push({
+      kind: 'false-info', night: tv.night, rank: PIVOTAL_KIND_RANK['false-info'],
+      seatName: tv.playerName || null, characterName: characterName(tv.characterId),
+    });
+  }
+
+  for (const pe of record.pivotalEvents || []) {
+    if (pe.type !== 'goon-flip') continue; // the only shape pivotalEvents carries so far
+    candidates.push({
+      kind: 'goon-flip', night: pe.night, rank: PIVOTAL_KIND_RANK['goon-flip'],
+      goonName: pe.goonName || null, chooserName: pe.chooserName || null, resultingAlignment: pe.resultingAlignment,
+    });
+  }
+
+  if (!candidates.length) return null;
+  candidates.sort((a, b) => b.night - a.night || b.rank - a.rank);
+  const { rank, ...best } = candidates[0];
+  return best;
+}
+
 /** A few sentences of plain templated prose from data that's already
     sitting in the record — no LLM call needed just for this (unlike
     game/llmStoryteller.js's free-text judging, everything here is a
@@ -500,6 +572,19 @@ function recapNarration(record) {
       : `${evil.seatName}'s ${evil.characterName} lasted until ${evil.diedPhase === 'execution' ? `the Day ${evil.diedNight} execution` : `Night ${evil.diedNight}`}.`);
   }
 
+  const pivotal = pivotalMoment(record);
+  if (pivotal) {
+    if (pivotal.kind === 'blocked-kill') {
+      lines.push(pivotal.phase === 'day'
+        ? `The pivotal moment: ${pivotal.targetName} was about to be executed on Day ${pivotal.night}, and survived.`
+        : `The pivotal moment: ${pivotal.targetName} should have died on Night ${pivotal.night}, but didn't.`);
+    } else if (pivotal.kind === 'false-info') {
+      lines.push(`The pivotal moment: ${pivotal.seatName ? `${pivotal.seatName}'s ` : ''}${pivotal.characterName} was shown false information on Night ${pivotal.night}.`);
+    } else if (pivotal.kind === 'goon-flip') {
+      lines.push(`The pivotal moment: ${pivotal.goonName || 'the Goon'} turned ${pivotal.resultingAlignment} on Night ${pivotal.night}.`);
+    }
+  }
+
   return lines;
 }
 
@@ -518,6 +603,7 @@ function recapFor(id) {
     closestVote: closestVote(record),
     biggestSwing: biggestSwing(record),
     longestSurvivingEvil: longestSurvivingEvil(record),
+    pivotalMoment: pivotalMoment(record),
     narration: recapNarration(record),
   };
 }
@@ -526,7 +612,7 @@ module.exports = {
   findProfile, findOrCreateProfile, appendGameRecord,
   statsFor, statsForAll, statsForEdition, colorFor, listColors, setProfileColor,
   listGames, getGame, votingLeaderboard, characterWinRates, sessionStats,
-  closestVote, biggestSwing, longestSurvivingEvil, recapNarration, recapFor,
+  closestVote, biggestSwing, longestSurvivingEvil, pivotalMoment, recapNarration, recapFor,
   aggregate, normalizeName,
   // The isolated-per-test-run override (see this file's own DATA_DIR
   // comment) is exactly what any other data server.js writes at runtime —

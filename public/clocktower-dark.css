@@ -1,0 +1,26 @@
+/* The host dashboard's own color tokens (client/src/theme.css), mirrored
+   here for the static pages under public/ that never go through the
+   Vite build (tabletop.html, spectate.html; recap.html keeps its own
+   separate light-mode parchment tokens too, since it's the one page in
+   this family meant to also look good shared outside the table).
+
+   This is a MANUALLY kept-in-sync copy, not a generated one — there's no
+   build step for plain static HTML in this repo. If theme.css's values
+   ever change, update them here too, or test/publicPageTokensMatchTheme.js
+   will fail and say so. */
+:root {
+  --void: #0d0811;
+  --surface: #160e1a;
+  --surface-2: #1e1322;
+  --line: #2e1d34;
+  --line-soft: #231628;
+  --bone: #e8dcc4;
+  --bone-dim: #95886e;
+  --bone-faint: #5f5645;
+  --oxblood: #8e2226;
+  --oxblood-hi: #a92c2f;
+  --ember: #c4553a;
+  --brass: #b8863f;
+  --good: #5c86ab;
+  --good-hi: #7aa0c2;
+}

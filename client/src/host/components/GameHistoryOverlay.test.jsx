@@ -32,6 +32,11 @@ const gameDetail = {
   log: [
     { night: 1, text: 'Night 1 begins.' },
   ],
+  decisionLog: [
+    { night: 1, tag: 'whim:mayor-redirect', value: { fired: false, reason: 'Game is even, no need to intervene.' } },
+    { night: 2, tag: 'whim:pacifist-save', value: { fired: true, reason: 'Good was badly behind.' } },
+    { night: 1, tag: 'someOtherDecide', value: 'not a whim' },
+  ],
 };
 
 function baseMocks(overrides = {}) {
@@ -119,6 +124,28 @@ describe('GameHistoryOverlay', () => {
     const recapLink = screen.getByRole('link', { name: 'Shareable recap →' });
     expect(recapLink).toHaveAttribute('href', '/recap?id=g1');
     expect(recapLink).toHaveAttribute('target', '_blank');
+  });
+
+  it('shows the Storyteller\'s calls panel, ignoring non-whim decisionLog entries', async () => {
+    baseMocks({ '/api/game?id=g1': gameDetail });
+    render(<GameHistoryOverlay onClose={() => {}} />);
+    await userEvent.click(await screen.findByText('Trouble Brewing'));
+
+    expect(await screen.findByText("Storyteller's calls")).toBeInTheDocument();
+    expect(screen.getByText('Mayor redirect')).toBeInTheDocument();
+    expect(screen.getByText('Did not fire')).toBeInTheDocument();
+    expect(screen.getByText('Game is even, no need to intervene.')).toBeInTheDocument();
+    expect(screen.getByText('Pacifist save')).toBeInTheDocument();
+    expect(screen.getByText('Fired')).toBeInTheDocument();
+    expect(screen.queryByText('not a whim')).not.toBeInTheDocument();
+  });
+
+  it('omits the Storyteller\'s calls panel entirely when there are no whim decisions', async () => {
+    baseMocks({ '/api/game?id=g1': { ...gameDetail, decisionLog: [] } });
+    render(<GameHistoryOverlay onClose={() => {}} />);
+    await userEvent.click(await screen.findByText('Trouble Brewing'));
+    await screen.findByText('Good wins');
+    expect(screen.queryByText("Storyteller's calls")).not.toBeInTheDocument();
   });
 
   it('a dead roster seat renders struck through (the shared .deadname class)', async () => {

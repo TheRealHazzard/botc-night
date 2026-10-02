@@ -6,6 +6,11 @@
      the result — cleared back to this default the moment a new game starts. */
         --primary: var(--oxblood);
         --primary-hi: var(--oxblood-hi);
+        /* Shared with .settings-overlay below, not just body — a solid
+     flat --void behind an overlay whose own content is sparse (Dry Run's
+     start card, say) reads as a disconnected black void, since body's
+     own grain never shows through a fixed, opaque overlay on top of it. */
+        --grain: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHdpZHRoPScxMjAnIGhlaWdodD0nMTIwJz48ZmlsdGVyIGlkPSduJz48ZmVUdXJidWxlbmNlIHR5cGU9J2ZyYWN0YWxOb2lzZScgYmFzZUZyZXF1ZW5jeT0nMC44NScgbnVtT2N0YXZlcz0nMicgc3RpdGNoVGlsZXM9J3N0aXRjaCcvPjxmZUNvbG9yTWF0cml4IHR5cGU9J3NhdHVyYXRlJyB2YWx1ZXM9JzAnLz48L2ZpbHRlcj48cmVjdCB3aWR0aD0nMTAwJScgaGVpZ2h0PScxMDAlJyBmaWx0ZXI9J3VybCgjbiknIG9wYWNpdHk9JzAuMDUnLz48L3N2Zz4=");
       }
       * {
         box-sizing: border-box;
@@ -51,7 +56,7 @@
      gradient over this much dark area is exactly the case TV panels band
      on. A small repeating noise tile reads as aged parchment/candlelit
      texture instead, and has no smooth transition left to band. */
-        background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHdpZHRoPScxMjAnIGhlaWdodD0nMTIwJz48ZmlsdGVyIGlkPSduJz48ZmVUdXJidWxlbmNlIHR5cGU9J2ZyYWN0YWxOb2lzZScgYmFzZUZyZXF1ZW5jeT0nMC44NScgbnVtT2N0YXZlcz0nMicgc3RpdGNoVGlsZXM9J3N0aXRjaCcvPjxmZUNvbG9yTWF0cml4IHR5cGU9J3NhdHVyYXRlJyB2YWx1ZXM9JzAnLz48L2ZpbHRlcj48cmVjdCB3aWR0aD0nMTAwJScgaGVpZ2h0PScxMDAlJyBmaWx0ZXI9J3VybCgjbiknIG9wYWNpdHk9JzAuMDUnLz48L3N2Zz4=");
+        background-image: var(--grain);
         background-repeat: repeat;
       }
       .mono {
@@ -72,15 +77,61 @@
         vertical-align: -0.15em;
       }
 
-      /* --------------------------------------------------------------- header */
-      header {
+      /* --------------------------------------------------------------- layout
+   App.jsx's own top-level shape: a persistent left column (.side-header
+   — brand, phase, narration, every header action) beside the actual
+   game stage (.stage-col, holding the reclaim banner/toasts and `main`).
+   Replaces the old full-width top `<header>` + `<main>` stack — moving
+   the header to the side is what actually fixed the ring colliding with
+   it on tall screens, since the ring's own region no longer shares any
+   vertical space with it at all (see `.ring`'s own sizing comment). */
+      .app-shell {
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        flex-direction: row;
+        width: 100%;
+        overflow: hidden;
+      }
+      .stage-col {
+        flex: 1;
+        min-width: 0;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+      @media (max-width: 860px) {
+        .app-shell {
+          flex-direction: column;
+          overflow-y: auto;
+        }
+        .side-header {
+          width: 100%;
+          max-width: none;
+          border-right: none;
+          border-bottom: 1px solid var(--line);
+        }
+      }
+
+      /* ------------------------------------------------------------ side header */
+      .side-header {
+        flex: 0 0 auto;
+        width: 340px;
+        max-width: 340px;
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+        padding: 20px 24px;
+        border-right: 1px solid var(--line);
+        overflow-y: auto;
+      }
+      .side-header-top {
         flex: 0 0 auto;
         display: flex;
         align-items: center;
         justify-content: space-between;
-        gap: 20px;
-        padding: 14px 40px;
-        border-bottom: 1px solid var(--line);
+        gap: 12px;
       }
       .brand {
         display: flex;
@@ -88,9 +139,22 @@
         gap: 11px;
       }
       .mark {
-        height: 48px;
+        height: 40px;
         width: auto;
         display: block;
+      }
+      /* The per-view narration text portals in here (see GameStage.jsx) —
+   this is the column's main content, so it's the one thing allowed to
+   grow and absorb whatever vertical space the header/phase/actions
+   around it don't need. left-aligned, not centered: centered text reads
+   fine in a wide stage but cramped in a ~300px column. */
+      .narration-slot {
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        text-align: left;
       }
       .phase {
         display: flex;
@@ -103,24 +167,30 @@
         border: 1px solid var(--line);
         border-radius: 999px;
         padding: 8px 18px 8px 14px;
+        align-self: flex-start;
+        flex: 0 0 auto;
       }
       .phase .icon {
         width: 15px;
         height: 15px;
         color: var(--brass);
       }
-      .header-right {
+      /* The old horizontal header's one long strip of icon buttons, now
+   stacked — still split into the same labeled chunks a host already
+   thinks in (Display / Reference / Lobby / Script / Storyteller /
+   Testing) rather than one undifferentiated column of icons. */
+      .side-header-actions {
+        flex: 0 0 auto;
         display: flex;
-        align-items: center;
+        flex-direction: column;
         gap: 10px;
+        padding-top: 14px;
+        border-top: 1px solid var(--line);
       }
-      /* Splits the header's one long strip of icon buttons into the same
-   chunks a host already thinks in (Display / Reference / Lobby / Script /
-   Game), each with a small caption instead of a bare row of icons with
-   nothing but hover tooltips telling them apart. */
       .header-group {
         display: flex;
         align-items: center;
+        flex-wrap: wrap;
         gap: 4px;
       }
       .header-group-label {
@@ -130,12 +200,6 @@
         color: var(--bone-dim);
         margin-right: 4px;
         white-space: nowrap;
-      }
-      .header-divider {
-        width: 1px;
-        height: 22px;
-        background: var(--line);
-        flex-shrink: 0;
       }
       .mutebtn {
         width: auto;
@@ -239,9 +303,17 @@
          in .fade-wrap (a real box, unlike .ring-slot) instead of sitting
          as direct children of .stage-main. */
       .stage-narration {
+        position: relative;
+        z-index: 1;
         display: flex;
         flex-direction: column;
-        align-items: center;
+        /* flex-start, not center: this now renders inside the narrow
+   ~300px .narration-slot column (see GameStage.jsx), where centered
+   text just looks cramped — the one remaining wide context,
+   LobbyView's script-browsing preview, centers itself explicitly
+   (.script-preview's own width:100%+text-align:center), so it's
+   unaffected by this. */
+        align-items: flex-start;
         gap: 14px;
         width: 100%;
         min-width: 0;
@@ -300,11 +372,20 @@
         }
       }
 
+      /* Was clamp(1.8rem, 4.4vw, 3.4rem) — tuned for the old wide center
+   stage, where 4.4vw of a whole TV screen was a reasonable scale. Now
+   that narration renders in the ~300px side column, that vw term alone
+   could run past 80px on a wide screen, badly overflowing a column this
+   narrow (worse at the 1.3x text-scale step) — this is the layout break
+   the font-size toggle used to cause. Sized in rem alone instead, so it
+   tracks the host's own --text-scale cleanly without any viewport term,
+   and max-width is 100% (the column's own width) rather than a ch count
+   that assumed much more horizontal room. */
       .narration {
         font-family: "Cormorant Garamond", Georgia, serif;
-        font-size: clamp(1.8rem, 4.4vw, 3.4rem);
-        line-height: 1.22;
-        max-width: 22ch;
+        font-size: 1.9rem;
+        line-height: 1.25;
+        max-width: 100%;
         text-wrap: balance;
         color: var(--bone);
         flex-shrink: 0;
@@ -314,8 +395,8 @@
       }
       .sub {
         color: var(--bone-dim);
-        max-width: 56ch;
-        font-size: 1.05rem;
+        max-width: 100%;
+        font-size: 1rem;
         flex-shrink: 0;
       }
       .setup-ratio {
@@ -367,28 +448,27 @@
       }
 
       /* the town, laid out as it sits at the table — sized to fill whichever of
-   the stage's two dimensions is tighter, now that the dashboard's own side
-   columns (not this) are what pin the layout to the screen's edges, so the
-   ring is free to grow into genuinely all the space that's left. */
+   the stage's two dimensions is tighter. Narration used to share this
+   same vertical column (header above, narration above that), which is
+   exactly what forced the old fixed-budget-minus-pixels formula here —
+   now that narration lives entirely in the side header instead (see
+   .narration-slot), the ring's own box (.game-stage, a plain flex row)
+   has nothing stacked above or below it to budget around, so this goes
+   back to a much simpler, more robust estimate. */
       .ring {
         /* Centered by .ring-zone (its flex parent — see that rule), not
-   self-positioned. Sizing has now failed twice trying to cap the ring
-   against a *percentage* of an ancestor's height (100vh directly, then
-   max-height:100% of .ring-zone) — both times it clipped live, because
-   that requires every ancestor in the main → .view → .dashboard(grid)
-   → .stage-main → .ring-zone chain to resolve a "definite" height for
-   percentages to work against, and something in that chain isn't
-   reliably giving one (the grid row in particular). Rather than debug
-   that chain a third time, this caps the ring from *fixed, known*
-   quantities instead — 100vh minus a deliberately generous estimate of
-   everything that sits above/around it (header + main's own padding +
-   the tallest realistic narration block + the gap between them) — which
-   needs no ancestor to cooperate at all. Biased conservative on
-   purpose: a ring that's a bit smaller than the theoretical max on a
-   short-narration view (most of them) is far better than one that
-   clips again on the tall one (DayView, worst case). */
+   self-positioned. Sizing has now failed trying to cap the ring against
+   a *percentage* of an ancestor's height (100vh directly, then
+   max-height:100% of .ring-zone) — it clipped live, because that
+   requires every ancestor in the chain up to the grid/flex row to
+   resolve a "definite" height for percentages to work against, and
+   something in that chain doesn't reliably give one. This caps the ring
+   from *fixed, known* quantities instead — 100vh minus main's own
+   padding and a little slack for the reclaim banner when it's shown,
+   and a vw share that leaves room for .game-stage-tabs beside it — which
+   needs no ancestor to cooperate at all. */
         position: relative;
-        width: min(calc(100vh - 320px), 42vw, 900px);
+        width: min(calc(100vh - 160px), 38vw, 900px);
         max-width: 100%;
         aspect-ratio: 1;
       }
@@ -612,6 +692,15 @@
       .rseat-name {
         font-size: clamp(0.92rem, 1.6vw, 1.12rem);
         color: var(--bone);
+        /* A safety net, not the normal case — .rseat's own nowrap keeps a
+   name on one line (reads better than wrapping mid-name), but seats are
+   absolutely positioned close together around the ring, so an unusually
+   long name at a larger text-scale setting needs somewhere to stop
+   rather than visually running into the next seat over. Generous
+   on purpose: most real names never get close to this. */
+        max-width: 130px;
+        overflow: hidden;
+        text-overflow: ellipsis;
       }
       /* Dead reads as an unmistakably different token at a glance from across
    a room — its own "for the dead" pocket watch, not just a smaller/
@@ -642,6 +731,7 @@
       .rseat.dead .rseat-name {
         color: var(--bone-dim);
         text-decoration: line-through;
+        transition: color 0.6s ease;
       }
       .rseat.offline .rseat-avatar {
         opacity: 0.5;
@@ -668,6 +758,7 @@
       }
       .ring.dense .rseat-name {
         font-size: 0.88rem;
+        max-width: 96px;
       }
 
       .daycounter {
@@ -1094,6 +1185,26 @@
         color: var(--bone-dim);
       }
 
+      /* ScriptNotesPanel — left-aligned like .featured-role above (the
+   parent .detail-stat-panel centers everything else on this card), since
+   this reads as advice to actually take in, not another abstract stat. */
+      .script-notes {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        text-align: left;
+      }
+      .script-note {
+        margin: 0;
+        font-size: 0.9rem;
+        line-height: 1.5;
+        color: var(--bone-dim);
+      }
+      .script-note strong {
+        color: var(--bone);
+        font-weight: 700;
+      }
+
       .detail-games-empty {
         font-size: 0.95rem;
         color: var(--bone-faint);
@@ -1121,6 +1232,14 @@
         color: var(--bone-dim);
       }
 
+      /* background/border only ever show through on the hand-drawn-icon
+   fallback (no real script logo dropped into public/scripts/, see that
+   folder's own README) — a real <img> covers this 100%/100% with a
+   matching border-radius, so it's fully hidden the moment one loads.
+   Without it the fallback icon (e.g. 'mug' for Trouble Brewing) was a
+   bare glyph floating in transparent space with no badge shape behind
+   it at all, reading as a stray orphaned icon rather than this app's own
+   deliberate stand-in artwork. */
       .icon-badge {
         width: 120px;
         height: 120px;
@@ -1129,6 +1248,8 @@
         place-items: center;
         flex-shrink: 0;
         color: var(--brass);
+        background: var(--surface-2);
+        border: 1px solid var(--line);
       }
       .icon-badge .icon {
         width: 46px;
@@ -1258,6 +1379,47 @@
         .whim-beat { animation: none; }
       }
 
+      /* The narrator's own voice visualizer (VoiceVisualizer.jsx) — the
+   one live cue that the AI is actually doing something right now,
+   mounted only for as long as TTS is actually speaking (see
+   useVoiceActivity.js). Five bars rather than a real waveform: there's
+   no amplitude data to read from SpeechSynthesisUtterance in the first
+   place (the browser's TTS engine never exposes its own audio buffer to
+   JS), so this is a felt "it's talking" cue, not a real analysis — same
+   honesty-about-what-it-actually-is spirit as .whim-beat's "unseen,"
+   never claiming to show something it doesn't actually have. */
+      .voice-viz {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 4px;
+        height: 22px;
+        flex-shrink: 0;
+      }
+      .voice-viz-bar {
+        width: 4px;
+        height: 100%;
+        border-radius: 2px;
+        background: var(--brass);
+        animation: voice-bounce 0.9s ease-in-out infinite;
+      }
+      .voice-viz-bar:nth-child(1) { animation-delay: 0ms; }
+      .voice-viz-bar:nth-child(2) { animation-delay: 110ms; }
+      .voice-viz-bar:nth-child(3) { animation-delay: 220ms; }
+      .voice-viz-bar:nth-child(4) { animation-delay: 110ms; }
+      .voice-viz-bar:nth-child(5) { animation-delay: 0ms; }
+      @keyframes voice-bounce {
+        0%, 100% { transform: scaleY(0.32); opacity: 0.55; }
+        50% { transform: scaleY(1); opacity: 1; }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .voice-viz-bar {
+          animation: none;
+          transform: scaleY(0.6);
+          opacity: 0.75;
+        }
+      }
+
       /* The Confirm — a stronger, harder-to-miss sibling of .whim-beat,
    reserved for the rarer case where the game is close enough that the call
    plausibly mattered. Fixed and view-agnostic (rendered from App.jsx, not
@@ -1380,11 +1542,12 @@
           grid-template-columns: 1fr !important;
         }
       }
-      /* narration flows normally here; the ring lives in its own row
-   below (.ring-zone) rather than sharing this flex row or being
-   absolutely positioned against it — see .ring-zone's and .ring's own
-   comments for why. */
+      /* narration flows normally here, at the top; the ring is pinned
+   independently of it below (.ring-zone is position:absolute, see its
+   own comment) — this just needs to be the positioning context for
+   that. */
       .stage-main {
+        position: relative;
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -1394,21 +1557,78 @@
         min-height: 0;
         align-self: stretch;
       }
-      /* The ring's own dedicated row, so narration's height can never
-   push it around or overlap it (separate rows, not a shared one).
-   overflow:hidden is a deliberate backstop, not the primary sizing
-   mechanism — .ring caps its own size from fixed, known quantities (see
-   its own comment); this only catches the case where that estimate
-   still turns out wrong, clipping cleanly at this row's edge instead of
-   spilling into the header above or off the bottom of the page. */
+      /* The ring's own dedicated layer, centered in the FULL stage box
+   rather than "whatever's left below narration" — a flex row sharing
+   .stage-main's column used to size itself off narration's own real
+   height, and narration's height is genuinely NOT constant: different
+   flavor lines wrap to different line counts (narratorLines.js's pool
+   rotation), and several rows in that column are purely conditional
+   (VoiceVisualizer only while actually speaking, WhimBeat/
+   RoomPacingNudge only sometimes) — every one of those toggling was a
+   real, visible shift of the ring's own center point, not just a rare
+   edge case. Absolute + inset:0 makes the ring's position a function of
+   .stage-main's own box alone, which .ring's own size formula already
+   budgets room for narration against (see that comment's "100vh minus
+   ... the tallest realistic narration block") — so this doesn't risk
+   new overlap, just finally makes the ring agree with what its own
+   sizing already assumed. overflow:hidden is still a backstop, not the
+   primary sizing mechanism, same as before. */
       .ring-zone {
-        flex: 1 1 auto;
-        min-height: 0;
+        position: absolute;
+        inset: 0;
         overflow: hidden;
         width: 100%;
         display: flex;
         align-items: center;
         justify-content: center;
+      }
+
+      /* ------------------------------------------------------------- game stage
+   GameStage.jsx's own layout — every phase view except LobbyView's
+   script-browsing takeover (still the plain .dashboard/.stage-main/
+   .ring-zone above, unchanged). Narration no longer shares this box at
+   all (it's portaled into the side header instead — see .narration-slot
+   above), so unlike .ring-zone this can just be a plain centered flex
+   row — no absolute positioning or fixed-pixel budgeting needed to keep
+   the ring from drifting, since there's nothing here that changes
+   height out from under it. */
+      .game-stage {
+        flex: 1;
+        min-height: 0;
+        min-width: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 32px;
+        width: 100%;
+        height: 100%;
+      }
+      .game-ring-zone {
+        flex: 1;
+        min-width: 0;
+        min-height: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        height: 100%;
+      }
+      .game-stage-tabs {
+        flex: 0 0 340px;
+        max-width: 340px;
+        align-self: stretch;
+        min-height: 0;
+        overflow-y: auto;
+      }
+      @media (max-width: 860px) {
+        .game-stage {
+          flex-direction: column;
+        }
+        .game-stage-tabs {
+          flex: 0 0 auto;
+          width: 100%;
+          max-width: none;
+        }
       }
       .sidepanel {
         display: flex;
@@ -1776,9 +1996,27 @@
         height: 16px;
         color: var(--bone-dim);
         flex-shrink: 0;
+        /* Lines up with the <select> next to it, not the label above it. */
+        align-self: flex-end;
+        margin-bottom: 9px;
       }
       .nomrow select {
         flex: 1;
+      }
+      /* Nominator/Nominee, labeling the two selects the arrow glyph alone
+   didn't make clear enough once they happened to show the same name. */
+      .nomrow-field {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        flex: 1;
+        min-width: 0;
+      }
+      .nomrow-label {
+        font-size: 0.68rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--bone-dim);
       }
       /* How close a live vote is to passing reads faster as a filled shape than
    as a sentence — filled toward the actual majority threshold, not a
@@ -1926,7 +2164,7 @@
       .toast-story {
         background: var(--oxblood);
         border: 1px solid var(--oxblood-hi);
-        color: #fff8ef;
+        color: var(--cream);
         font-family: "Cormorant Garamond", Georgia, serif;
         font-size: 1.15rem;
         text-align: center;
@@ -1956,7 +2194,7 @@
         justify-content: center;
         gap: 18px;
         background: var(--oxblood);
-        color: #fff2e8;
+        color: var(--cream);
         opacity: 0;
         transition: opacity 0.35s ease;
       }
@@ -2114,6 +2352,19 @@
         overflow: auto;
         padding: 24px 32px;
       }
+      /* A dedicated horizontal-scroll box for just the table itself, not
+   the whole overlay body — .powerlog-body's own overflow:auto would
+   otherwise scroll headings/padding sideways along with the data, which
+   reads badly. Mattered more once ReferenceOverlay.jsx started wrapping
+   these in its own 560px slide-panel (a real column-count table, like
+   Hall of Fame's 6-column leaderboard, has nowhere near that much room
+   at full-screen width either, but the clipping only became visible
+   once the panel got narrower than the overlay it was always a scroll
+   box for). */
+      .table-scroll {
+        overflow-x: auto;
+        max-width: 100%;
+      }
       .powerlog-table {
         border-collapse: collapse;
         width: max-content;
@@ -2263,12 +2514,66 @@
         font-size: 0.9rem;
       }
 
+      /* ------------------------------------------------------- slide panel
+   ReferenceOverlay.jsx's own shell — a dimmed scrim over the still-live
+   game (clicking it closes, same as tapping outside a real menu), with
+   a panel sliding in from the edge rather than taking over the whole
+   screen the way Settings/the script builder do. Those two genuinely
+   want the host's full attention; a reference lookup (did we already
+   catch this jinx mid-game?) is the one overlay family a host actually
+   wants open WHILE still watching the ring and the countdown keep
+   running behind it. */
+      .slide-scrim {
+        position: fixed;
+        inset: 0;
+        z-index: 44;
+        background: rgba(5, 3, 7, 0.6);
+        animation: slide-scrim-in 0.25s ease-out;
+      }
+      .slide-panel {
+        position: fixed;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 45;
+        width: min(560px, 92vw);
+        display: flex;
+        flex-direction: column;
+        box-shadow: -24px 0 60px rgba(0, 0, 0, 0.55);
+        animation: slide-panel-in 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      }
+      /* The reused overlay components (GameHistoryOverlay etc.) each
+   still render their own full-viewport .settings-overlay internally,
+   completely unmodified, so they stay drop-in reusable standalone too
+   — this is what turns that fixed, inset:0 box into a normal block
+   filling this panel's own bounds instead, purely via the cascade,
+   with no prop or variant needed on any of them. */
+      .slide-panel .settings-overlay {
+        position: static;
+        inset: auto;
+        height: 100%;
+      }
+      @keyframes slide-panel-in {
+        from { transform: translateX(100%); }
+      }
+      @keyframes slide-scrim-in {
+        from { opacity: 0; }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .slide-panel,
+        .slide-scrim {
+          animation: none;
+        }
+      }
+
       /* ----------------------------------------------------------- settings */
       .settings-overlay {
         position: fixed;
         inset: 0;
         z-index: 45;
         background: var(--void);
+        background-image: var(--grain);
+        background-repeat: repeat;
         display: flex;
         flex-direction: column;
       }
@@ -2321,12 +2626,38 @@
         flex: 1;
         min-width: 0;
       }
+      /* The tab bar's own content area — .settings-body still centers and
+   caps the overall width exactly as before; this is just the one wide
+   child that now sits inside it, with .settings-tab-grid underneath
+   reproducing .settings-body's own old 2-column flex/gap directly, so
+   switching tabs changes which sections show, not the layout math
+   around them. */
+      .settings-tabs-col {
+        flex: 1;
+        min-width: 0;
+      }
+      .settings-tab-grid {
+        display: flex;
+        gap: 48px;
+        align-items: flex-start;
+      }
       @media (max-width: 860px) {
-        .settings-body {
+        .settings-tab-grid {
           flex-direction: column;
           align-items: stretch;
           gap: 0;
         }
+      }
+      /* The AI tab only ever has the one LlmSection column (unlike Pacing/
+   Atmosphere's two) — without this, .settings-col's flex:1 stretches
+   that single narrow toggle row across the full 1600px .settings-body,
+   reading as an empty, unfinished tab rather than a sparse-but-correct
+   one. Capped and centered instead of stretched. */
+      .settings-tab-grid.single-col {
+        justify-content: center;
+      }
+      .settings-tab-grid.single-col .settings-col {
+        flex: 0 1 560px;
       }
       .settings-section {
         margin-bottom: 34px;
@@ -2447,6 +2778,106 @@
       }
       .settings-nights input {
         accent-color: var(--brass);
+      }
+
+      /* -------------------------------------------------------- narrator voice
+         NarratorSection.jsx — each option is a full row (not a chip like
+         .settings-nights above) because it carries a real sample line, not
+         just a short label; :has() lights up the whole row on selection
+         rather than relying on the radio dot alone to show what's picked. */
+      .persona-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .persona-option {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 10px 14px;
+        cursor: pointer;
+        transition: border-color 0.15s ease, background-color 0.15s ease;
+      }
+      .persona-option:hover {
+        border-color: var(--bone-faint);
+      }
+      .persona-option:has(input:checked) {
+        border-color: var(--brass);
+        background: rgba(184, 134, 63, 0.08);
+      }
+      .persona-option input {
+        margin: 3px 0 0;
+        accent-color: var(--brass);
+        flex-shrink: 0;
+      }
+      .persona-option-text {
+        min-width: 0;
+        flex: 1;
+      }
+      .persona-option-head {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      .persona-option-head b {
+        color: var(--bone);
+      }
+      .persona-option-head .sub {
+        font-size: 0.8rem;
+      }
+      .persona-sample {
+        margin: 5px 0 0;
+        font-family: "Cormorant Garamond", Georgia, serif;
+        font-style: italic;
+        color: var(--bone-dim);
+        font-size: 0.95rem;
+      }
+      .persona-option:has(input:checked) .persona-sample {
+        color: var(--bone);
+      }
+      /* ------------------------------------------------------------ reference
+         ReferenceOverlay.jsx's own picker menu — same row-card shape
+         NarratorSection's .persona-option uses (border + hover + full-
+         width clickable row), but a <button> of plain nav items rather
+         than radios with a selected state, so it's its own class rather
+         than reusing that one. */
+      .reference-menu {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .reference-menu-item {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        width: 100%;
+        text-align: left;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 14px 16px;
+        background: transparent;
+        color: var(--bone);
+        cursor: pointer;
+        transition: border-color 0.15s ease, background-color 0.15s ease;
+      }
+      .reference-menu-item:hover {
+        border-color: var(--brass);
+        background: rgba(184, 134, 63, 0.08);
+      }
+      .reference-menu-item .icon {
+        color: var(--brass);
+        flex-shrink: 0;
+      }
+      .reference-menu-text {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+      .reference-menu-text .sub {
+        font-size: 0.82rem;
       }
       .toggle {
         position: relative;
@@ -2598,7 +3029,7 @@
       button.primary {
         background: var(--primary);
         border-color: var(--primary);
-        color: #fff2e8;
+        color: var(--cream);
       }
       button.primary:hover:not(:disabled) {
         background: var(--primary-hi);
@@ -2812,6 +3243,71 @@
         color: var(--bone-dim);
         white-space: nowrap;
         font-family: "Space Mono", monospace;
+      }
+
+      /* ------------------------------------------------------------- jinxes
+         JinxesOverlay.jsx — two token portraits linked by a small bolt
+         (the visual shorthand every jinx-aware BOTC tool uses: two
+         characters, one ruling between them), reusing .powerlog-token's
+         own art rather than a new asset. Stacked, not a .checklist-row:
+         the ruling text wraps, which a space-between flex row can't hold. */
+      .jinx-row {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        padding: 14px 2px;
+        border-bottom: 1px dashed var(--line-soft);
+      }
+      .jinx-row:last-child {
+        border-bottom: none;
+      }
+      .jinx-pair {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .jinx-token-slot {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
+      }
+      .jinx-token-slot .powerlog-token,
+      .jinx-token-slot .powerlog-token-fallback {
+        width: 30px;
+        height: 30px;
+      }
+      .jinx-token-name {
+        font-weight: 600;
+        white-space: nowrap;
+      }
+      .jinx-bolt {
+        color: var(--brass);
+        flex-shrink: 0;
+      }
+      .jinx-badge {
+        margin-left: auto;
+        flex-shrink: 0;
+        font-size: 0.62rem;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        font-family: "Space Mono", ui-monospace, monospace;
+        border-radius: 999px;
+        padding: 4px 10px;
+        white-space: nowrap;
+      }
+      .jinx-badge-ok {
+        color: var(--good-hi);
+        border: 1px solid var(--good);
+        background: rgba(92, 134, 171, 0.12);
+      }
+      .jinx-badge-open {
+        color: var(--oxblood-hi);
+        border: 1px solid var(--oxblood);
+        background: rgba(142, 34, 38, 0.12);
+      }
+      .jinx-reason {
+        margin: 0 0 0 40px;
       }
 
       /* ------------------------------------------------------------- hall of fame

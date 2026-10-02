@@ -35,6 +35,13 @@ describe('DayView', () => {
     expect(container.querySelector('.deaths svg.icon')).toBeFalsy();
   });
 
+  it('a later silent day rotates the line instead of repeating day 1\'s verbatim', () => {
+    render(
+      <DayView players={players} nightNumber={3} deaths={[]} nominations={[]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
+    );
+    expect(screen.queryByText('Everyone wakes. That should worry you.')).not.toBeInTheDocument();
+  });
+
   // The wiki is explicit: "Add a shroud as normal. Do not say that the
   // Demon has died." DayView never even receives a mastermindExtraDay
   // prop any more — nothing here should announce or otherwise reveal it.
@@ -45,35 +52,41 @@ describe('DayView', () => {
     expect(screen.queryByText(/mastermind/i)).not.toBeInTheDocument();
   });
 
-  it('shows the execution controls plainly on the right, with no duplicate copy anywhere else', () => {
+  it('shows the execution controls plainly on the right, with no duplicate copy anywhere else', async () => {
     render(
       <DayView players={players} nightNumber={1} deaths={[]} nominations={[]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
     );
+    // Nominate/execute actions now live on the Controls tab, beside the
+    // Characters/Script reference tabs.
+    await userEvent.click(screen.getByRole('button', { name: 'Controls' }));
     expect(screen.getAllByText(/kick player/i)).toHaveLength(1);
   });
 
-  it('Kick Player/Night falls are disabled while a vote is open', () => {
+  it('Kick Player/Night falls are disabled while a vote is open', async () => {
     const openNom = { day: 1, nominatorName: 'Ada', nomineeName: 'Bo', closed: false, windowEndsAt: Date.now() + 20000, votes: [] };
     render(
       <DayView players={players} nightNumber={1} deaths={[]} nominations={[openNom]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
     );
+    await userEvent.click(screen.getByRole('button', { name: 'Controls' }));
     expect(screen.getAllByText(/kick player/i)[0]).toBeDisabled();
     expect(screen.getAllByText(/^night falls$/i)[0]).toBeDisabled();
   });
 
-  it('the execute select lists only living players', () => {
+  it('the execute select lists only living players', async () => {
     render(
       <DayView players={players} nightNumber={1} deaths={[]} nominations={[]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
     );
+    await userEvent.click(screen.getByRole('button', { name: 'Controls' }));
     const select = screen.getAllByText('No execution')[0].closest('select');
     expect(select.querySelectorAll('option')).toHaveLength(2); // "No execution" + Ada only
   });
 
-  it('the execute select auto-populates with the qualifying nomination\'s leading nominee', () => {
+  it('the execute select auto-populates with the qualifying nomination\'s leading nominee', async () => {
     const closedNom = { day: 1, nominatorName: 'Bo', nomineeName: 'Ada', nomineeId: 'p1', closed: true, yesCount: 1, votes: [] };
     render(
       <DayView players={players} nightNumber={1} deaths={[]} nominations={[closedNom]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
     );
+    await userEvent.click(screen.getByRole('button', { name: 'Controls' }));
     const select = screen.getAllByText('No execution')[0].closest('select');
     expect(select.value).toBe('p1');
   });
@@ -83,6 +96,7 @@ describe('DayView', () => {
     render(
       <DayView players={players} nightNumber={1} deaths={[]} nominations={[]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
     );
+    await userEvent.click(screen.getByRole('button', { name: 'Controls' }));
     await userEvent.click(screen.getAllByText(/^night falls$/i)[0]);
     expect(fetchMock.calls.some(c => c.url.includes('/api/table/night'))).toBe(true);
   });
@@ -94,6 +108,7 @@ describe('DayView', () => {
     render(
       <DayView players={players} nightNumber={1} deaths={[]} nominations={[closedNom]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
     );
+    await userEvent.click(screen.getByRole('button', { name: 'Controls' }));
     await userEvent.click(screen.getAllByText(/^night falls$/i)[0]);
     expect(confirmSpy).toHaveBeenCalledWith(expect.stringMatching(/ada would be executed/i));
     expect(fetchMock.calls.some(c => c.url.includes('/api/table/night'))).toBe(false);
@@ -103,7 +118,7 @@ describe('DayView', () => {
     expect(fetchMock.calls.some(c => c.url.includes('/api/table/night'))).toBe(true);
   });
 
-  it('shows a tied note when two nominees are tied for the lead, and nothing overrides it', () => {
+  it('shows a tied note when two nominees are tied for the lead, and nothing overrides it', async () => {
     const threeAliveLocal = [
       { id: 'p1', name: 'Ada', alive: true, connected: true, ghostVoteUsed: false, color: null },
       { id: 'p2', name: 'Cy', alive: true, connected: true, ghostVoteUsed: false, color: null },
@@ -114,6 +129,7 @@ describe('DayView', () => {
     render(
       <DayView players={threeAliveLocal} nightNumber={1} deaths={[]} nominations={[nomP1, nomP2]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
     );
+    await userEvent.click(screen.getByRole('button', { name: 'Controls' }));
     expect(screen.getAllByText(/tied — no clear leader/i)[0]).toBeInTheDocument();
   });
 
@@ -128,6 +144,7 @@ describe('DayView', () => {
     render(
       <DayView players={threeAliveLocal} nightNumber={1} deaths={[]} nominations={[nomP1, nomP2]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
     );
+    await userEvent.click(screen.getByRole('button', { name: 'Controls' }));
     expect(screen.getAllByText(/tied — no clear leader/i)[0]).toBeInTheDocument();
     const select = screen.getAllByText('No execution')[0].closest('select');
     await userEvent.selectOptions(select, 'p1');
@@ -139,6 +156,7 @@ describe('DayView', () => {
     render(
       <DayView players={players} nightNumber={1} deaths={[]} nominations={[closedNom]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
     );
+    await userEvent.click(screen.getByRole('button', { name: 'Controls' }));
     const select = screen.getAllByText('No execution')[0].closest('select');
     await userEvent.selectOptions(select, '');
     expect(select.value).toBe('');
@@ -150,10 +168,11 @@ describe('DayView', () => {
     { id: 'p3', name: 'Evy', alive: true, connected: true, ghostVoteUsed: false, color: null },
   ];
 
-  it('Kick Player flashes when the auto-populated leader changes to someone new', () => {
+  it('Kick Player flashes when the auto-populated leader changes to someone new', async () => {
     const { rerender } = render(
       <DayView players={threeAlive} nightNumber={1} deaths={[]} nominations={[]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
     );
+    await userEvent.click(screen.getByRole('button', { name: 'Controls' }));
     const kickButton = () => screen.getAllByText(/kick player/i)[0].closest('button');
     expect(kickButton()).not.toHaveClass('leader-changed');
 
@@ -169,6 +188,7 @@ describe('DayView', () => {
     const { rerender } = render(
       <DayView players={threeAlive} nightNumber={1} deaths={[]} nominations={[nomP1]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
     );
+    await userEvent.click(screen.getByRole('button', { name: 'Controls' }));
     const select = screen.getAllByText('No execution')[0].closest('select');
     await userEvent.selectOptions(select, 'p2');
 
@@ -184,6 +204,7 @@ describe('DayView', () => {
     const { rerender } = render(
       <DayView players={threeAlive} nightNumber={1} deaths={[]} nominations={[nomP1]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
     );
+    await userEvent.click(screen.getByRole('button', { name: 'Controls' }));
     const select = () => screen.getAllByText('No execution')[0].closest('select');
     await userEvent.selectOptions(select(), 'p2'); // manually override to Cy
     expect(select().value).toBe('p2');
@@ -202,6 +223,7 @@ describe('DayView', () => {
     const { rerender } = render(
       <DayView players={threeAlive} nightNumber={1} deaths={[]} nominations={[nomP1]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
     );
+    await userEvent.click(screen.getByRole('button', { name: 'Controls' }));
     const select = () => screen.getAllByText('No execution')[0].closest('select');
     await userEvent.selectOptions(select(), '');
     expect(select().value).toBe('');
@@ -246,12 +268,13 @@ describe('DayView', () => {
     expect(screen.queryByText('Bo is executed.')).not.toBeInTheDocument();
   });
 
-  it('the auto-computed leader ignores a qualifying nominee who has since died', () => {
+  it('the auto-computed leader ignores a qualifying nominee who has since died', async () => {
     const nomP1 = { day: 1, nominatorName: 'Cy', nomineeName: 'Ada', nomineeId: 'p1', closed: true, yesCount: 2, votes: [] };
     const adaDead = threeAlive.map(p => (p.id === 'p1' ? { ...p, alive: false } : p));
     render(
       <DayView players={adaDead} nightNumber={1} deaths={[]} nominations={[nomP1]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
     );
+    await userEvent.click(screen.getByRole('button', { name: 'Controls' }));
     const select = screen.getAllByText('No execution')[0].closest('select');
     expect(select.value).toBe('');
   });

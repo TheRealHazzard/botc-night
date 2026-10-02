@@ -69,13 +69,24 @@ export default function NominateAction({ nominations, nightNumber, players }) {
   return (
     <div className="nomaction">
       <div className="nomrow">
-        <select value={nominatorId} onChange={e => setNominatorId(e.target.value)}>
-          {eligibleNominators.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-        </select>
+        {/* Both selects defaulted to the same first-eligible name often
+            enough (whoever's first alphabetically, say) that the plain
+            arrow glyph between them wasn't enough on its own to tell
+            which dropdown was "who's nominating" vs. "who's up" — these
+            labels are the actual fix, the arrow stays as a secondary cue. */}
+        <label className="nomrow-field">
+          <span className="nomrow-label">Nominator</span>
+          <select value={nominatorId} onChange={e => setNominatorId(e.target.value)}>
+            {eligibleNominators.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </select>
+        </label>
         <Icon name="arrows" size={16} />
-        <select value={nomineeId} onChange={e => setNomineeId(e.target.value)}>
-          {eligibleNominees.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-        </select>
+        <label className="nomrow-field">
+          <span className="nomrow-label">Nominee</span>
+          <select value={nomineeId} onChange={e => setNomineeId(e.target.value)}>
+            {eligibleNominees.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </select>
+        </label>
       </div>
       <button type="button" disabled={submitting} onClick={submit}>
         <Icon name="check" size={15} /> Open for voting

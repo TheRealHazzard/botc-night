@@ -16,7 +16,8 @@ const TOOLS = [
     switch (see App.jsx) so a mixed game night doesn't need a second app.
     Each tool owns its own state (and, where it matters, its own
     localStorage key) — switching between them here just changes which
-    one is mounted, exactly like GameLeftPanel's Characters/Script toggle. */
+    one is mounted, exactly like the phase views' Characters/Script/
+    Controls tab group (TabPanel.jsx). */
 export default function ToolkitView() {
   const [active, setActive] = useState('timer');
   const Active = TOOLS.find(t => t.id === active).Component;

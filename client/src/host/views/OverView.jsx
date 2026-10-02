@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import DashboardLayout from '../components/DashboardLayout.jsx';
+import GameStage from '../components/GameStage.jsx';
 import GameSummaryCard from '../components/GameSummaryCard.jsx';
 import SidepanelCard from '../components/SidepanelCard.jsx';
 import SessionStatsCard from '../components/SessionStatsCard.jsx';
@@ -20,7 +20,7 @@ function logLabel(l) {
   return ''; // lobby/reveal/over, or older data with no recorded phase
 }
 
-export default function OverView({ players, victory, gameSummary, log, actionLog, resultsLog, nightNumber, muted, ringSlotRef, fadeClass = '' }) {
+export default function OverView({ players, victory, gameSummary, log, actionLog, resultsLog, nightNumber, muted, ringSlotRef, narrationSlot, fadeClass = '' }) {
   const [showPowerLog, setShowPowerLog] = useState(false);
 
   const victoryLine = victory ? `${victory.winner === 'good' ? 'Good wins.' : 'Evil wins.'} ${victory.reason}` : '';
@@ -30,61 +30,73 @@ export default function OverView({ players, victory, gameSummary, log, actionLog
   // this same hook independently to time the glow to the same beat.
   const bannerShown = useVictoryReveal(victory);
 
-  const main = (
-    <div className="stage-main">
-      {/* No "Good wins"/"Evil wins" label and no separate banner box — the
-          ring's border glow (rendered by App.jsx now — see ringSlotRef)
-          already says who won, so this line only has to carry the win
-          condition itself, e.g. "Only the Demon and one other live." */}
-      {victory && (
-        <div className={'fade-wrap stage-narration ' + fadeClass}>
-          <div className={'narration reveal' + (victory.winner !== 'good' ? ' dread' : '') + (bannerShown ? ' show' : '')}>
-            {victory.reason}
-          </div>
-        </div>
-      )}
-      {/* The ring itself lives outside this view now (App.jsx renders it
-          permanently, via a portal, so it never unmounts on a phase
-          change) — this slot is where it visually lands. See
-          RingSeats.jsx's own comment and App.jsx's ring-slot wiring. */}
-      <div className="ring-zone">
-        <div className="ring-slot" ref={ringSlotRef} />
+  // No "Good wins"/"Evil wins" label and no separate banner box — the
+  // ring's border glow (rendered by App.jsx now — see ringSlotRef)
+  // already says who won, so this line only has to carry the win
+  // condition itself, e.g. "Only the Demon and one other live."
+  const narration = victory ? (
+    <div className={'fade-wrap stage-narration ' + fadeClass}>
+      <div className={'narration reveal' + (victory.winner !== 'good' ? ' dread' : '') + (bannerShown ? ' show' : '')}>
+        {victory.reason}
       </div>
     </div>
-  );
+  ) : null;
 
-  const left = (
-    <div className="sidepanel">
-      {gameSummary && <GameSummaryCard gs={gameSummary} />}
-      <SidepanelCard icon="scroll" title="What actually happened">
-        <div className="log">
-          {log.map((l, i) => <p key={i}>{logLabel(l)}{l.text}</p>)}
-        </div>
-      </SidepanelCard>
-    </div>
-  );
-
-  const right = (
-    <div className="sidepanel">
-      {((actionLog && actionLog.length > 0) || (resultsLog && resultsLog.length > 0)) && (
-        <button type="button" onClick={() => setShowPowerLog(true)}>
-          <Icon name="scroll" size={15} /> Power log
-        </button>
-      )}
-      {/* Only worth a card once there's a second game tonight to compare
-          against — SessionStatsCard removes itself if there isn't one. */}
-      <SessionStatsCard />
-      <SidepanelCard icon="users" title="Full roster">
-        <div className="rosterlist">
-          {players.map(p => <RosterRow key={p.id} player={p} />)}
-        </div>
-      </SidepanelCard>
-    </div>
-  );
+  const tabs = [
+    {
+      id: 'summary',
+      label: 'Summary',
+      content: (
+        <>
+          {gameSummary && <GameSummaryCard gs={gameSummary} />}
+          <SidepanelCard icon="scroll" title="What actually happened">
+            <div className="log">
+              {log.map((l, i) => <p key={i}>{logLabel(l)}{l.text}</p>)}
+            </div>
+          </SidepanelCard>
+        </>
+      ),
+    },
+    {
+      id: 'roster',
+      label: 'Roster',
+      content: (
+        <SidepanelCard icon="users" title="Full roster">
+          <div className="rosterlist">
+            {players.map(p => <RosterRow key={p.id} player={p} />)}
+          </div>
+        </SidepanelCard>
+      ),
+    },
+    {
+      id: 'controls',
+      label: 'Controls',
+      content: (
+        <>
+          {((actionLog && actionLog.length > 0) || (resultsLog && resultsLog.length > 0)) && (
+            <button type="button" onClick={() => setShowPowerLog(true)}>
+              <Icon name="scroll" size={15} /> Power log
+            </button>
+          )}
+          {/* Only worth a card once there's a second game tonight to
+              compare against — SessionStatsCard removes itself if there
+              isn't one. */}
+          <SessionStatsCard />
+        </>
+      ),
+    },
+  ];
 
   return (
     <>
-      <DashboardLayout left={left} main={main} right={right} fadeClass={`fade-wrap ${fadeClass}`} />
+      <GameStage
+        narration={narration}
+        narrationSlot={narrationSlot}
+        ringSlotRef={ringSlotRef}
+        tabs={tabs}
+        defaultTab="summary"
+        fadeClass={`fade-wrap ${fadeClass}`}
+      />
       {showPowerLog && (
         <PowerLogOverlay players={players} actionLog={actionLog} resultsLog={resultsLog} nightNumber={nightNumber} onClose={() => setShowPowerLog(false)} />
       )}

@@ -8,12 +8,12 @@ const {
   DATA, CHARACTERS, SETUP_TABLE, char, scriptPool, BUCKET4_IDS, activeScriptPool,
   shuffle, pick, take, excludingPick,
   byId, byToken, alive, actingChar, trueChar, impaired, impairedFlip, publiclyAlive,
-  wouldBlockKill, randomKiller, checkKill, isEvil, isEvilRegistration, resolveWhim, setWhimJudge,
+  wouldBlockKill, randomKiller, checkKill, isEvil, isEvilRegistration, resolveWhim, setWhimJudge, effectiveDramaBias,
   heuristicWhim, WHIM_FIRING_HELPS_GOOD, maybeMercy, triggerMoonchildIfNeeded, flagAbnormal,
-  triggerPixieIfNeeded, applyCannibalTransform,
-  logEvent, outsiderDiedToday, minionDiedToday, somebodyDiedYesterday,
+  triggerPixieIfNeeded, applyCannibalTransform, resolveRavenkeeperChoice,
+  logEvent, recordClaim, heuristicBotClaim, BOT_PERSONALITIES, outsiderDiedToday, minionDiedToday, somebodyDiedYesterday,
   numberSignal, falseNumber, logTrueValue, evilNeighbourCount, evilPairCount, pairInfo,
-  decide,
+  decide, INTERNAL_ONLY_STATUSES,
 } = H;
 
 // One registry entry per active character (real night prompt and/or
@@ -53,7 +53,6 @@ function newGame() {
     // most tables always will be. Set alongside script:'custom'.
     customRoster: null,
     nightNumber: 0,
-    wave: 0,
     windowEndsAt: null,
     // The exact seconds this window was opened for, snapshotted the moment
     // it opens — see the same field's own comment in publicState() below
@@ -67,9 +66,13 @@ function newGame() {
     dayStartedAt: null,
     config: {
       windowSeconds: 60,
-      wave2Seconds: 20,
       hintNights: [1, 2],      // the dead stop talking after this
       dramaBias: 0.5,          // 0 = coldly random, 1 = maximum tension
+      // When on, dramaBias above is ignored in favor of a live value
+      // computed each time from how far into the game it is — see
+      // effectiveDramaBias() in helpers.js. Off by default so an existing
+      // table's own hand-tuned dial keeps working exactly as before.
+      adaptiveDrama: false,
       // These *Chance knobs are one of three ways this codebase models an
       // ability that reads like it needs a Storyteller — see
       // ABILITY_PATTERNS.md before adding a new one of any of the three.
@@ -82,6 +85,14 @@ function newGame() {
       voteWindowSeconds: 30, // how long a nomination stays open for votes
       disabledCharacterIds: [], // Bucket 4 toggle — see BUCKET4_IDS in helpers.js
       llmStorytellerEnabled: false, // see game/llmStoryteller.js
+      // Off by default — the synthesized bed (soundEngine.js) ships no
+      // audio files and has tension-scaling this doesn't; see
+      // MUSIC-CREDITS.md for what plays when this is on.
+      licensedAmbientMusic: false,
+      // Narration flavor-text voice — see client/src/host/lib/narratorLines.js's
+      // own NARRATOR_PERSONAS. Purely cosmetic: nothing here changes what's
+      // mechanically legal, only which line pool the host's narration reads from.
+      narratorPersona: 'dramatic',
     },
     players: [],
     pending: {},
@@ -102,6 +113,13 @@ function newGame() {
     noExecutionToday: false,
     executionAttemptedToday: false, // at most one execution per day, including a blocked/survived one
     nominations: [],
+    // Public character claims — populated by bot seats only, via server.js's
+    // botsClaim(): a full Dry Run (game.simulation), or a real table padded
+    // with bots via /api/table/add-bots (the "solo practice" case). A real
+    // player's own claim, if any, would need its own UI/route to add here —
+    // nothing currently writes one on their behalf. Flat and public-only:
+    // what was SAID, not what's true. See H.recordClaim/H.heuristicBotClaim.
+    claims: [],
     hint: null,
     log: [],
     // Who chose whom, night by night and day by day — kept only for the
@@ -293,7 +311,18 @@ function dealRoles(g, presetAssignment, puzzlemasterId) {
   if (drunkPlayer) {
     const inPlay = new Set(g.players.map(p => p.characterId));
     const candidates = of('townsfolk').filter(c => !inPlay.has(c.id));
-    if (candidates.length) drunkPlayer.believedId = pick(candidates).id;
+    // Can't happen on the real Trouble Brewing sheet (13 townsfolk options
+    // never all fit in play at once alongside a Drunk within the 5-15
+    // player range) — only reachable via the script builder, with a
+    // custom roster deliberately leaving zero spare townsfolk. Falling
+    // back to the in-play pool isn't the official "not really in play"
+    // shape, but it's strictly better than the alternative this used to
+    // silently do: leave believedId as 'drunk', meaning the Drunk
+    // correctly knows they're the Drunk — the one thing the ability
+    // guarantees can never happen. requireEnough('townsfolk', ...) above
+    // already guarantees this pool itself is never empty.
+    const pool = candidates.length ? candidates : of('townsfolk');
+    drunkPlayer.believedId = pick(pool).id;
   }
 
   // Fortune Teller's red herring: one good player always registers as the Demon.
@@ -376,11 +405,13 @@ function actingTonight(g) {
   const entries = [];
 
   for (const p of g.players) {
-    // Two dead players still act: the Ravenkeeper, once, the night they die;
-    // a Minion Vigormortis killed, every night thereafter — "keeps their
-    // ability" is permanent, not a one-time epilogue.
-    const actsFromBeyond = (first === false && p.believedId === 'ravenkeeper') || p.statuses.vigormortisKept;
-    if (!p.alive && !actsFromBeyond) continue;
+    // A dead player still acts: a Minion Vigormortis killed, every night
+    // thereafter — "keeps their ability" is permanent, not a one-time
+    // epilogue. The Ravenkeeper used to be the other named exception here
+    // (once, the night they die) — moved to a day-phase route instead (see
+    // server.js's /api/ravenkeeper-choice), so a dead Ravenkeeper no longer
+    // has a night turn to dispatch here at all.
+    if (!p.alive && !p.statuses.vigormortisKept) continue;
     const c = actingChar(p);
     if (!c) continue;
     const order = first ? c.firstNightOrder : c.otherNightOrder;
@@ -399,13 +430,6 @@ function actingTonight(g) {
   }
 
   return entries.sort((a, b) => a.order - b.order);
-}
-
-/** Which wave a character's own turn falls in — only the Ravenkeeper (acts
-    from beyond, after wave 1 has already decided who died) is wave 2. */
-function waveFor(characterId) {
-  const entry = REGISTRY[characterId];
-  return (entry && entry.wave) || 1;
 }
 
 // Flat, mechanical instructions — the exact register every real
@@ -430,7 +454,7 @@ const DECOY_LINES = [
 function decoyPrompt(g, p) {
   const others = alive(g).filter(x => x.id !== p.id);
   if (!others.length) return null;
-  const seed = `${p.id}:${g.nightNumber}:${g.wave}`;
+  const seed = `${p.id}:${g.nightNumber}`;
   const idx = crypto.createHash('sha256').update(seed).digest()[0] % DECOY_LINES.length;
   return {
     decoy: true,
@@ -438,6 +462,43 @@ function decoyPrompt(g, p) {
     count: 1,
     text: DECOY_LINES[idx],
     targets: others.map(t => ({ id: t.id, name: t.name, color: t.color || null, alive: t.alive })),
+  };
+}
+
+/** Sects & Violets' Barber: an extra, optional part of the Demon's OWN
+    turn — not a separate prompt, and never a separate window. Attached to
+    whatever prompt basePromptFor already builds for a living Demon
+    (real ability or decoy, doesn't matter) whenever the choice could
+    possibly matter tonight: either the Barber has already died (today's
+    execution, or an earlier point in this same resolution the Demon
+    themself just isn't responsible for) and this is definite, or the
+    Barber is still alive right now and a same-night death — the Demon's
+    own kill, or any other kill mechanism — could still make it matter.
+    Submitted together with the Demon's real choice in the very same
+    /api/action call (see resolveNight's own "Apply deaths" step for where
+    it's actually read back and applied, only if the Barber turns out to
+    have genuinely died) — this used to be a whole separate wave-2 window
+    with its own short countdown, which both leaked "something happened
+    overnight" to everyone else (every other living player got a second
+    round of decoy prompts too) and, for the Ravenkeeper's now-unrelated
+    case, cost a real player their one shot at a reveal. Folding it into
+    the Demon's existing turn removes both problems: no second window
+    ever opens, for anyone, for any reason. */
+function barberSwapAddon(g, p) {
+  const tc = trueChar(p);
+  if (!tc || tc.team !== 'demon') return null;
+  const barber = g.players.find(x => x.characterId === 'barber');
+  if (!barber) return null; // this script doesn't even have one
+  const definite = p.statuses.barberSwapPending === true;
+  if (!definite && !barber.alive) return null; // already dead, but not THIS demon's to resolve (shouldn't happen — a defensive no-op, not a real case)
+  const targets = alive(g).filter(x => x.id === p.id || !trueChar(x) || trueChar(x).team !== 'demon');
+  return {
+    definite,
+    count: 2,
+    text: definite
+      ? 'The Barber has died. Choose 2 players (not another Demon) to swap characters, or pass.'
+      : "If the Barber ends up dead by dawn, choose 2 players (not another Demon) to swap characters, or pass — asked now, alongside tonight's kill, so there's no second prompt later.",
+    targets: targets.map(t => ({ id: t.id, name: t.name, color: t.color || null, alive: t.alive })),
   };
 }
 
@@ -449,32 +510,20 @@ function decoyPrompt(g, p) {
     through to a decoy, exactly like never appearing in the old CHOICE_CHARS
     map did. */
 function promptFor(g, p) {
-  // Sects & Violets' Barber: a wave-2-only prompt for whichever player is
-  // currently the Demon, offered once the Barber has died today or tonight
-  // (see game/abilities/sv.js's onDeath, which sets barberSwapPending on
-  // the Demon the instant that happens). Checked before anything
-  // character-based below, because the acting player here is never the
-  // Barber's own (dead) player — the registry's per-character dispatch has
-  // no way to express "this player's death changes what a DIFFERENT
-  // player is asked," so this stays a named exception, same spirit as the
-  // Lunatic/Exorcist-block/Goon-flip cases in resolveNight below.
-  if (g.wave === 2 && p.alive && p.statuses.barberSwapPending && trueChar(p) && trueChar(p).team === 'demon') {
-    const targets = alive(g).filter(x => x.id === p.id || !trueChar(x) || trueChar(x).team !== 'demon');
-    return {
-      decoy: false,
-      characterId: 'barber-swap',
-      count: 2,
-      optional: true,
-      text: 'The Barber died. Choose 2 players (not another Demon) to swap characters, or pass.',
-      targets: targets.map(t => ({ id: t.id, name: t.name, color: t.color || null, alive: t.alive })),
-    };
-  }
+  const base = basePromptFor(g, p);
+  if (!base) return base;
+  const barberSwap = barberSwapAddon(g, p);
+  return barberSwap ? { ...base, barberSwap } : base;
+}
 
+function basePromptFor(g, p) {
   const c = actingChar(p);
   if (!c || !p.alive) {
-    // The Ravenkeeper acts from beyond once, the night they die. A Minion
-    // Vigormortis killed keeps acting every night after — see actingTonight.
-    if (!((p.believedId === 'ravenkeeper' && p.statuses.diedTonight && g.wave === 2) || p.statuses.vigormortisKept)) return null;
+    // A Minion Vigormortis killed keeps acting every night after — see
+    // actingTonight. The Ravenkeeper used to be the other exception here
+    // (acts from beyond once, the night they die); that's a day-phase
+    // route now (server.js's /api/ravenkeeper-choice), not a night prompt.
+    if (!p.statuses.vigormortisKept) return null;
   }
   const first = g.nightNumber === 1;
   const order = c ? (first ? c.firstNightOrder : c.otherNightOrder) : 0;
@@ -499,7 +548,6 @@ function promptFor(g, p) {
   const acts =
     hasSomethingToDo &&
     !!order &&
-    waveFor(c.id) === g.wave &&
     !usedUp &&
     (entry.acts ? entry.acts(g, p, H) : true);
 
@@ -593,10 +641,15 @@ function deliverOpeningInfo(g, results) {
   // wrong, name) and is added to what the Demon is told about their
   // Minions. A script with no Magician in play is untouched by either half.
   const magician = g.players.find(p => p.characterId === 'magician');
-  // Damsel: "All Minions know you are in play" — every Minion's own opening
-  // briefing below gets a line naming her outright, unconditional on
-  // anything (this is what /api/damsel-guess later gives a Minion the
-  // chance to act on).
+  // Damsel: "All Minions know you are in play" — setup info about the
+  // CHARACTER, same shape as Godfather's "which Outsiders are in play"
+  // just below (a category, not an identity). This used to name her
+  // outright by seat ("Ada is the Damsel."), which handed every Minion a
+  // guaranteed, risk-free win the instant day began — /api/damsel-guess's
+  // whole "publicly GUESS" premise only makes sense if evil genuinely
+  // doesn't know who she is yet and has to deduce it, the same way they
+  // have to deduce everything else on a script (hide-and-seek's own
+  // description) built specifically around bluffing and double-claims.
   const damsel = g.players.find(p => p.characterId === 'damsel');
   // Marionette: "The Demon knows who you are" — the reciprocal half of her
   // dealRoles setup above, same shape as the Lunatic's own line to the
@@ -615,7 +668,7 @@ function deliverOpeningInfo(g, results) {
   for (const m of minions) {
     results[m.id] = {
       title: 'Your allies',
-      body: `${magician ? magician.name : demon.name} is the Demon.` + (damsel ? ` ${damsel.name} is the Damsel.` : ''),
+      body: `${magician ? magician.name : demon.name} is the Demon.` + (damsel ? ' The Damsel is in play.' : ''),
       names: minions.filter(x => x.id !== m.id).map(x => `${x.name} — fellow Minion`),
     };
     if (snitch) {
@@ -646,12 +699,18 @@ function deliverOpeningInfo(g, results) {
  * can only ever trigger from a night kill anyway, since only the Demon
  * kills at night).
  */
-function triggerDeathHooks(g, player, { killedByDemon = false, results } = {}) {
+async function triggerDeathHooks(g, player, { killedByDemon = false, results } = {}) {
   triggerMoonchildIfNeeded(g, player);
   triggerPixieIfNeeded(g, player);
   const entry = REGISTRY[player.characterId];
   if (entry && entry.onDeath) {
-    entry.onDeath(g, player, { killedByDemon, results: results || g.results });
+    // await works whether a given character's onDeath is itself async or
+    // plain-synchronous (awaiting a non-promise resolves immediately) —
+    // same "every caller stays correct either way" reasoning resolveNight's
+    // own resolve() dispatch already relies on. Sage's is the one that
+    // actually needs this: its Recluse-might-register-as-Demon whim
+    // consults resolveWhim(), which is itself async.
+    await entry.onDeath(g, player, { killedByDemon, results: results || g.results });
   }
 }
 
@@ -669,48 +728,95 @@ function logPrivateAction(g, player, submitted) {
     targets: (action && action.targets) || [],
     characterGuess: (action && action.characterGuess) || null,
     decoy: !!(submitted && submitted.decoy),
+    // Sects & Violets' Barber-swap pick, when this player is a Demon and
+    // submitted one alongside their real choice — see promptFor's
+    // barberSwapAddon and resolveNight's own "Apply deaths" step, which
+    // actually reads this back. Not gated on `!submitted.decoy` the way
+    // `targets` above is: a Demon's own kill target can be a decoy (an Imp
+    // with nothing to do on night 1) while their swap pick is still real.
+    ...(submitted && submitted.barberSwapTargets ? { barberSwapTargets: submitted.barberSwapTargets } : {}),
   });
 }
 
 /**
- * Resolve one wave of the night. Wave 2 exists only for abilities that depend
- * on what wave 1 did (the Ravenkeeper dying), so it must not re-run the night:
- * re-resolving would wipe `diedTonight` and recompute every info role's answer.
+ * Resolve the whole night in one pass. Used to take an optional `wave`
+ * (there used to be a second, later pass for whatever needed to react to
+ * who died in the first one — the Barber's swap, and before that, the
+ * Ravenkeeper's reveal) — both are gone now (see barberSwapAddon's own
+ * comment above and server.js's /api/ravenkeeper-choice), so there's only
+ * ever one pass left. Existing callers that still pass a second argument
+ * (tools/simulate.js's own `resolveNight(g, 1)`, by the hundred) are
+ * harmless — JS simply ignores an argument nothing declares a parameter
+ * for.
  */
-async function resolveNight(g, wave = 1) {
-  const order = actingTonight(g).filter(e => waveFor(e.character.id) === wave);
+async function resolveNight(g) {
+  const order = actingTonight(g);
   const results = {};
 
-  if (wave === 1) {
-    deliverOpeningInfo(g, results);
+  deliverOpeningInfo(g, results);
 
-    // Reset per-night markers
-    for (const p of g.players) {
-      delete p.statuses.protected;
-      delete p.statuses.diedTonight;
-      delete p.statuses.executionImmune; // Devil's Advocate's protection covered only yesterday's execution
-      delete p.statuses.witchCursed; // the Witch's curse only ever covers the single day right after it's cast
+  // Reset per-night markers
+  for (const p of g.players) {
+    delete p.statuses.protected;
+    delete p.statuses.diedTonight;
+    delete p.statuses.executionImmune; // Devil's Advocate's protection covered only yesterday's execution
+    delete p.statuses.witchCursed; // the Witch's curse only ever covers the single day right after it's cast
+    // The Ravenkeeper's day-phase choice (see /api/ravenkeeper-choice)
+    // expires once night falls again unused — "the day immediately
+    // following the death," not indefinitely available. A bot's own
+    // choice never sets this in the first place (resolved immediately
+    // below instead), so this only ever fires for a real player who
+    // missed their own window.
+    delete p.statuses.ravenkeeperPending;
+  }
+  g.exorcistBlockedId = null;
+  g.goonFlippedTonight = false;
+  g.abnormalTonight = new Set(); // the Mathematician's count, flagged via flagAbnormal()
+  // Poison, and drunk-until-dusk (Sailor/Innkeeper/Courtier), wear off at
+  // dusk of the following day.
+  for (const p of g.players) {
+    if (p.statuses.poisonedUntilNight && p.statuses.poisonedUntilNight < g.nightNumber) {
+      delete p.statuses.poisoned;
+      delete p.statuses.poisonedUntilNight;
     }
-    g.exorcistBlockedId = null;
-    g.goonFlippedTonight = false;
-    g.abnormalTonight = new Set(); // the Mathematician's count, flagged via flagAbnormal()
-    // Poison, and drunk-until-dusk (Sailor/Innkeeper/Courtier), wear off at
-    // dusk of the following day.
-    for (const p of g.players) {
-      if (p.statuses.poisonedUntilNight && p.statuses.poisonedUntilNight < g.nightNumber) {
-        delete p.statuses.poisoned;
-        delete p.statuses.poisonedUntilNight;
-      }
-      if (p.statuses.drunkUntilNight && p.statuses.drunkUntilNight < g.nightNumber) {
-        delete p.statuses.drunk;
-        delete p.statuses.drunkUntilNight;
-      }
+    if (p.statuses.drunkUntilNight && p.statuses.drunkUntilNight < g.nightNumber) {
+      delete p.statuses.drunk;
+      delete p.statuses.drunkUntilNight;
     }
   }
 
   const deaths = [];
+  // The Lunatic's own "pointed at" target tonight, if any — compared
+  // against the real Demon's actual kill, checked at the top of every
+  // later iteration below (not live during her own turn: her night-order
+  // slot runs before every demon's own, so the real kill isn't decided
+  // yet when she acts) — and specifically not just once after this whole
+  // loop finishes, either: the Mathematician's own turn runs INSIDE this
+  // same loop too (she's simply last in night order), so a check placed
+  // after the loop would run too late to ever reach her own read of
+  // g.abnormalTonight.
+  let lunaticPointedAt = null;
 
   for (const { player: p, character: c } of order) {
+    // Reconciles the instant a real Demon kill becomes known (checked
+    // fresh every iteration — cheap, and self-clearing once resolved) so
+    // it's never stale by the Mathematician's own turn, later this same
+    // loop. See lunaticPointedAt's own comment above for why not after
+    // the whole loop.
+    if (lunaticPointedAt !== null) {
+      const demonKillIds = deaths.filter(d => d.killedByDemon).map(d => d.player.id);
+      if (demonKillIds.length) {
+        // .some() via .includes() on the id list, not a single id — a
+        // Demon that kills more than once a night (Shabaloth) still has a
+        // real answer: did the Lunatic's one point land on ANY of them.
+        if (!demonKillIds.includes(lunaticPointedAt)) {
+          const lunatic = g.players.find(x => x.characterId === 'lunatic');
+          if (lunatic) flagAbnormal(g, lunatic);
+        }
+        lunaticPointedAt = null;
+      }
+    }
+
     // A player killed earlier THIS SAME night (by an earlier character in
     // tonight's order — the Demon, typically) never wakes for their own
     // later turn, same as the real rules — but p.alive itself isn't
@@ -718,10 +824,7 @@ async function resolveNight(g, wave = 1) {
     // takes effect once everyone's turn tonight has run, so death-order
     // interactions like Grandmother's link can see every kill decided
     // tonight). Checking `deaths` directly is the only way to see
-    // "already dead, just not yet applied" at this point in the loop. The
-    // Ravenkeeper's own "acts even though they just died" exception is a
-    // real rule too, but it's handled entirely by its own wave-2 slot (a
-    // separate resolveNight call with its own order/deaths), not here.
+    // "already dead, just not yet applied" at this point in the loop.
     if (deaths.some(d => d.player.id === p.id)) continue;
 
     const submitted = g.pending[p.id];
@@ -729,6 +832,16 @@ async function resolveNight(g, wave = 1) {
     // A decoy submission is never allowed to drive a real ability.
     const action = submitted && !submitted.decoy ? submitted : null;
     const broken = impaired(p);
+    // The Mathematician: "learns if the Drunk's/Marionette's ability
+    // yielded false info or failed to work properly" (two of the official
+    // jinxes found auditing against the wiki) — both are unconditionally
+    // impaired by definition (see impaired()'s own comment), so both
+    // unconditionally count, every night they actually act. Checked on
+    // true characterId, same as impaired() itself, never the believed one
+    // — a Townsfolk who merely got poisoned this one night isn't either of
+    // these, and doesn't flag (that's the real jinx's actual scope, not
+    // "any falsified result" more broadly).
+    if (p.characterId === 'drunk' || p.characterId === 'marionette') flagAbnormal(g, p);
     // The Mercy — checked for every acting player, every night, but a cheap
     // no-op for anyone not both impaired and eligible (see maybeMercy's own
     // early-outs), so this needs no per-character wiring anywhere else:
@@ -755,6 +868,11 @@ async function resolveNight(g, wave = 1) {
           results[demon.id].body += ` The Lunatic pointed at ${names} tonight.`;
         }
         logEvent(g, `Lunatic (believing themselves the demon) pointed at ${names} — no real effect.`, true);
+        // A single-target point, same as every real demon's own kill choice
+        // — recorded here, compared against the real kill once `deaths` is
+        // fully settled (see that comparison's own comment for why not
+        // live, right here).
+        lunaticPointedAt = chosen[0].id;
       }
       continue;
     }
@@ -787,7 +905,10 @@ async function resolveNight(g, wave = 1) {
         // Structured, not just the prose line above — a quiet but
         // genuinely game-swinging moment (a good player becomes evil)
         // that otherwise left no trace a future scoring pass could read.
-        g.pivotalEvents.push({ night: g.nightNumber, type: 'goon-flip', goonId: goon.id, chooserId: p.id, resultingAlignment: goon.statuses.goonEvil ? 'evil' : 'good' });
+        // goonName/chooserName denormalized here (not just the ids) since
+        // this record outlives the live game object it was built from —
+        // same reasoning as blockedKills' own targetName just above.
+        g.pivotalEvents.push({ night: g.nightNumber, type: 'goon-flip', goonId: goon.id, goonName: goon.name, chooserId: p.id, chooserName: p.name, resultingAlignment: goon.statuses.goonEvil ? 'evil' : 'good' });
       }
     }
 
@@ -838,18 +959,16 @@ async function resolveNight(g, wave = 1) {
 
   // Tinker: pure Storyteller discretion, "might die at any time" — modeled,
   // like Mayor's redirect and Recluse's registration, as a per-night roll.
-  if (wave === 1) {
-    for (const tinker of alive(g).filter(x => x.characterId === 'tinker')) {
-      // Preserving the original short-circuit exactly: an impaired Tinker
-      // never rolls at all, not "rolls but the death never lands."
-      if (!impaired(tinker) && decide(g, `tinker-death:${tinker.id}:${g.nightNumber}`, () => Math.random() < g.config.tinkerDeathChance)) {
-        // A real death happening tonight — Innkeeper's protection is
-        // attacker-agnostic and has to apply here too (nightKill, not
-        // demonAttack, since this isn't the Demon and shouldn't also
-        // grant Soldier's Demon-only immunity).
-        const blocked = checkKill(g, tinker, { nightKill: true });
-        if (!blocked) deaths.push({ player: tinker, cause: 'tinker', killedByDemon: false });
-      }
+  for (const tinker of alive(g).filter(x => x.characterId === 'tinker')) {
+    // Preserving the original short-circuit exactly: an impaired Tinker
+    // never rolls at all, not "rolls but the death never lands."
+    if (!impaired(tinker) && decide(g, `tinker-death:${tinker.id}:${g.nightNumber}`, () => Math.random() < g.config.tinkerDeathChance)) {
+      // A real death happening tonight — Innkeeper's protection is
+      // attacker-agnostic and has to apply here too (nightKill, not
+      // demonAttack, since this isn't the Demon and shouldn't also
+      // grant Soldier's Demon-only immunity).
+      const blocked = checkKill(g, tinker, { nightKill: true });
+      if (!blocked) deaths.push({ player: tinker, cause: 'tinker', killedByDemon: false });
     }
   }
 
@@ -876,31 +995,75 @@ async function resolveNight(g, wave = 1) {
     // Golem) as a night death.
     g.deaths.push({ night: g.nightNumber, name: d.player.name, cause: d.cause, killedByDemon: !!d.killedByDemon, phase: 'night' });
     logEvent(g, `${d.player.name} died in the night (${d.cause}).`, true);
-    triggerDeathHooks(g, d.player, { killedByDemon: !!d.killedByDemon, results });
+    await triggerDeathHooks(g, d.player, { killedByDemon: !!d.killedByDemon, results });
     if (!d.skipSuccession) succeedDemon(g, d.player);
+
+    // The Ravenkeeper: "if you die at night, choose a player: you learn
+    // their character" — moved off this same night's wave-2 window onto
+    // the day immediately following instead (see server.js's own
+    // /api/ravenkeeper-choice and its comment on why: a real report of a
+    // player who'd just learned they died, needing to also read new
+    // instructions and choose within wave 2's short window, and losing
+    // that race). A bot has no day-phase UI to act through, so a bot
+    // Ravenkeeper resolves immediately, right here, with a random target —
+    // same spirit as botChoice() elsewhere — rather than silently losing
+    // this reveal the moment it stopped being a night prompt.
+    if (d.player.believedId === 'ravenkeeper') {
+      if (d.player.bot) {
+        const candidates = g.players.filter(x => x.id !== d.player.id);
+        if (candidates.length) {
+          const result = await resolveRavenkeeperChoice(g, d.player, pick(candidates).id);
+          if (result) results[d.player.id] = result;
+        }
+      } else {
+        d.player.statuses.ravenkeeperPending = true;
+      }
+    }
   }
 
-  // Sects & Violets' Barber: the wave-2 swap itself (see promptFor's
-  // synthetic 'barber-swap' prompt above, and needsWaveTwo). Not part of
-  // the per-character loop at the top of this function — the acting
-  // player here is the Demon, not the Barber, so there's no registry
-  // entry whose own turn this could be.
-  if (wave === 2) {
-    for (const demon of alive(g).filter(x => x.statuses.barberSwapPending)) {
-      demon.statuses.barberSwapPending = false; // one-shot, whether or not they chose anyone
-      const submitted = g.pending[demon.id];
+  // Sects & Violets' Barber: the swap itself — the Demon's own choice was
+  // already captured earlier THIS SAME window, alongside whatever their
+  // real turn already asked for (see promptFor's own barberSwapAddon),
+  // specifically so this never opens a second window of its own. Not part
+  // of the per-character loop above — the acting player here is the
+  // Demon, not the (by-then-dead) Barber, so there's no registry entry
+  // whose own turn this could be.
+  for (const demon of alive(g).filter(x => x.statuses.barberSwapPending)) {
+    demon.statuses.barberSwapPending = false; // one-shot, whether or not they chose anyone
+    const submitted = g.pending[demon.id];
+    // A Demon with no real ability tonight (an Imp on night 1, say) never
+    // goes through the main per-character loop above at all — nothing
+    // else has logged their submission yet in that case, so this is the
+    // one place that still needs to. A Demon who DID act tonight is
+    // already logged there (barberSwapTargets included — see
+    // logPrivateAction's own comment), so this only ever adds the entry
+    // once, never twice.
+    if (!g.privateActionLog.some(e => e.night === g.nightNumber && e.playerId === demon.id)) {
       logPrivateAction(g, demon, submitted);
-      const action = submitted && !submitted.decoy ? submitted : null;
-      const chosen = ((action && action.targets) || []).map(id => byId(g, id)).filter(Boolean);
-      if (chosen.length === 2 && !impaired(demon)) {
-        const [a, b] = chosen;
-        const aId = a.characterId, bId = b.characterId;
-        a.characterId = bId; a.believedId = bId;
-        b.characterId = aId; b.believedId = aId;
-        flagAbnormal(g, a);
-        flagAbnormal(g, b);
-        logEvent(g, `Barber's death lets the Demon swap ${a.name} and ${b.name}'s characters.`, true);
-      }
+    }
+    // Read straight off `submitted`, not gated behind submitted.decoy the
+    // way the Demon's own PRIMARY choice is elsewhere — that flag is about
+    // whether THEIR kill target was real or a decoy fallback (e.g. an Imp
+    // with nothing to do on night 1), a completely independent question
+    // from whether they also locked in a real swap pick alongside it.
+    //
+    // Re-validated against the alive/team state as it stands right NOW —
+    // not the pool the Demon actually saw when they submitted, which
+    // could have been minutes earlier in this same window, before every
+    // other player's own action (and every death it caused) was known.
+    // Same eligibility rule the original target list itself used (their
+    // own seat is fine despite being a Demon; another Demon never is).
+    const chosen = ((submitted && submitted.barberSwapTargets) || [])
+      .map(id => byId(g, id))
+      .filter(x => x && x.alive && (x.id === demon.id || !trueChar(x) || trueChar(x).team !== 'demon'));
+    if (chosen.length === 2 && !impaired(demon)) {
+      const [a, b] = chosen;
+      const aId = a.characterId, bId = b.characterId;
+      a.characterId = bId; a.believedId = bId;
+      b.characterId = aId; b.believedId = aId;
+      flagAbnormal(g, a);
+      flagAbnormal(g, b);
+      logEvent(g, `Barber's death lets the Demon swap ${a.name} and ${b.name}'s characters.`, true);
     }
   }
 
@@ -965,7 +1128,7 @@ function resolveMastermindDay(g, executedPlayer) {
  * are cleared after one check either way; Mutant's own isn't, since it's
  * permanent for the rest of the game.
  */
-function resolveMadness(g) {
+async function resolveMadness(g) {
   for (const p of alive(g)) {
     if (!p.statuses.madReasons || !p.statuses.madReasons.length) continue;
     if (!p.statuses.madClaimedToday && decide(g, `mad-execution:${p.id}:${g.nightNumber}`, () => Math.random() < g.config.madExecutionChance)) {
@@ -984,7 +1147,7 @@ function resolveMadness(g) {
         if (p.statuses.evilTwinId) g.evilTwinGoodExecuted = true;
         g.deaths.push({ night: g.nightNumber, name: p.name, cause: 'madness', killedByDemon: false, phase: 'day' });
         logEvent(g, `${p.name} didn't act mad enough and is executed for it.`);
-        triggerDeathHooks(g, p, { killedByDemon: false });
+        await triggerDeathHooks(g, p, { killedByDemon: false });
         applyCannibalTransform(g, p);
         succeedDemon(g, p);
       }
@@ -1120,7 +1283,7 @@ function applyConfigPatch(g, patch) {
   ['recluseRegistersEvil', 'mayorRedirectChance', 'shabalothRegurgitateChance',
     'pacifistSaveChance', 'tinkerDeathChance', 'madExecutionChance', 'dramaBias']
     .forEach(clampedChance);
-  ['windowSeconds', 'wave2Seconds', 'voteWindowSeconds'].forEach(clampedSeconds);
+  ['windowSeconds', 'voteWindowSeconds'].forEach(clampedSeconds);
 
   if ('hintNights' in patch) {
     const nights = Array.isArray(patch.hintNights)
@@ -1140,6 +1303,19 @@ function applyConfigPatch(g, patch) {
 
   if ('llmStorytellerEnabled' in patch) {
     g.config.llmStorytellerEnabled = !!patch.llmStorytellerEnabled;
+  }
+
+  if ('licensedAmbientMusic' in patch) {
+    g.config.licensedAmbientMusic = !!patch.licensedAmbientMusic;
+  }
+
+  if ('narratorPersona' in patch) {
+    const v = String(patch.narratorPersona);
+    if (['dramatic', 'strict', 'droll'].includes(v)) g.config.narratorPersona = v;
+  }
+
+  if ('adaptiveDrama' in patch) {
+    g.config.adaptiveDrama = !!patch.adaptiveDrama;
   }
 }
 
@@ -1168,15 +1344,6 @@ function resolveDayVote(g) {
   const top = qualifying.filter(n => n.yesCount === max);
   if (top.length !== 1) return null;
   return top[0].nomineeId;
-}
-
-/** Does anyone need a second window tonight? Either the Ravenkeeper died in
-    wave 1, or the Barber did (today's execution, or tonight in wave 1) and
-    flagged the Demon via barberSwapPending — see promptFor and the wave-2
-    step in resolveNight. */
-function needsWaveTwo(g) {
-  return g.players.some(p => p.believedId === 'ravenkeeper' && p.statuses.diedTonight) ||
-    g.players.some(p => p.statuses.barberSwapPending);
 }
 
 /** The whole game's own numbers — safe to show only once revealed, same as
@@ -1368,13 +1535,12 @@ function publicState(g) {
   return {
     phase: g.phase,
     nightNumber: g.nightNumber,
-    wave: g.wave,
     windowEndsAt: g.windowEndsAt,
     // The countdown ring's fill fraction needs the seconds this window was
-    // actually opened for, not whatever g.config.windowSeconds/wave2Seconds
-    // happens to read right now — a host adjusting Timing settings mid-
-    // window (nothing stops that; SettingsOverlay has no phase gate) used
-    // to desync the ring's fullness from the real time left, since the
+    // actually opened for, not whatever g.config.windowSeconds happens to
+    // read right now — a host adjusting Timing settings mid-window
+    // (nothing stops that; SettingsOverlay has no phase gate) used to
+    // desync the ring's fullness from the real time left, since the
     // number-of-seconds-left digit is computed fresh from windowEndsAt but
     // the fraction was computed against live config instead of the total
     // this specific window actually started from.
@@ -1383,6 +1549,11 @@ function publicState(g) {
     script: g.script,
     hint: g.hint,
     config: g.config,
+    // Only ever differs from config.dramaBias when adaptiveDrama is on —
+    // the host's actual live readout of what the AI is doing right now,
+    // not just the dial it would otherwise be reading. See
+    // effectiveDramaBias() in helpers.js for the formula.
+    liveDramaBias: H.effectiveDramaBias(g),
     // The official Townsfolk/Outsider/Minion/Demon split for however many
     // are seated right now — Baron/Fang Gu/Godfather/Vigormortis can still
     // shift Outsiders once roles are actually dealt (see dealRoles), so
@@ -1408,14 +1579,17 @@ function publicState(g) {
       // which is the entire point of the ability.
       //
       // The opposite redaction happens for a real death THIS night, while
-      // still mid-night: a wave-2 night (the Ravenkeeper or Barber dying in
-      // wave 1) used to push publiclyAlive's already-flipped `false` to
-      // every host/TV screen the moment wave 1 resolved — a skull on the
-      // shared screen, and the death entry below, well before wave 2 even
-      // opens, let alone dawn. A live Storyteller already knows who died
-      // the second it happens but doesn't announce it until morning; this
-      // keeps the public view honest to that same beat, same as
-      // resultsLog/actionLog below stay hidden until g.revealed.
+      // still mid-night: resolveNight() applies a death (flips p.alive,
+      // sets diedTonight) partway through its own async resolution, well
+      // before endNight() actually flips g.phase to 'day' — any request
+      // this server happens to answer in that gap (another await inside
+      // the same resolveNight call yielding back to the event loop, most
+      // commonly) would otherwise see publiclyAlive() already false and a
+      // skull on the shared screen with the night not even over yet. A
+      // live Storyteller already knows who died the second it happens but
+      // doesn't announce it until morning; this keeps the public view
+      // honest to that same beat, same as resultsLog/actionLog below stay
+      // hidden until g.revealed.
       alive: (g.phase === 'night' && p.statuses.diedTonight) ? true : publiclyAlive(p),
       connected: !!p.connected,
       submitted: !!g.pending[p.id],
@@ -1433,11 +1607,14 @@ function publicState(g) {
     // Same redaction as `alive` above, and for the same reason: a real
     // night death's own log entry (phase: 'night', from resolveNight's own
     // death-applying loop) is withheld until dawn actually arrives, not
-    // pushed out mid-night the moment wave 1 resolves it.
+    // pushed out mid-night the moment resolveNight applies it.
     deaths: g.phase === 'night' ? g.deaths.filter(d => !(d.night === g.nightNumber && d.phase === 'night')) : g.deaths,
     // Nominations, who voted, and their outcome are never secret at a real
     // table — everyone in the room already sees all of this happen.
     nominations: g.nominations,
+    // Same visibility as nominations — a public claim is spoken out loud
+    // (or, for a Dry Run bot, the equivalent), never a secret.
+    claims: g.claims,
     log: g.revealed ? g.log : g.log.filter(l => !l.secret),
     gameSummary: g.revealed ? gameSummary(g) : null,
     actionLog: g.revealed ? g.actionLog : [],
@@ -1502,7 +1679,6 @@ function privateState(g, playerId) {
     // different script, same browser session) apart from a fresh one.
     script: g.script,
     nightNumber: g.nightNumber,
-    wave: g.wave,
     windowEndsAt: g.windowEndsAt,
     // The Bluff — the one thing on this screen meant to be seen by
     // everyone at once, host and every player alike (see
@@ -1562,8 +1738,12 @@ function privateState(g, playerId) {
     // check like the others here, since a real Minion always knows they're
     // a Minion (there's no Drunk/Lunatic-style mixup to model). Once per
     // game across the whole evil team, not once per Minion — see
-    // game.damselGuessUsed and /api/damsel-guess in server.js.
-    damselGuess: (g.phase === 'day' && publiclyAlive(p) && trueChar(p) && trueChar(p).team === 'minion' && !g.damselGuessUsed)
+    // game.damselGuessUsed and /api/damsel-guess in server.js. Also gated
+    // on a real Damsel actually being in THIS game's dealt roster — missed
+    // originally, which meant every Minion in every game (Trouble Brewing
+    // included, which doesn't even carry the character) saw this prompt.
+    damselGuess: (g.phase === 'day' && publiclyAlive(p) && trueChar(p) && trueChar(p).team === 'minion' && !g.damselGuessUsed
+      && g.players.some(x => x.characterId === 'damsel'))
       ? { targets: g.players.filter(x => publiclyAlive(x)).map(x => ({ id: x.id, name: x.name, color: x.color || null, alive: true })) }
       : null,
     // Sects & Violets' Juggler: "on your 1st day" — day one only, once ever,
@@ -1607,8 +1787,8 @@ function privateState(g, playerId) {
     madClaim: (g.phase === 'day' && p.statuses.madReasons && p.statuses.madReasons.length && !p.statuses.madClaimedToday)
       ? { label: p.statuses.madReasons.map(r => r.label).join(' or ') }
       : null,
-    // Acts from beyond, same as the Ravenkeeper — offered once, the first
-    // time this player ever dies, in whatever phase that happens to be.
+    // Acts from beyond — offered once, the first time this player ever
+    // dies, in whatever phase that happens to be.
     moonchildChoice: p.statuses.moonchildPending
       ? { targets: g.players.filter(x => x.id !== p.id && publiclyAlive(x)).map(x => ({ id: x.id, name: x.name, color: x.color || null, alive: true })) }
       : null,
@@ -1618,6 +1798,15 @@ function privateState(g, playerId) {
     // /api/klutz-choice.
     klutzChoice: p.statuses.klutzPending
       ? { targets: g.players.filter(x => x.id !== p.id && publiclyAlive(x)).map(x => ({ id: x.id, name: x.name, color: x.color || null, alive: true })) }
+      : null,
+    // The Ravenkeeper: a different shape from Moonchild/Klutz above in two
+    // ways — gated to the day phase specifically (ravenkeeperPending is
+    // only ever set on a night death; see resolveNight's "Apply deaths"
+    // step), and able to target a DEAD player too, matching the real
+    // ability ("choose a player: you learn their character," never
+    // restricted to the living) — see server.js's /api/ravenkeeper-choice.
+    ravenkeeperChoice: (g.phase === 'day' && p.statuses.ravenkeeperPending)
+      ? { targets: g.players.filter(x => x.id !== p.id).map(x => ({ id: x.id, name: x.name, color: x.color || null, alive: x.alive })) }
       : null,
     // Deliberately no live tally here — the running count is a shared
     // TV/host-only read of the room, same as everyone watching hands go up
@@ -1657,15 +1846,17 @@ function currentVoteRequest(g, p) {
 module.exports = {
   DATA, CHARACTERS, SETUP_TABLE, char, scriptPool,
   newGame, byId, byToken, alive, dealRoles,
-  actingTonight, promptFor, resolveNight, needsWaveTwo,
+  actingTonight, promptFor, resolveNight,
   generateHint, logEvent, publicState, privateState,
   checkVictory, applyPoliticianFlip, succeedDemon, trueChar, impaired, impairedFlip,
   checkKill, wouldBlockKill, publiclyAlive, randomKiller, logTrueValue,
   isEvil, isEvilRegistration, resolveWhim, setWhimJudge, heuristicWhim, WHIM_FIRING_HELPS_GOOD, maybeMercy,
+  effectiveDramaBias,
   minionDiedToday, triggerMoonchildIfNeeded, triggerDeathHooks, resolveMastermindDay,
   resolveDayVote, gameSummary, resolveMadness, buildSavantStatements, evaluateClaim,
   activeScriptPool, applyConfigPatch, buildStorytellerContext, BUCKET4_IDS,
-  applyCannibalTransform,
+  applyCannibalTransform, resolveRavenkeeperChoice, INTERNAL_ONLY_STATUSES,
+  recordClaim, heuristicBotClaim, BOT_PERSONALITIES,
   // Exposed for tools/audit-abilities.js's generic per-character invariant
   // checks, which need to iterate every entry rather than dispatch by id —
   // nothing inside game/ itself needs this, since engine.js's own functions
