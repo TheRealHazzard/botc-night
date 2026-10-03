@@ -370,11 +370,6 @@ at the next table:
   rest of the pivotal-scoring pass reused, so they're invisible to it.
 - **The Spy doesn't fit `logTrueValue`'s shape** — it shuffles the whole
   grimoire as one unit, not a single count/yesno/pointer value.
-- **`test:llm`'s inline-schema regex sanity check is broken**, predating
-  this session's work (confirmed via `git stash` against the last
-  pre-session commit) — a brittle source-text regex now matching the
-  wrong of two similar-looking occurrences in `server.js`. Flagged once,
-  never fixed; no one's said yet whether it's worth the time.
 - **No Travellers, no Fabled characters at all** — not partially
   supported, not stubbed, genuinely absent from `game/characters.json`
   (confirmed: the only mentions of either are inside *other* characters'
