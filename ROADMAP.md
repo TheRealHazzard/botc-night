@@ -64,6 +64,74 @@ network speed (the same file downloads fine via plain `curl`). Revisit
 the installer later; the app itself doesn't need it to already be a real
 deliverable — see `tools/stage-app.js`.
 
+## The three-mode rollout: Core, LLM, and Storyteller Assist
+
+The product is forking into three distinct ways to play, rather than one
+app with options bolted on: **Core** (today's deterministic game, no LLM),
+**LLM Mode** (the Storyteller-judgment work already partly wired in — whim
+judging, Bucket 3/4 claim judging — plus two planned features: rephrasing
+night results in Storyteller prose instead of a fixed template, and a
+persistent "narrative plan" object multiple decision points consult), and
+**Storyteller Assist** — a new mode where phones disappear entirely and a
+real human Storyteller drives the whole game from a dedicated console
+while the TV/ring view stays up for the table. The first two already
+exist in some form; Storyteller Assist is new and had to be planned from
+scratch.
+
+An architecture audit (full server.js/game/client/test survey, ~3,500
+lines of server.js, ~6,500 across game/, ~20,700 across the three client
+apps) found the rules engine itself genuinely clean and standalone
+(`tools/simulate.js` requires only `game/engine.js`, nothing else) — the
+real friction was entirely in the layer around it: zero separation
+between routing/validation/game-logic in server.js's 81 routes, an auth
+model that's just two shared secrets with no per-identity credential, and
+every piece of LLM decision logic living inline in server.js with no home
+for the two new features. The resulting plan is three phases, not a
+rewrite:
+
+- **Phase 1 (foundation) — done.** `game.config.mode` (`'core' | 'llm' |
+  'assist'`) now exists as the single source of truth for which mode a
+  table is running, lobby-only like every other structural setting. The
+  old `isHostRoute()` imperative check was replaced with a declarative
+  `ROUTE_ACCESS` table + `accessTier()` (server.js) — same behavior,
+  verified against the full existing `test:server` suite with zero new
+  tests needed, but now a future tier (`storyteller`) is one more table
+  row instead of a new branch threaded through multiple gate functions.
+  `/api/action` was extracted into `actionHandler(body)`, matching the
+  `nominateHandler`/`voteHandler` shape those two routes already used —
+  all three now resolve either a real player's token OR an explicit id
+  with no token, the second path unreachable today but exactly what a
+  future `/api/storyteller/*` caller needs. The ~12 one-off ability
+  routes (Slayer shot, Ravenkeeper choice, Savant visit, Gossip claim,
+  and the rest) were deliberately **not** extracted this pass — same
+  mechanical shape, already proven on the hardest case, but doing all of
+  them now would be speculative work with no second caller yet to verify
+  against. Queued for Phase 3, done alongside the routes that actually
+  need them.
+- **Phase 2 (LLM decision-logic extraction) — not started.** Move every
+  inline LLM function (whim judge, claim judge, bot claim/nominate/vote,
+  Savant/victory rephrase) from server.js into a new `game/storyteller/`
+  module tree, pure refactor, now unit-testable without booting the
+  server. Build night-result rephrasing and the narrative plan there from
+  day one.
+- **Phase 3 (Storyteller Assist) — not started, and blocked on two real
+  decisions first.** (1) Whims currently resolve two ways — an LLM
+  verdict or a synchronous heuristic roll — and Assist mode needs a
+  genuinely new third path: pause mid-resolution, ask the human over the
+  console, wait for a real answer. Nothing in this codebase today waits
+  on a person mid-resolution; this needs its own short design pass before
+  code. (2) `game/ABILITY_PATTERNS.md`'s entire 4-bucket framework is
+  built on "there's no Storyteller in this app" — Assist mode directly
+  contradicts that premise for exactly the characters the framework
+  exists to handle, and needs an explicit updated answer, not a silent
+  collision.
+
+Explicitly out of scope for this whole effort: refactoring all 81 routes
+(only the ones that actually grow a second caller), multi-table support
+(zero existing scaffolding, zero present need), and `tools/simulate.js`'s
+own parallel bot implementation (a real, separate pre-existing condition,
+not a rollout blocker).
+
 ## Near-term: the next live table is the actual gate
 
 A live playtest is worth more than more code right now — the standing

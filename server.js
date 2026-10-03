@@ -683,6 +683,78 @@ function allSubmitted() {
   return required.length > 0 && required.every(p => game.pending[p.id]);
 }
 
+/** The actual logic behind /api/action, extracted for the same reason as
+    nominateHandler/voteHandler above (see ROADMAP.md's "three-mode
+    rollout" section, Phase 1): a real
+    player's own phone sends body.token, same as always; body.playerId (no
+    token) is the same kind of fallback those two already established, for
+    a caller authenticated a different way — Storyteller Assist's own
+    /api/storyteller/action (not yet built) will be the first real user of
+    that second path, entering a choice on a player's behalf instead of
+    that player's own token. Nothing about today's /api/action behavior
+    changes: nobody sends playerId today, so that branch is unreachable
+    until something new actually calls it. */
+async function actionHandler(body) {
+  const p = body.token ? E.byToken(game, body.token) : E.byId(game, body.playerId);
+  if (!p) return { status: 404, payload: { error: 'Unknown player.' } };
+  // Watching a simulated seat is for seeing how it looks, not for
+  // overriding what the bot actually decides.
+  if (p.bot) return { status: 409, payload: { error: 'This seat is bot-controlled — nothing to submit.' } };
+  if (game.phase !== 'night') return { status: 409, payload: { error: 'Not night.' } };
+  const prompt = E.promptFor(game, p);
+  if (!prompt) return { status: 409, payload: { error: 'Nothing to submit.' } };
+  const targets = (body.targets || []).slice(0, prompt.count);
+  const valid = targets.every(t => prompt.targets.some(x => x.id === t));
+  const countOk = targets.length === prompt.count || (prompt.optional && targets.length === 0);
+  if (!valid || !countOk) {
+    return { status: 400, payload: { error: 'Invalid selection.' } };
+  }
+  let characterGuess;
+  if (prompt.guessCharacter) {
+    // Not gated on targets.length — a character-only choice (the
+    // Philosopher picks a character with no player target at all)
+    // has targets.length === 0 by design, and still needs validating.
+    if (body.characterGuess) {
+      if (!prompt.characterOptions.some(c => c.id === body.characterGuess)) {
+        return { status: 400, payload: { error: 'Invalid character guess.' } };
+      }
+      characterGuess = body.characterGuess;
+    } else if (!prompt.optional) {
+      // The Gambler has no "pass" — a guess is mandatory. The
+      // Philosopher's once-per-game choice is optional, and omitting
+      // characterGuess entirely (alongside its always-empty targets)
+      // is how a real pass is expressed for a character-only choice.
+      return { status: 400, payload: { error: 'A character guess is required.' } };
+    }
+  }
+  // Sects & Violets' Barber: an independent, always-optional extra
+  // choice riding along with this same submission (see engine.js's
+  // barberSwapAddon/promptFor) — never gated on prompt.optional,
+  // which describes the PRIMARY choice above and has nothing to do
+  // with this one. Validated the same way the primary choice is
+  // (every id really offered, exactly 2 or none), but kept as its
+  // own field rather than merged into `targets`, since resolveNight
+  // needs to tell "the Demon's kill target" and "the Demon's swap
+  // pick" apart later — see logPrivateAction's own comment on why.
+  let barberSwapTargets;
+  if (prompt.barberSwap) {
+    const raw = (body.barberSwapTargets || []).slice(0, 2);
+    const validSwap = raw.every(t => prompt.barberSwap.targets.some(x => x.id === t));
+    if (!validSwap || (raw.length !== 0 && raw.length !== 2)) {
+      return { status: 400, payload: { error: 'Invalid swap selection.' } };
+    }
+    barberSwapTargets = raw;
+  }
+  game.pending[p.id] = { targets, decoy: !!prompt.decoy, characterGuess, barberSwapTargets };
+  pushPlayer(p.id);
+  pushHost();
+  // Nobody left waiting on the clock once every real-or-decoy prompt
+  // is in — same effect closeWindow's own timer would have, just not
+  // making everyone sit through the rest of a window nobody needs.
+  if (allSubmitted()) await closeWindow();
+  return { status: 200, payload: { ok: true } };
+}
+
 // One window, every night, full stop — there used to be a second, shorter
 // window (wave 2) for whatever needed to react to who died in the first
 // one (the Barber's swap, and — until it moved to a day-phase route of its
@@ -2040,16 +2112,39 @@ const recordFailedAttempt = ip => codeAttemptLimiter.record(ip);
 // above, just more generous, since this isn't guarding a secret.
 const reclaimRequestLimiter = makeRateLimiter(10, 5 * 60 * 1000);
 
-// Everything under /api/table/ is a Storyteller action except the one
-// players trigger themselves (casting a vote) — built as a rule rather
-// than a hand-maintained list, so a *future* /api/table/ route defaults to
-// gated instead of accidentally shipping open.
-function isHostRoute(route) {
-  if (route === '/api/table/vote') return false;
-  if (route.startsWith('/api/table/')) return true;
-  if (route.startsWith('/api/sim/')) return true;
-  return ['/host', '/host-events', '/simulate', '/sim-events',
-    '/api/host-state', '/api/sim-state', '/tabletop'].includes(route);
+// A declarative access-tier table, not a hand-maintained imperative check —
+// every route resolves to exactly one tier (default 'table', the lowest),
+// matched most-specific-rule-first so a single-route exception (like the
+// vote carve-out below) can override a broader prefix rule listed after it.
+// Deliberately a flat data table rather than logic, so a *future* tier
+// (Storyteller Assist's own storyteller-only routes — see ROADMAP.md's
+// "three-mode rollout" section, Phase 1) is one more rule appended here,
+// not a new branch threaded through this function and accessTier() both —
+// the thing the audit flagged isHostRoute/blockedByGate/GATE_EXEMPT as NOT
+// doing cleanly today, evidenced by the one-off exception below already
+// needing special-casing under the old imperative version of this rule.
+const ROUTE_ACCESS = [
+  { route: '/api/table/vote', tier: 'table' }, // the one player-triggered exception
+  { prefix: '/api/table/', tier: 'host' },
+  { prefix: '/api/sim/', tier: 'host' },
+  { route: '/host', tier: 'host' },
+  { route: '/host-events', tier: 'host' },
+  { route: '/simulate', tier: 'host' },
+  { route: '/sim-events', tier: 'host' },
+  { route: '/api/host-state', tier: 'host' },
+  { route: '/api/sim-state', tier: 'host' },
+  // Gated by the host code, not the table one, since it rides the same
+  // /host-events stream the real dashboard uses — meant to be opened on
+  // whatever device is already signed in as host, same as /host itself.
+  { route: '/tabletop', tier: 'host' },
+];
+
+function accessTier(route) {
+  for (const rule of ROUTE_ACCESS) {
+    if (rule.route === route) return rule.tier;
+    if (rule.prefix && route.startsWith(rule.prefix)) return rule.tier;
+  }
+  return 'table';
 }
 
 const GATE_EXEMPT = new Set([
@@ -2079,7 +2174,7 @@ function blockedByGate(req, res, route) {
     else json(res, 401, { error: 'Enter the table code first.' });
     return true;
   }
-  if (HOST_HASH && isHostRoute(route) && !hashMatches(cookies.host_code, HOST_HASH)) {
+  if (HOST_HASH && accessTier(route) === 'host' && !hashMatches(cookies.host_code, HOST_HASH)) {
     if (req.method === 'GET') serveFile(res, 'enter-host-code.html');
     else json(res, 401, { error: 'Enter the host code first.' });
     return true;
@@ -2117,7 +2212,7 @@ async function requestHandler(req, res) {
       // A big-text, read-only second screen for the table itself to watch
       // (night phase, countdown, reveal) — gated by the host code, not the
       // player one, since it rides the same /host-events stream the real
-      // dashboard uses (see isHostRoute() above). Meant to be opened on
+      // dashboard uses (see ROUTE_ACCESS above). Meant to be opened on
       // whatever device is already signed in as host, same as /host itself.
       if (route === '/tabletop') return serveFile(res, 'tabletop.html');
       // A read-only narration feed for people following along without a
@@ -2159,7 +2254,7 @@ async function requestHandler(req, res) {
       }
 
       if (route === '/spectate-events') {
-        // Table-code gated only (not in isHostRoute() below) — same
+        // Table-code gated only (not in ROUTE_ACCESS above) — same
         // privilege level as a real player's own /events stream, not the
         // host's extra one. See pushHost()'s own comment for why this
         // payload is safe to share at all.
@@ -2614,64 +2709,8 @@ async function requestHandler(req, res) {
       }
 
       if (route === '/api/action') {
-        const p = E.byToken(game, body.token);
-        if (!p) return json(res, 404, { error: 'Unknown player.' });
-        // Watching a simulated seat is for seeing how it looks, not for
-        // overriding what the bot actually decides.
-        if (p.bot) return json(res, 409, { error: 'This seat is bot-controlled — nothing to submit.' });
-        if (game.phase !== 'night') return json(res, 409, { error: 'Not night.' });
-        const prompt = E.promptFor(game, p);
-        if (!prompt) return json(res, 409, { error: 'Nothing to submit.' });
-        const targets = (body.targets || []).slice(0, prompt.count);
-        const valid = targets.every(t => prompt.targets.some(x => x.id === t));
-        const countOk = targets.length === prompt.count || (prompt.optional && targets.length === 0);
-        if (!valid || !countOk) {
-          return json(res, 400, { error: 'Invalid selection.' });
-        }
-        let characterGuess;
-        if (prompt.guessCharacter) {
-          // Not gated on targets.length — a character-only choice (the
-          // Philosopher picks a character with no player target at all)
-          // has targets.length === 0 by design, and still needs validating.
-          if (body.characterGuess) {
-            if (!prompt.characterOptions.some(c => c.id === body.characterGuess)) {
-              return json(res, 400, { error: 'Invalid character guess.' });
-            }
-            characterGuess = body.characterGuess;
-          } else if (!prompt.optional) {
-            // The Gambler has no "pass" — a guess is mandatory. The
-            // Philosopher's once-per-game choice is optional, and omitting
-            // characterGuess entirely (alongside its always-empty targets)
-            // is how a real pass is expressed for a character-only choice.
-            return json(res, 400, { error: 'A character guess is required.' });
-          }
-        }
-        // Sects & Violets' Barber: an independent, always-optional extra
-        // choice riding along with this same submission (see engine.js's
-        // barberSwapAddon/promptFor) — never gated on prompt.optional,
-        // which describes the PRIMARY choice above and has nothing to do
-        // with this one. Validated the same way the primary choice is
-        // (every id really offered, exactly 2 or none), but kept as its
-        // own field rather than merged into `targets`, since resolveNight
-        // needs to tell "the Demon's kill target" and "the Demon's swap
-        // pick" apart later — see logPrivateAction's own comment on why.
-        let barberSwapTargets;
-        if (prompt.barberSwap) {
-          const raw = (body.barberSwapTargets || []).slice(0, 2);
-          const validSwap = raw.every(t => prompt.barberSwap.targets.some(x => x.id === t));
-          if (!validSwap || (raw.length !== 0 && raw.length !== 2)) {
-            return json(res, 400, { error: 'Invalid swap selection.' });
-          }
-          barberSwapTargets = raw;
-        }
-        game.pending[p.id] = { targets, decoy: !!prompt.decoy, characterGuess, barberSwapTargets };
-        pushPlayer(p.id);
-        pushHost();
-        // Nobody left waiting on the clock once every real-or-decoy prompt
-        // is in — same effect closeWindow's own timer would have, just not
-        // making everyone sit through the rest of a window nobody needs.
-        if (allSubmitted()) await closeWindow();
-        return json(res, 200, { ok: true });
+        const { status, payload } = await actionHandler(body);
+        return json(res, status, payload);
       }
 
       if (route === '/api/slayer-shot') {

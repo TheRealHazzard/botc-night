@@ -66,6 +66,19 @@ function newGame() {
     // player doesn't need a pacing nudge, only the host does.
     dayStartedAt: null,
     config: {
+      // The three-way product split (see ROADMAP.md's "three-mode rollout" section):
+      // 'core' plays exactly as today with no LLM involvement at all;
+      // 'llm' is today's llmStorytellerEnabled behavior, promoted to its
+      // own named mode rather than staying one boolean among many; 'assist'
+      // is the not-yet-built Storyteller Assist mode (a human drives
+      // decisions through a new console instead of phones). Deliberately
+      // NOT a replacement for llmStorytellerEnabled below — that flag still
+      // gates the actual LLM call sites, same as it always has, so nothing
+      // about today's behavior changes until something new actually reads
+      // `mode`. This field is where that something new will anchor instead
+      // of inventing its own scattered boolean the way llmStorytellerEnabled
+      // itself did.
+      mode: 'core',
       windowSeconds: 60,
       hintNights: [1, 2],      // the dead stop talking after this
       dramaBias: 0.5,          // 0 = coldly random, 1 = maximum tension
@@ -1324,6 +1337,14 @@ function applyConfigPatch(g, patch) {
 
   if ('llmStorytellerEnabled' in patch) {
     g.config.llmStorytellerEnabled = !!patch.llmStorytellerEnabled;
+  }
+
+  // Lobby-only, same reasoning as disabledCharacterIds above — switching
+  // which mode a table is running mid-game makes no more sense than
+  // reshuffling the roster does.
+  if ('mode' in patch && g.phase === 'lobby') {
+    const v = String(patch.mode);
+    if (['core', 'llm', 'assist'].includes(v)) g.config.mode = v;
   }
   ['liveBeatsEnabled', 'adaptiveAudioEnabled', 'narrationVarietyEnabled', 'shareCardEnabled'].forEach(key => {
     if (key in patch) g.config[key] = !!patch[key];
