@@ -1,6 +1,9 @@
 import Icon from './Icon.jsx';
 
-const COPY = {
+// Exported — DayView.jsx reuses this same copy to log a pacing nudge via
+// narratorLog.js now that this component no longer renders on-stage (see
+// GameStage.jsx), so the wording only ever lives in one place.
+export const PACING_COPY = {
   quiet: { icon: 'clock', text: "The room's gone quiet — might be worth checking in." },
   pressure: { icon: 'bolt', text: 'Still quiet after a while — maybe time to add some pressure.' },
 };
@@ -11,7 +14,7 @@ const COPY = {
     it never forces anything). */
 export default function RoomPacingNudge({ level }) {
   if (!level) return null;
-  const { icon, text } = COPY[level];
+  const { icon, text } = PACING_COPY[level];
   return (
     <div className={'room-pacing' + (level === 'pressure' ? ' pressure' : '')}>
       <Icon name={icon} size={14} />

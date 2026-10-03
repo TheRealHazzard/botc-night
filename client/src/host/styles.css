@@ -59,6 +59,20 @@
         background-image: var(--grain);
         background-repeat: repeat;
       }
+      /* React's actual mount point (host.html) — body's only child, and
+   with no rules of its own it's a plain block div: `header`/`.app-shell`
+   (App.jsx's real top-level children) end up as ITS children, two levels
+   below body, so body's own flex layout never reaches them. Without this,
+   `header`'s flex:0 0 auto and `.app-shell`'s flex:1/height:100% are
+   inert — #root's height just shrink-wraps its content instead of
+   filling body, and header/.app-shell stack as ordinary block elements.
+   Mirroring body's own flex setup here is what actually makes that chain
+   real. */
+      #root {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+      }
       .mono {
         font-family: "Space Mono", ui-monospace, monospace;
         font-variant-numeric: tabular-nums;
@@ -77,61 +91,22 @@
         vertical-align: -0.15em;
       }
 
-      /* --------------------------------------------------------------- layout
-   App.jsx's own top-level shape: a persistent left column (.side-header
-   — brand, phase, narration, every header action) beside the actual
-   game stage (.stage-col, holding the reclaim banner/toasts and `main`).
-   Replaces the old full-width top `<header>` + `<main>` stack — moving
-   the header to the side is what actually fixed the ring colliding with
-   it on tall screens, since the ring's own region no longer shares any
-   vertical space with it at all (see `.ring`'s own sizing comment). */
-      .app-shell {
-        flex: 1;
-        min-height: 0;
-        display: flex;
-        flex-direction: row;
-        width: 100%;
-        overflow: hidden;
-      }
-      .stage-col {
-        flex: 1;
-        min-width: 0;
-        min-height: 0;
-        display: flex;
-        flex-direction: column;
-        overflow: hidden;
-      }
-      @media (max-width: 860px) {
-        .app-shell {
-          flex-direction: column;
-          overflow-y: auto;
-        }
-        .side-header {
-          width: 100%;
-          max-width: none;
-          border-right: none;
-          border-bottom: 1px solid var(--line);
-        }
-      }
-
-      /* ------------------------------------------------------------ side header */
-      .side-header {
-        flex: 0 0 auto;
-        width: 340px;
-        max-width: 340px;
-        display: flex;
-        flex-direction: column;
-        gap: 18px;
-        padding: 20px 24px;
-        border-right: 1px solid var(--line);
-        overflow-y: auto;
-      }
-      .side-header-top {
+      /* --------------------------------------------------------------- header
+   A full-width top bar (brand, Game/Toolkit toggle, every header action,
+   the phase pill) — restored after a redesign briefly moved this into a
+   left sidebar (SideHeader) and that read wrong once seen live: a header
+   belongs on top, not down the side. Narration has no on-screen home of
+   its own at all any more (see GameStage.jsx's own comment) — it's
+   spoken, and logged for a host who missed it (NarratorLogCard), rather
+   than occupying a dedicated column. */
+      header {
         flex: 0 0 auto;
         display: flex;
         align-items: center;
         justify-content: space-between;
-        gap: 12px;
+        gap: 20px;
+        padding: 14px 40px;
+        border-bottom: 1px solid var(--line);
       }
       .brand {
         display: flex;
@@ -139,22 +114,9 @@
         gap: 11px;
       }
       .mark {
-        height: 40px;
+        height: 48px;
         width: auto;
         display: block;
-      }
-      /* The per-view narration text portals in here (see GameStage.jsx) —
-   this is the column's main content, so it's the one thing allowed to
-   grow and absorb whatever vertical space the header/phase/actions
-   around it don't need. left-aligned, not centered: centered text reads
-   fine in a wide stage but cramped in a ~300px column. */
-      .narration-slot {
-        flex: 1;
-        min-height: 0;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        text-align: left;
       }
       .phase {
         display: flex;
@@ -167,30 +129,25 @@
         border: 1px solid var(--line);
         border-radius: 999px;
         padding: 8px 18px 8px 14px;
-        align-self: flex-start;
-        flex: 0 0 auto;
       }
       .phase .icon {
         width: 15px;
         height: 15px;
         color: var(--brass);
       }
-      /* The old horizontal header's one long strip of icon buttons, now
-   stacked — still split into the same labeled chunks a host already
-   thinks in (Display / Reference / Lobby / Script / Storyteller /
-   Testing) rather than one undifferentiated column of icons. */
-      .side-header-actions {
-        flex: 0 0 auto;
+      .header-right {
         display: flex;
-        flex-direction: column;
+        align-items: center;
         gap: 10px;
-        padding-top: 14px;
-        border-top: 1px solid var(--line);
+        flex-wrap: wrap;
       }
+      /* Splits the header's one long strip of icon buttons into the same
+   chunks a host already thinks in (Display / Reference / Lobby / Script /
+   Storyteller / Testing), each with a small caption instead of a bare row
+   of icons with nothing but hover tooltips telling them apart. */
       .header-group {
         display: flex;
         align-items: center;
-        flex-wrap: wrap;
         gap: 4px;
       }
       .header-group-label {
@@ -200,6 +157,12 @@
         color: var(--bone-dim);
         margin-right: 4px;
         white-space: nowrap;
+      }
+      .header-divider {
+        width: 1px;
+        height: 22px;
+        background: var(--line);
+        flex-shrink: 0;
       }
       .mutebtn {
         width: auto;
@@ -221,6 +184,38 @@
       }
       .mutebtn.on {
         color: var(--brass);
+      }
+
+      /* --------------------------------------------------------------- layout
+   Below the header: just the actual game stage now (.stage-col, holding
+   the reclaim banner/toasts and `main`) — no narration column alongside
+   it any more, so the ring gets the full width to itself (see `.ring`'s
+   own sizing). The ring's own width formula still budgets real, fixed
+   pixels for the header's height above this row — it has no way to know
+   that height just from 100vh, so if the header's own box model changes,
+   that formula's comment explains what to update alongside it. */
+      .app-shell {
+        flex: 1;
+        min-height: 0;
+        height: 100%;
+        display: flex;
+        flex-direction: row;
+        width: 100%;
+        overflow: hidden;
+      }
+      .stage-col {
+        flex: 1;
+        min-width: 0;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+      @media (max-width: 860px) {
+        .app-shell {
+          flex-direction: column;
+          overflow-y: auto;
+        }
       }
 
       main {
@@ -245,7 +240,7 @@
    anchors itself to that box's bottom edge. flex-start pins the stage to
    a fixed top edge regardless of how tall any one phase's content gets,
    which is what the ring actually needs: a fixed reference point that
-   doesn't move with a sidebar's word count. */
+   doesn't move with the narration panel's word count. */
         justify-content: flex-start;
         padding: 20px 40px;
         text-align: center;
@@ -324,12 +319,11 @@
         z-index: 1;
         display: flex;
         flex-direction: column;
-        /* flex-start, not center: this now renders inside the narrow
-   ~300px .narration-slot column (see GameStage.jsx), where centered
-   text just looks cramped — the one remaining wide context,
-   LobbyView's script-browsing preview, centers itself explicitly
-   (.script-preview's own width:100%+text-align:center), so it's
-   unaffected by this. */
+        /* flex-start, not center — this class's one remaining use
+   (LobbyView's script-browsing preview) centers itself explicitly
+   (.script-preview's own margin:0 auto), so it's unaffected by this;
+   left as the sane default for anything else that ever wraps itself in
+   .stage-narration again. */
         align-items: flex-start;
         gap: 14px;
         width: 100%;
@@ -465,13 +459,22 @@
       }
 
       /* the town, laid out as it sits at the table — sized to fill whichever of
-   the stage's two dimensions is tighter. Narration used to share this
-   same vertical column (header above, narration above that), which is
-   exactly what forced the old fixed-budget-minus-pixels formula here —
-   now that narration lives entirely in the side header instead (see
-   .narration-slot), the ring's own box (.game-stage, a plain flex row)
-   has nothing stacked above or below it to budget around, so this goes
-   back to a much simpler, more robust estimate. */
+   the stage's two dimensions is tighter. .game-stage (the ring's own box)
+   has nothing stacked above or below it to budget around *within*
+   .stage-col — but .stage-col itself now sits below a real, full-width
+   `header` (see that rule), which eats real viewport height this formula
+   can't see just from 100vh. That's exactly the "ring collides with the
+   header on tall screens" bug the project's ROADMAP already flagged as
+   fixed twice — the fix both times was making sure this budget accounts
+   for every fixed-height sibling actually stacked above the ring's row,
+   header included. The vw/px caps got a real bump too, now that there's
+   no narration column eating ~300px of width alongside .game-stage-tabs
+   — the circle can actually be bigger than it used to need to be
+   (confirmed live: the first pass here was still visibly too
+   conservative — noticeable unused black space on every side — so this
+   budget is intentionally generous rather than tightly itemized; the
+   overflow:hidden on .game-ring-zone is the actual backstop against ever
+   overshooting, not this arithmetic). */
       .ring {
         /* Centered by .ring-zone (its flex parent — see that rule), not
    self-positioned. Sizing has now failed trying to cap the ring against
@@ -480,12 +483,14 @@
    requires every ancestor in the chain up to the grid/flex row to
    resolve a "definite" height for percentages to work against, and
    something in that chain doesn't reliably give one. This caps the ring
-   from *fixed, known* quantities instead — 100vh minus main's own
-   padding and a little slack for the reclaim banner when it's shown,
-   and a vw share that leaves room for .game-stage-tabs beside it — which
-   needs no ancestor to cooperate at all. */
+   from *fixed, known* quantities instead — 100vh minus a single flat
+   budget for everything stacked above the ring's own row (header, main's
+   padding, the optional Night/Day phase heading, a little slack for the
+   reclaim banner when it's shown) — and a vw share that leaves room for
+   .game-stage-tabs beside it, which needs no ancestor to cooperate at
+   all. */
         position: relative;
-        width: min(calc(100vh - 160px), 38vw, 900px);
+        width: min(calc(100vh - 200px), 54vw, 1100px);
         max-width: 100%;
         aspect-ratio: 1;
       }
@@ -1070,6 +1075,12 @@
         text-align: center;
         max-width: 640px;
         width: 100%;
+        /* .stage-narration (its flex parent) is align-items:flex-start —
+   text-align:center alone only centers inline content *inside* this
+   box, not the box itself once max-width caps it below the parent's
+   full width, so without this it hugs the left edge of a wide center
+   column instead of sitting in the middle of it. */
+        margin: 0 auto;
       }
       .script-preview .icon-badge {
         width: 280px;
@@ -1425,14 +1436,25 @@
    place (the browser's TTS engine never exposes its own audio buffer to
    JS), so this is a felt "it's talking" cue, not a real analysis — same
    honesty-about-what-it-actually-is spirit as .whim-beat's "unseen,"
-   never claiming to show something it doesn't actually have. */
+   never claiming to show something it doesn't actually have.
+
+   Lives inside RingSeats.jsx now (permanently mounted, like the ring
+   itself — narration has no other on-screen home any more), absolutely
+   positioned below the center art (.ring::after) rather than flowing
+   with it, so it never competes with the seats for the ring's own
+   layout. */
       .voice-viz {
+        position: absolute;
+        left: 50%;
+        bottom: 30%;
+        transform: translateX(-50%);
         display: flex;
         align-items: center;
         justify-content: center;
         gap: 4px;
         height: 22px;
         flex-shrink: 0;
+        pointer-events: none;
       }
       .voice-viz-bar {
         width: 4px;
@@ -1604,20 +1626,21 @@
    (VoiceVisualizer only while actually speaking, WhimBeat/
    RoomPacingNudge only sometimes) — every one of those toggling was a
    real, visible shift of the ring's own center point, not just a rare
-   edge case. Absolute + inset:0 makes the ring's position a function of
-   .stage-main's own box alone, which .ring's own size formula already
-   budgets room for narration against (see that comment's "100vh minus
-   ... the tallest realistic narration block") — so this doesn't risk
-   new overlap, just finally makes the ring agree with what its own
-   sizing already assumed. overflow:hidden is still a backstop, not the
-   primary sizing mechanism, same as before.
+   edge case (moot while browsing specifically — this ring-slot is
+   `.ring-slot-hidden` for that whole takeover, see LobbyView.jsx — but
+   this box is still the portal's mount point even while invisible, so
+   its own sizing still has to stay sane). Absolute + inset:0 makes the
+   ring's position a function of .stage-main's own box alone, which
+   doesn't risk new overlap, and just keeps the ring agreeing with
+   .stage-main's box regardless of what narration above it does.
+   overflow:hidden is still a backstop, not the primary sizing mechanism,
+   same as before.
 
    align-items: flex-end, not center — even pinned to the full stage
    box, centering within it still let the ring drift as narration's
-   actual rendered height varied, since .ring's own width is sized for
-   the *tallest* realistic narration block (see its own comment), not
-   the average one. Anchoring to the bottom edge instead matches that
-   same worst-case assumption: the ring's bottom always sits at the
+   actual rendered height varied. Anchoring to the bottom edge instead
+   keeps a fixed reference point regardless: the ring's bottom always
+   sits at the
    stage box's own bottom, a fixed point on screen no matter which view
    is showing or how many lines narration happens to wrap to, with any
    leftover height simply showing above the ring instead of moving
@@ -1635,11 +1658,11 @@
       /* ------------------------------------------------------------- game stage
    GameStage.jsx's own layout — every phase view except LobbyView's
    script-browsing takeover (still the plain .dashboard/.stage-main/
-   .ring-zone above, unchanged). Narration no longer shares this box at
-   all (it's portaled into the side header instead — see .narration-slot
-   above), so unlike .ring-zone this can just be a plain centered flex
-   row — no absolute positioning or fixed-pixel budgeting needed to keep
-   the ring from drifting, since there's nothing here that changes
+   .ring-zone above, unchanged). Narration doesn't share this box at all
+   — it has no on-screen home any more, full stop (see GameStage.jsx's
+   own comment) — so unlike .ring-zone this can just be a plain centered
+   flex row — no absolute positioning or fixed-pixel budgeting needed to
+   keep the ring from drifting, since there's nothing here that changes
    height out from under it. */
       .game-stage {
         flex: 1;
@@ -1652,19 +1675,34 @@
         width: 100%;
         height: 100%;
       }
+      /* Column, not row — a phase heading (Night N/Day N, see
+   DayCounterLabel) can stack above the ring now that narration isn't
+   also competing for this space; GameStage.jsx only ever renders that
+   heading conditionally, so phases without one (Lobby/Reveal/Over) just
+   get the ring alone, still centered. */
       .game-ring-zone {
         flex: 1;
         min-width: 0;
         min-height: 0;
         display: flex;
+        flex-direction: column;
         align-items: center;
         justify-content: center;
+        gap: 18px;
         overflow: hidden;
         height: 100%;
       }
+      /* Widened from the original 340px — at that width the Characters
+   tab's roster-grid (.roster-grid, auto-fill minmax(72px,1fr)) only fit
+   3 columns, stacking a ~22-character script into 10+ rows tall enough
+   to force scrolling even on a full-height panel. More width lets that
+   grid auto-fill 5-6 columns instead, which is what actually buys back
+   the vertical room — overflow-y:auto stays as the backstop for scripts
+   or window heights where it still doesn't quite fit, not the design
+   target. */
       .game-stage-tabs {
-        flex: 0 0 340px;
-        max-width: 340px;
+        flex: 0 0 460px;
+        max-width: 460px;
         align-self: stretch;
         min-height: 0;
         overflow-y: auto;
@@ -1727,13 +1765,30 @@
         font-family: "Space Mono", monospace;
         letter-spacing: 0;
       }
+      /* Fixed-size 84px columns via auto-fill, not auto-fill's old
+   minmax(72px,1fr) or a hardcoded repeat(4,1fr) (tried both). minmax(…,1fr)
+   stretched tokens to fill whatever column width existed: at
+   .game-stage-tabs' widened 460px that meant 5-6 small columns, leaving
+   real unused height below a short roster instead of using the space a
+   wider panel bought back; a hardcoded 4 columns fixed that there but
+   then overflowed its *other* caller — ScriptBrowseRoster reuses this
+   same grid inside DashboardLayout's narrower 300-400px right column
+   (see that file), where 4 forced columns of a now-fixed 84px token no
+   longer fit and spilled past the panel edge. Fixed-size auto-fill
+   columns solve both at once: however many 84px tracks actually fit is
+   how many show up — 4 at 460px, fewer in the narrower column — with
+   nothing forced and nothing overflowing either way.
+   justify-content:center (not the default start) keeps a short last row
+   centered rather than hugging the left edge, and matters more now that
+   the column count itself varies by caller instead of always being 4. */
       .roster-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+        grid-template-columns: repeat(auto-fill, 84px);
+        justify-content: center;
         gap: 10px;
       }
       .roster-token {
-        width: 100%;
+        width: 84px;
         aspect-ratio: 1;
         border-radius: 50%;
         object-fit: cover;
@@ -1742,7 +1797,7 @@
         display: block;
       }
       .roster-token-fallback {
-        width: 100%;
+        width: 84px;
         aspect-ratio: 1;
         border-radius: 50%;
         background: var(--surface-2);
@@ -2366,10 +2421,24 @@
    pointer-events:none, and unlike .fatal-flash nothing waits for it to
    finish before the day view underneath keeps going. useMinorBeat.js
    owns the whole lifetime (mount-to-unmount), so one keyframe covers
-   fade-in/hold/fade-out rather than a separate .show class. */
+   fade-in/hold/fade-out rather than a separate .show class.
+
+   `right: 460px`, not a plain inset:0 — this centers over the ring's own
+   area (.game-ring-zone), not the full viewport. Those used to coincide
+   closely enough not to matter, back when the narration panel balanced
+   .game-stage-tabs on the other side; with that panel gone, the ring's
+   real visual center sits left of true-viewport-center (squeezed by
+   .game-stage-tabs' fixed width on the right alone), so a true inset:0
+   now visibly overlaps the ring/seats instead of landing over them. Keep
+   this in sync with .game-stage-tabs' own width if that ever changes.
+   Reset to 0 under the same 860px breakpoint .game-stage-tabs itself
+   stacks below the ring at, rather than beside it. */
       .minor-beat {
         position: fixed;
-        inset: 0;
+        top: 0;
+        left: 0;
+        right: 460px;
+        bottom: 0;
         z-index: 40;
         display: flex;
         flex-direction: column;
@@ -2380,6 +2449,11 @@
         color: var(--bone);
         background: radial-gradient(ellipse at center, rgba(142, 34, 38, 0.28), transparent 68%);
         animation: minor-beat-fade 1.7s ease-in-out;
+      }
+      @media (max-width: 860px) {
+        .minor-beat {
+          right: 0;
+        }
       }
       .minor-beat .icon {
         width: 40px;
@@ -2654,16 +2728,30 @@
    catch this jinx mid-game?) is the one overlay family a host actually
    wants open WHILE still watching the ring and the countdown keep
    running behind it. */
+      /* top: 77px, not 0, on both the scrim and the panel below — this
+   predates the header moving back to a full-width top bar (see
+   `header`'s own rule). Starting from `top:0` used to be correct when
+   the header was a narrow left column neither could ever reach; left
+   as `inset:0`, the scrim alone was still washing the header out to
+   near-illegibility (confirmed live — the header read as a dim grey
+   smear, not dimmed-but-readable) even after the panel itself stopped
+   overlapping it, since a 60%-black overlay doesn't need to physically
+   cover something to make it hard to read through. Keep both in sync
+   with header's real height if that ever changes — same note as
+   `.ring`'s and `.minor-beat`'s own. */
       .slide-scrim {
         position: fixed;
-        inset: 0;
+        top: 77px;
+        right: 0;
+        bottom: 0;
+        left: 0;
         z-index: 44;
         background: rgba(5, 3, 7, 0.6);
         animation: slide-scrim-in 0.25s ease-out;
       }
       .slide-panel {
         position: fixed;
-        top: 0;
+        top: 77px;
         right: 0;
         bottom: 0;
         z-index: 45;

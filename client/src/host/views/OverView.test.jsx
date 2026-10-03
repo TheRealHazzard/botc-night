@@ -1,12 +1,9 @@
-import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, act } from '@testing-library/react';
+import { describe, it, expect } from 'vitest';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import OverView from './OverView.jsx';
 import { mockFetch } from '../../../test/fetchMock.js';
-
-function stubReducedMotion(matches) {
-  vi.stubGlobal('matchMedia', () => ({ matches, addEventListener: () => {}, removeEventListener: () => {} }));
-}
+import { subscribeNarratorLog } from '../lib/narratorLog.js';
 
 const players = [
   { id: 'p1', name: 'Ada', alive: true, connected: true, character: 'Empath', color: { hex: '#8e2226' } },
@@ -25,42 +22,31 @@ function baseMocks(overrides = {}) {
 }
 
 describe('OverView', () => {
-  afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); });
-
-  // The ring itself (and its glow) no longer lives inside OverView — it's
-  // rendered once, permanently, by App.jsx and portaled into this view's
-  // ring-slot (see App.jsx's ring-persistence wiring). App.jsx calls the
-  // same useVictoryReveal hook independently to time the ring's glow to
-  // this same beat — that timing is covered in App.test.jsx instead.
-  it('the win-condition line starts hidden and reveals itself after a beat, not immediately', () => {
-    stubReducedMotion(false);
-    vi.useFakeTimers();
+  // The ring itself (and its glow timing) no longer lives inside OverView
+  // — it's rendered once, permanently, by App.jsx and portaled into this
+  // view's ring-slot (see App.jsx's ring-persistence wiring), which calls
+  // its own useVictoryReveal independently; that timing is covered in
+  // App.test.jsx. The win-condition line has no on-screen home of its
+  // own at all any more either (see GameStage.jsx) — spoken (and logged,
+  // see useSpeak) instead, so these just confirm the right line goes
+  // out for each outcome, no separate "Evil wins"/"Good wins" label
+  // needed since the ring glow already says who won.
+  it('speaks (and logs) a good win with no dread framing', () => {
     baseMocks();
+    const entries = [];
+    const unsubscribe = subscribeNarratorLog(e => entries.push(e));
     render(<OverView players={players} victory={{ winner: 'good', reason: 'The Demon fell.' }} gameSummary={gameSummary} log={log} actionLog={[]} nightNumber={2} />);
-    const line = () => screen.getByText('The Demon fell.');
-    expect(line()).not.toHaveClass('show');
-
-    act(() => { vi.advanceTimersByTime(550); });
-    expect(line()).toHaveClass('show');
+    unsubscribe();
+    expect(entries.some(e => e.text === 'Good wins. The Demon fell.')).toBe(true);
   });
 
-  it('reveals the win-condition line immediately, no delay, under reduced motion', () => {
-    stubReducedMotion(true);
+  it('speaks (and logs) an evil win — no separate "Evil wins" label rendered anywhere, the ring glow already says who won', () => {
     baseMocks();
+    const entries = [];
+    const unsubscribe = subscribeNarratorLog(e => entries.push(e));
     render(<OverView players={players} victory={{ winner: 'evil', reason: 'The town executed a Townsfolk.' }} gameSummary={gameSummary} log={log} actionLog={[]} nightNumber={2} />);
-    expect(screen.getByText('The town executed a Townsfolk.')).toHaveClass('show');
-  });
-
-  it('a good win shows the win-condition text with no "dread" styling', () => {
-    baseMocks();
-    render(<OverView players={players} victory={{ winner: 'good', reason: 'The Demon fell.' }} gameSummary={gameSummary} log={log} actionLog={[]} nightNumber={2} />);
-    expect(screen.getByText('The Demon fell.')).not.toHaveClass('dread');
-  });
-
-  it('an evil win shows the win-condition text with "dread" styling — no separate "Evil wins" label needed, the ring glow already says who won', () => {
-    baseMocks();
-    render(<OverView players={players} victory={{ winner: 'evil', reason: 'The town executed a Townsfolk.' }} gameSummary={gameSummary} log={log} actionLog={[]} nightNumber={2} />);
-    expect(screen.getByText('The town executed a Townsfolk.')).toHaveClass('dread');
+    unsubscribe();
+    expect(entries.some(e => e.text === 'Evil wins. The town executed a Townsfolk.')).toBe(true);
     expect(screen.queryByText('Evil wins')).not.toBeInTheDocument();
     expect(screen.queryByText('Good wins')).not.toBeInTheDocument();
   });

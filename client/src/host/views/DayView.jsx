@@ -1,21 +1,20 @@
 import { useState, useEffect, useRef } from 'react';
 import GameStage from '../components/GameStage.jsx';
-import DayCounterLabel from '../components/DayCounterLabel.jsx';
 import TriviaLine from '../components/TriviaLine.jsx';
 import ScriptRosterCard from '../components/ScriptRosterCard.jsx';
 import ScriptViewPanel from '../components/script/ScriptViewPanel.jsx';
 import SidepanelCard from '../components/SidepanelCard.jsx';
+import NarratorLogCard from '../components/NarratorLogCard.jsx';
 import NominationList from '../components/NominationList.jsx';
 import NominateAction from '../components/NominateAction.jsx';
 import DayReport from '../components/DayReport.jsx';
 import Icon from '../components/Icon.jsx';
-import WhimBeat from '../components/WhimBeat.jsx';
-import VoiceVisualizer from '../components/VoiceVisualizer.jsx';
 import MinorBeatOverlay from '../components/MinorBeatOverlay.jsx';
-import RoomPacingNudge from '../components/RoomPacingNudge.jsx';
+import { PACING_COPY } from '../components/RoomPacingNudge.jsx';
 import { useSpeak } from '../hooks/useSpeak.js';
 import { useWhimBeat } from '../hooks/useWhimBeat.js';
 import { noDeathDayLine } from '../lib/narratorLines.js';
+import { logNarration } from '../lib/narratorLog.js';
 import { useMinorBeat } from '../hooks/useMinorBeat.js';
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion.js';
 import { useRoomPacing } from '../hooks/useRoomPacing.js';
@@ -23,8 +22,13 @@ import { post } from '../../lib/api.js';
 import { showToast } from '../../lib/toast.js';
 import { leadingNominee } from '../../lib/leadingNominee.js';
 
-export default function DayView({ players, nightNumber, deaths, nominations, config, script, scriptChars, activeScriptMeta, muted, log = [], dayStartedAt, ringSlotRef, narrationSlot, fadeClass = '' }) {
+export default function DayView({ players, nightNumber, deaths, nominations, config, script, scriptChars, activeScriptMeta, muted, log = [], dayStartedAt, ringSlotRef, fadeClass = '' }) {
   const lastNight = deaths.filter(d => d.night === nightNumber && d.cause !== 'execution');
+  // No Mastermind hint here on purpose — the wiki is explicit: "Add a
+  // shroud as normal. Do not say that the Demon has died." The bonus day
+  // has to sound exactly like any other day, including the fully ordinary
+  // possibility that night just falls with nobody executed (see
+  // server.js's resolveMastermindBonusDay).
   const line = lastNight.length ? `${lastNight.map(d => d.name).join(' and ')} did not wake.` : noDeathDayLine(nightNumber, config.narratorPersona);
   useSpeak(line, { dread: !!lastNight.length, muted });
   const whim = useWhimBeat(log);
@@ -47,24 +51,16 @@ export default function DayView({ players, nightNumber, deaths, nominations, con
   // conditional render), so that's passed as a literal rather than a prop.
   const pacing = useRoomPacing('day', dayStartedAt, nightNumber, livingCount, anyOpen);
 
-  const narration = (
-    <div className={`fade-wrap stage-narration ${fadeClass}`}>
-      <DayCounterLabel text={`Day ${nightNumber}`} />
-      <div className="narration">Dawn.</div>
-      <div className="deaths">
-        {lastNight.length > 0 && <Icon name="skull" size={18} />}
-        <span>{line}</span>
-      </div>
-      <VoiceVisualizer />
-      {/* No Mastermind hint here on purpose — the wiki is explicit: "Add a
-          shroud as normal. Do not say that the Demon has died." The bonus
-          day has to look exactly like any other day, including the fully
-          ordinary possibility that night just falls with nobody executed
-          (see server.js's resolveMastermindBonusDay). */}
-      {whim && <WhimBeat />}
-      <RoomPacingNudge level={pacing} />
-    </div>
-  );
+  // WhimBeat/RoomPacingNudge no longer render on-stage (see GameStage.jsx)
+  // — logged instead, same "never shown, only felt"/"a nudge, not a
+  // demand" spirit, just via the narrator log rather than a fleeting
+  // on-screen chip.
+  useEffect(() => {
+    if (whim) logNarration('A quiet decision, unseen.');
+  }, [whim]);
+  useEffect(() => {
+    if (pacing) logNarration(PACING_COPY[pacing].text);
+  }, [pacing]);
 
   const tabs = [
     { id: 'characters', label: 'Characters', content: <ScriptRosterCard characters={scriptChars} /> },
@@ -83,6 +79,7 @@ export default function DayView({ players, nightNumber, deaths, nominations, con
               <DayActions players={players} nominations={nominations} nightNumber={nightNumber} anyOpen={anyOpen} />
             </div>
           </SidepanelCard>
+          <NarratorLogCard />
         </>
       ),
     },
@@ -91,10 +88,13 @@ export default function DayView({ players, nightNumber, deaths, nominations, con
   return (
     <>
       <GameStage
-        narration={narration}
-        narrationSlot={narrationSlot}
+        phaseHeading={`Day ${nightNumber}`}
         ringSlotRef={ringSlotRef}
         tabs={tabs}
+        // Controls (nominations, execution) is what a host is actually
+        // doing during the day — Characters/Script are reference
+        // material, not the thing that needs attention right now.
+        defaultTab="controls"
         fadeClass={`fade-wrap ${fadeClass}`}
       />
       {minorBeat && <MinorBeatOverlay name={minorBeat.name} />}

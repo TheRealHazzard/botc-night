@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import DayView from './DayView.jsx';
 import { mockFetch } from '../../../test/fetchMock.js';
 import { installFakeAudioContext, resetAudioCalls } from '../../../test/fakeAudioContext.js';
+import { subscribeNarratorLog } from '../lib/narratorLog.js';
 
 const players = [
   { id: 'p1', name: 'Ada', alive: true, connected: true, ghostVoteUsed: false, color: null },
@@ -19,27 +20,29 @@ describe('DayView', () => {
     resetAudioCalls();
   });
 
-  it('shows the death narration for last night, with a skull', () => {
-    const { container } = render(
+  // The exact wording/rotation of the death-announcement line is
+  // noDeathDayLine's own responsibility — see narratorLines.test.js. This
+  // just confirms DayView wires the right line through to the narrator
+  // log (and so to speech.js) for both the death and no-death case,
+  // rather than silently dropping it along with the old visible text.
+  it('speaks (and logs) the death narration for last night', () => {
+    const entries = [];
+    const unsubscribe = subscribeNarratorLog(e => entries.push(e));
+    render(
       <DayView players={players} nightNumber={2} deaths={[{ night: 2, name: 'Bo', cause: 'demon' }]} nominations={[]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
     );
-    expect(screen.getByText('Bo did not wake.')).toBeInTheDocument();
-    expect(container.querySelector('.deaths svg.icon')).toBeTruthy();
+    unsubscribe();
+    expect(entries.some(e => e.text === 'Bo did not wake.')).toBe(true);
   });
 
-  it('a night with nobody killed shows the "should worry you" line, no skull', () => {
-    const { container } = render(
+  it('a night with nobody killed speaks (and logs) the "should worry you" line', () => {
+    const entries = [];
+    const unsubscribe = subscribeNarratorLog(e => entries.push(e));
+    render(
       <DayView players={players} nightNumber={1} deaths={[]} nominations={[]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
     );
-    expect(screen.getByText('Everyone wakes. That should worry you.')).toBeInTheDocument();
-    expect(container.querySelector('.deaths svg.icon')).toBeFalsy();
-  });
-
-  it('a later silent day rotates the line instead of repeating day 1\'s verbatim', () => {
-    render(
-      <DayView players={players} nightNumber={3} deaths={[]} nominations={[]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
-    );
-    expect(screen.queryByText('Everyone wakes. That should worry you.')).not.toBeInTheDocument();
+    unsubscribe();
+    expect(entries.some(e => e.text === 'Everyone wakes. That should worry you.')).toBe(true);
   });
 
   // The wiki is explicit: "Add a shroud as normal. Do not say that the
@@ -235,27 +238,33 @@ describe('DayView', () => {
     expect(select().value).toBe('');
   });
 
-  it('a fresh whim-roll log line shows the beat during the day too', () => {
+  it('a fresh whim-roll log line logs the beat during the day too', () => {
+    const entries = [];
+    const unsubscribe = subscribeNarratorLog(e => entries.push(e));
     const { rerender } = render(
       <DayView players={players} nightNumber={1} deaths={[]} nominations={[]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} log={[]} />
     );
-    expect(screen.queryByText('A quiet decision, unseen.')).not.toBeInTheDocument();
+    expect(entries.some(e => e.text === 'A quiet decision, unseen.')).toBe(false);
 
     const whimLog = [{ night: 1, phase: 'day', text: 'A quiet decision was made, unseen.', secret: false }];
     rerender(<DayView players={players} nightNumber={1} deaths={[]} nominations={[]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} log={whimLog} />);
-    expect(screen.getByText('A quiet decision, unseen.')).toBeInTheDocument();
+    unsubscribe();
+    expect(entries.some(e => e.text === 'A quiet decision, unseen.')).toBe(true);
   });
 
   it('a fresh execution shows the minor-beat overlay; a pre-existing one on mount does not', () => {
-    const { rerender } = render(
+    // Scoped to .minor-beat-text specifically — DayReport (now visible by
+    // default on the Controls tab) legitimately says the same words in
+    // its own report line, which isn't what this test is about.
+    const { container, rerender } = render(
       <DayView players={players} nightNumber={1} deaths={[]} nominations={[]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
     );
-    expect(screen.queryByText('Ada is executed.')).not.toBeInTheDocument();
+    expect(container.querySelector('.minor-beat-text')).not.toBeInTheDocument();
 
     rerender(
       <DayView players={players} nightNumber={1} deaths={[{ name: 'Ada', night: 1, cause: 'execution' }]} nominations={[]} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />
     );
-    expect(screen.getByText('Ada is executed.')).toBeInTheDocument();
+    expect(container.querySelector('.minor-beat-text')).toHaveTextContent('Ada is executed.');
   });
 
   it('a fresh night-kill death does not show the minor-beat overlay', () => {

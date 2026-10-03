@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import RevealView from './RevealView.jsx';
 import { mockFetch } from '../../../test/fetchMock.js';
+import { subscribeNarratorLog } from '../lib/narratorLog.js';
 
 const activeScriptMeta = { id: 'tb', name: 'Trouble Brewing', difficulty: 1, description: 'x', decidedGames: 0 };
 
@@ -14,9 +15,18 @@ const activeScriptMeta = { id: 'tb', name: 'Trouble Brewing', difficulty: 1, des
 describe('RevealView', () => {
   beforeEach(() => mockFetch({ '/api/tokens': {} }));
 
-  it('shows the reveal narration', () => {
+  // The exact wording (one of several seeded variants) is revealLine's
+  // own responsibility — this just confirms RevealView actually speaks
+  // (and so logs, see useSpeak) a real, non-empty line on mount, rather
+  // than silently dropping it along with the old visible narration text.
+  it('speaks (and logs) a reveal line', () => {
+    const entries = [];
+    const unsubscribe = subscribeNarratorLog(e => entries.push(e));
     render(<RevealView scriptChars={[]} activeScriptMeta={activeScriptMeta} />);
-    expect(screen.getByText('Look at your hands.')).toBeInTheDocument();
+    unsubscribe();
+    expect(entries.length).toBeGreaterThan(0);
+    expect(entries[0].text).toEqual(expect.any(String));
+    expect(entries[0].text.length).toBeGreaterThan(0);
   });
 
   it('shows Night falls plainly on the Controls tab, with no duplicate copy anywhere else', async () => {

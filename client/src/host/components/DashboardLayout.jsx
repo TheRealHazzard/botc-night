@@ -1,9 +1,10 @@
 // Down to one caller now — LobbyView's own script-browsing takeover
 // (list left, big preview center, playable roster right), the one case
 // left that genuinely needs three independent columns at once. Every
-// other phase view moved to GameStage.jsx's narration-in-the-side-header
-// plus ring+tabs layout instead; this one case was left exactly as it
-// was rather than forced into that newer shape too. The side columns pin
+// other phase view moved to GameStage.jsx's ring+tabs layout instead
+// (narration itself has no on-screen home at all any more — see that
+// file's own comment); this one case was left exactly as it was rather
+// than forced into that newer shape too. The side columns pin
 // to the screen's edges at a comfortable reading width; the center's own
 // 1fr track is what actually absorbs a wide TV's remaining space — same
 // effect as flex's justify-content:space-between would give a 3-up row,

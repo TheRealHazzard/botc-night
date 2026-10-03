@@ -9,6 +9,7 @@ import {
   toneCalls,
   noiseCalls,
 } from "../../test/fakeAudioContext.js";
+import { subscribeNarratorLog } from "./lib/narratorLog.js";
 
 const hostState = vi.hoisted(() => ({
   current: { S: null, patchConfig: vi.fn() },
@@ -139,7 +140,6 @@ describe("App", () => {
   it("dispatches to the lobby view once state loads, showing the phase pill", () => {
     hostState.current.S = baseS();
     render(<App />);
-    expect(screen.getByText("The town is still empty.")).toBeInTheDocument();
     expect(screen.getByText("lobby")).toBeInTheDocument();
   });
 
@@ -159,12 +159,11 @@ describe("App", () => {
       ],
     });
     render(<App />);
-    // "Day 3" legitimately appears twice — the header's phase pill and the
-    // in-stage DayCounterLabel are two separate, both-correct occurrences.
+    // "Day 3" legitimately appears twice — the header's phase pill and
+    // DayView's own phaseHeading (above the ring) are two separate, both-
+    // correct occurrences; a NightView would never produce this text, so
+    // this alone confirms dispatch landed on DayView specifically.
     expect(screen.getAllByText("Day 3")).toHaveLength(2);
-    // Exact wording rotates on later silent days (see narratorLines.js) —
-    // this test only cares that dispatch landed on DayView's own markup.
-    expect(document.querySelector(".deaths")).toBeInTheDocument();
   });
 
   it("the mute button reflects and toggles the sound engine state", async () => {
@@ -300,11 +299,18 @@ describe("App", () => {
         },
       ],
     });
+    const entries = [];
+    const unsubscribe = subscribeNarratorLog(e => entries.push(e));
     rerender(<App />);
+    unsubscribe();
 
+    // No on-screen win-condition text any more (see GameStage.jsx) —
+    // spoken and logged instead; dread-framing is a useSpeak option we
+    // can't observe directly from the log entry, so this just confirms
+    // the right line went out.
     expect(
-      screen.getByText("The town executed a Townsfolk."),
-    ).toHaveClass("dread");
+      entries.some(e => e.text === "Evil wins. The town executed a Townsfolk."),
+    ).toBe(true);
     expect(document.querySelector(".ring")).toHaveClass("glow-evil");
 
     expect(document.documentElement.style.getPropertyValue("--primary")).toBe(
@@ -354,23 +360,24 @@ describe("App", () => {
       hostState.current.S = baseS();
     });
 
-    it("Change script reveals header Play/Close buttons, positioned after the phase pill", async () => {
+    it("Change script reveals header Play/Close buttons, positioned before the phase pill", async () => {
       render(<App />);
       await userEvent.click(screen.getByText(/change script/i));
       const playBtn = screen.getByTitle(/choose trouble brewing/i);
       const closeBtn = screen.getByTitle(/cancel/i);
       expect(playBtn).toBeInTheDocument();
       expect(closeBtn).toBeInTheDocument();
-      // Both sit after the phase pill in DOM order — SideHeader's vertical
-      // stack runs brand/narration/phase pill, then every action group
-      // (Display/Reference/Lobby/Script/Storyteller/Testing) below that.
+      // Both sit before the phase pill in DOM order — Header's row runs
+      // brand/Game-Toolkit toggle, then every action group (Display/
+      // Reference/Lobby/Script/Storyteller/Testing), with the phase pill
+      // pinned last, at the far right.
       const phasePill = screen.getByText("lobby");
       expect(
-        phasePill.compareDocumentPosition(playBtn) &
+        playBtn.compareDocumentPosition(phasePill) &
           Node.DOCUMENT_POSITION_FOLLOWING,
       ).toBeTruthy();
       expect(
-        phasePill.compareDocumentPosition(closeBtn) &
+        closeBtn.compareDocumentPosition(phasePill) &
           Node.DOCUMENT_POSITION_FOLLOWING,
       ).toBeTruthy();
     });
@@ -806,7 +813,8 @@ describe("App", () => {
       await userEvent.click(screen.getByRole("button", { name: "Toolkit" }));
       await userEvent.click(screen.getByRole("button", { name: "Game" }));
       expect(screen.getByRole("button", { name: "Game" })).toHaveClass("active");
-      expect(screen.getByText("The town is still empty.")).toBeInTheDocument();
+      await userEvent.click(screen.getByRole("button", { name: "Controls" }));
+      expect(screen.getByText(/open that address/i)).toBeInTheDocument();
     });
   });
 });

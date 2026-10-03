@@ -1,20 +1,12 @@
 import Icon from './Icon.jsx';
 
-/** The app's one persistent left column — brand, the Game/Toolkit
-    switch, the phase pill, a narration slot (see below), and every
-    header action, stacked vertically instead of the old full-width top
-    bar. Moving it here is what actually fixed the ring colliding with
-    the header on taller screens: the ring's own region no longer shares
-    any vertical space with this column at all, they're just side by
-    side now (see styles.css's own comment on `.ring` sizing).
-
-    `narrationSlotRef` is a ref callback (same shape as App.jsx's own
-    `registerRingSlot`) attached to a plain div here — each phase view's
-    narration JSX is portaled into that node from GameStage.jsx, the same
-    trick the ring already relied on, so narration can keep varying
-    freely per phase/view without this column itself needing to
-    remount. */
-export default function SideHeader({
+/** The app's one persistent top bar — brand, the Game/Toolkit switch,
+    every header action, and the phase pill, laid out in a single
+    full-width row. Narration text has no on-screen home at all any more
+    (see GameStage.jsx's own comment) — this bar stays a clean, thin
+    strip regardless of how much narration prose any given phase/view
+    would otherwise have had to show. */
+export default function Header({
   muted,
   setMuted,
   fullscreen,
@@ -39,17 +31,16 @@ export default function SideHeader({
   onOpenSimulate,
   textScale,
   onCycleTextScale,
-  narrationSlotRef,
 }) {
   const locked = browsedMeta && browsedMeta.playable === false;
   const canStart = playerCount >= 5;
 
   return (
-    <aside className="side-header">
-      <div className="side-header-top">
-        <span className="brand">
-          <img className="mark" src="/icons/botc-logo.png" alt="Blood On The Clocktower" />
-        </span>
+    <header>
+      <span className="brand">
+        <img className="mark" src="/icons/botc-logo.png" alt="Blood On The Clocktower" />
+      </span>
+      <span className="header-right">
         {onSection && (
           <span className="section-toggle">
             <button
@@ -68,20 +59,7 @@ export default function SideHeader({
             </button>
           </span>
         )}
-      </div>
-
-      {/* The per-view narration text (and anything that lives alongside
-          it — VoiceVisualizer, WhimBeat, the day/night counter, ...)
-          lands here, portaled in from whichever view is currently
-          mounted. Growable — this is the column's main content. */}
-      <div className="narration-slot" ref={narrationSlotRef} />
-
-      <span className="phase">
-        <Icon name={phaseIcon} size={14} />
-        <span>{phaseLabel}</span>
-      </span>
-
-      <div className="side-header-actions">
+        <span className="header-divider" aria-hidden="true" />
         <span className="header-group">
           <span className="header-group-label">Display</span>
           <button
@@ -142,7 +120,7 @@ export default function SideHeader({
             <Icon name={muted ? "speakerOff" : "speaker"} size={17} />
           </button>
         </span>
-
+        <span className="header-divider" aria-hidden="true" />
         <span className="header-group">
           <span className="header-group-label">Reference</span>
           <button
@@ -154,76 +132,86 @@ export default function SideHeader({
             <Icon name="scroll" size={17} />
           </button>
         </span>
-
         {lobbyIdle && (
-          <span className="header-group">
-            <span className="header-group-label">Lobby</span>
-            <button
-              type="button"
-              className="mutebtn"
-              title="Clear the lobby"
-              disabled={!playerCount}
-              onClick={onClearLobby}
-            >
-              <Icon name="refresh" size={17} />
-            </button>
-            <button
-              type="button"
-              className={"mutebtn" + (canStart ? " on" : "")}
-              title="Start Game"
-              disabled={!canStart}
-              onClick={onStartGame}
-            >
-              <Icon name="play" size={17} />
-            </button>
-          </span>
+          <>
+            <span className="header-divider" aria-hidden="true" />
+            <span className="header-group">
+              <span className="header-group-label">Lobby</span>
+              <button
+                type="button"
+                className="mutebtn"
+                title="Clear the lobby"
+                disabled={!playerCount}
+                onClick={onClearLobby}
+              >
+                <Icon name="refresh" size={17} />
+              </button>
+              <button
+                type="button"
+                className={"mutebtn" + (canStart ? " on" : "")}
+                title="Start Game"
+                disabled={!canStart}
+                onClick={onStartGame}
+              >
+                <Icon name="play" size={17} />
+              </button>
+            </span>
+          </>
         )}
-
         {browsing && browsedMeta && (
-          <span className="header-group">
-            <span className="header-group-label">Script</span>
-            <button
-              type="button"
-              className={"mutebtn" + (locked ? "" : " on")}
-              title={locked ? "Coming soon" : `Choose ${browsedMeta.name}`}
-              disabled={locked || confirming}
-              onClick={onConfirmScript}
-            >
-              <Icon name="play" size={17} />
-            </button>
-            <button
-              type="button"
-              className="mutebtn"
-              title="Cancel — keep the current script"
-              onClick={onCancelBrowse}
-            >
-              <Icon name="close" size={17} />
-            </button>
-          </span>
+          <>
+            <span className="header-divider" aria-hidden="true" />
+            <span className="header-group">
+              <span className="header-group-label">Script</span>
+              <button
+                type="button"
+                className={"mutebtn" + (locked ? "" : " on")}
+                title={locked ? "Coming soon" : `Choose ${browsedMeta.name}`}
+                disabled={locked || confirming}
+                onClick={onConfirmScript}
+              >
+                <Icon name="play" size={17} />
+              </button>
+              <button
+                type="button"
+                className="mutebtn"
+                title="Cancel — keep the current script"
+                onClick={onCancelBrowse}
+              >
+                <Icon name="close" size={17} />
+              </button>
+            </span>
+          </>
         )}
-
         {showGameControls && (
-          <span className="header-group">
-            <span className="header-group-label">Storyteller</span>
-            <button
-              type="button"
-              className="mutebtn"
-              title="Reveal every role and end the game"
-              onClick={onReveal}
-            >
-              <Icon name="eye" size={17} />
-            </button>
-            <button
-              type="button"
-              className="mutebtn"
-              title="Clear the table and start a new game"
-              onClick={onNewGame}
-            >
-              <Icon name="refresh" size={17} />
-            </button>
-          </span>
+          <>
+            <span className="header-divider" aria-hidden="true" />
+            <span className="header-group">
+              <span className="header-group-label">Storyteller</span>
+              <button
+                type="button"
+                className="mutebtn"
+                title="Reveal every role and end the game"
+                onClick={onReveal}
+              >
+                <Icon name="eye" size={17} />
+              </button>
+              <button
+                type="button"
+                className="mutebtn"
+                title="Clear the table and start a new game"
+                onClick={onNewGame}
+              >
+                <Icon name="refresh" size={17} />
+              </button>
+            </span>
+          </>
         )}
-
+        <span className="header-divider" aria-hidden="true" />
+        {/* Always visible, not gated to lobbyIdle like Reference above —
+            starting a sim overwrites `game` itself, so a running sim is
+            what Night/Day/Over are already showing; this has to stay
+            reachable in any phase, not just an idle lobby. */}
         <span className="header-group">
           <span className="header-group-label">Testing</span>
           <button
@@ -235,7 +223,12 @@ export default function SideHeader({
             <Icon name="dice" size={17} />
           </button>
         </span>
-      </div>
-    </aside>
+        <span className="header-divider" aria-hidden="true" />
+        <span className="phase">
+          <Icon name={phaseIcon} size={14} />
+          <span>{phaseLabel}</span>
+        </span>
+      </span>
+    </header>
   );
 }

@@ -33,9 +33,9 @@ describe('LobbyView', () => {
   });
   afterEach(() => { delete window.QRCodeGen; });
 
-  it('an empty lobby shows "still empty" and no seat count, and no Start/Clear/History buttons of its own', () => {
+  it('an empty lobby shows "open that address" on the Controls tab (Join Here), and no Start/Clear/History buttons of its own', async () => {
     render(<LobbyView {...baseProps()} />);
-    expect(screen.getByText('The town is still empty.')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Controls' }));
     expect(screen.getByText(/open that address/i)).toBeInTheDocument();
     expect(screen.queryByTitle('Start Game')).not.toBeInTheDocument();
     expect(screen.queryByTitle(/clear the lobby/i)).not.toBeInTheDocument();
@@ -98,8 +98,9 @@ describe('LobbyView', () => {
   describe('setupRatio — the Townsfolk/Outsider/Minion/Demon reference for the seated count', () => {
     const players = Array.from({ length: 8 }, (_, i) => ({ id: `p${i}`, name: `P${i}`, alive: true, connected: true, color: null }));
 
-    it('shows the ratio next to the seat count when one is given', () => {
+    it('shows the ratio next to the seat count when one is given', async () => {
       render(<LobbyView {...baseProps({ players, setupRatio: { townsfolk: 5, outsider: 1, minion: 1, demon: 1 } })} />);
+      await userEvent.click(screen.getByRole('button', { name: 'Controls' }));
       expect(screen.getByText('8 seated')).toBeInTheDocument();
       expect(screen.getByText(/5 Townsfolk/)).toBeInTheDocument();
       expect(screen.getByText(/1 Outsider ·/)).toBeInTheDocument(); // singular, not "1 Outsiders"
@@ -107,14 +108,16 @@ describe('LobbyView', () => {
       expect(screen.getByText(/1 Demon$/)).toBeInTheDocument();
     });
 
-    it('pluralizes Outsiders/Minions/Demons when the count isn\'t 1', () => {
+    it('pluralizes Outsiders/Minions/Demons when the count isn\'t 1', async () => {
       render(<LobbyView {...baseProps({ players, setupRatio: { townsfolk: 5, outsider: 2, minion: 2, demon: 1 } })} />);
+      await userEvent.click(screen.getByRole('button', { name: 'Controls' }));
       expect(screen.getByText(/2 Outsiders/)).toBeInTheDocument();
       expect(screen.getByText(/2 Minions/)).toBeInTheDocument();
     });
 
-    it('shows nothing extra when there is no ratio for the current count (outside 5-15)', () => {
+    it('shows nothing extra when there is no ratio for the current count (outside 5-15)', async () => {
       const { container } = render(<LobbyView {...baseProps({ players, setupRatio: null })} />);
+      await userEvent.click(screen.getByRole('button', { name: 'Controls' }));
       expect(screen.getByText('8 seated')).toBeInTheDocument();
       expect(container.querySelector('.setup-ratio')).not.toBeInTheDocument();
     });
@@ -148,9 +151,10 @@ describe('LobbyView', () => {
 
     it('not browsing (browsedMeta false) restores the normal ring+QR view even with players seated', async () => {
       render(<LobbyView {...baseProps({ players, browsing: false, browsedMeta: false })} />);
-      expect(screen.getByText('The town gathers.')).toBeInTheDocument();
+      expect(document.querySelector('.ring-slot')).not.toHaveClass('ring-slot-hidden');
       await userEvent.click(screen.getByRole('button', { name: 'Controls' }));
       expect(screen.getByText(/join here/i)).toBeInTheDocument();
+      expect(screen.getByText('3 seated')).toBeInTheDocument();
     });
 
     it('the "Short-handed?" add-bots card is gone while browsing, back once not', async () => {

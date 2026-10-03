@@ -17,12 +17,12 @@ import { useJoinAddress } from '../hooks/useJoinAddress.js';
     place of the ring (center), and its playable roster shows on the
     right in place of the QR/actions. That's a deliberate, self-contained
     full takeover of the stage distinct from the normal idle lobby below
-    (which uses the newer GameStage/side-header layout instead), so it's
-    left exactly as it was rather than forced into the new shape too. The
+    (which uses the newer GameStage/tabs layout instead), so it's left
+    exactly as it was rather than forced into the new shape too. The
     actual commit/back-out (Choose/Cancel) live in the header now, not
     down here — see App.jsx, which owns the browsing state this view is
     controlled by. */
-export default function LobbyView({ players, script, scripts, setupRatio, browsing, browseIndex, browsedMeta, onBrowse, onEnterBrowse, onBuildScript, ringSlotRef, narrationSlot, fadeClass = '' }) {
+export default function LobbyView({ players, script, scripts, setupRatio, browsing, browseIndex, browsedMeta, onBrowse, onEnterBrowse, onBuildScript, ringSlotRef, fadeClass = '' }) {
   const joinAddr = useJoinAddress();
 
   const activeMeta = scripts && (scripts.find(m => m.id === script) || scripts[0]);
@@ -55,25 +55,6 @@ export default function LobbyView({ players, script, scripts, setupRatio, browsi
     return <DashboardLayout left={left} main={main} right={right} fadeClass={`fade-wrap ${fadeClass}`} />;
   }
 
-  const narration = (
-    <div className={`fade-wrap stage-narration ${fadeClass}`}>
-      <div className="narration">{players.length ? 'The town gathers.' : 'The town is still empty.'}</div>
-      {players.length > 0 ? (
-        <div className="sub">
-          {players.length} seated
-          {setupRatio && (
-            <span className="setup-ratio">
-              {' '}· {setupRatio.townsfolk} Townsfolk · {setupRatio.outsider} Outsider{setupRatio.outsider === 1 ? '' : 's'} ·{' '}
-              {setupRatio.minion} Minion{setupRatio.minion === 1 ? '' : 's'} · {setupRatio.demon} Demon{setupRatio.demon === 1 ? '' : 's'}
-            </span>
-          )}
-        </div>
-      ) : (
-        <div className="sub">Open that address on your phone to take a seat.</div>
-      )}
-    </div>
-  );
-
   const tabs = [
     {
       id: 'script',
@@ -94,6 +75,23 @@ export default function LobbyView({ players, script, scripts, setupRatio, browsi
               ) : (
                 <div className="sub">{joinAddr || 'finding the address…'}</div>
               )}
+              {/* The seated count/ratio used to be the center column's own
+                  narration text — moved here, alongside the other "where
+                  does the lobby actually stand" info, now that the ring
+                  has that space back. */}
+              {players.length > 0 ? (
+                <div className="sub">
+                  {players.length} seated
+                  {setupRatio && (
+                    <span className="setup-ratio">
+                      {' '}· {setupRatio.townsfolk} Townsfolk · {setupRatio.outsider} Outsider{setupRatio.outsider === 1 ? '' : 's'} ·{' '}
+                      {setupRatio.minion} Minion{setupRatio.minion === 1 ? '' : 's'} · {setupRatio.demon} Demon{setupRatio.demon === 1 ? '' : 's'}
+                    </span>
+                  )}
+                </div>
+              ) : (
+                <div className="sub">Open that address on your phone to take a seat.</div>
+              )}
               <TriviaLine scriptId={script} compact />
             </div>
           </SidepanelCard>
@@ -105,8 +103,6 @@ export default function LobbyView({ players, script, scripts, setupRatio, browsi
 
   return (
     <GameStage
-      narration={narration}
-      narrationSlot={narrationSlot}
       ringSlotRef={ringSlotRef}
       tabs={tabs}
       fadeClass={`fade-wrap ${fadeClass}`}

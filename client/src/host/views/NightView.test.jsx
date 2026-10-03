@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import NightView from './NightView.jsx';
 import { mockFetch } from '../../../test/fetchMock.js';
+import { subscribeNarratorLog } from '../lib/narratorLog.js';
 
 const players = [
   { id: 'p1', name: 'Ada', alive: true, connected: true, submitted: true, color: null },
@@ -14,31 +15,26 @@ const config = { windowSeconds: 60 };
 describe('NightView', () => {
   beforeEach(() => mockFetch({ '/api/tokens': {}, '/trivia.json': [] }));
 
-  it('shows the night counter, dread narration, and answered count', async () => {
+  it('shows the night counter above the ring, and the answered count', async () => {
     render(<NightView players={players} nightNumber={2} windowEndsAt={Date.now() + 15000} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />);
     expect(screen.getByText('Night 2')).toBeInTheDocument();
-    expect(document.querySelector('.narration.dread')).toBeInTheDocument();
     // "X of Y answered" now lives on the Controls tab, beside the night window.
     await userEvent.click(screen.getByRole('button', { name: 'Controls' }));
     // p2 is dead, so "living" counts only Ada — 1 of 1, not 1 of 2.
     expect(screen.getByText((_, node) => node?.textContent === '1 of 1 have answered.')).toBeInTheDocument();
   });
 
-  it('night 1 always opens with the canonical line', () => {
+  // The opening line's own exact wording/rotation/determinism is
+  // narratorLines.js's own responsibility — see narratorLines.test.js.
+  // This just confirms NightView actually wires that line through to the
+  // narrator log (and so to speech.js) rather than, say, silently
+  // dropping it along with the old visible narration text.
+  it('speaks (and logs) the night-open line', () => {
+    const entries = [];
+    const unsubscribe = subscribeNarratorLog(e => entries.push(e));
     render(<NightView players={players} nightNumber={1} windowEndsAt={Date.now() + 15000} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />);
-    expect(screen.getByText('Close your eyes. The town sleeps.')).toBeInTheDocument();
-  });
-
-  it('later nights rotate the opening line instead of repeating night 1\'s verbatim', () => {
-    render(<NightView players={players} nightNumber={3} windowEndsAt={Date.now() + 15000} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />);
-    expect(screen.queryByText('Close your eyes. The town sleeps.')).not.toBeInTheDocument();
-  });
-
-  it('is deterministic — the same night number and death count always produce the same line, not a fresh roll on every render', () => {
-    const { rerender } = render(<NightView players={players} nightNumber={3} windowEndsAt={Date.now() + 15000} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />);
-    const first = document.querySelector('.narration.dread').textContent;
-    rerender(<NightView players={players} nightNumber={3} windowEndsAt={Date.now() + 8000} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} />);
-    expect(document.querySelector('.narration.dread').textContent).toBe(first);
+    unsubscribe();
+    expect(entries.some(e => e.text === 'Close your eyes. The town sleeps.')).toBe(true);
   });
 
   it('shows the countdown timer when a window is open', async () => {
@@ -89,14 +85,17 @@ describe('NightView', () => {
     expect(ringDashoffset(container)).toBe(expectedDashoffset(8, 90));
   });
 
-  it('a fresh whim-roll log line shows the beat; nothing shows on the initial mount', () => {
+  it('a fresh whim-roll log line logs the beat; nothing logged on the initial mount', () => {
+    const entries = [];
+    const unsubscribe = subscribeNarratorLog(e => entries.push(e));
     const { rerender } = render(
       <NightView players={players} nightNumber={2} windowEndsAt={null} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} log={[]} />
     );
-    expect(screen.queryByText('A quiet decision, unseen.')).not.toBeInTheDocument();
+    expect(entries.some(e => e.text === 'A quiet decision, unseen.')).toBe(false);
 
     const whimLog = [{ night: 2, phase: 'night', text: 'A quiet decision was made, unseen.', secret: false }];
     rerender(<NightView players={players} nightNumber={2} windowEndsAt={null} config={config} script="tb" scriptChars={[]} activeScriptMeta={activeScriptMeta} log={whimLog} />);
-    expect(screen.getByText('A quiet decision, unseen.')).toBeInTheDocument();
+    unsubscribe();
+    expect(entries.some(e => e.text === 'A quiet decision, unseen.')).toBe(true);
   });
 });

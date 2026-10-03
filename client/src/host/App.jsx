@@ -19,7 +19,7 @@ import { showToast } from "../lib/toast.js";
 import { useWhimConfirm } from "./hooks/useWhimConfirm.js";
 import { useHostAnnouncement } from "./hooks/useHostAnnouncement.js";
 import { useBluffBeat } from "../hooks/useBluffBeat.js";
-import SideHeader from "./components/SideHeader.jsx";
+import Header from "./components/Header.jsx";
 import RingSeats from "./components/RingSeats.jsx";
 import ReclaimBanner from "./components/ReclaimBanner.jsx";
 import FatalFlashOverlay from "./components/FatalFlashOverlay.jsx";
@@ -79,14 +79,6 @@ export default function App() {
   // spurious detach/attach every render.
   const [ringSlot, setRingSlot] = useState(null);
   const registerRingSlot = useCallback(node => setRingSlot(node), []);
-
-  // Same trick, same reasoning, for narration text: SideHeader owns the
-  // persistent target node (its own .narration-slot div, part of the
-  // app's one permanent left column), and each phase view's own
-  // narration JSX — which genuinely does differ per view/phase, unlike
-  // the ring — gets portaled into it from GameStage.jsx.
-  const [narrationSlot, setNarrationSlot] = useState(null);
-  const registerNarrationSlot = useCallback(node => setNarrationSlot(node), []);
 
   // All three of these run unconditionally (Rules of Hooks — this is
   // above the `!displayS` early return below), but are only ever
@@ -182,17 +174,16 @@ export default function App() {
 
   if (!displayS)
     return (
-      <div className="app-shell">
-        <SideHeader
+      <>
+        <Header
           muted={muted}
           setMuted={setMuted}
           fullscreen={fullscreen}
           onOpenSettings={() => setSettingsOpen(true)}
           phaseLabel=""
           phaseIcon="clock"
-          narrationSlotRef={registerNarrationSlot}
         />
-      </div>
+      </>
     );
 
   const activeScriptMeta =
@@ -315,42 +306,40 @@ export default function App() {
   return (
     <>
       <div className="sr-only" aria-live="polite">{announcement}</div>
+      <Header
+        muted={muted}
+        setMuted={setMuted}
+        fullscreen={fullscreen}
+        onOpenSettings={() => setSettingsOpen(true)}
+        phaseLabel={phaseLabel}
+        phaseIcon={PHASE_ICON[displayS.phase] || "clock"}
+        section={section}
+        onSection={setSection}
+        browsing={section === "game" && displayS.phase === "lobby" && browsing}
+        browsedMeta={browsedMeta}
+        confirming={confirming}
+        onConfirmScript={confirmScript}
+        onCancelBrowse={exitBrowse}
+        lobbyIdle={section === "game" && displayS.phase === "lobby" && !browsing}
+        playerCount={displayS.players.length}
+        onStartGame={startGame}
+        onClearLobby={clearLobby}
+        showGameControls={
+          section === "game" &&
+          (displayS.phase === "reveal" ||
+            displayS.phase === "night" ||
+            displayS.phase === "day" ||
+            displayS.phase === "over" ||
+            displayS.revealed)
+        }
+        onReveal={revealAll}
+        onNewGame={newGame}
+        onOpenReference={() => setViewingReference(true)}
+        onOpenSimulate={() => setViewingSimulate(true)}
+        textScale={textScale}
+        onCycleTextScale={cycleTextScale}
+      />
       <div className="app-shell">
-        <SideHeader
-          muted={muted}
-          setMuted={setMuted}
-          fullscreen={fullscreen}
-          onOpenSettings={() => setSettingsOpen(true)}
-          phaseLabel={phaseLabel}
-          phaseIcon={PHASE_ICON[displayS.phase] || "clock"}
-          section={section}
-          onSection={setSection}
-          browsing={section === "game" && displayS.phase === "lobby" && browsing}
-          browsedMeta={browsedMeta}
-          confirming={confirming}
-          onConfirmScript={confirmScript}
-          onCancelBrowse={exitBrowse}
-          lobbyIdle={section === "game" && displayS.phase === "lobby" && !browsing}
-          playerCount={displayS.players.length}
-          onStartGame={startGame}
-          onClearLobby={clearLobby}
-          showGameControls={
-            section === "game" &&
-            (displayS.phase === "reveal" ||
-              displayS.phase === "night" ||
-              displayS.phase === "day" ||
-              displayS.phase === "over" ||
-              displayS.revealed)
-          }
-          onReveal={revealAll}
-          onNewGame={newGame}
-          onOpenReference={() => setViewingReference(true)}
-          onOpenSimulate={() => setViewingSimulate(true)}
-          textScale={textScale}
-          onCycleTextScale={cycleTextScale}
-          narrationSlotRef={registerNarrationSlot}
-        />
-
         <div className="stage-col">
           <ReclaimBanner pendingReclaims={S?.pendingReclaims} />
           <ToastStack />
@@ -373,7 +362,6 @@ export default function App() {
                     onEnterBrowse={enterBrowse}
                     onBuildScript={() => setBuildingScript(true)}
                     ringSlotRef={registerRingSlot}
-                    narrationSlot={narrationSlot}
                     fadeClass={fadeClass}
                   />
                 )}
@@ -384,7 +372,6 @@ export default function App() {
                     activeScriptMeta={activeScriptMeta}
                     muted={muted}
                     ringSlotRef={registerRingSlot}
-                    narrationSlot={narrationSlot}
                     fadeClass={fadeClass}
                   />
                 )}
@@ -401,7 +388,6 @@ export default function App() {
                     muted={muted}
                     log={displayS.log}
                     ringSlotRef={registerRingSlot}
-                    narrationSlot={narrationSlot}
                     fadeClass={fadeClass}
                   />
                 )}
@@ -419,7 +405,6 @@ export default function App() {
                     log={displayS.log}
                     dayStartedAt={displayS.dayStartedAt}
                     ringSlotRef={registerRingSlot}
-                    narrationSlot={narrationSlot}
                     fadeClass={fadeClass}
                   />
                 )}
@@ -436,7 +421,6 @@ export default function App() {
                     nightNumber={displayS.nightNumber}
                     muted={muted}
                     ringSlotRef={registerRingSlot}
-                    narrationSlot={narrationSlot}
                     fadeClass={fadeClass}
                   />
                 )}

@@ -2,12 +2,12 @@ import { useEffect, useState } from 'react';
 import GameStage from '../components/GameStage.jsx';
 import GameSummaryCard from '../components/GameSummaryCard.jsx';
 import SidepanelCard from '../components/SidepanelCard.jsx';
+import NarratorLogCard from '../components/NarratorLogCard.jsx';
 import SessionStatsCard from '../components/SessionStatsCard.jsx';
 import PowerLogOverlay from '../components/PowerLogOverlay.jsx';
 import ShareCardOverlay from '../components/ShareCardOverlay.jsx';
 import Icon from '../components/Icon.jsx';
 import { useSpeak } from '../hooks/useSpeak.js';
-import { useVictoryReveal } from '../hooks/useVictoryReveal.js';
 
 // A day commonly has execution/nomination log lines mixed in with the
 // night's own — every entry used to render "Night N" regardless, including
@@ -21,28 +21,18 @@ function logLabel(l) {
   return ''; // lobby/reveal/over, or older data with no recorded phase
 }
 
-export default function OverView({ players, victory, gameSummary, pivotalHighlights, shareCardEnabled, log, actionLog, resultsLog, nightNumber, muted, ringSlotRef, narrationSlot, fadeClass = '' }) {
+export default function OverView({ players, victory, gameSummary, pivotalHighlights, shareCardEnabled, log, actionLog, resultsLog, nightNumber, muted, ringSlotRef, fadeClass = '' }) {
   const [showPowerLog, setShowPowerLog] = useState(false);
   const [showShareCard, setShowShareCard] = useState(false);
 
+  // No "Good wins"/"Evil wins" label, no banner box — the ring's own
+  // border glow (rendered by App.jsx — see ringSlotRef, and its own
+  // independent useVictoryReveal call timing that glow) already says who
+  // won; this line carries the win condition itself, e.g. "Only the Demon
+  // and one other live." Spoken (and logged via useSpeak), no visible
+  // on-screen caption any more — see GameStage.jsx.
   const victoryLine = victory ? `${victory.winner === 'good' ? 'Good wins.' : 'Evil wins.'} ${victory.reason}` : '';
   useSpeak(victoryLine, { dread: !!victory && victory.winner !== 'good', muted });
-
-  // Also drives the ring's own verdict glow — see App.jsx, which calls
-  // this same hook independently to time the glow to the same beat.
-  const bannerShown = useVictoryReveal(victory);
-
-  // No "Good wins"/"Evil wins" label and no separate banner box — the
-  // ring's border glow (rendered by App.jsx now — see ringSlotRef)
-  // already says who won, so this line only has to carry the win
-  // condition itself, e.g. "Only the Demon and one other live."
-  const narration = victory ? (
-    <div className={'fade-wrap stage-narration ' + fadeClass}>
-      <div className={'narration reveal' + (victory.winner !== 'good' ? ' dread' : '') + (bannerShown ? ' show' : '')}>
-        {victory.reason}
-      </div>
-    </div>
-  ) : null;
 
   const tabs = [
     {
@@ -89,6 +79,7 @@ export default function OverView({ players, victory, gameSummary, pivotalHighlig
               compare against — SessionStatsCard removes itself if there
               isn't one. */}
           <SessionStatsCard />
+          <NarratorLogCard />
         </>
       ),
     },
@@ -97,8 +88,6 @@ export default function OverView({ players, victory, gameSummary, pivotalHighlig
   return (
     <>
       <GameStage
-        narration={narration}
-        narrationSlot={narrationSlot}
         ringSlotRef={ringSlotRef}
         tabs={tabs}
         defaultTab="summary"
