@@ -142,6 +142,18 @@ function newGame() {
     // nothing currently writes one on their behalf. Flat and public-only:
     // what was SAID, not what's true. See H.recordClaim/H.heuristicBotClaim.
     claims: [],
+    // The narrative plan (game/storyteller/narrativePlan.js) — null until
+    // server.js generates one right after dealing, and for the whole
+    // game if the LLM Storyteller is off or unconfigured. A plain data
+    // property, read synchronously wherever it's consulted (dramaticPick
+    // below, whimJudge.js, botBehavior.js) — see narrativePlan.js's own
+    // comment for why that distinction matters. Sim-observer-visible only
+    // (simPayload() in server.js), same privacy boundary as llmLog and a
+    // whim's own reasoning text — its throughline/reasons can freely name
+    // a true character, so this must never reach hostState()/pushHost(),
+    // which also broadcasts to a real game's spectators, and never a
+    // player's own state either.
+    storytellerPlan: null,
     hint: null,
     log: [],
     // Who chose whom, night by night and day by day — kept only for the

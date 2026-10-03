@@ -213,6 +213,105 @@ console.log('\nisRephrasable / rephraseNightResults');
   check('an all-ineligible results map never calls the LLM at all', !called && out.p0.body === 'You see the Grimoire.');
 }
 
+console.log('\ngenerateStorytellerPlan / maybeRevisePlan');
+function fakePlanReply(g, overrides = {}) {
+  const whimLeanings = {};
+  for (const kind of S.WHIM_KINDS) whimLeanings[kind] = { lean: 'neutral', reason: '' };
+  return {
+    throughline: 'A late Mayor reveal should decide this one.',
+    whimLeanings,
+    targetLeanings: [{ playerId: g.players[0].id, reason: 'seeds a false read' }],
+    claimGuidance: [{ playerId: g.players[1].id, timing: 'late', posture: 'confident', reason: 'earns trust' }],
+    ...overrides,
+  };
+}
+{
+  const g = dealtGame();
+  const plan = await S.generateStorytellerPlan(g, okLLM(fakePlanReply(g)));
+  check('a well-formed reply produces a usable plan', plan && plan.throughline && plan.targetLeanings.length === 1 && plan.claimGuidance.length === 1);
+  check('every whim kind gets a leaning entry', S.WHIM_KINDS.every(k => plan.whimLeanings[k] && plan.whimLeanings[k].lean));
+}
+{
+  const g = dealtGame();
+  const plan = await S.generateStorytellerPlan(g, okLLM(fakePlanReply(g, {
+    targetLeanings: [{ playerId: 'not-a-real-seat', reason: 'hallucinated' }],
+  })));
+  check('a targetLeanings entry naming a player outside this game is dropped, not trusted', plan.targetLeanings.length === 0);
+}
+{
+  const g = dealtGame();
+  const plan = await S.generateStorytellerPlan(g, okLLM({ throughline: 123 }));
+  check('a malformed reply (wrong type) -> null, never a half-built plan', plan === null);
+}
+{
+  const g = dealtGame();
+  const plan = await S.generateStorytellerPlan(g, failLLM());
+  check('a failed call -> null', plan === null);
+}
+{
+  const g = dealtGame();
+  const original = fakePlanReply(g);
+  const revised = await S.maybeRevisePlan(g, original, { deaths: [], claims: [] }, okLLM(fakePlanReply(g, { throughline: 'Updated.' })));
+  check('a successful revision replaces the throughline', revised.throughline === 'Updated.');
+}
+{
+  const g = dealtGame();
+  const original = fakePlanReply(g);
+  const revised = await S.maybeRevisePlan(g, original, { deaths: [], claims: [] }, failLLM());
+  check('a failed revision call returns the ORIGINAL plan unchanged, never null', revised === original);
+}
+
+console.log('\nnarrative plan consultation points');
+{
+  // whimJudge.js: the plan's leaning should show up in the prompt text
+  // actually sent, since that's the only way it can influence the model.
+  const g = dealtGame();
+  g.storytellerPlan = { whimLeanings: { 'mayor-redirect': { lean: 'favor-fire', reason: 'late-game payoff' } }, targetLeanings: [], claimGuidance: [] };
+  let seenPrompt = '';
+  await S.llmWhimJudge(g, { kind: 'mayor-redirect' }, async (kind, opts) => { seenPrompt = opts.prompt; return { ok: true, data: { fire: true, reason: 'r' } }; });
+  check('a favor-fire leaning is folded into the whim prompt', seenPrompt.includes('favor-fire') === false && seenPrompt.includes('leans toward') && seenPrompt.includes('late-game payoff'));
+}
+{
+  const g = dealtGame();
+  g.storytellerPlan = { whimLeanings: { 'mayor-redirect': { lean: 'neutral', reason: '' } }, targetLeanings: [], claimGuidance: [] };
+  let seenPrompt = '';
+  await S.llmWhimJudge(g, { kind: 'mayor-redirect' }, async (kind, opts) => { seenPrompt = opts.prompt; return { ok: true, data: { fire: true, reason: 'r' } }; });
+  check('a neutral leaning adds nothing to the prompt', !seenPrompt.includes('plan'));
+}
+{
+  // botBehavior.js: a claimGuidance entry for this specific player should
+  // show up in their own claim prompt, never another player's.
+  const g = dealtGame();
+  g.storytellerPlan = { whimLeanings: {}, targetLeanings: [], claimGuidance: [{ playerId: g.players[0].id, timing: 'late', posture: 'cagey', reason: 'build suspicion first' }] };
+  let seenPrompt = '';
+  await S.llmBotClaim(g, g.players[0], async (kind, opts) => { seenPrompt = opts.prompt; return { ok: true, data: { reasoning: 'r', shouldClaim: false, claimedCharacterId: '', statement: '' } }; });
+  check('this player\'s own claim guidance is folded into their prompt', seenPrompt.includes('cagey') && seenPrompt.includes('build suspicion first'));
+  let seenPrompt2 = '';
+  await S.llmBotClaim(g, g.players[1], async (kind, opts) => { seenPrompt2 = opts.prompt; return { ok: true, data: { reasoning: 'r', shouldClaim: false, claimedCharacterId: '', statement: '' } }; });
+  check('a DIFFERENT player with no guidance of their own sees none', !seenPrompt2.includes('cagey'));
+}
+{
+  // helpers.js's dramaticPick (via its one real caller, E.randomKiller):
+  // a plan-named candidate should win noticeably more often than a
+  // uniform draw once dramaBias is nonzero, without ever becoming the
+  // ONLY possible outcome — a lean, not an override.
+  const g = E.newGame();
+  seat(g, 3);
+  g.config.dramaBias = 1;
+  g.storytellerPlan = { whimLeanings: {}, targetLeanings: [{ playerId: g.players[0].id, reason: 'x' }], claimGuidance: [] };
+  let favoredWins = 0;
+  const trials = 300;
+  for (let i = 0; i < trials; i++) {
+    g.nightNumber = i; // randomKiller's own decide() tag includes nightNumber — vary it so each trial actually re-rolls
+    const victim = await E.randomKiller(g, g.players, null, { demonAttack: true });
+    if (victim.id === g.players[0].id) favoredWins++;
+  }
+  const uniformShare = 1 / 3;
+  check(`a plan-named candidate wins noticeably more than the uniform 1-in-3 share (got ${favoredWins}/${trials})`,
+    favoredWins / trials > uniformShare + 0.1);
+  check('...but is never the only possible outcome — a lean, not an override', favoredWins < trials);
+}
+
 console.log(failures ? `\n${failures} FAILURE(S)` : '\nAll checks passed');
 process.exitCode = failures ? 1 : 0;
 

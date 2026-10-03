@@ -100,9 +100,18 @@ async function llmWhimJudge(g, ctx, callLLM) {
     ? `By living count, ${trailingSide} is currently behind.`
     : 'By living count, the two sides are roughly even.';
   const stakes = living.length <= 5 ? ' Few players remain — this decision could settle the game.' : '';
+  // A plain, already-decided property read — never a new async call into
+  // previously-synchronous code. See narrativePlan.js's own comment for
+  // why that distinction matters. A lean only ever adds one more sentence
+  // to the same prompt this call was already making; it never substitutes
+  // for the judgment above, which still runs exactly as it always has.
+  const leaning = g.storytellerPlan && g.storytellerPlan.whimLeanings && g.storytellerPlan.whimLeanings[ctx.kind];
+  const planNote = (leaning && leaning.lean !== 'neutral')
+    ? ` The Storyteller's own plan for this game leans toward ${leaning.lean === 'favor-fire' ? 'this firing' : 'this not firing'} tonight: ${leaning.reason} Weigh this alongside your own judgment above — it's one more consideration, not an instruction to follow blindly.`
+    : '';
   const result = await callLLM('whim:' + ctx.kind, {
     system: WHIM_SYSTEM[ctx.kind],
-    prompt: `Night/day ${g.nightNumber}. ${living.length} living: ${goodAlive} good, ${evilAlive} evil. ${comparison}${stakes}`,
+    prompt: `Night/day ${g.nightNumber}. ${living.length} living: ${goodAlive} good, ${evilAlive} evil. ${comparison}${stakes}${planNote}`,
     schema: WHIM_SCHEMA,
     // Was 40 — measured live on the Dry Run screen's LLM traffic log:
     // qwen2.5 was hitting this cap on the majority of real calls (truncated,

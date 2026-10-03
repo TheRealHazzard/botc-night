@@ -95,9 +95,19 @@ async function llmBotClaim(g, player, callLLM) {
   if (!(g.config.llmStorytellerEnabled && isConfigured())) return E.heuristicBotClaim(g, player);
   const schema = botClaimSchema(g);
   const validIds = new Set(schema.properties.claimedCharacterId.enum);
+  // A plain, already-decided property read, same as whimJudge.js's own —
+  // one more sentence folded into this same prompt, never a separate call
+  // or a substitute for this player's own reasoning above.
+  const guidance = g.storytellerPlan && g.storytellerPlan.claimGuidance
+    && g.storytellerPlan.claimGuidance.find(x => x.playerId === player.id);
+  const planNote = guidance
+    ? `\n\nThe Storyteller's own plan for this game has a note on you specifically: claim ${guidance.timing} ` +
+      `in the day, with a ${guidance.posture} posture. ${guidance.reason} Weigh this alongside your own ` +
+      `reasoning above — it's one more consideration, not an instruction to follow blindly.`
+    : '';
   const result = await callLLM('bot-claim', {
     system: BOT_CLAIM_SYSTEM,
-    prompt: `What this player knows:\n${JSON.stringify(botMemory(g, player))}`,
+    prompt: `What this player knows:\n${JSON.stringify(botMemory(g, player))}${planNote}`,
     schema,
     maxTokens: 250,
   });

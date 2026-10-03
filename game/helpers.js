@@ -304,9 +304,17 @@ function dramaticPick(g, candidates) {
   const picked = decide(g, 'dramatic-pick:' + g.nightNumber, () => {
     const bias = effectiveDramaBias(g);
     if (!bias) return pick(candidates);
+    // The narrative plan's own targetLeanings (game/storyteller/
+    // narrativePlan.js) fold into this SAME weight, scaled by the SAME
+    // bias — a candidate the plan names weighs like one extra nomination
+    // would, never an independent or overwhelming force, and a host who's
+    // turned dramatic weighting off entirely (bias 0, the branch above)
+    // gets no plan influence here either, consistent with the plan being
+    // a lean inside this existing lever rather than a second system.
+    const leaned = new Set((g.storytellerPlan && g.storytellerPlan.targetLeanings || []).map(t => t.playerId));
     const weights = candidates.map(x => {
       const nominatedCount = g.nominations.filter(n => n.nomineeId === x.id).length;
-      return 1 + bias * nominatedCount;
+      return 1 + bias * (nominatedCount + (leaned.has(x.id) ? 1 : 0));
     });
     const total = weights.reduce((sum, w) => sum + w, 0);
     let roll = Math.random() * total;
@@ -509,6 +517,38 @@ const INTERNAL_ONLY_STATUSES = new Set([
   // Redundant with a different status already shown for the same fact
   'diedTonight', 'zombuulFaked', 'noDashiiPoisoned', 'cannibalPoisoned',
 ]);
+
+/** The Storyteller's own Grimoire, as shown to a player who's allowed to
+    see it (the Spy every night, the Widow once — game/abilities/tb.js and
+    bmr.js) — every player's true/believed character, alive status, and
+    visible statuses, one row each. Shared here specifically so both stay
+    byte-identical rather than drifting the way INTERNAL_ONLY_STATUSES
+    itself once did as two independently-maintained copies (see that
+    constant's own comment).
+
+    A broken (poisoned/drunk) viewer's ability doesn't work — it was
+    showing the real thing regardless, and there's no honest "wrong" full
+    Grimoire — so the identity info is shuffled as one unit per row
+    (true+believed together), not scrambled independently, so a broken
+    viewer can't even trust that a shown pairing belongs together. */
+function buildGrimoireRows(g, broken) {
+  const identities = g.players.map(x => ({
+    character: trueChar(x).name,
+    // The Storyteller's own Grimoire always shows what a player believes
+    // they are alongside who they really are — that's the whole reason
+    // the Drunk (and the Lunatic) work at all. Only worth a separate line
+    // when it actually differs from the truth.
+    believedCharacter: x.believedId !== x.characterId ? (char(x.believedId) && char(x.believedId).name) : null,
+  }));
+  const shown = broken ? shuffle(identities) : identities;
+  return g.players.map((x, i) => ({
+    name: x.name,
+    character: shown[i].character,
+    believedCharacter: shown[i].believedCharacter,
+    alive: x.alive,
+    statuses: Object.keys(x.statuses).filter(k => !INTERNAL_ONLY_STATUSES.has(k)),
+  }));
+}
 
 /**
  * At most once a game, and only when good is clearly losing (more evil
@@ -1075,5 +1115,5 @@ module.exports = {
   minionNominatedToday, demonVotedToday, vortoxActive,
   numberSignal, falseNumber, logTrueValue, evilNeighbourCount, evilPairCount, pairInfo,
   resultCount, resultYesNo, resultPointer, resolveRavenkeeperChoice,
-  decide, INTERNAL_ONLY_STATUSES, effectiveDramaBias,
+  decide, INTERNAL_ONLY_STATUSES, effectiveDramaBias, buildGrimoireRows,
 };

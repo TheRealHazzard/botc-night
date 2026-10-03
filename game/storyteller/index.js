@@ -18,4 +18,5 @@ module.exports = {
   ...require('./rephrase'),
   ...require('./askStoryteller'),
   ...require('./nightResultRephrase'),
+  ...require('./narrativePlan'),
 };

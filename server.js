@@ -242,6 +242,13 @@ function simPayload() {
     // game's LLM traffic (which can carry a real player's free-text claim)
     // never reaches this view either.
     llmLog: game.llmLog || [],
+    // Same reasoning, same boundary: the plan's own throughline/reasons
+    // can freely name a true character or team (game/storyteller/
+    // narrativePlan.js), exactly like a whim's own reasoning text already
+    // does pre-reveal (see logWhimConfirm's comment in helpers.js) — never
+    // safe for hostState()/pushHost(), which also reaches a real game's
+    // spectators, only this sim-only observer channel.
+    storytellerPlan: game.storytellerPlan || null,
     seats: game.players.map(p => {
       const submitted = game.pending[p.id];
       return {
@@ -502,6 +509,57 @@ async function maybeRephraseNightResults() {
   }
 }
 
+/** Authors the narrative plan (game/storyteller/narrativePlan.js) right
+    after dealing — fire-and-forget, same reasoning as
+    maybeRephraseVictoryLine: nothing actually consults g.storytellerPlan
+    until night 1's first whim/claim/targeting decision, real wall-clock
+    time away (the reveal phase, then a night window opening), so there's
+    no reason to make the deal response itself wait on an ~800-token
+    generation call. `dealtGame` guards against a reset landing a stale
+    game's plan on a fresh one, same pattern maybeRephraseVictoryLine's own
+    `game.victory === victory` check already uses. Off, unconfigured, or
+    any failure just leaves storytellerPlan null, which every consultation
+    point already treats as "no opinion." */
+function maybeGenerateStorytellerPlan() {
+  if (!(game.config.llmStorytellerEnabled && llmConfigured())) return;
+  const dealtGame = game;
+  S.generateStorytellerPlan(dealtGame, llmCall).then(plan => {
+    if (plan && game === dealtGame) {
+      game.storytellerPlan = plan;
+      pushHost();
+    }
+  }).catch(() => {});
+}
+
+/** Re-consults the plan at two checkpoints a cycle — a night resolving
+    (endNight, only when the game continues) and an execution landing
+    (recordExecution, same condition) — not after every smaller event
+    (a claim, a nomination), so this stays as cheap as the rest of the LLM
+    Storyteller's existing call volume. Fire-and-forget, same reasoning as
+    generation above: the revised plan is only ever consulted at the NEXT
+    decision point, real time away either way. The extra
+    `game.storytellerPlan === currentPlan` guard protects against two
+    revisions overlapping (a night and an execution landing close
+    together) — the slower one finishing never clobbers a newer plan with
+    a stale one. */
+function maybeRevisePlanAsync() {
+  if (!(game.config.llmStorytellerEnabled && llmConfigured()) || !game.storytellerPlan) return;
+  const currentGame = game;
+  const currentPlan = game.storytellerPlan;
+  const happenedSoFar = {
+    nightNumber: game.nightNumber,
+    phase: game.phase,
+    deaths: game.deaths.map(d => ({ name: d.name, cause: d.cause, night: d.night })),
+    claims: game.claims.map(c => ({ day: c.day, player: c.playerName, claimedCharacter: c.claimedCharacterName })),
+  };
+  S.maybeRevisePlan(currentGame, currentPlan, happenedSoFar, llmCall).then(plan => {
+    if (plan && game === currentGame && game.storytellerPlan === currentPlan) {
+      game.storytellerPlan = plan;
+      pushHost();
+    }
+  }).catch(() => {});
+}
+
 function endNight() {
   game.phase = 'day';
   game.windowEndsAt = null;
@@ -514,6 +572,7 @@ function endNight() {
   game.hint = E.generateHint(game);
   if (game.hint) E.logEvent(game, `The dead speak: "${game.hint}"`);
   if (finishIfOver()) return;
+  maybeRevisePlanAsync();
   pushAll();
   if (game.simulation) scheduleSim(game.simSpeed * 700);
   // A real player still gets first crack at nominating — same "watchable,
@@ -722,7 +781,10 @@ async function recordExecution(playerId) {
     game.noExecutionToday = true;
     E.logEvent(game, `No execution today.`);
   }
-  if (!finishIfOver()) pushAll();
+  if (!finishIfOver()) {
+    pushAll();
+    maybeRevisePlanAsync();
+  }
   return true;
 }
 
@@ -2933,6 +2995,7 @@ async function requestHandler(req, res) {
           playerId: p.id, seatName: p.name, characterId: p.characterId, believedId: p.believedId, statuses: { ...p.statuses },
         }));
         pushAll();
+        maybeGenerateStorytellerPlan();
         return json(res, 200, { ok: true });
       }
 

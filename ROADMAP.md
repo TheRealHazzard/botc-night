@@ -108,29 +108,53 @@ rewrite:
   them now would be speculative work with no second caller yet to verify
   against. Queued for Phase 3, done alongside the routes that actually
   need them.
-- **Phase 2 (LLM decision-logic extraction) — part done.** Every inline
-  LLM function (whim judge, claim judge, bot claim/nominate/vote, Savant/
+- **Phase 2 (LLM decision-logic extraction) — done.** Every inline LLM
+  function (whim judge, claim judge, bot claim/nominate/vote, Savant/
   victory rephrase) has moved from server.js into a new `game/storyteller/`
   module tree — a pure refactor (every prompt/schema/fallback byte-for-byte
   identical, verified against the full existing test:server/sim/test:player
   suites), with one real design change: each function now takes `callLLM`
   as an explicit parameter instead of reaching for server.js's own
-  network-backed `llmCall()`, so `test/storyteller.js` (22 checks) exercises
-  every one of them with a plain stub function — no mocked fetch, no server
-  boot, `game/llmStoryteller.js` never even required. server.js keeps
+  network-backed `llmCall()`, so `test/storyteller.js` exercises every one
+  of them with a plain stub function — no mocked fetch, no server boot,
+  `game/llmStoryteller.js` never even required. server.js keeps
   `llmCall`/`llmConfigured` themselves (genuine server-process concerns:
   `game.llmLog`, the Observer SSE push) and wires them in as that one
-  parameter. Night-result rephrasing is also done:
-  `game/storyteller/nightResultRephrase.js` extends Savant's own
+  parameter.
+
+  Both new features are built. **Night-result rephrasing**
+  (`game/storyteller/nightResultRephrase.js`) extends Savant's own
   "rephrase, never assert" treatment to every other eligible info-role
   result (Chef, Empath, Flowergirl, ...), eligibility decided by a
   structural rule on the result's own shape (a `body` string with no
   `names`/`grimoire` riding alongside it — never a hand-maintained
   character-id list, so a future character is safe or unsafe
-  automatically), wired into `closeWindow()` right after
-  `resolveNight()` and before results reach any player. Still to build in
-  this same tree: the narrative plan, not blocked by Phase 3's two open
-  decisions below.
+  automatically), wired into `closeWindow()` right after `resolveNight()`
+  and before results reach any player.
+
+  **The narrative plan** (`game/storyteller/narrativePlan.js`) is authored
+  once from the full true roster right after dealing
+  (`generateStorytellerPlan`, fire-and-forget — nothing consults it until
+  night 1's first decision, real wall-clock time away) and re-consulted at
+  two checkpoints a cycle, a night resolving and an execution landing
+  (`maybeRevisePlan`, also fire-and-forget, never erasing a working plan on
+  a failed revision). It's consulted at three existing decision points, all
+  as plain synchronous property reads — never a new async call into
+  previously-synchronous code, the specific mistake the audit's
+  async-propagation finding warned against: `helpers.js`'s `dramaticPick`
+  folds `targetLeanings` into its existing nomination-count weight, scaled
+  by the same `dramaBias` dial; `whimJudge.js`'s `llmWhimJudge` folds a
+  `whimLeanings` entry into its existing prompt; `botBehavior.js`'s
+  `llmBotClaim` folds a per-player `claimGuidance` entry into its own
+  prompt. Every one of those is a lean, never an override — confirmed live
+  in `test/storyteller.js`: a plan-named target wins roughly half of 300
+  trials against an unweighted 1-in-3 share, never close to all of them.
+  Sim-observer-visible only (`simPayload()`, not `hostState()`), same
+  privacy boundary as `llmLog` and a whim's own reasoning text, since the
+  plan's own reasons can freely name a true character pre-reveal.
+
+  `test/storyteller.js` now carries 40 checks total across every module in
+  this tree.
 - **Phase 3 (Storyteller Assist) — not started, and blocked on two real
   decisions first.** (1) Whims currently resolve two ways — an LLM
   verdict or a synchronous heuristic roll — and Assist mode needs a
