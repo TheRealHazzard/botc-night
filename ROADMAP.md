@@ -155,17 +155,28 @@ rewrite:
 
   `test/storyteller.js` now carries 40 checks total across every module in
   this tree.
-- **Phase 3 (Storyteller Assist) — not started, and blocked on two real
-  decisions first.** (1) Whims currently resolve two ways — an LLM
-  verdict or a synchronous heuristic roll — and Assist mode needs a
-  genuinely new third path: pause mid-resolution, ask the human over the
-  console, wait for a real answer. Nothing in this codebase today waits
-  on a person mid-resolution; this needs its own short design pass before
-  code. (2) `game/ABILITY_PATTERNS.md`'s entire 4-bucket framework is
-  built on "there's no Storyteller in this app" — Assist mode directly
-  contradicts that premise for exactly the characters the framework
-  exists to handle, and needs an explicit updated answer, not a silent
-  collision.
+- **Phase 3 (Storyteller Assist) — not started, design resolved, no
+  longer blocked.** The two open decisions this section used to flag are
+  answered: whims don't need a new pause-mid-resolution path at all —
+  `resolveNight()` runs to completion exactly as it does today (the LLM
+  judge if `llmStorytellerEnabled` is on, the heuristic otherwise, zero
+  new code path), and Assist mode inserts one new step between resolution
+  finishing and the night committing: a draft the Storyteller reviews on
+  the console (every whim call that fired highlighted, reusing
+  `resolveWhim`'s own existing `logWhimConfirm` record), with the option
+  to override specific outcomes via small, targeted edits before
+  confirming — never a full re-run. The 4-bucket framework update:
+  Bucket 1 (whim) resolves as above; Bucket 2 (derivable info) is
+  unchanged, just relayed verbally instead of pushed to a phone; Bucket 3
+  (structured claim menus) is unchanged, just operated by the Storyteller
+  on a player's behalf; Bucket 4 (Gossip/Artist free text) routes to the
+  Storyteller as the judge directly, reading the exact same ground-truth
+  payload `buildStorytellerContext` already builds for the LLM judge
+  today. None of Phase 2's LLM machinery changes — its output becomes a
+  suggestion a human reviews, never something committed unseen. Full
+  design, a worked example, and the updated six-step rollout live at
+  https://claude.ai/artifact/VZZYmpkByxncK8jo1Sb7vb ("Phase 3 Design:
+  Draft, Then Confirm").
 
 Explicitly out of scope for this whole effort: refactoring all 81 routes
 (only the ones that actually grow a second caller), multi-table support
