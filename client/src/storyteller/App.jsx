@@ -36,7 +36,18 @@ export default function App() {
   }, [authed, refresh]);
 
   if (authed === null) return null; // avoid a flash of the gate while checking
-  if (!authed) return <CodeGate onEntered={() => setAuthed(true)} />;
+  if (!authed) {
+    // Switching the table into Assist mode is what actually unlocks every
+    // other host-tier route for this cookie (see blockedByGate's own
+    // comment in server.js) — /api/table/config is the one deliberate
+    // exception reachable regardless of current mode, specifically so this
+    // can happen the moment the console is entered, not as a separate
+    // manual step. Idempotent and harmless to repeat (mode is lobby-only
+    // in applyConfigPatch, so this silently no-ops once a game is already
+    // under way) — called every time the gate succeeds rather than only
+    // once, so re-opening the console mid-game never needs its own check.
+    return <CodeGate onEntered={() => api.setConfig({ mode: 'assist' }).catch(() => {}).then(() => setAuthed(true))} />;
+  }
   if (!hostState) return <div className="st-loading">Loading the table…</div>;
 
   return (
