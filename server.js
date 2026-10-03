@@ -1196,6 +1196,107 @@ function voteHandler(body) {
   return { status: 200, payload: { ok: true } };
 }
 
+/** The actual logic behind /api/gossip-claim's freeform+menu paths, shared
+    with /api/storyteller/gossip-claim (ROADMAP.md's Phase 3, step 4) — the
+    only difference between the two callers is how `p` gets resolved
+    (token vs playerId — the caller's own job, same split actionHandler/
+    nominateHandler/voteHandler already established) and what `judgeFn`
+    does: the real LLM judge for a player's own phone, or a Storyteller's
+    own directly-given verdict with no LLM involved at all, having read
+    the exact same ground truth (/api/storyteller/claim-context) the LLM
+    judge would have. Everything else — pre-checks, impairment, status-
+    setting, logging — is identical either way, and the menu path
+    (claimType !== 'freeform') never touches judgeFn at all, so a
+    Storyteller can submit either a menu claim or a judged freeform one
+    through the same route. */
+async function gossipClaimHandler(p, body, judgeFn) {
+  if (!p) return { status: 404, payload: { error: 'Unknown player.' } };
+  if (p.bot) return { status: 409, payload: { error: 'This seat is bot-controlled.' } };
+  if (!E.publiclyAlive(p)) return { status: 409, payload: { error: 'Only living players may do this.' } };
+  if (game.phase !== 'day') return { status: 409, payload: { error: 'Only during the day.' } };
+  const believed = E.char(p.believedId);
+  if (!believed || believed.id !== 'gossip') return { status: 409, payload: { error: 'Nothing to claim.' } };
+  if (p.statuses.gossipClaimDay === game.nightNumber) return { status: 409, payload: { error: 'Already made a statement today.' } };
+
+  let isTrue;
+  if (body.claimType === 'freeform') {
+    const claimText = typeof body.claimText === 'string' ? body.claimText.trim() : '';
+    if (!claimText || claimText.length > 400) return { status: 400, payload: { error: 'Say your claim in 400 characters or fewer.' } };
+    const verdict = await judgeFn(claimText);
+    if (verdict === null) return { status: 409, payload: { error: "The Storyteller couldn't judge that claim — try again, or use the menu below." } };
+    // Re-validate everything the pre-checks above already confirmed: the
+    // await just spent real wall-clock time, and this game object is
+    // shared with every other request that ran while it was gone.
+    const stillP = E.byId(game, p.id);
+    if (!stillP || game.phase !== 'day' || stillP.statuses.gossipClaimDay === game.nightNumber) {
+      return { status: 409, payload: { error: 'Too late — the moment for that claim has passed.' } };
+    }
+    // Ambiguous collapses to false: zero downstream consequence, same
+    // move already made for impairment two lines below.
+    isTrue = verdict === 'true';
+  } else {
+    // The claim-shape menu (team/character/atleast) and its ground-truth
+    // check are shared with Sects & Violets' Artist — see evaluateClaim
+    // in engine.js.
+    const evaluated = await E.evaluateClaim(game, body);
+    if (evaluated.error) return { status: 400, payload: { error: evaluated.error } };
+    isTrue = evaluated.isTrue;
+  }
+  if (E.impaired(p)) isTrue = false;
+
+  p.statuses.gossipClaimDay = game.nightNumber;
+  p.statuses.gossipClaimTrue = isTrue;
+  E.logEvent(game, `${p.name} makes a public statement.`, true);
+  pushPlayer(p.id);
+  pushHost();
+  return { status: 200, payload: { ok: true } };
+}
+
+/** The actual logic behind /api/artist-question — same shared-handler
+    shape and reasoning as gossipClaimHandler just above. Unlike Gossip,
+    an 'ambiguous' verdict here stays ambiguous (`unsure`) rather than
+    collapsing to false: there's no public claim or safety stakes riding
+    on it, so coercing it to "No." would just be a worse, less honest
+    answer. */
+async function artistQuestionHandler(p, body, judgeFn) {
+  if (!p) return { status: 404, payload: { error: 'Unknown player.' } };
+  if (p.bot) return { status: 409, payload: { error: 'This seat is bot-controlled.' } };
+  if (!E.publiclyAlive(p)) return { status: 409, payload: { error: 'Only living players may do this.' } };
+  if (game.phase !== 'day') return { status: 409, payload: { error: 'Only during the day.' } };
+  const believed = E.char(p.believedId);
+  if (!believed || believed.id !== 'artist') return { status: 409, payload: { error: 'Nothing to ask.' } };
+  if (p.statuses.artistUsed) return { status: 409, payload: { error: 'Already used, once per game.' } };
+
+  let isTrue, unsure = false;
+  if (body.claimType === 'freeform') {
+    const claimText = typeof body.claimText === 'string' ? body.claimText.trim() : '';
+    if (!claimText || claimText.length > 400) return { status: 400, payload: { error: 'Say your question in 400 characters or fewer.' } };
+    const verdict = await judgeFn(claimText);
+    if (verdict === null) return { status: 409, payload: { error: "The Storyteller couldn't judge that claim — try again, or use the menu below." } };
+    const stillP = E.byId(game, p.id);
+    if (!stillP || game.phase !== 'day' || stillP.statuses.artistUsed) {
+      return { status: 409, payload: { error: 'Too late — the moment for that question has passed.' } };
+    }
+    if (verdict === 'ambiguous') unsure = true;
+    else isTrue = verdict === 'true';
+  } else {
+    const evaluated = await E.evaluateClaim(game, body);
+    if (evaluated.error) return { status: 400, payload: { error: evaluated.error } };
+    isTrue = evaluated.isTrue;
+  }
+  // Impaired means wrong, not "no answer" — the question was still asked;
+  // matches every other yes/no reveal's impairment convention (a random
+  // answer, not a guaranteed flip — see Flowergirl/Town Crier/Fortune Teller).
+  if (!unsure && E.impaired(p)) isTrue = Math.random() < 0.5;
+
+  p.statuses.artistUsed = true;
+  E.logEvent(game, `${p.name} (the Artist) privately asks the Storyteller a question.`, true);
+  game.results[p.id] = { title: 'Artist', body: unsure ? "The Storyteller isn't sure how to answer that." : (isTrue ? 'Yes.' : 'No.') };
+  pushPlayer(p.id);
+  pushHost();
+  return { status: 200, payload: { ok: true } };
+}
+
 // Every bot's LLM-driven claim/nominate/vote reasoning (BOT_CLAIM_SYSTEM,
 // botMemory, llmBotClaim, llmBotNominate, llmBotVote, ...) now lives in
 // game/storyteller/botBehavior.js (ROADMAP.md's three-mode rollout, Phase
@@ -2220,6 +2321,18 @@ async function requestHandler(req, res) {
         return json(res, 200, nightDraftPayload());
       }
 
+      // The exact ground truth judgeFreeformClaim hands the LLM judge for
+      // a Gossip/Artist freeform claim (ROADMAP.md's Phase 3, step 4) — a
+      // Storyteller reads this, judges the claim themselves, and submits
+      // their own verdict through /api/storyteller/gossip-claim or
+      // /api/storyteller/artist-question below. Doesn't depend on which
+      // claim is being judged (every player's real name/character/team/
+      // alive status, same every time), so one shared read route serves
+      // both.
+      if (route === '/api/storyteller/claim-context') {
+        return json(res, 200, { context: await E.buildStorytellerContext(game) });
+      }
+
       if (route === '/api/host-state') {
         return json(res, 200, hostState());
       }
@@ -2514,6 +2627,28 @@ async function requestHandler(req, res) {
         return json(res, 200, nightDraftPayload());
       }
 
+      // The Storyteller has read /api/storyteller/claim-context and
+      // decided the verdict themselves — no LLM involved. judgeFn below
+      // just validates and returns exactly what they submitted, so
+      // gossipClaimHandler (shared with the player-facing /api/gossip-claim)
+      // runs identically either way: same pre-checks, same impairment
+      // handling, same status-setting. The menu path (claimType !==
+      // 'freeform') works here too, unchanged — a Storyteller can submit
+      // either a menu claim or a judged freeform one through this one route.
+      if (route === '/api/storyteller/gossip-claim') {
+        const p = E.byId(game, body.playerId);
+        const judgeFn = async () => ['true', 'false', 'ambiguous'].includes(body.verdict) ? body.verdict : null;
+        const { status, payload } = await gossipClaimHandler(p, body, judgeFn);
+        return json(res, status, payload);
+      }
+
+      if (route === '/api/storyteller/artist-question') {
+        const p = E.byId(game, body.playerId);
+        const judgeFn = async () => ['true', 'false', 'ambiguous'].includes(body.verdict) ? body.verdict : null;
+        const { status, payload } = await artistQuestionHandler(p, body, judgeFn);
+        return json(res, status, payload);
+      }
+
       if (route === '/api/slayer-shot') {
         // "Once per game, during the day, publicly choose a player" — a
         // player-triggered, public action, not a private night choice.
@@ -2567,48 +2702,17 @@ async function requestHandler(req, res) {
         // claim's truth is a real fact the engine checks now, at the moment
         // it's made, and freezes for tonight — never revealed to the Gossip
         // either way, so there's nothing here that leaks it back to them.
-        const p = E.byToken(game, body.token);
-        if (!p) return json(res, 404, { error: 'Unknown player.' });
-        if (p.bot) return json(res, 409, { error: 'This seat is bot-controlled.' });
-        if (!E.publiclyAlive(p)) return json(res, 409, { error: 'Only living players may do this.' });
-        if (game.phase !== 'day') return json(res, 409, { error: 'Only during the day.' });
-        const believed = E.char(p.believedId);
-        if (!believed || believed.id !== 'gossip') return json(res, 409, { error: 'Nothing to claim.' });
-        if (p.statuses.gossipClaimDay === game.nightNumber) return json(res, 409, { error: 'Already made a statement today.' });
-
-        let isTrue;
-        if (body.claimType === 'freeform') {
-          if (!game.config.llmStorytellerEnabled) return json(res, 409, { error: 'The LLM Storyteller is off for this table.' });
-          const claimText = typeof body.claimText === 'string' ? body.claimText.trim() : '';
-          if (!claimText || claimText.length > 400) return json(res, 400, { error: 'Say your claim in 400 characters or fewer.' });
-          const verdict = await S.judgeFreeformClaim(game, claimText, 'gossip', llmCall);
-          if (verdict === null) return json(res, 409, { error: "The Storyteller couldn't judge that claim — try again, or use the menu below." });
-          // Re-validate everything the pre-checks above already confirmed:
-          // the await just spent real wall-clock time, and this game object
-          // is shared with every other request that ran while it was gone.
-          const stillP = E.byToken(game, body.token);
-          if (!stillP || game.phase !== 'day' || stillP.statuses.gossipClaimDay === game.nightNumber) {
-            return json(res, 409, { error: 'Too late — the moment for that claim has passed.' });
-          }
-          // Ambiguous collapses to false: zero downstream consequence, same
-          // move already made for impairment two lines below.
-          isTrue = verdict === 'true';
-        } else {
-          // The claim-shape menu (team/character/atleast) and its
-          // ground-truth check are shared with Sects & Violets' Artist —
-          // see evaluateClaim in engine.js.
-          const evaluated = await E.evaluateClaim(game, body);
-          if (evaluated.error) return json(res, 400, { error: evaluated.error });
-          isTrue = evaluated.isTrue;
+        // The actual logic is gossipClaimHandler above, shared with
+        // /api/storyteller/gossip-claim — this gate (freeform needs the LLM
+        // actually on) is specific to a player's own phone, since the
+        // Storyteller's own route never calls an LLM at all.
+        if (body.claimType === 'freeform' && !game.config.llmStorytellerEnabled) {
+          return json(res, 409, { error: 'The LLM Storyteller is off for this table.' });
         }
-        if (E.impaired(p)) isTrue = false;
-
-        p.statuses.gossipClaimDay = game.nightNumber;
-        p.statuses.gossipClaimTrue = isTrue;
-        E.logEvent(game, `${p.name} makes a public statement.`, true);
-        pushPlayer(p.id);
-        pushHost();
-        return json(res, 200, { ok: true });
+        const p = E.byToken(game, body.token);
+        const judgeFn = (claimText) => S.judgeFreeformClaim(game, claimText, 'gossip', llmCall);
+        const { status, payload } = await gossipClaimHandler(p, body, judgeFn);
+        return json(res, status, payload);
       }
 
       if (route === '/api/savant-visit') {
@@ -2687,48 +2791,15 @@ async function requestHandler(req, res) {
         // yes/no question" — the same structured claim-shape menu as the
         // Gossip's (see evaluateClaim in engine.js), but answered
         // immediately and privately, with no public claim or later payoff.
-        const p = E.byToken(game, body.token);
-        if (!p) return json(res, 404, { error: 'Unknown player.' });
-        if (p.bot) return json(res, 409, { error: 'This seat is bot-controlled.' });
-        if (!E.publiclyAlive(p)) return json(res, 409, { error: 'Only living players may do this.' });
-        if (game.phase !== 'day') return json(res, 409, { error: 'Only during the day.' });
-        const believed = E.char(p.believedId);
-        if (!believed || believed.id !== 'artist') return json(res, 409, { error: 'Nothing to ask.' });
-        if (p.statuses.artistUsed) return json(res, 409, { error: 'Already used, once per game.' });
-
-        let isTrue, unsure = false;
-        if (body.claimType === 'freeform') {
-          if (!game.config.llmStorytellerEnabled) return json(res, 409, { error: 'The LLM Storyteller is off for this table.' });
-          const claimText = typeof body.claimText === 'string' ? body.claimText.trim() : '';
-          if (!claimText || claimText.length > 400) return json(res, 400, { error: 'Say your question in 400 characters or fewer.' });
-          const verdict = await S.judgeFreeformClaim(game, claimText, 'artist', llmCall);
-          if (verdict === null) return json(res, 409, { error: "The Storyteller couldn't judge that claim — try again, or use the menu below." });
-          const stillP = E.byToken(game, body.token);
-          if (!stillP || game.phase !== 'day' || stillP.statuses.artistUsed) {
-            return json(res, 409, { error: 'Too late — the moment for that question has passed.' });
-          }
-          // Unlike Gossip, nothing dies on an "ambiguous" — coercing it into
-          // a fake "No." would be a worse, less honest answer for a once-
-          // per-game private ability with no safety stakes.
-          if (verdict === 'ambiguous') unsure = true;
-          else isTrue = verdict === 'true';
-        } else {
-          const evaluated = await E.evaluateClaim(game, body);
-          if (evaluated.error) return json(res, 400, { error: evaluated.error });
-          isTrue = evaluated.isTrue;
+        // The actual logic is artistQuestionHandler above, shared with
+        // /api/storyteller/artist-question.
+        if (body.claimType === 'freeform' && !game.config.llmStorytellerEnabled) {
+          return json(res, 409, { error: 'The LLM Storyteller is off for this table.' });
         }
-        // Impaired means wrong, not "no answer" — the question was still
-        // asked; matches every other yes/no reveal's impairment convention
-        // (a random answer, not a guaranteed flip — see Flowergirl/Town
-        // Crier/Fortune Teller).
-        if (!unsure && E.impaired(p)) isTrue = Math.random() < 0.5;
-
-        p.statuses.artistUsed = true;
-        E.logEvent(game, `${p.name} (the Artist) privately asks the Storyteller a question.`, true);
-        game.results[p.id] = { title: 'Artist', body: unsure ? "The Storyteller isn't sure how to answer that." : (isTrue ? 'Yes.' : 'No.') };
-        pushPlayer(p.id);
-        pushHost();
-        return json(res, 200, { ok: true });
+        const p = E.byToken(game, body.token);
+        const judgeFn = (claimText) => S.judgeFreeformClaim(game, claimText, 'artist', llmCall);
+        const { status, payload } = await artistQuestionHandler(p, body, judgeFn);
+        return json(res, status, payload);
       }
 
       if (route === '/api/ask-storyteller') {

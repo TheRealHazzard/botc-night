@@ -155,7 +155,7 @@ rewrite:
 
   `test/storyteller.js` now carries 40 checks total across every module in
   this tree.
-- **Phase 3 (Storyteller Assist) — steps 1–3 of 6 done.** The two open
+- **Phase 3 (Storyteller Assist) — steps 1–4 of 6 done.** The two open
   decisions this section used to flag are answered: whims don't need a
   new pause-mid-resolution path at all —
   `resolveNight()` runs to completion exactly as it does today (the LLM
@@ -254,8 +254,30 @@ rewrite:
   override is authoritative over whatever the real judge would have
   decided, not just coincidentally matching it once.
 
-  Steps 4–6 (the Bucket 4 human-judgment UI, the console client itself,
-  and the `ABILITY_PATTERNS.md` update) are still ahead.
+  **Step 4 is built**: Bucket 4's free-text judging (Gossip/Artist) now
+  has a human-judgment path. `judgeFreeformClaim`/`artistQuestionHandler`'s
+  shared logic was first extracted out of `/api/gossip-claim` and
+  `/api/artist-question` into `gossipClaimHandler(p, body, judgeFn)` and
+  `artistQuestionHandler(p, body, judgeFn)` — a pure refactor, verified
+  byte-for-byte identical before anything new was added, same discipline
+  Phase 1's `actionHandler` extraction already used. `judgeFn` is the only
+  thing that differs by caller: the real LLM judge for a player's own
+  phone, or — for the two new routes, `/api/storyteller/gossip-claim` and
+  `/api/storyteller/artist-question` — a function that just validates and
+  returns the Storyteller's own directly-given verdict, no LLM involved at
+  all. A new `/api/storyteller/claim-context` (GET) hands back
+  `buildStorytellerContext`'s exact payload so the Storyteller can judge
+  the claim from the same ground truth the LLM would have had. Artist's
+  own "ambiguous stays ambiguous, never coerced to a fake No" rule carries
+  through unchanged, since it's the same shared handler either way.
+  `test/server/storytellerClaimJudgment.js` (10 checks) covers the gate,
+  the ground-truth payload, a Storyteller-judged true verdict actually
+  landing (proven observably, since `gossipClaimTrue`/`gossipClaimDay` are
+  internal and never exposed to the player themselves), the once-per-day/
+  once-per-game limits still holding, and Artist's ambiguous case.
+
+  Steps 5–6 (the console client itself and the `ABILITY_PATTERNS.md`
+  update) are still ahead.
 
 Explicitly out of scope for this whole effort: refactoring all 81 routes
 (only the ones that actually grow a second caller), multi-table support
