@@ -155,7 +155,7 @@ rewrite:
 
   `test/storyteller.js` now carries 40 checks total across every module in
   this tree.
-- **Phase 3 (Storyteller Assist) — step 1 of 6 done.** The two open
+- **Phase 3 (Storyteller Assist) — steps 1–2 of 6 done.** The two open
   decisions this section used to flag are answered: whims don't need a
   new pause-mid-resolution path at all —
   `resolveNight()` runs to completion exactly as it does today (the LLM
@@ -198,7 +198,31 @@ rewrite:
   and day — every action, nomination, and vote — using nothing but player
   ids and the storyteller cookie, zero player tokens touched anywhere,
   plus confirms the gate actually blocks a bare table cookie or no cookie
-  at all. Steps 2–6 (the night-confirmation draft state, surgical
+  at all.
+
+  **Step 2 is built**: the night-confirmation draft state. `closeWindow()`
+  gained one `game.config.mode === 'assist'` branch — `resolveNight()` and
+  the LLM rephrase pass still run exactly as they do in every other mode,
+  but instead of calling `endNight()` immediately, Assist mode sets
+  `game.nightPendingConfirmation = true` and stops; `g.phase` stays
+  `'night'` even though everything has already been computed. A new
+  `/api/storyteller/night-draft` (GET) hands back tonight's deaths, every
+  player's own `results` entry, and a `whimOutcomes` list; that last part
+  needed no new logging anywhere in `game/` at all — `g.decisionLog`
+  already records every whim call unconditionally (for the replay tool),
+  where `g.whimConfirmations` is deliberately gated to `living.length <= 5`
+  for a different purpose (avoiding noise on a sparse, post-game
+  transparency record), so this just filters data that already existed
+  rather than adding a parallel log. `/api/storyteller/confirm-night`
+  (POST) is the only thing that actually calls `endNight()` in Assist
+  mode. `nightPendingConfirmation` itself is also a plain boolean on
+  `publicState()` (safe — no draft content, same as `revealed`/`paused`),
+  so the TV/host view can show a waiting indicator later without a new
+  privacy boundary to reason about. `test/server/nightConfirmation.js`
+  (13 checks) proves Core mode is completely unaffected (same instant
+  night-to-day flip as always, flag never sets) and drives the full
+  Assist-mode loop — stop, read the draft, get blocked without the
+  cookie, confirm, and a clean 409 confirming twice. Steps 3–6 (surgical
   overrides, the Bucket 4 human-judgment UI, the console client itself,
   and the `ABILITY_PATTERNS.md` update) are still ahead.
 

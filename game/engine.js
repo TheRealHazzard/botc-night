@@ -154,6 +154,15 @@ function newGame() {
     // which also broadcasts to a real game's spectators, and never a
     // player's own state either.
     storytellerPlan: null,
+    // Storyteller Assist mode only (ROADMAP.md's "Draft, Then Confirm"
+    // design) — true the instant a night's resolveNight() has finished
+    // (deaths applied, results computed, g.phase still 'night') but before
+    // server.js's endNight() has actually committed it to the table. A
+    // human reviews the draft via /api/storyteller/night-draft and
+    // confirms via /api/storyteller/confirm-night, which is what actually
+    // calls endNight(). Core and LLM Mode never set this — closeWindow()
+    // calls endNight() immediately for them, exactly as it always has.
+    nightPendingConfirmation: false,
     hint: null,
     log: [],
     // Who chose whom, night by night and day by day — kept only for the
@@ -1670,6 +1679,11 @@ function publicState(g) {
     paused: !!g.paused,
     victory: g.victory || null,
     mastermindExtraDay: !!g.mastermindExtraDay,
+    // Safe as a bare boolean, same reasoning as every other flag on this
+    // object — the draft's own content (deaths, results, whim reasoning)
+    // never lives here, only in the storyteller-gated read route. Always
+    // false outside Assist mode.
+    nightPendingConfirmation: !!g.nightPendingConfirmation,
     // Names only — never the token a reclaim ultimately hands out.
     pendingReclaims: (g.pendingReclaims || [])
       .filter(r => r.status === 'pending')

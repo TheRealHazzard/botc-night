@@ -484,6 +484,19 @@ async function closeWindow() {
   if (game.phase !== 'night') return;
   await E.resolveNight(game, 1);
   await maybeRephraseNightResults();
+  // Storyteller Assist mode: resolveNight() has already mutated
+  // everything (deaths applied, results computed) exactly as it does in
+  // every other mode — what's new is that the night stops HERE instead of
+  // committing itself. game.phase stays 'night' until a human reviews the
+  // draft (/api/storyteller/night-draft) and confirms
+  // (/api/storyteller/confirm-night, which is what actually calls
+  // endNight()). Core and LLM Mode are completely unaffected — this
+  // branch never runs for them.
+  if (game.config.mode === 'assist') {
+    game.nightPendingConfirmation = true;
+    pushHost(); // safe: hostState() exposes only the boolean flag, never the draft's own content — see its own comment
+    return;
+  }
   endNight();
 }
 
@@ -2152,6 +2165,32 @@ async function requestHandler(req, res) {
         return json(res, 200, playerState(p.id));
       }
 
+      // The draft a Storyteller reviews before confirming a night (see
+      // closeWindow()'s own comment) — deaths, the exact results each
+      // player will be told (possibly already LLM-rephrased), and tonight's
+      // own whim outcomes. That last part reuses g.decisionLog directly
+      // rather than g.whimConfirmations: the latter is deliberately gated
+      // to living.length <= 5 "so routine early-game rolls never become
+      // noise" (helpers.js's own logWhimConfirm comment) — exactly the
+      // right call for its actual purpose (a sparse, post-game-ish
+      // transparency record), but wrong for this one, which needs EVERY
+      // whim this specific night, not just endgame ones. decisionLog
+      // already carries every whim call unconditionally (resolveWhim's own
+      // replay-feed logging), so no new logging anywhere in game/ was
+      // needed — only a filter, here, on data that already existed.
+      if (route === '/api/storyteller/night-draft') {
+        if (!game.nightPendingConfirmation) return json(res, 409, { error: 'No night is pending confirmation.' });
+        const whimOutcomes = game.decisionLog
+          .filter(d => d.night === game.nightNumber && d.tag.startsWith('whim:'))
+          .map(d => ({ kind: d.tag.slice('whim:'.length), fired: d.value.fired, reason: d.value.reason }));
+        return json(res, 200, {
+          night: game.nightNumber,
+          deaths: game.deaths.filter(d => d.night === game.nightNumber).map(d => ({ name: d.name, cause: d.cause })),
+          results: game.results,
+          whimOutcomes,
+        });
+      }
+
       if (route === '/api/host-state') {
         return json(res, 200, hostState());
       }
@@ -2375,6 +2414,18 @@ async function requestHandler(req, res) {
       if (route === '/api/storyteller/vote') {
         const { status, payload } = voteHandler(body);
         return json(res, status, payload);
+      }
+
+      // The Storyteller has reviewed /api/storyteller/night-draft (and, in
+      // a later step, may have overridden something in it) and is ready
+      // for the table to actually see tonight's outcome. This is the only
+      // thing that ever calls endNight() in Assist mode — closeWindow()
+      // deliberately stops short of it (see that function's own comment).
+      if (route === '/api/storyteller/confirm-night') {
+        if (!game.nightPendingConfirmation) return json(res, 409, { error: 'No night is pending confirmation.' });
+        game.nightPendingConfirmation = false;
+        endNight();
+        return json(res, 200, { ok: true });
       }
 
       if (route === '/api/slayer-shot') {
