@@ -1900,6 +1900,7 @@ const ROUTE_ACCESS = [
   // this table was built to make a one-line addition, not a new branch
   // threaded through blockedByGate itself (see this table's own comment).
   { prefix: '/api/storyteller/', tier: 'storyteller' },
+  { route: '/storyteller', tier: 'storyteller' },
 ];
 
 function accessTier(route) {
@@ -1937,7 +1938,29 @@ function blockedByGate(req, res, route) {
     else json(res, 401, { error: 'Enter the table code first.' });
     return true;
   }
-  if (HOST_HASH && accessTier(route) === 'host' && !hashMatches(cookies.host_code, HOST_HASH)) {
+  // In Storyteller Assist mode, the Storyteller IS the operator running
+  // deal/night/execute — the TV stays a passive display, nothing needs to
+  // input through it at all (ROADMAP.md's Phase 3, step 5). Rather than a
+  // second set of wrapper routes mirroring every /api/table/* action, the
+  // storyteller cookie satisfies the SAME host-tier check the TV device
+  // already uses — but only while game.config.mode is actually 'assist',
+  // so a storyteller_code leak can never bypass host gating on a Core/LLM
+  // table, which never has a reason to accept it.
+  //
+  // One narrow exception: /api/table/config itself is always reachable
+  // with just the storyteller cookie, mode notwithstanding — otherwise a
+  // fresh (Core-mode-by-default) table could never be switched INTO Assist
+  // mode from the console at all, since the shortcut above only applies
+  // once mode is already 'assist'. Safe to carve out specifically because
+  // applyConfigPatch (engine.js) already validates and allowlists every
+  // field this route can touch, mode itself only settable in the lobby —
+  // this isn't a new privilege, just the one door that has to stay open
+  // before the real one unlocks.
+  const storytellerCanConfigure = STORYTELLER_HASH && hashMatches(cookies.storyteller_code, STORYTELLER_HASH)
+    && route === '/api/table/config';
+  const storytellerSatisfiesHost = storytellerCanConfigure || (game.config.mode === 'assist'
+    && STORYTELLER_HASH && hashMatches(cookies.storyteller_code, STORYTELLER_HASH));
+  if (HOST_HASH && accessTier(route) === 'host' && !hashMatches(cookies.host_code, HOST_HASH) && !storytellerSatisfiesHost) {
     if (req.method === 'GET') serveFile(res, 'enter-host-code.html');
     else json(res, 401, { error: 'Enter the host code first.' });
     return true;
@@ -1971,6 +1994,13 @@ async function requestHandler(req, res) {
       // build:host` must be run first; the vanilla host.html + its
       // test/dom-shim/host.js suite are retired, not kept side by side.
       if (route === '/host') return serveFile(res, 'dist/host/host.html');
+      // The Storyteller Console (see client/src/storyteller/) — Phase 3,
+      // step 5 of ROADMAP.md's three-mode rollout. `npm run
+      // build:storyteller` must be run first, same as /host above.
+      // Gated by the storyteller tier (ROUTE_ACCESS) like every other
+      // /api/storyteller/* route, not the host one — this is a genuinely
+      // separate device/credential from the TV.
+      if (route === '/storyteller') return serveFile(res, 'dist/storyteller/storyteller.html');
       if (route === '/simulate') return serveFile(res, 'simulate.html');
       if (route === '/stats') return serveFile(res, 'stats.html');
       if (route === '/games') return serveFile(res, 'games.html');

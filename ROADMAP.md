@@ -155,7 +155,7 @@ rewrite:
 
   `test/storyteller.js` now carries 40 checks total across every module in
   this tree.
-- **Phase 3 (Storyteller Assist) — steps 1–4 of 6 done.** The two open
+- **Phase 3 (Storyteller Assist) — steps 1–5 of 6 done.** The two open
   decisions this section used to flag are answered: whims don't need a
   new pause-mid-resolution path at all —
   `resolveNight()` runs to completion exactly as it does today (the LLM
@@ -276,8 +276,48 @@ rewrite:
   internal and never exposed to the player themselves), the once-per-day/
   once-per-game limits still holding, and Artist's ambiguous case.
 
-  Steps 5–6 (the console client itself and the `ABILITY_PATTERNS.md`
-  update) are still ahead.
+  **Step 5 is built**: the Storyteller Console itself, a third React app
+  (`client/src/storyteller/`, `npm run build:storyteller`, served at
+  `/storyteller`) — found and closed one real bootstrapping gap along the
+  way: `/api/table/deal`/`/api/table/night`/`/api/table/execute` were all
+  host-tier only, meaning the console couldn't have run a game at all
+  without it. Fixed with the smallest change that covers it, not a second
+  set of wrapper routes: in `blockedByGate`, the storyteller cookie now
+  satisfies the SAME host-tier check the TV already uses, but only while
+  `game.config.mode` is actually `'assist'` — plus one narrower exception,
+  `/api/table/config` alone staying reachable regardless of mode, since
+  that's the one door that has to stay open before a fresh (Core-mode-by-
+  default) table can ever be switched into Assist mode from the console in
+  the first place. `test/server/storytellerSatisfiesHost.js` (9 checks)
+  covers both the shortcut and its boundaries.
+
+  The console itself: `CodeGate` (storyteller_code entry), `LobbyPanel`
+  (add every attendee by name — there are no phones to join from in this
+  mode — pick a script, deal), `NightPanel` (each living seat's own
+  prompt, read via `/api/storyteller/state` and submitted via
+  `/api/storyteller/action`), `NightDraftReview` (step 2/3's draft —
+  deaths, results, whim outcomes, force/apply overrides, confirm),
+  `DayPanel` (nominate/vote/tally/manual execute), and `ClaimJudgePanel`
+  (step 4's Bucket 4 judgment — ground truth, verdict, submit). Polls
+  `/api/host-state` every 2s rather than an SSE connection — simple and
+  correct for a first version, since every state change on this screen is
+  something the Storyteller themselves just triggered, not something to
+  watch for arriving on its own.
+
+  Verified: all three client apps (`build:player`/`build:host`/
+  `build:storyteller`) build together cleanly, the full existing
+  test:server/sim/test:player suite stays green, and a live smoke test
+  confirms the real pipeline end to end — the gate correctly blocks/allows
+  `/storyteller`, the built JS/CSS bundle actually serves, and the API
+  calls succeed with the cookie attached. Every prop name and `api.*` call
+  across all 8 new component files was cross-checked by hand against both
+  its call site and the real backend response shape. **Not yet done**: an
+  actual live playthrough in a browser — there's no browser-automation
+  tool in this environment, so this needs a real human click-through
+  before it's trusted at a real table.
+
+  Step 6 (the `game/ABILITY_PATTERNS.md` update — the bucket table from
+  the Phase 3 design doc, not yet landed in that file) is still ahead.
 
 Explicitly out of scope for this whole effort: refactoring all 81 routes
 (only the ones that actually grow a second caller), multi-table support
