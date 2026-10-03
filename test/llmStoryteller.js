@@ -144,7 +144,7 @@ function jsonResponse(status, body) {
     delete process.env.OLLAMA_MODEL;
     const s = status();
     check('provider switches to ollama via LLM_PROVIDER', s.provider === 'ollama');
-    check('ollama is always "configured" (no key needed) and defaults to qwen2.5:14b-instruct-q4_K_M', s.configured === true && s.model === 'qwen2.5:14b-instruct-q4_K_M');
+    check('ollama is always "configured" (no key needed) and defaults to qwen3:14b', s.configured === true && s.model === 'qwen3:14b');
     process.env.OLLAMA_MODEL = 'llama3.1:8b';
     check('OLLAMA_MODEL overrides the default', status().model === 'llama3.1:8b');
     delete process.env.OLLAMA_MODEL;
@@ -157,6 +157,12 @@ function jsonResponse(status, body) {
       check('request hits Ollama\'s native chat endpoint, not the OpenAI-compat one', url === 'http://localhost:11434/api/chat');
       check('the JSON schema is passed directly as `format`, no request-wrapper', body.format && body.format.type === 'object');
       check('maxTokens becomes options.num_predict', body.options.num_predict === 300);
+      // Off, not omitted — a hybrid-reasoning model (qwen3, the current
+      // default) spends its own internal "thinking" pass out of this same
+      // token budget by default, which blew through every budget in this
+      // file and came back truncated on almost every real call. See
+      // DEFAULT_OLLAMA_MODEL's own comment for the measured numbers.
+      check('think:false is always sent, so a reasoning model can\'t silently eat the token budget on hidden thinking', body.think === false);
       return jsonResponse(200, { done_reason: 'stop', message: { role: 'assistant', content: JSON.stringify({ verdict: 'true' }) } });
     });
     const r = await askStoryteller({ system: 's', prompt: 'p', schema: { type: 'object' } });
@@ -217,20 +223,22 @@ function jsonResponse(status, body) {
 
   // additionalProperties: false is a hard requirement for every object in a
   // structured-output schema (Anthropic rejects the whole request with a
-  // 400 without it) — this bit both schemas server.js actually sends
-  // (judgeFreeformClaim's VERDICT_SCHEMA, rephraseSavantStatements' own)
-  // before, silently: askStoryteller() correctly fails closed on a 400, so
-  // every caller's documented fallback fired every time, meaning the LLM
-  // path itself never actually ran on any table that enabled it. No test
-  // above catches this — every schema passed is a trivial `{}` — because
-  // it's a request-validity problem, not something a mocked fetch
-  // response can surface. A source-text check is blunt but direct: it's
-  // guarding the actual schema literals in server.js, not a fetch mock.
-  const serverSrc = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
-  const verdictSchema = serverSrc.match(/const VERDICT_SCHEMA = \{[\s\S]*?\n\};/);
-  const savantSchema = serverSrc.match(/schema:\s*\{[\s\S]*?\n\s*\},\n\s*maxTokens: 200,/);
-  check('VERDICT_SCHEMA literal was found in server.js (regex sanity check)', !!verdictSchema);
-  check('rephraseSavantStatements\' inline schema literal was found in server.js (regex sanity check)', !!savantSchema);
+  // 400 without it) — this bit both schemas below before, silently:
+  // askStoryteller() correctly fails closed on a 400, so every caller's
+  // documented fallback fired every time, meaning the LLM path itself
+  // never actually ran on any table that enabled it. No test above catches
+  // this — every schema passed is a trivial `{}` — because it's a
+  // request-validity problem, not something a mocked fetch response can
+  // surface. A source-text check is blunt but direct: it's guarding the
+  // actual schema literals where Phase 2 moved them to
+  // (game/storyteller/claimJudge.js, game/storyteller/rephrase.js), not a
+  // fetch mock.
+  const claimJudgeSrc = fs.readFileSync(path.join(__dirname, '..', 'game', 'storyteller', 'claimJudge.js'), 'utf8');
+  const rephraseSrc = fs.readFileSync(path.join(__dirname, '..', 'game', 'storyteller', 'rephrase.js'), 'utf8');
+  const verdictSchema = claimJudgeSrc.match(/const VERDICT_SCHEMA = \{[\s\S]*?\n\};/);
+  const savantSchema = rephraseSrc.match(/schema:\s*\{[\s\S]*?\n\s*\},\n\s*maxTokens: 200,/);
+  check('VERDICT_SCHEMA literal was found in claimJudge.js (regex sanity check)', !!verdictSchema);
+  check('rephraseSavantStatements\' inline schema literal was found in rephrase.js (regex sanity check)', !!savantSchema);
   if (verdictSchema) {
     check('VERDICT_SCHEMA sets additionalProperties: false (required by Anthropic\'s structured-output API)',
       /additionalProperties:\s*false/.test(verdictSchema[0]));

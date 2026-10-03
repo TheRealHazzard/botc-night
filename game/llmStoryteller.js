@@ -39,13 +39,26 @@ const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
 const ANTHROPIC_VERSION = '2023-06-01';
 
 const DEFAULT_OLLAMA_HOST = 'http://localhost:11434';
-// Picked over phi4 (same footprint, ~9GB, comparable warm latency) after a
-// live head-to-head on the same whim-judgment prompt: qwen2.5 landed on the
-// strategically consistent call in 4 of 5 trials against phi4's ~2 of 5 —
-// phi4 kept defaulting to "protecting the good-aligned Mayor helps good,"
-// missing the contrarian "help whoever's currently losing" instruction the
-// system prompt actually asks for. Override with OLLAMA_MODEL for either.
-const DEFAULT_OLLAMA_MODEL = 'qwen2.5:14b-instruct-q4_K_M';
+// Superseded qwen2.5:14b-instruct-q4_K_M (itself picked over phi4 after an
+// earlier head-to-head — see git history) after a live 3-way on the same
+// whim-judgment + claim-verdict prompts this file actually sends
+// (WHIM_SYSTEM['mayor-redirect'] and GOSSIP_ARTIST_SYSTEM.gossip in
+// server.js, reconstructed verbatim, not a generic benchmark): qwen3:14b
+// landed 8/8 against qwen2.5's 7/8, at roughly 1/12th the latency (~700ms
+// vs ~8.3s/call warm) — and against gpt-oss:20b, which even at 4x this
+// file's own token budgets still truncated 2 of 5 whim trials and
+// reproduced the *exact* "always protect the good-aligned Mayor" failure
+// phi4 was dropped for in the first place, so it was ruled out outright
+// despite being the newer, community-favored pick for 16GB cards. The gap
+// is architectural, not a close call: qwen3 supports a genuine
+// `think:false` off-switch (see askOllama's own request body below), while
+// gpt-oss bakes in some reasoning regardless of that setting — confirmed
+// live, 62 eval tokens of "thinking" for a one-word reply with think:false
+// already set. Override with OLLAMA_MODEL for any of the three, or
+// anything else; `think:false` is a harmless no-op on a model that was
+// never doing hidden reasoning to begin with (confirmed against qwen2.5
+// itself), so leaving the default override in place is always safe.
+const DEFAULT_OLLAMA_MODEL = 'qwen3:14b';
 
 // Read fresh on every call, never cached at module load (unlike PORT in
 // server.js) — an operator can set/rotate/switch providers between games
@@ -160,6 +173,15 @@ async function askOllama({ system, prompt, schema, maxTokens = 300, timeoutMs = 
         stream: false,
         format: schema,
         options: { num_predict: maxTokens },
+        // Off, not omitted — a hybrid-reasoning model (qwen3, the current
+        // default; deepseek-r1, others) spends its own internal "thinking"
+        // pass out of this same maxTokens budget by default, which blew
+        // through every budget in this file and came back truncated on
+        // almost every real call (see DEFAULT_OLLAMA_MODEL's own comment
+        // for the live numbers). A harmless no-op on a model that was never
+        // doing hidden reasoning to begin with — confirmed directly against
+        // qwen2.5 — so this is safe to leave on regardless of OLLAMA_MODEL.
+        think: false,
       }),
       signal: AbortSignal.timeout(timeoutMs),
     });
