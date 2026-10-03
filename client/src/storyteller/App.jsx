@@ -28,26 +28,29 @@ export default function App() {
     api.hostState().then(setHostState).catch(e => setError(e.message));
   }, []);
 
+  // Switching the table into Assist mode is what actually unlocks every
+  // other host-tier route for this cookie (see blockedByGate's own comment
+  // in server.js) — /api/table/config is the one deliberate exception
+  // reachable regardless of current mode, specifically so this can happen
+  // the instant the console considers itself authed, not as a step tied to
+  // CodeGate's own form submit. That distinction matters: with no
+  // STORYTELLER_CODE set at all, the gate is off entirely (the same
+  // LAN-only default every other code in this app already has) and
+  // alreadyAuthed() resolves true immediately — CodeGate never renders,
+  // so anything wired to its own onEntered would silently never run.
+  // Idempotent and harmless to repeat (mode is lobby-only in
+  // applyConfigPatch, so this silently no-ops once a game is already under
+  // way) — safe to fire on every mount, gate on or off alike.
   useEffect(() => {
     if (!authed) return;
+    api.setConfig({ mode: 'assist' }).catch(() => {});
     refresh();
     const id = setInterval(refresh, POLL_MS);
     return () => clearInterval(id);
   }, [authed, refresh]);
 
   if (authed === null) return null; // avoid a flash of the gate while checking
-  if (!authed) {
-    // Switching the table into Assist mode is what actually unlocks every
-    // other host-tier route for this cookie (see blockedByGate's own
-    // comment in server.js) — /api/table/config is the one deliberate
-    // exception reachable regardless of current mode, specifically so this
-    // can happen the moment the console is entered, not as a separate
-    // manual step. Idempotent and harmless to repeat (mode is lobby-only
-    // in applyConfigPatch, so this silently no-ops once a game is already
-    // under way) — called every time the gate succeeds rather than only
-    // once, so re-opening the console mid-game never needs its own check.
-    return <CodeGate onEntered={() => api.setConfig({ mode: 'assist' }).catch(() => {}).then(() => setAuthed(true))} />;
-  }
+  if (!authed) return <CodeGate onEntered={() => setAuthed(true)} />;
   if (!hostState) return <div className="st-loading">Loading the table…</div>;
 
   return (
