@@ -30,13 +30,15 @@ that split.
 bot-driven simulation, LAN HTTPS + installable PWA, optional public
 tunnel hosting.
 
-**The presentation/atmosphere layer is code-complete and untested at an
-actual table.** Pivotal-moment scoring, the MVP/Play-of-the-Game/
-game-winning-nomination reveal cards, live in-game "notable moment"
-beats, adaptive tension audio, narration variety, a shareable
-end-of-session card — all shipped, all covered by automated tests, none
-of it seen by a real group of people yet. That's the real gap on this
-piece, not missing functionality.
+**The presentation/atmosphere layer is in scope for 1.0, code-complete,
+and untested at an actual table.** Pivotal-moment scoring, the MVP/Play-
+of-the-Game/game-winning-nomination reveal cards, live in-game "notable
+moment" beats, adaptive tension audio, narration variety, a shareable
+end-of-session card — a real part of the product now, not an optional
+bolt-on (settled; see the near-term section below), all shipped, all
+covered by automated tests, none of it seen by a real group of people
+yet. That's the real gap on this piece, not missing functionality — it's
+exactly what the next live playtest needs to validate.
 
 **A desktop app for the host exists and works, minus one polish step.**
 `src-tauri/` wraps the exact same `server.js` (unmodified — packaged via
@@ -387,11 +389,6 @@ at the next table:
 Not answerable from the code alone — these are calls about what this
 project is actually for, not bugs to fix:
 
-- **Is the atmosphere layer part of 1.0, or an optional add-on people can
-  ignore?** The rules engine + core play flow is close to "done" on its
-  own terms already. Bundling reveal cards/live beats/tension audio into
-  the same bar raises what "1.0" has to mean before it's true, even
-  though every one of those toggles off independently.
 - **Do Travellers/Fabled belong in scope at all?** They're a real part of
   the physical game, and their absence is the single biggest
   feature-completeness gap next to the atmosphere layer's lack of
