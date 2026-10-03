@@ -16,6 +16,7 @@
     "sim": "node tools/simulate.js",
     "test:dom-shim": "node test/dom-shim/games.js && node test/dom-shim/simulate.js",
     "test:llm": "node test/llmStoryteller.js",
+    "test:storyteller": "node test/storyteller.js",
     "test:nanoleaf": "node test/nanoleaf.js",
     "test:history": "node test/historyRecap.js",
     "test:pivotal-scoring": "node test/pivotalScoring.js",

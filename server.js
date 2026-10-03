@@ -11,6 +11,7 @@ const E = require('./game/engine');
 const H = require('./game/history');
 const { COLOR_PALETTE } = require('./game/colors');
 const { askStoryteller, status: llmStatus } = require('./game/llmStoryteller');
+const S = require('./game/storyteller');
 const Nanoleaf = require('./game/nanoleaf');
 const { computeHighlights, extractCandidateEvents, scoreEvent } = require('./game/pivotalScoring');
 const { noteFor } = require('./game/characterNotes');
@@ -93,61 +94,6 @@ function playerState(playerId) {
   return { ...state, llmEnabled: !!(game.config.llmStorytellerEnabled && llmConfigured()) };
 }
 
-// additionalProperties: false is a hard requirement for every object in a
-// structured-output schema, per Anthropic's docs — omit it and the API
-// rejects the whole request with a 400. Both schemas here were missing it,
-// which meant askStoryteller() always got `{ok:false, reason:'http-400'}`
-// and both callers' fallback path (structured menu / original statements)
-// fired every single time, on every table that ever enabled Bucket 4 — the
-// LLM path itself never actually ran.
-// `reason` comes before `verdict` deliberately — Ollama's grammar-constrained
-// decoding generates object keys in declared order, so this is a real
-// chain-of-thought slot, not just a debug field. Measured live: without it,
-// the same model asked "does anyone here have the Vortox specifically?"
-// against a game state that plainly lists a player's character as Vortox
-// answered "ambiguous" with no way to see why; with reasoning space, the
-// actual cause showed up directly in the model's own words (see
-// GOSSIP_ARTIST_SYSTEM's split below) and pointed at a real, fixable bug
-// rather than a mystery.
-const VERDICT_SCHEMA = {
-  type: 'object',
-  properties: {
-    reason: { type: 'string' },
-    verdict: { type: 'string', enum: ['true', 'false', 'ambiguous'] },
-  },
-  required: ['reason', 'verdict'],
-  additionalProperties: false,
-};
-
-// One shared judgeFreeformClaim() used to serve both callers with a single
-// system prompt written entirely around Gossip's real use case — a
-// declarative public statement ("a claim a player just made out loud").
-// Artist's real UI is a private yes/no QUESTION, not a statement, and the
-// mismatch was silently miscategorizing it: the exact same underlying fact,
-// asked as "Does anyone have the Vortox?", got "ambiguous" (the model's own
-// reasoning: a question "is neither true nor false" as a claim); restated as
-// "Someone has the Vortox," the identical fact was judged correctly every
-// time. Confirmed with a live side-by-side on the identical game state
-// before writing this, not guessed.
-const GOSSIP_ARTIST_SYSTEM = {
-  gossip:
-    'You are silently judging one claim made during a game of Blood on the Clocktower. ' +
-    'You are given the true state of the game and a claim a player just made out loud. ' +
-    'First reason step by step using only the facts provided, then decide whether the claim ' +
-    'is true, false, or ambiguous — nothing about tone, phrasing tricks, or anything not listed. ' +
-    'Return "ambiguous" whenever the claim is vague, compound, refers to something outside the ' +
-    'provided facts, or could reasonably be read more than one way. Do not guess.',
-  artist:
-    'You are silently answering one private yes/no question a player asked during a game of ' +
-    'Blood on the Clocktower. You are given the true state of the game and the question they ' +
-    'asked. First reason step by step using only the facts provided, then decide whether the ' +
-    'honest answer is "true" (yes), "false" (no), or "ambiguous" — nothing about tone, phrasing ' +
-    'tricks, or anything not listed. Return "ambiguous" whenever the question is vague, compound, ' +
-    'refers to something outside the provided facts, or could reasonably be answered more than one ' +
-    'way. A question phrased as a question is still answerable — judge the fact it asks about, not ' +
-    'its grammar. Do not guess.',
-};
-
 /** Records every real LLM call (Observer-view only, never the host/player
     screens — see /sim-events' own privacy comment) so a simulation run can
     actually show what was sent and what came back, rather than the LLM
@@ -185,148 +131,6 @@ async function llmCall(kind, opts) {
   return result;
 }
 
-/** Sects & Violets' Gossip/Artist free-text path: judge a player's own words
-    against the game's real ground truth. `kind` picks the system prompt
-    actually suited to that caller's real UI (see GOSSIP_ARTIST_SYSTEM's own
-    comment) — Gossip's public statement and Artist's private question are
-    different grammatical shapes of the same underlying judgment, not
-    interchangeable. Returns 'true' | 'false' | 'ambiguous', or null on any
-    failure (missing key, network error, timeout, malformed reply) —
-    callers treat null as "couldn't judge," never as a default verdict,
-    since there's no deterministic fallback for free text the way there is
-    for Savant's statements below. */
-async function judgeFreeformClaim(game, claimText, kind) {
-  const context = await E.buildStorytellerContext(game);
-  const result = await llmCall(kind + '-claim', {
-    system: GOSSIP_ARTIST_SYSTEM[kind],
-    prompt: `Game state (each player's real name, character, team, and public alive status):\n${JSON.stringify(context)}\n\nThe claim: ${JSON.stringify(claimText)}`,
-    schema: VERDICT_SCHEMA,
-    // Was 100, with no reasoning field at all — measured live, the same
-    // question judged wrong at 100 with no explanation came back correct at
-    // 200 once given room to reason, and the reasoning itself is what
-    // surfaced the real bug this fixes. Local inference has no per-token
-    // cost, same reasoning as the whim calls' own budget.
-    maxTokens: 200,
-  });
-  if (!result.ok) return null;
-  const verdict = result.data && result.data.verdict;
-  if (!['true', 'false', 'ambiguous'].includes(verdict)) return null;
-  return verdict;
-}
-
-const ASK_STORYTELLER_SCHEMA = {
-  type: 'object',
-  properties: { answer: { type: 'string' } },
-  required: ['answer'],
-  additionalProperties: false,
-};
-
-const ASK_STORYTELLER_SYSTEM =
-  'You are privately answering a question from a player during a game of Blood on the Clocktower — ' +
-  'either a general question about the game\'s rules, or a question about this specific game right now. ' +
-  'You are given only what this player already knows: their own character and ability, their own results ' +
-  'so far, and the same public information every player at the table can already see (who is alive, deaths, ' +
-  'nominations, public statements). Never assert anything about another player\'s hidden character, team, or ' +
-  'role — you were not given that, and must not guess at it or imply it. If the question asks about ' +
-  'something genuinely outside what you know, say so honestly rather than inventing an answer. For a ' +
-  'general rules question, answer from your own knowledge of the game. Keep the answer short, in the voice ' +
-  'of an old Storyteller.';
-
-/** Any player's own "speak to the Storyteller" box — a general utility, not
-    gated to a specific character the way Gossip/Savant/Artist are, and
-    genuinely open-ended (a rules question works too, not just a question
-    about this game). Unlike judgeFreeformClaim above (which sees the FULL
-    ground truth, to judge a claim against reality), this can say anything
-    back in its own words — so its input has to be the one privacy boundary
-    that already governs this player's own phone, not a hand-picked subset
-    that could quietly drift from it: E.privateState() for what only this
-    player knows (their own character, their own results), plus the same
-    subset of E.publicState() everyone at the table can already see (the
-    roster, deaths, nominations, non-secret log). Never the true character
-    or team of anyone else. Returns the answer text, or null on any failure
-    — there's no deterministic fallback for a genuinely open question the
-    way Gossip/Artist/Savant each have one underneath their own LLM path. */
-async function answerPlayerQuestion(game, player, question) {
-  const priv = E.privateState(game, player.id);
-  const pub = E.publicState(game);
-  const known = {
-    you: priv.you,
-    result: priv.result,
-    resultHistory: priv.resultHistory,
-    phase: pub.phase,
-    nightNumber: pub.nightNumber,
-    players: pub.players,
-    deaths: pub.deaths,
-    nominations: pub.nominations,
-    log: pub.log,
-  };
-  const result = await llmCall('ask-storyteller', {
-    system: ASK_STORYTELLER_SYSTEM,
-    prompt: `What this player currently knows:\n${JSON.stringify(known)}\n\nTheir question: ${JSON.stringify(question)}`,
-    schema: ASK_STORYTELLER_SCHEMA,
-    maxTokens: 300,
-  });
-  if (!result.ok) return null;
-  const answer = result.data && result.data.answer;
-  return typeof answer === 'string' && answer.trim() ? answer.trim() : null;
-}
-
-/** Sects & Violets' Savant: rephrase two already-decided, already-correct
-    statements more evocatively. The LLM never gets to assert a new fact here
-    — on any failure this returns null and the caller keeps the originals
-    verbatim, so correctness is guaranteed by buildSavantStatements() alone,
-    never by this call succeeding. */
-async function rephraseSavantStatements(statements) {
-  const result = await llmCall('savant-rephrase', {
-    system:
-      'You add flavor to a fortune-telling reveal in a game of Blood on the Clocktower. ' +
-      'You will be given exactly two statements that have already been decided. Rephrase each ' +
-      'one to sound more evocative and mysterious, in the voice of an old Storyteller, WITHOUT ' +
-      'changing which people or characters they name and without changing their meaning in any ' +
-      'way — you may only change the wording. Return exactly two statements, in the same order.',
-    prompt: `The two statements:\n1. ${statements[0]}\n2. ${statements[1]}`,
-    schema: {
-      type: 'object',
-      properties: { statements: { type: 'array', items: { type: 'string' } } },
-      required: ['statements'],
-      additionalProperties: false,
-    },
-    maxTokens: 200,
-  });
-  if (!result.ok) return null;
-  const out = result.data && result.data.statements;
-  if (!Array.isArray(out) || out.length !== 2 || out.some(s => typeof s !== 'string' || !s.trim())) return null;
-  return out;
-}
-
-/** The victory line's own LLM embellishment — same shape as
-    rephraseSavantStatements just above, reusing the existing
-    llmStorytellerEnabled toggle rather than a new one (narrationVariety's
-    local pick() pool is the always-on deterministic baseline regardless
-    of this; this only ever upgrades it further when an LLM is actually
-    configured). On any failure, returns null and the caller keeps the
-    already-chosen, already-displayed line verbatim. */
-async function rephraseVictoryLine(reason) {
-  const result = await llmCall('victory-rephrase', {
-    system:
-      'You add flavor to the final line of a game of Blood on the Clocktower, spoken the moment ' +
-      'the game ends. You will be given one sentence describing why the game just ended. Rephrase ' +
-      'it to sound more evocative, in the voice of an old Storyteller, WITHOUT changing its meaning ' +
-      'or adding any fact not already in it — you may only change the wording. Return exactly one line.',
-    prompt: `The line: ${reason}`,
-    schema: {
-      type: 'object',
-      properties: { line: { type: 'string' } },
-      required: ['line'],
-      additionalProperties: false,
-    },
-    maxTokens: 100,
-  });
-  if (!result.ok) return null;
-  const line = result.data && result.data.line;
-  return typeof line === 'string' && line.trim() ? line.trim() : null;
-}
-
 /** Fire-and-forget, mirroring maybeTriggerNanoleaf's own reasoning: the
     deterministic reason (game/engine.js's narration-variety pick, already
     chosen and already displayed by the time this is called) never blocks
@@ -334,10 +138,13 @@ async function rephraseVictoryLine(reason) {
     rephrase does land, it mutates the SAME victory object's `reason` in
     place and pushes once more — gated on `game.victory === victory` so a
     reset or a fresh game in the meantime can never have a stale rephrase
-    land on top of it. */
+    land on top of it. The actual rephrase call (S.rephraseVictoryLine) now
+    lives in game/storyteller/rephrase.js (ROADMAP.md's three-mode rollout,
+    Phase 2) — this wrapper stays here because the fire-and-forget push
+    side effect is a genuine server-process concern, not decision logic. */
 function maybeRephraseVictoryLine(victory) {
   if (!victory || !game.config.llmStorytellerEnabled || !llmConfigured()) return;
-  rephraseVictoryLine(victory.reason).then(line => {
+  S.rephraseVictoryLine(victory.reason, llmCall).then(line => {
     if (line && game.victory === victory) {
       game.victory.reason = line;
       pushAll();
@@ -345,116 +152,12 @@ function maybeRephraseVictoryLine(victory) {
   }).catch(() => {});
 }
 
-const WHIM_SCHEMA = {
-  type: 'object',
-  properties: { fire: { type: 'boolean' }, reason: { type: 'string' } },
-  required: ['fire', 'reason'],
-  additionalProperties: false,
-};
-
-// "The Whim" — see game/ABILITY_PATTERNS.md's Bucket 1. Mayor's redirect,
-// Recluse/Spy registration, and Pacifist's save were each a flat
-// Math.random() < chance roll, identical odds whether the game's on a
-// knife's edge or barely started. Real Storyteller guidance (the official
-// wiki, and two independent community tools converging on the same
-// language) says these are judgment calls: help whichever side is
-// currently losing, invisibly. This reasons over real, aggregate game
-// state instead of a fixed rate — gated behind the exact same
-// llmStorytellerEnabled toggle as Bucket 4 (Gossip/Savant/Artist), so
-// turning that off (a usage-limit concern, or just not wanting it) turns
-// this off too, with the plain roll underneath as the honest fallback.
-const WHIM_SYSTEM = {
-  'mayor-redirect':
-    'You are a Blood on the Clocktower Storyteller deciding whether to invoke the Mayor\'s power: ' +
-    '"if the Mayor is attacked by the Demon at night, the Storyteller may choose to make another ' +
-    'player die instead." Real Storyteller guidance treats this as a judgment call, not a fixed rate ' +
-    '— the goal is to help whichever side is currently losing, invisibly. Given the game state, decide ' +
-    'whether to redirect the kill away from the Mayor this time, and give one short sentence of reasoning.',
-  'registration-ambiguity':
-    'You are a Blood on the Clocktower Storyteller deciding whether a Recluse or Spy\'s ambiguous ' +
-    'registration should mislead an information-gathering ability right now. Real Storyteller guidance ' +
-    'treats this as a judgment call, not a fixed rate — the goal is to help whichever side is currently ' +
-    'losing, invisibly. Given the game state, decide whether the misregistration should manifest this ' +
-    'time, and give one short sentence of reasoning.',
-  'pacifist-save':
-    'You are a Blood on the Clocktower Storyteller deciding whether to invoke the Pacifist\'s power: ' +
-    'an executed good player might secretly not die. Real Storyteller guidance treats this as a ' +
-    'judgment call, not a fixed rate — the goal is to help whichever side is currently losing, ' +
-    'invisibly. Given the game state, decide whether to save this good player from execution, and give ' +
-    'one short sentence of reasoning.',
-  'sage-recluse-demon':
-    'You are a Blood on the Clocktower Storyteller deciding whether the Recluse\'s ambiguous ' +
-    'registration should mislead the Sage right now: "the Recluse might register as the Demon to the ' +
-    'Sage," an official clarification of how the two interact. Real Storyteller guidance treats this as ' +
-    'a judgment call, not a fixed rate — the goal is to help whichever side is currently losing, ' +
-    'invisibly, since naming the Recluse instead of the real Demon keeps the real Demon hidden and ' +
-    'wastes the town\'s suspicion. Given the game state, decide whether the Sage should see the Recluse ' +
-    'in place of the real Demon this time, and give one short sentence of reasoning.',
-};
-
-// The reasoning text above (this.reason on the confirm record) can freely
-// name a character — "protecting the Mayor," "the Recluse's ambiguity" —
-// since publicState() withholds it, along with `kind`, until g.revealed.
-// See The Confirm's doc comment on logWhimConfirm in helpers.js: this is
-// deliberately NOT as vague as logWhim()'s live beat, because it's never
-// shown live pre-reveal in the first place.
-
-/** The real judge behind game.whimJudge (see resolveWhim in helpers.js) —
-    resolves {fire, reason}. When the LLM Storyteller is off or
-    unconfigured, this defers to E.heuristicWhim() — a synchronous,
-    no-network judgment over the same "help whoever's behind" principle,
-    with its own templated reason — rather than dropping straight to a flat
-    rate; turning the toggle off saves API usage without giving up real
-    judgment. Only a genuine LLM request failure (network, timeout, a
-    malformed reply) falls further, to heuristicWhim() as well, same "any
-    failure degrades gracefully" doctrine Bucket 4's judgeFreeformClaim/
-    rephraseSavantStatements already follow. Never throws, so a quiet
-    outage never stalls a night's resolution on a hung request. The reason
-    string is what The Confirm (resolveWhim's logWhimConfirm) shows the
-    host on a high-stakes call — safe to let it name a character freely,
-    since publicState() withholds it until reveal. */
-async function llmWhimJudge(g, ctx) {
-  if (!(g.config.llmStorytellerEnabled && llmConfigured())) return E.heuristicWhim(g, ctx);
-  const living = E.alive(g);
-  const goodAlive = living.filter(p => {
-    const c = E.trueChar(p);
-    return c && (c.team === 'townsfolk' || c.team === 'outsider');
-  }).length;
-  const evilAlive = living.length - goodAlive;
-  // Same "who's actually behind" computation heuristicWhim() itself trusts
-  // (game/helpers.js) — handing the model raw counts and asking it to both
-  // infer the comparison AND apply the contrarian "help whoever's behind"
-  // instruction in one step is exactly where it kept going wrong live (see
-  // the Dry Run screen's LLM traffic log): evil is the minority by BOTC's
-  // own setup table, so "10 good, 4 evil" reads as a landslide even when
-  // it's a perfectly ordinary starting split. Stating the comparison
-  // outright leaves the model's actual job as just the judgment call itself
-  // — still real work, since firing or not is never automatic here.
-  const margin = goodAlive - evilAlive;
-  const helpsGood = E.WHIM_FIRING_HELPS_GOOD[ctx.kind] !== false;
-  const sideNeedsHelp = helpsGood ? margin <= 0 : margin >= 0;
-  const trailingSide = sideNeedsHelp ? (helpsGood ? 'good' : 'evil') : null;
-  const comparison = trailingSide
-    ? `By living count, ${trailingSide} is currently behind.`
-    : 'By living count, the two sides are roughly even.';
-  const stakes = living.length <= 5 ? ' Few players remain — this decision could settle the game.' : '';
-  const result = await llmCall('whim:' + ctx.kind, {
-    system: WHIM_SYSTEM[ctx.kind],
-    prompt: `Night/day ${g.nightNumber}. ${living.length} living: ${goodAlive} good, ${evilAlive} evil. ${comparison}${stakes}`,
-    schema: WHIM_SCHEMA,
-    // Was 40 — measured live on the Dry Run screen's LLM traffic log:
-    // qwen2.5 was hitting this cap on the majority of real calls (truncated,
-    // silently falling back to heuristicWhim), and the ones that *did* fit
-    // were visibly rushed — reasoning that argued one way while `fire` came
-    // out the other. 90 eliminated truncation entirely and fixed most of
-    // that incoherence in the same test. Local inference has no per-token
-    // cost, so there's no reason to keep this tight.
-    maxTokens: 90,
-  });
-  if (!result.ok) return E.heuristicWhim(g, ctx);
-  return { fire: !!(result.data && result.data.fire), reason: (result.data && result.data.reason) || null };
-}
-E.setWhimJudge(llmWhimJudge);
+// "The Whim" (game/ABILITY_PATTERNS.md's Bucket 1) and every other LLM
+// decision function this file used to define inline now live in
+// game/storyteller/ (ROADMAP.md's three-mode rollout, Phase 2) — this
+// just wires the real network-backed callLLM into engine.js's own
+// injection seam (see helpers.js's setWhimJudge doc comment).
+E.setWhimJudge((g, ctx) => S.llmWhimJudge(g, ctx, llmCall));
 
 // game.phase flips to 'over' from five separate call sites in this file
 // alone (plus 'night'/'day' one each, 'reveal' two in engine.js) —
@@ -1361,115 +1064,19 @@ function voteHandler(body) {
   return { status: 200, payload: { ok: true } };
 }
 
-const BOT_CLAIM_SYSTEM =
-  'You are role-playing one player in a game of Blood on the Clocktower, during the day phase. ' +
-  'You know your own believed character, any private information your ability has already given you, ' +
-  'and everything claimed publicly so far today. Decide whether to publicly claim a character now, ' +
-  'and if so, exactly what to say.\n\n' +
-  'A player whose believed character is good usually benefits from claiming it and sharing real ' +
-  'information early, to help the town find the Demon — but may hold back if the information looks ' +
-  'dangerous to reveal yet. A player whose believed character is evil usually benefits from claiming a ' +
-  'plausible Townsfolk or Outsider role not already truthfully claimed, with invented information ' +
-  'consistent with everything said publicly so far — a good bluff never contradicts an existing claim. ' +
-  'Never pick a character already claimed by someone else unless you intend a contradiction on purpose.\n\n' +
-  'Reason about what this specific player, with this personality, would actually do here — not what is ' +
-  'abstractly optimal.';
-
-function botClaimSchema(g) {
-  return {
-    type: 'object',
-    properties: {
-      reasoning: { type: 'string' },
-      shouldClaim: { type: 'boolean' },
-      claimedCharacterId: { type: 'string', enum: E.activeScriptPool(g).map(c => c.id) },
-      statement: { type: 'string' },
-    },
-    required: ['reasoning', 'shouldClaim', 'claimedCharacterId', 'statement'],
-    additionalProperties: false,
-  };
-}
-
-/** What one bot actually knows, for its own claim/nominate/vote reasoning —
-    scoped to that player alone, never the omniscient ground truth
-    buildStorytellerContext/judgeFreeformClaim's own prompt uses. Uses the
-    player's BELIEVED character throughout, never their true one, for
-    exactly the reason E.heuristicBotClaim already does: a Drunk or
-    Marionette genuinely doesn't know they're wrong, so reasoning from
-    their true character would make them bluff on purpose when a real one
-    of them never would — only a genuine Minion/Demon (whose believed
-    character already IS their true one) reasons as evil here. */
-function botMemory(g, player) {
-  const believed = E.char(player.believedId) || E.trueChar(player);
-  const personalityEntry = player.personality && E.BOT_PERSONALITIES.find(x => x.id === player.personality);
-  return {
-    you: {
-      name: player.name,
-      believedCharacter: believed ? believed.name : null,
-      believedTeam: believed ? believed.team : null,
-      personality: personalityEntry ? personalityEntry.blurb : null,
-    },
-    // Each result's shown `body` text, exactly as this player was actually
-    // told it (possibly already falsified by poison/drunk) — never the
-    // ground truth behind it.
-    privateInfo: g.resultsLog.filter(r => r.playerId === player.id).map(r => r.body).filter(Boolean),
-    day: g.nightNumber,
-    // {id, name} pairs, not bare names — botNominateSchema's nomineeId enum
-    // is drawn from player ids ('sim0', 'sim1', ...), which are never
-    // otherwise shown anywhere else in this object. A nominate call that
-    // only ever saw names would have no way to produce a valid id at all.
-    alivePlayers: E.alive(g).map(p => ({ id: p.id, name: p.name })),
-    deadPlayers: g.players.filter(p => !p.alive).map(p => ({ id: p.id, name: p.name })),
-    publicClaims: g.claims.map(c => ({
-      day: c.day, player: c.playerName, claimedCharacter: c.claimedCharacterName, statement: c.statement,
-    })),
-    // Built from g.deaths rather than g.nominations — a Dry Run resolves
-    // each day's execution as one internal decision (see
-    // llmChooseExecution below), never through the real timed nomination/
-    // vote-window machinery /api/table/nominate uses, so g.nominations
-    // stays empty here. This still gives a bot the one thing that matters
-    // for its own reasoning: who was executed on which day.
-    executionHistory: g.deaths
-      .filter(d => d.cause === 'execution')
-      .map(d => ({ day: d.night, executed: d.name })),
-  };
-}
-
-/** The LLM-driven replacement for E.heuristicBotClaim — same
-    {claimedCharacterId, statement} | null contract (null meaning "doesn't
-    claim this time," a genuine decision the schema allows for, not a
-    failure), so botsClaim() below doesn't need to know which one actually
-    answered. Off (or unconfigured, or any failure/malformed reply) falls
-    back to the heuristic synchronously — same "any failure degrades
-    gracefully" doctrine llmWhimJudge/judgeFreeformClaim already follow,
-    never a thrown error, never a stalled day. */
-async function llmBotClaim(g, player) {
-  if (!(g.config.llmStorytellerEnabled && llmConfigured())) return E.heuristicBotClaim(g, player);
-  const schema = botClaimSchema(g);
-  const validIds = new Set(schema.properties.claimedCharacterId.enum);
-  const result = await llmCall('bot-claim', {
-    system: BOT_CLAIM_SYSTEM,
-    prompt: `What this player knows:\n${JSON.stringify(botMemory(g, player))}`,
-    schema,
-    maxTokens: 250,
-  });
-  if (!result.ok) return E.heuristicBotClaim(g, player);
-  const data = result.data;
-  if (!data || typeof data.shouldClaim !== 'boolean') return E.heuristicBotClaim(g, player);
-  if (!data.shouldClaim) return null;
-  if (typeof data.claimedCharacterId !== 'string' || !validIds.has(data.claimedCharacterId)) {
-    return E.heuristicBotClaim(g, player);
-  }
-  const statement = typeof data.statement === 'string' && data.statement.trim()
-    ? data.statement.trim() : 'Nothing more to report yet.';
-  return { claimedCharacterId: data.claimedCharacterId, statement };
-}
+// Every bot's LLM-driven claim/nominate/vote reasoning (BOT_CLAIM_SYSTEM,
+// botMemory, llmBotClaim, llmBotNominate, llmBotVote, ...) now lives in
+// game/storyteller/botBehavior.js (ROADMAP.md's three-mode rollout, Phase
+// 2) — the orchestration loops just below that actually call them across
+// every bot seat stay here, since mutating game.claims/game.nominations
+// and pushing to live clients are genuine server-process concerns.
 
 // Any bot seat, not just a true Dry Run (game.simulation) — a real table
 // padded with bots via /api/table/add-bots (the "solo practice" case: one
 // real player, the rest bots) needs its bots claiming too, or the whole
 // claim-and-suspect loop a real table runs on just never happens for them.
 // Every living BOT who hasn't claimed yet THIS GAME (not just today) gets
-// one, via llmBotClaim (which falls back to the heuristic placeholder on
+// one, via S.llmBotClaim (which falls back to the heuristic placeholder on
 // its own — see that function's own comment). Filtered to `p.bot` only —
 // unlike the sim path (where every seat already is one), a mixed table has
 // a real player's own seat in E.alive(game) too, and this must never claim
@@ -1479,101 +1086,9 @@ async function botsClaim() {
   const claimed = new Set(game.claims.map(c => c.playerId));
   for (const p of E.alive(game).filter(p => p.bot)) {
     if (claimed.has(p.id)) continue;
-    const claim = await llmBotClaim(game, p);
+    const claim = await S.llmBotClaim(game, p, llmCall);
     if (claim) E.recordClaim(game, p, claim.claimedCharacterId, claim.statement);
   }
-}
-
-const BOT_NOMINATE_SYSTEM =
-  'You are role-playing one player in a game of Blood on the Clocktower, during the day phase, deciding ' +
-  'whether to nominate someone for execution. You know your own believed character and alignment, any ' +
-  'private information, and every claim and execution made publicly so far.\n\n' +
-  'Base suspicion on contradictions between claims, players who haven\'t claimed at all, who was executed ' +
-  'on past days, and anything your own private information tells you directly. A player whose believed ' +
-  'character is good should nominate whoever seems most likely evil given the public picture. A player ' +
-  'whose believed character is evil should nominate to protect themselves and their allies — sometimes ' +
-  'that means nominating a townsfolk to cast suspicion elsewhere, sometimes it means staying quiet.\n\n' +
-  'Most days, most players should NOT nominate — only nominate when you have a real reason to. Factor in ' +
-  'this player\'s own personality, given in their own data below.';
-
-const BOT_VOTE_SYSTEM =
-  'You are role-playing one player in a game of Blood on the Clocktower, deciding how to vote on the ' +
-  'player currently nominated for execution. You know your own believed character and alignment, any ' +
-  'private information, and everything claimed and executed publicly so far, including this nominee\'s ' +
-  'own claim.\n\n' +
-  'A player whose believed character is good should vote yes when the public evidence points at the ' +
-  'nominee being evil, no otherwise. A player whose believed character is evil should usually protect ' +
-  'their own allies and themselves with a no vote — but voting yes on a weak ally, or even each other, ' +
-  'can sometimes be the better disguise than a suspicious block of no votes.\n\n' +
-  'Factor in this player\'s own personality, given in their own data below.';
-
-const BOT_VOTE_SCHEMA = {
-  type: 'object',
-  properties: {
-    reasoning: { type: 'string' },
-    vote: { type: 'string', enum: ['yes', 'no'] },
-  },
-  required: ['reasoning', 'vote'],
-  additionalProperties: false,
-};
-
-function botNominateSchema(g, excludeId) {
-  return {
-    type: 'object',
-    properties: {
-      reasoning: { type: 'string' },
-      shouldNominate: { type: 'boolean' },
-      nomineeId: { type: 'string', enum: E.alive(g).filter(p => p.id !== excludeId).map(p => p.id) },
-    },
-    required: ['reasoning', 'shouldNominate', 'nomineeId'],
-    additionalProperties: false,
-  };
-}
-
-/** One bot's own nominate decision. Return contract (distinct from
-    llmBotClaim's — there's no single heuristic equivalent for "did THIS
-    bot want to nominate," so a per-bot failure has to be distinguishable
-    from a genuine "no" rather than silently read as one):
-      - a player id  → this bot wants to nominate that player
-      - null         → a genuine "no, not this time"
-      - undefined    → the call itself failed or came back malformed;
-                        the caller (llmChooseExecution) treats this as a
-                        reason to abandon the whole day's LLM-driven
-                        resolution, not just this one bot's answer. */
-async function llmBotNominate(g, player) {
-  const schema = botNominateSchema(g, player.id);
-  if (!schema.properties.nomineeId.enum.length) return null; // nobody else alive to nominate
-  const result = await llmCall('bot-nominate', {
-    system: BOT_NOMINATE_SYSTEM,
-    prompt: `What this player knows:\n${JSON.stringify(botMemory(g, player))}`,
-    schema,
-    maxTokens: 250,
-  });
-  if (!result.ok) return undefined;
-  const data = result.data;
-  if (!data || typeof data.shouldNominate !== 'boolean') return undefined;
-  if (!data.shouldNominate) return null;
-  const validIds = new Set(schema.properties.nomineeId.enum);
-  if (typeof data.nomineeId !== 'string' || !validIds.has(data.nomineeId)) return undefined;
-  return data.nomineeId;
-}
-
-/** One bot's own vote on the current nominee. 'yes' | 'no' on a real
-    answer, undefined on any failure or malformed reply — same "abandon
-    the whole day's LLM resolution, don't half-trust a broken call"
-    contract llmBotNominate's own comment explains. */
-async function llmBotVote(g, player, nomineeId) {
-  const nominee = E.byId(g, nomineeId);
-  const result = await llmCall('bot-vote', {
-    system: BOT_VOTE_SYSTEM,
-    prompt: `What this player knows:\n${JSON.stringify(botMemory(g, player))}\n\n` +
-      `The player currently nominated for execution: ${nominee ? nominee.name : nomineeId}`,
-    schema: BOT_VOTE_SCHEMA,
-    maxTokens: 200,
-  });
-  if (!result.ok) return undefined;
-  const vote = result.data && result.data.vote;
-  return ['yes', 'no'].includes(vote) ? vote : undefined;
 }
 
 /**
@@ -1627,7 +1142,7 @@ async function llmChooseExecution(g) {
 
   let nomineeId = null;
   for (const p of shuffleArr(living)) {
-    const result = await llmBotNominate(g, p);
+    const result = await S.llmBotNominate(g, p, llmCall);
     if (result === undefined) return chooseExecution();
     if (result) { nomineeId = result; break; }
   }
@@ -1635,7 +1150,7 @@ async function llmChooseExecution(g) {
 
   let yes = 0;
   for (const p of living) {
-    const vote = await llmBotVote(g, p, nomineeId);
+    const vote = await S.llmBotVote(g, p, nomineeId, llmCall);
     if (vote === undefined) return chooseExecution();
     if (vote === 'yes') yes++;
   }
@@ -1727,7 +1242,7 @@ async function botsNominate() {
   if (game.config.llmStorytellerEnabled && llmConfigured()) {
     let failed = false;
     for (const p of shuffleArr(bots)) {
-      const result = await llmBotNominate(game, p);
+      const result = await S.llmBotNominate(game, p, llmCall);
       if (result === undefined) { failed = true; break; }
       if (result) { await nominateHandler({ nominatorId: p.id, nomineeId: result }); return; }
     }
@@ -1764,7 +1279,7 @@ async function botsVote() {
 
   if (game.config.llmStorytellerEnabled && llmConfigured()) {
     for (const p of unvoted()) {
-      const vote = await llmBotVote(game, p, nom.nomineeId);
+      const vote = await S.llmBotVote(game, p, nom.nomineeId, llmCall);
       if (vote === undefined) break; // a real call failure — finish the rest with the flat heuristic below
       voteHandler({ playerId: p.id, vote });
     }
@@ -2780,7 +2295,7 @@ async function requestHandler(req, res) {
           if (!game.config.llmStorytellerEnabled) return json(res, 409, { error: 'The LLM Storyteller is off for this table.' });
           const claimText = typeof body.claimText === 'string' ? body.claimText.trim() : '';
           if (!claimText || claimText.length > 400) return json(res, 400, { error: 'Say your claim in 400 characters or fewer.' });
-          const verdict = await judgeFreeformClaim(game, claimText, 'gossip');
+          const verdict = await S.judgeFreeformClaim(game, claimText, 'gossip', llmCall);
           if (verdict === null) return json(res, 409, { error: "The Storyteller couldn't judge that claim — try again, or use the menu below." });
           // Re-validate everything the pre-checks above already confirmed:
           // the await just spent real wall-clock time, and this game object
@@ -2828,7 +2343,7 @@ async function requestHandler(req, res) {
         // one. If it fails or is off, these are exactly what's shown.
         let statements = E.buildSavantStatements(game, p, { broken: E.impaired(p) });
         if (game.config.llmStorytellerEnabled) {
-          const rephrased = await rephraseSavantStatements(statements);
+          const rephrased = await S.rephraseSavantStatements(statements, llmCall);
           if (rephrased) statements = rephrased;
         }
 
@@ -2900,7 +2415,7 @@ async function requestHandler(req, res) {
           if (!game.config.llmStorytellerEnabled) return json(res, 409, { error: 'The LLM Storyteller is off for this table.' });
           const claimText = typeof body.claimText === 'string' ? body.claimText.trim() : '';
           if (!claimText || claimText.length > 400) return json(res, 400, { error: 'Say your question in 400 characters or fewer.' });
-          const verdict = await judgeFreeformClaim(game, claimText, 'artist');
+          const verdict = await S.judgeFreeformClaim(game, claimText, 'artist', llmCall);
           if (verdict === null) return json(res, 409, { error: "The Storyteller couldn't judge that claim — try again, or use the menu below." });
           const stillP = E.byToken(game, body.token);
           if (!stillP || game.phase !== 'day' || stillP.statuses.artistUsed) {
@@ -2950,7 +2465,7 @@ async function requestHandler(req, res) {
         if (!game.config.llmStorytellerEnabled) return json(res, 409, { error: 'The LLM Storyteller is off for this table.' });
         const question = typeof body.question === 'string' ? body.question.trim() : '';
         if (!question || question.length > 400) return json(res, 400, { error: 'Ask your question in 400 characters or fewer.' });
-        const answer = await answerPlayerQuestion(game, p, question);
+        const answer = await S.answerPlayerQuestion(game, p, question, llmCall);
         if (answer === null) return json(res, 409, { error: "The Storyteller couldn't answer that — try again, or rephrase." });
         E.logEvent(game, `${p.name} spoke to the Storyteller.`, true);
         pushHost();

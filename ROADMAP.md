@@ -108,12 +108,21 @@ rewrite:
   them now would be speculative work with no second caller yet to verify
   against. Queued for Phase 3, done alongside the routes that actually
   need them.
-- **Phase 2 (LLM decision-logic extraction) — not started.** Move every
-  inline LLM function (whim judge, claim judge, bot claim/nominate/vote,
-  Savant/victory rephrase) from server.js into a new `game/storyteller/`
-  module tree, pure refactor, now unit-testable without booting the
-  server. Build night-result rephrasing and the narrative plan there from
-  day one.
+- **Phase 2 (LLM decision-logic extraction) — part done.** Every inline
+  LLM function (whim judge, claim judge, bot claim/nominate/vote, Savant/
+  victory rephrase) has moved from server.js into a new `game/storyteller/`
+  module tree — a pure refactor (every prompt/schema/fallback byte-for-byte
+  identical, verified against the full existing test:server/sim/test:player
+  suites), with one real design change: each function now takes `callLLM`
+  as an explicit parameter instead of reaching for server.js's own
+  network-backed `llmCall()`, so `test/storyteller.js` (22 checks) exercises
+  every one of them with a plain stub function — no mocked fetch, no server
+  boot, `game/llmStoryteller.js` never even required. server.js keeps
+  `llmCall`/`llmConfigured` themselves (genuine server-process concerns:
+  `game.llmLog`, the Observer SSE push) and wires them in as that one
+  parameter. Still to build in this same tree: night-result rephrasing and
+  the narrative plan, both new features, neither blocked by Phase 3's two
+  open decisions below.
 - **Phase 3 (Storyteller Assist) — not started, and blocked on two real
   decisions first.** (1) Whims currently resolve two ways — an LLM
   verdict or a synchronous heuristic roll — and Assist mode needs a
