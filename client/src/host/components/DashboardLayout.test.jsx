@@ -13,7 +13,7 @@ describe('DashboardLayout', () => {
     const { container } = render(<DashboardLayout left={<div>Left</div>} main={<div>Main</div>} right={<div>Right</div>} />);
     expect(screen.getByText('Left')).toBeInTheDocument();
     expect(screen.getByText('Right')).toBeInTheDocument();
-    expect(container.querySelector('.dashboard').style.gridTemplateColumns).toBe('minmax(300px,400px) 1fr minmax(300px,400px)');
+    expect(container.querySelector('.dashboard').style.gridTemplateColumns).toBe('minmax(300px,400px) 1fr minmax(300px,460px)');
   });
 
   // main is passed straight through, un-wrapped — the ring now lives

@@ -1772,12 +1772,15 @@
    real unused height below a short roster instead of using the space a
    wider panel bought back; a hardcoded 4 columns fixed that there but
    then overflowed its *other* caller — ScriptBrowseRoster reuses this
-   same grid inside DashboardLayout's narrower 300-400px right column
-   (see that file), where 4 forced columns of a now-fixed 84px token no
-   longer fit and spilled past the panel edge. Fixed-size auto-fill
+   same grid inside DashboardLayout's right column (see that file), whose
+   cap was later widened to match this one's 460px specifically so 4
+   columns fit there too, but whose minmax() floor can still shrink it
+   to 300px on a cramped viewport, where 4 forced columns of a now-fixed
+   84px token would spill past the panel edge. Fixed-size auto-fill
    columns solve both at once: however many 84px tracks actually fit is
-   how many show up — 4 at 460px, fewer in the narrower column — with
-   nothing forced and nothing overflowing either way.
+   how many show up — 4 at both callers' usual width, fewer only if a
+   caller's own column genuinely shrinks that far — with nothing forced
+   and nothing overflowing either way.
    justify-content:center (not the default start) keeps a short last row
    centered rather than hugging the left edge, and matters more now that
    the column count itself varies by caller instead of always being 4. */
@@ -2560,12 +2563,11 @@
       /* A dedicated horizontal-scroll box for just the table itself, not
    the whole overlay body — .powerlog-body's own overflow:auto would
    otherwise scroll headings/padding sideways along with the data, which
-   reads badly. Mattered more once ReferenceOverlay.jsx started wrapping
-   these in its own 560px slide-panel (a real column-count table, like
-   Hall of Fame's 6-column leaderboard, has nowhere near that much room
-   at full-screen width either, but the clipping only became visible
-   once the panel got narrower than the overlay it was always a scroll
-   box for). */
+   reads badly. Still needed even at the slide-panel's own widened 860px
+   (see .slide-panel's own rule) — a real column-count table, like Hall of
+   Fame's 6-column leaderboard, can still run narrower than that on a
+   small screen (92vw caps it below 860px under ~935px viewports), so this
+   stays the backstop rather than the panel width alone. */
       .table-scroll {
         overflow-x: auto;
         max-width: 100%;
@@ -2755,7 +2757,7 @@
         right: 0;
         bottom: 0;
         z-index: 45;
-        width: min(560px, 92vw);
+        width: min(860px, 92vw);
         display: flex;
         flex-direction: column;
         box-shadow: -24px 0 60px rgba(0, 0, 0, 0.55);
