@@ -6,7 +6,7 @@ One device (a laptop, a TV) runs the host/Storyteller screen. Everyone else join
 
 ## Features
 
-- **16 scripts** — the three official scripts (Trouble Brewing, Bad Moon Rising, Sects & Violets) plus 13 original custom scripts spanning every difficulty, including four Teensyville (5–7 player) scripts. 91 characters total. Browse the full roster for any script from the host's script picker before dealing.
+- **18 scripts** — the three official scripts (Trouble Brewing, Bad Moon Rising, Sects & Violets) plus 15 original custom scripts spanning every difficulty, including four Teensyville (5–7 player) scripts. 99 playable characters total. Browse the full roster for any script from the host's script picker before dealing.
 - **A real night engine, not a script runner** — every character is one self-contained entry (target list, prompt text, resolution logic) in a shared registry, not a hand-maintained switch statement. Impairment (poisoned/drunk), protection, and death are each decided in exactly one place and reused by every character that needs them — see [`game/abilities/README.md`](game/abilities/README.md).
 - **Player phones** — join by URL or QR code, get a private prompt each night, nominate/vote/claim during the day, and reconnect or reclaim a seat if a phone dies mid-game.
 - **Bot-driven simulation** — spin up a full table of bots from the host screen to watch a script play out on its own, at any speed.

@@ -17,8 +17,8 @@ whole file.
 ## Where things actually stand
 
 **The rules engine is the most complete, most trustworthy part of this
-project, by a wide margin.** 3 official scripts + 13 custom ones, ~98
-characters, every ability routed through a handful of shared, heavily
+project, by a wide margin.** 3 official scripts + 15 custom ones, 99
+playable characters, every ability routed through a handful of shared, heavily
 tested primitives (`checkKill`, impairment, `pairInfo`, ...) instead of
 one-off logic per character. This is also the part with the deepest test
 coverage — `npm run sim`'s hand-written assertions, the generic
@@ -375,9 +375,6 @@ at the next table:
   (confirmed: the only mentions of either are inside *other* characters'
   ability text, e.g. "Travellers don't count"). This is a real scope
   question, not an oversight — see below.
-- **README's "91 characters" is stale** — the actual count is 98 playable
-  characters (100 entries in `characters.json`, 2 of which are internal
-  bookkeeping, not real characters). Cosmetic, cheap to fix whenever.
 - **The desktop app has no real installer yet** — `npm run tauri:build`'s
   NSIS-download step times out on this connection (see above); the app
   itself works, distributed as a plain folder (`npm run build:app` →
