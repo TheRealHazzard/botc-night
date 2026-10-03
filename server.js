@@ -476,7 +476,30 @@ async function closeWindow() {
   clearTimeout(windowTimer);
   if (game.phase !== 'night') return;
   await E.resolveNight(game, 1);
+  await maybeRephraseNightResults();
   endNight();
+}
+
+/** Extends Savant's own rephrase treatment to every other eligible night
+    result — see game/storyteller/nightResultRephrase.js's own comment for
+    exactly what's eligible and why. Same toggle every other LLM feature in
+    this file already uses: on only when llmStorytellerEnabled is true and
+    a provider is actually configured; off, unconfigured, or any failure
+    (including a bug in this function itself) leaves game.results exactly
+    as resolveNight() wrote it — the try/catch is pure defense-in-depth,
+    since rephraseNightResults() itself already never throws (every
+    individual call's own failure is caught internally and falls back to
+    that entry's original body). Awaited, not fire-and-forget like
+    maybeRephraseVictoryLine: the whole point is replacing the template
+    text BEFORE it's pushed to players, which can't happen after the fact
+    the way a victory line's late embellishment can. */
+async function maybeRephraseNightResults() {
+  if (!(game.config.llmStorytellerEnabled && llmConfigured())) return;
+  try {
+    game.results = await S.rephraseNightResults(game.results, llmCall);
+  } catch (e) {
+    // Never let a rephrase bug block the night from actually ending.
+  }
 }
 
 function endNight() {

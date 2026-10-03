@@ -17,4 +17,5 @@ module.exports = {
   ...require('./botBehavior'),
   ...require('./rephrase'),
   ...require('./askStoryteller'),
+  ...require('./nightResultRephrase'),
 };

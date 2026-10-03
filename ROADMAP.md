@@ -120,9 +120,17 @@ rewrite:
   boot, `game/llmStoryteller.js` never even required. server.js keeps
   `llmCall`/`llmConfigured` themselves (genuine server-process concerns:
   `game.llmLog`, the Observer SSE push) and wires them in as that one
-  parameter. Still to build in this same tree: night-result rephrasing and
-  the narrative plan, both new features, neither blocked by Phase 3's two
-  open decisions below.
+  parameter. Night-result rephrasing is also done:
+  `game/storyteller/nightResultRephrase.js` extends Savant's own
+  "rephrase, never assert" treatment to every other eligible info-role
+  result (Chef, Empath, Flowergirl, ...), eligibility decided by a
+  structural rule on the result's own shape (a `body` string with no
+  `names`/`grimoire` riding alongside it — never a hand-maintained
+  character-id list, so a future character is safe or unsafe
+  automatically), wired into `closeWindow()` right after
+  `resolveNight()` and before results reach any player. Still to build in
+  this same tree: the narrative plan, not blocked by Phase 3's two open
+  decisions below.
 - **Phase 3 (Storyteller Assist) — not started, and blocked on two real
   decisions first.** (1) Whims currently resolve two ways — an LLM
   verdict or a synchronous heuristic roll — and Assist mode needs a

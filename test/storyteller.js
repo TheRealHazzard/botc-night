@@ -183,6 +183,36 @@ console.log('\nanswerPlayerQuestion');
   check('a failed call -> null, there is no deterministic fallback for free text', answer === null);
 }
 
+console.log('\nisRephrasable / rephraseNightResults');
+{
+  check('a count result with no names is eligible', S.isRephrasable({ title: 'Chef', kind: 'count', count: 1, body: 'Pairs of neighbouring evil players: 1' }));
+  check('a yesno result with no names is eligible', S.isRephrasable({ title: 'Flowergirl', body: 'Yes — a Demon voted today.' }));
+  check('a result carrying names is NOT eligible — rephrasing risks garbling a real name', !S.isRephrasable({ title: 'Fortune Teller', kind: 'yesno', yes: true, body: 'Yes.', names: ['Ada', 'Bo'] }));
+  check('a grimoire result is NOT eligible — structured data, not a sentence', !S.isRephrasable({ title: 'Spy', kind: 'grimoire', body: 'You see the Grimoire.', grimoire: [] }));
+  check('a result with no body at all is NOT eligible', !S.isRephrasable({ title: 'X' }));
+}
+{
+  const results = {
+    p0: { title: 'Chef', kind: 'count', count: 1, body: 'Pairs of neighbouring evil players: 1' },
+    p1: { title: 'Fortune Teller', kind: 'yesno', yes: true, body: 'Yes.', names: ['Ada', 'Bo'] },
+  };
+  const out = await S.rephraseNightResults(results, okLLM({ body: 'One pair walks in shadow together.' }));
+  check('an eligible entry gets its body replaced', out.p0.body === 'One pair walks in shadow together.');
+  check('every other field on the eligible entry is preserved', out.p0.title === 'Chef' && out.p0.kind === 'count' && out.p0.count === 1);
+  check('a named result is left byte-for-byte untouched', out.p1.body === 'Yes.' && JSON.stringify(out.p1.names) === JSON.stringify(['Ada', 'Bo']));
+}
+{
+  const results = { p0: { title: 'Chef', kind: 'count', count: 1, body: 'Pairs of neighbouring evil players: 1' } };
+  const out = await S.rephraseNightResults(results, failLLM());
+  check('a failed call leaves the original body exactly as resolveNight() wrote it', out.p0.body === 'Pairs of neighbouring evil players: 1');
+}
+{
+  const results = { p0: { title: 'Spy', kind: 'grimoire', body: 'You see the Grimoire.', grimoire: [{ name: 'Ada' }] } };
+  let called = false;
+  const out = await S.rephraseNightResults(results, async () => { called = true; return { ok: true, data: { body: 'x' } }; });
+  check('an all-ineligible results map never calls the LLM at all', !called && out.p0.body === 'You see the Grimoire.');
+}
+
 console.log(failures ? `\n${failures} FAILURE(S)` : '\nAll checks passed');
 process.exitCode = failures ? 1 : 0;
 
