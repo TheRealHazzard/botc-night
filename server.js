@@ -1617,6 +1617,16 @@ function openStream(req, res, onClose) {
 // the moment "whoever's on the same Wi-Fi" stops being a real boundary.
 const TABLE_CODE = process.env.TABLE_CODE || null;
 const HOST_CODE = process.env.HOST_CODE || null;
+// A third shared secret, same shape as TABLE_CODE/HOST_CODE, for Storyteller
+// Assist mode (ROADMAP.md's three-mode rollout, Phase 3) — the one
+// non-player credential in this codebase, since a real Storyteller running
+// the console isn't one of the seated players and so has no token of their
+// own the way /api/join already hands out. Off by default, same as the
+// other two: a table not running Assist mode never sets this and
+// /api/storyteller/* simply stays unreachable (STORYTELLER_HASH null means
+// the gate check below never fires true, same shape TABLE_HASH/HOST_HASH
+// already use for "this gate isn't even turned on").
+const STORYTELLER_CODE = process.env.STORYTELLER_CODE || null;
 const GATE_COOKIE_MAX_AGE = 12 * 60 * 60; // one game night, in seconds
 
 function codeHash(code) {
@@ -1624,6 +1634,7 @@ function codeHash(code) {
 }
 const TABLE_HASH = TABLE_CODE ? codeHash(TABLE_CODE) : null;
 const HOST_HASH = HOST_CODE ? codeHash(HOST_CODE) : null;
+const STORYTELLER_HASH = STORYTELLER_CODE ? codeHash(STORYTELLER_CODE) : null;
 
 function parseCookies(req) {
   const header = req.headers.cookie;
@@ -1737,6 +1748,10 @@ const ROUTE_ACCESS = [
   // /host-events stream the real dashboard uses — meant to be opened on
   // whatever device is already signed in as host, same as /host itself.
   { route: '/tabletop', tier: 'host' },
+  // Storyteller Assist mode (Phase 3) — exactly the kind of future tier
+  // this table was built to make a one-line addition, not a new branch
+  // threaded through blockedByGate itself (see this table's own comment).
+  { prefix: '/api/storyteller/', tier: 'storyteller' },
 ];
 
 function accessTier(route) {
@@ -1748,8 +1763,8 @@ function accessTier(route) {
 }
 
 const GATE_EXEMPT = new Set([
-  '/enter-table-code.html', '/enter-host-code.html',
-  '/api/enter-table-code', '/api/enter-host-code',
+  '/enter-table-code.html', '/enter-host-code.html', '/enter-storyteller-code.html',
+  '/api/enter-table-code', '/api/enter-host-code', '/api/enter-storyteller-code',
   '/ca.pem',
   // A deliberate, narrow hole: a finished game's recap, meant to be pasted
   // into a group chat by people who were never given the table code.
@@ -1777,6 +1792,11 @@ function blockedByGate(req, res, route) {
   if (HOST_HASH && accessTier(route) === 'host' && !hashMatches(cookies.host_code, HOST_HASH)) {
     if (req.method === 'GET') serveFile(res, 'enter-host-code.html');
     else json(res, 401, { error: 'Enter the host code first.' });
+    return true;
+  }
+  if (STORYTELLER_HASH && accessTier(route) === 'storyteller' && !hashMatches(cookies.storyteller_code, STORYTELLER_HASH)) {
+    if (req.method === 'GET') serveFile(res, 'enter-storyteller-code.html');
+    else json(res, 401, { error: 'Enter the Storyteller code first.' });
     return true;
   }
   return false;
@@ -2117,6 +2137,21 @@ async function requestHandler(req, res) {
         return json(res, 200, playerState(p.id));
       }
 
+      // Storyteller Assist mode's read-side counterpart to /api/state — a
+      // Storyteller has no player token of their own, so the console needs
+      // a way to see exactly what a specific seat's own prompt/results look
+      // like by playerId instead. Gated by the storyteller tier
+      // (ROUTE_ACCESS's '/api/storyteller/' prefix rule already covers this
+      // GET route the same as the POST ones), which is the only thing that
+      // makes handing back one specific player's private state to a
+      // DIFFERENT caller than that player themselves safe here.
+      if (route === '/api/storyteller/state') {
+        const playerId = url.searchParams.get('playerId');
+        const p = E.byId(game, playerId);
+        if (!p) return json(res, 404, { error: 'Unknown player.' });
+        return json(res, 200, playerState(p.id));
+      }
+
       if (route === '/api/host-state') {
         return json(res, 200, hostState());
       }
@@ -2187,10 +2222,11 @@ async function requestHandler(req, res) {
         });
       }
 
-      if (route === '/api/enter-table-code' || route === '/api/enter-host-code') {
-        const wantsHost = route === '/api/enter-host-code';
-        const hash = wantsHost ? HOST_HASH : TABLE_HASH;
-        const cookieName = wantsHost ? 'host_code' : 'table_code';
+      if (route === '/api/enter-table-code' || route === '/api/enter-host-code' || route === '/api/enter-storyteller-code') {
+        const hash = route === '/api/enter-host-code' ? HOST_HASH
+          : route === '/api/enter-storyteller-code' ? STORYTELLER_HASH : TABLE_HASH;
+        const cookieName = route === '/api/enter-host-code' ? 'host_code'
+          : route === '/api/enter-storyteller-code' ? 'storyteller_code' : 'table_code';
         if (!hash) return json(res, 200, { ok: true }); // this gate isn't even turned on
         const ip = clientIp(req);
         if (tooManyAttempts(ip)) return json(res, 429, { error: 'Too many attempts — try again in a few minutes.' });
@@ -2310,6 +2346,34 @@ async function requestHandler(req, res) {
 
       if (route === '/api/action') {
         const { status, payload } = await actionHandler(body);
+        return json(res, status, payload);
+      }
+
+      /* ---- Storyteller Assist mode: a human enters choices on a player's
+         behalf instead of that player's own phone (ROADMAP.md's three-mode
+         rollout, Phase 3) — gated by the storyteller tier (ROUTE_ACCESS
+         above), never reachable with just the table code. Each route below
+         is a thin wrapper around the exact same handler its player-facing
+         counterpart already uses: actionHandler/nominateHandler/
+         voteHandler were all built (Phase 1) to resolve a player either
+         from body.token (a real phone) or an explicit id (body.playerId /
+         body.nominatorId) with no token at all — these routes are simply
+         the first real caller of that second path. No new validation
+         logic anywhere in this block; the tier gate above is what makes
+         passing someone else's playerId safe here and nowhere else. ---- */
+
+      if (route === '/api/storyteller/action') {
+        const { status, payload } = await actionHandler(body);
+        return json(res, status, payload);
+      }
+
+      if (route === '/api/storyteller/nominate') {
+        const { status, payload } = await nominateHandler(body);
+        return json(res, status, payload);
+      }
+
+      if (route === '/api/storyteller/vote') {
+        const { status, payload } = voteHandler(body);
         return json(res, status, payload);
       }
 

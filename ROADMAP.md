@@ -155,9 +155,9 @@ rewrite:
 
   `test/storyteller.js` now carries 40 checks total across every module in
   this tree.
-- **Phase 3 (Storyteller Assist) — not started, design resolved, no
-  longer blocked.** The two open decisions this section used to flag are
-  answered: whims don't need a new pause-mid-resolution path at all —
+- **Phase 3 (Storyteller Assist) — step 1 of 6 done.** The two open
+  decisions this section used to flag are answered: whims don't need a
+  new pause-mid-resolution path at all —
   `resolveNight()` runs to completion exactly as it does today (the LLM
   judge if `llmStorytellerEnabled` is on, the heuristic otherwise, zero
   new code path), and Assist mode inserts one new step between resolution
@@ -177,6 +177,30 @@ rewrite:
   design, a worked example, and the updated six-step rollout live at
   https://claude.ai/artifact/VZZYmpkByxncK8jo1Sb7vb ("Phase 3 Design:
   Draft, Then Confirm").
+
+  **Step 1 is built**: a third shared secret (`STORYTELLER_CODE`/
+  `STORYTELLER_HASH`, `storyteller_code` cookie, `/api/enter-storyteller-code`)
+  follows TABLE_CODE/HOST_CODE's exact existing pattern, and a new
+  `storyteller` tier in `ROUTE_ACCESS` gates the whole `/api/storyteller/`
+  prefix — exactly the one-line-table-addition that table was built for in
+  Phase 1, no new branch threaded through `blockedByGate` itself.
+  `/api/storyteller/action`, `/api/storyteller/nominate`, and
+  `/api/storyteller/vote` are thin wrappers around the exact same
+  `actionHandler`/`nominateHandler`/`voteHandler` their player-facing
+  counterparts already call — Phase 1's token-or-id duality was built for
+  precisely this, so there was no new validation logic to write, only the
+  routes and the gate in front of them. One genuine gap found while
+  building this: there was no way to READ a specific player's own
+  prompt/results without their token either, so `/api/storyteller/state`
+  (GET, by `playerId`) was added alongside the write-side routes — the
+  console can't ask a Storyteller to relay a result it was never able to
+  see. `test/server/storytellerRoutes.js` (9 checks) drives a full night
+  and day — every action, nomination, and vote — using nothing but player
+  ids and the storyteller cookie, zero player tokens touched anywhere,
+  plus confirms the gate actually blocks a bare table cookie or no cookie
+  at all. Steps 2–6 (the night-confirmation draft state, surgical
+  overrides, the Bucket 4 human-judgment UI, the console client itself,
+  and the `ABILITY_PATTERNS.md` update) are still ahead.
 
 Explicitly out of scope for this whole effort: refactoring all 81 routes
 (only the ones that actually grow a second caller), multi-table support
