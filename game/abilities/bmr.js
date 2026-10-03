@@ -279,6 +279,66 @@ module.exports = (h) => [
   },
 
   {
+    id: 'widow',
+    // First night only — firstNightOrder set, otherNightOrder: 0 in
+    // characters.json (see clockmaker's own entry in sv.js for the same
+    // precedent: a one-time read needs no acts()/night-number gating of
+    // its own, actingTonight() just never offers it again).
+    //
+    // firstNightOrder is 95 — deliberately LAST, not the official
+    // position (right after minion/demon info). This isn't flavor, it's
+    // load-bearing: the tell below writes into results[tipped.id], the
+    // same slot almost every Townsfolk's own opening-info resolve() also
+    // writes on night 1 — and every one of those just does
+    // `results[p.id] = {...}` unconditionally, with no knowledge that
+    // the Widow might have written there first. Resolved early, the tip
+    // survives for exactly as long as it takes the *next* character on
+    // that player's slot to run, then gets silently clobbered before the
+    // player ever sees it — found by an actual isolated-player test
+    // (tools/simulate.js's "BMR: Widow" block), not by inspection. Going
+    // last instead means nothing on night 1 runs after the Widow to
+    // overwrite its own fold-in-if-existing write (the same "don't lose
+    // a prior briefing" doctrine the Spy's own grimoire result already
+    // follows for its *own* slot, here extended to someone else's).
+    choiceCount: () => 0,
+    targets: () => [],
+    text: () => '',
+    resolve(g, p, action, { broken, results }) {
+      results[p.id] = {
+        title: 'Widow',
+        kind: 'grimoire',
+        body: 'You see the Grimoire.',
+        // h.buildGrimoireRows (game/helpers.js) — shared with the Spy's
+        // own every-night look, so a broken view's shuffle-as-one-unit
+        // treatment can't drift between the two.
+        grimoire: h.buildGrimoireRows(g, broken),
+      };
+      // "A player knows this happened" — official wording names no one in
+      // particular, so who finds out is Bucket 1 (ABILITY_PATTERNS.md):
+      // pure whim, no ground truth to get right, same shape as Mayor's
+      // redirect target or Tinker's death roll. Broken (poisoned/drunk)
+      // silently skips this part entirely rather than tipping off a fake
+      // player — the "active/protective effects just don't fire" doctrine
+      // a poisoned Monk/Butler already follows, not the "wrong, never
+      // silent" doctrine info reveals follow (there's no fact here to lie
+      // about — either someone was tipped off or they weren't).
+      if (broken) return;
+      // Never the Widow herself — telling her "you know you looked" would
+      // be true but meaningless, not a real tell.
+      const pool = g.players.filter(x => x.id !== p.id);
+      if (!pool.length) return;
+      const tipped = h.decide(g, `widow-tell:${p.id}:${g.nightNumber}`, () => h.pick(pool), x => ({ id: x.id, name: x.name }));
+      const existing = results[tipped.id];
+      results[tipped.id] = {
+        title: existing ? existing.title : 'A Strange Feeling',
+        body: (existing ? existing.body + ' ' : '') + 'You feel as though you are being watched tonight.',
+        names: existing && existing.names,
+      };
+      h.logEvent(g, 'The Widow looks at the Grimoire.', true);
+    },
+  },
+
+  {
     id: 'pukka',
     choiceCount: () => 1,
     targets: (g, p) => h.alive(g).filter(x => x.id !== p.id),

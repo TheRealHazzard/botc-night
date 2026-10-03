@@ -232,20 +232,6 @@ module.exports = (h) => [
     targets: () => [],
     text: () => '',
     resolve(g, p, action, { broken, results }) {
-      // A poisoned/drunk Spy's ability doesn't work — it was showing the
-      // real Grimoire regardless. There's no honest "wrong" full Grimoire,
-      // so the identity info gets shuffled — true character and believed
-      // character together, as one unit per row, so a broken Spy can't
-      // even trust that a shown pairing belongs together.
-      const identities = g.players.map(x => ({
-        character: h.trueChar(x).name,
-        // The Storyteller's own Grimoire always shows what a player
-        // believes they are alongside who they really are — that's the
-        // whole reason the Drunk (and the Lunatic) work at all. Only
-        // worth a separate line when it actually differs from the truth.
-        believedCharacter: x.believedId !== x.characterId ? (h.char(x.believedId) && h.char(x.believedId).name) : null,
-      }));
-      const shown = broken ? h.shuffle(identities) : identities;
       // At 7+ players, deliverOpeningInfo already wrote this same slot
       // with "X is the Demon" — a Spy who's the dealt Minion would
       // otherwise have that silently overwritten by their own grimoire
@@ -258,16 +244,10 @@ module.exports = (h) => [
         kind: 'grimoire',
         body: (briefing ? briefing.body + ' ' : '') + 'You see the Grimoire.',
         names: briefing && briefing.names,
-        grimoire: g.players.map((x, i) => ({
-          name: x.name,
-          character: shown[i].character,
-          believedCharacter: shown[i].believedCharacter,
-          alive: x.alive,
-          // h.INTERNAL_ONLY_STATUSES (game/helpers.js) — shared with
-          // server.js's own Dry Run observer view, which used to keep an
-          // independent, differently-incomplete copy of this same idea.
-          statuses: Object.keys(x.statuses).filter(k => !h.INTERNAL_ONLY_STATUSES.has(k)),
-        })),
+        // h.buildGrimoireRows (game/helpers.js) — shared with the Widow's
+        // own once-a-game look, so a broken view's shuffle-as-one-unit
+        // treatment can't drift between the two.
+        grimoire: h.buildGrimoireRows(g, broken),
       };
     },
   },

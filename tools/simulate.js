@@ -1441,6 +1441,42 @@ console.log('\nBMR: Godfather');
     !g3.players.find(p => p.id === 'so1').alive);
 }
 
+console.log('\nBMR: Widow');
+{
+  const mk = (id, characterId) => ({ id, name: id, characterId, believedId: characterId, alive: true, statuses: {} });
+
+  const g = E.newGame();
+  g.script = 'bmr'; g.nightNumber = 1; g.phase = 'night'; g.wave = 1; g.results = {};
+  g.players = [mk('w1', 'widow'), mk('t1', 'chef'), mk('t2', 'empath')];
+  await E.resolveNight(g, 1);
+  check('the Widow sees the Grimoire', g.results.w1 && g.results.w1.kind === 'grimoire' && Array.isArray(g.results.w1.grimoire));
+  check('the Grimoire has one row per player', g.results.w1.grimoire.length === 3);
+  const tipped = ['t1', 't2'].filter(id => g.results[id] && /being watched/.test(g.results[id].body));
+  check('exactly one other player secretly learns someone looked', tipped.length === 1, 'tipped: ' + JSON.stringify(tipped));
+  check('the Widow never tips herself off', !(g.results.w1.body || '').includes('being watched'));
+
+  // A player who already has a real result from their own character
+  // tonight (Chef/Empath both act night 1) must keep it, not lose it to
+  // the Widow's tell — same "fold it in instead of losing it" doctrine
+  // the Spy's own grimoire result already follows for its own holder.
+  const tippedId = tipped[0];
+  check('a tipped player who also has their own real result keeps it, folded in rather than overwritten',
+    tippedId && g.results[tippedId].title !== 'A Strange Feeling' && /being watched/.test(g.results[tippedId].body),
+    JSON.stringify(g.results[tippedId]));
+
+  const g2 = E.newGame();
+  g2.script = 'bmr'; g2.nightNumber = 1; g2.phase = 'night'; g2.wave = 1; g2.results = {};
+  g2.players = [mk('w1', 'widow'), mk('t1', 'chef')];
+  g2.players[0].statuses.poisoned = true;
+  await E.resolveNight(g2, 1);
+  check('a poisoned Widow still sees *a* Grimoire (shuffled, not honest)', g2.results.w1 && g2.results.w1.kind === 'grimoire');
+  // t1 still gets Chef's own real result (Chef isn't broken) — the only
+  // thing a broken Widow's side-effect should change is that it never
+  // adds the "being watched" tell on top of it.
+  check('...but nobody is tipped off — a broken Widow\'s side-effect just doesn\'t fire, same as a poisoned Monk/Butler',
+    g2.results.t1 && !/being watched/.test(g2.results.t1.body));
+}
+
 console.log('\nBMR: Pukka');
 {
   const mk = (id, characterId) => ({ id, name: id, characterId, believedId: characterId, alive: true, statuses: {} });

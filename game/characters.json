@@ -37,8 +37,8 @@
         "description": "Designed for a mixed table of veterans and first-timers — almost entirely Trouble Brewing, with a Scarlet Woman's extra night-death and a Mayor/Saint's execution stakes layered on top.",
         "difficulty": 1,
         "playable": true,
-        "featuredCharacter": "mayor",
-        "detailNotes": "Newer players get the same gentle information game — Empath, Fortune Teller, Librarian — while a Scarlet Woman ready to inherit the Imp and a Mayor's win-without-execution keep the more experienced half of the table just as engaged.\n\nIt changes almost nothing structurally from Trouble Brewing, which is the point — a first-timer can learn the same core loop of claims and cross-referencing, while the added stakes give returning players an actual reason to think twice before executing on a hunch."
+        "featuredCharacter": "scarletwoman",
+        "detailNotes": "Newer players get the same gentle information game — Empath, Fortune Teller, Librarian — while a Scarlet Woman ready to inherit the Imp the instant it dies, and a Mayor's win-without-execution, keep the more experienced half of the table just as engaged.\n\nIt changes almost nothing structurally from Trouble Brewing, which is the point — a first-timer can learn the same core loop of claims and cross-referencing, while the added stakes (an execution suddenly not being safe, a day without one not being wasted) give returning players an actual reason to think twice before executing on a hunch."
       },
       {
         "id": "hide-and-seek",
@@ -64,8 +64,8 @@
         "description": "Built around keeping the Mayor's alternate win condition alive and contested — safety nets and threats to it on both sides.",
         "difficulty": 4,
         "playable": true,
-        "featuredCharacter": "politician",
-        "detailNotes": "A Politician can flip a losing game to good from beyond the grave, while a Marionette and a Witch make sure evil always has a way to unsettle the town's trust in exactly who deserves protecting. Every execution here carries the weight of the Mayor's win looming behind it.\n\nGood has to weigh protecting the Mayor's win against actively hunting evil, since a quiet day that keeps the Mayor alive can also be exactly what a Marionette or Witch needs to keep operating unnoticed. Evil, in turn, has to decide whether disrupting that quiet is worth the exposure it risks."
+        "featuredCharacter": "mayor",
+        "detailNotes": "A Mayor's win-without-execution is the whole reason this script exists, and a Politician stands ready to flip a losing game to good from beyond the grave if that win is ever actually threatened — while a Marionette and a Witch make sure evil always has a way to unsettle the town's trust in exactly who deserves protecting. Every execution here carries the weight of the Mayor's win looming behind it.\n\nGood has to weigh protecting the Mayor's win against actively hunting evil, since a quiet day that keeps the Mayor alive can also be exactly what a Marionette or Witch needs to keep operating unnoticed. Evil, in turn, has to decide whether disrupting that quiet is worth the exposure it risks."
       },
       {
         "id": "boozling",
@@ -73,8 +73,8 @@
         "description": "A high-tension chaos script built around Fang Gu and Baron threats, with Cerenovus madness thrown into the mix.",
         "difficulty": 3,
         "playable": true,
-        "featuredCharacter": "golem",
-        "detailNotes": "A Golem can end the game with a single wrong nomination, a Cannibal inherits whatever the town just executed, and a High Priestess or Fisherman hand out just enough truth to make the chaos feel survivable. Fang Gu's jump and Baron's extra outsiders mean the setup itself is never quite what it first looks like.\n\nFew games here play out the same way twice — a Golem's nomination can end things in a single day one game and never come up the next, and a Cannibal picking up whatever ability the town just executed means the town's own choices keep reshaping what they're up against."
+        "featuredCharacter": "fanggu",
+        "detailNotes": "Fang Gu is the real engine of the chaos here — every jump onto a fresh Outsider resets who the Demon even is, while a Baron's extra Outsiders and a Cerenovus talking someone into madness mean the setup itself is never quite what it first looks like. A Golem can still end the game with a single wrong nomination, a Cannibal inherits whatever the town just executed, and a High Priestess or Fisherman hand out just enough truth to make the chaos feel survivable.\n\nFew games here play out the same way twice — a Fang Gu jump can hand the Demon's identity to someone nobody suspected mid-game, a Golem's nomination can end things in a single day one game and never come up the next, and a Cannibal picking up whatever ability the town just executed means the town's own choices keep reshaping what they're up against."
       },
       {
         "id": "minotaurs-labyrinth",
@@ -160,6 +160,15 @@
         "playable": true,
         "featuredCharacter": "king",
         "detailNotes": "Most of what good learns here isn’t handed over cleanly. The King only speaks once the town is already dying, and only to name a costume, not a face — but the moment the Demon takes him, the Choirboy hears the truth outright. The Bounty Hunter’s one lead goes cold the instant it dies and has to be rebuilt from nothing. The Acrobat has no ability at all except the willingness to die proving a rumor true. And the Snitch means the grapevine runs both ways — the same night good starts piecing things together, so does evil.\n\nA single Poisoner is doing a lot of quiet work against a town this dependent on secondhand and delayed information — a wrong answer here doesn’t just mislead, it can go unnoticed for nights. Scarlet Woman keeps a lone Slayer shot from being the whole game, and Baron’s extra Outsiders (Recluse, Saint, Drunk, Snitch all in the pool) make sure nobody’s claim is ever quite as solid as it sounds."
+      },
+      {
+        "id": "catfishing",
+        "name": "Catfishing",
+        "description": "Nobody at this table is quite who they claim to be — fake identities, false beliefs, and a Demon that could be any of three total strangers.",
+        "difficulty": 4,
+        "playable": true,
+        "featuredCharacter": "pithag",
+        "detailNotes": "A Pit-Hag can turn any player into an entirely different character overnight with no warning at all — the closest thing this game has to an actual catfish, handing someone a brand-new face mid-game. A Lunatic sincerely believes they're the Demon and isn't, a Drunk believes they're a Townsfolk and isn't, and a Mutant has to watch their own behavior or be executed for it. Three Demons — Imp, Vigormortis, Fang Gu — mean even the kill pattern itself can't be trusted to point at one consistent threat.\n\nA Widow quietly looks at the whole Grimoire on the first night, and exactly one unsuspecting player secretly learns someone did — a watcher nobody can name. Between a Recluse who might register as evil, a Cerenovus talking someone into madness, and a cast where several players are sincerely wrong about their own identity, 'trust no one' stops being a figure of speech and starts being the only strategy that actually holds up."
       }
     ],
     "setupTable": {
@@ -308,7 +317,8 @@
         "minotaurs-labyrinth",
         "the-wrong-name",
         "small-mercies",
-        "no-greater-joy"
+        "no-greater-joy",
+        "catfishing"
       ],
       "team": "townsfolk",
       "ability": "You start knowing that 1 of 2 players is a particular Minion.",
@@ -328,7 +338,8 @@
       "edition": [
         "tb",
         "the-wrong-name",
-        "first-blood"
+        "first-blood",
+        "catfishing"
       ],
       "team": "townsfolk",
       "ability": "You start knowing how many pairs of evil players there are.",
@@ -372,7 +383,8 @@
         "minotaurs-labyrinth",
         "overtime",
         "small-mercies",
-        "grapevine"
+        "grapevine",
+        "catfishing"
       ],
       "team": "townsfolk",
       "ability": "Each night, choose 2 players: you learn if either is a Demon. There is a good player that registers as a Demon to you.",
@@ -441,7 +453,8 @@
         "minotaurs-labyrinth",
         "the-wrong-name",
         "overtime",
-        "small-mercies"
+        "small-mercies",
+        "catfishing"
       ],
       "team": "townsfolk",
       "ability": "If you die at night, you are woken to choose a player: you learn their character.",
@@ -565,7 +578,8 @@
         "the-wrong-name",
         "small-mercies",
         "no-greater-joy",
-        "grapevine"
+        "grapevine",
+        "catfishing"
       ],
       "team": "outsider",
       "ability": "You do not know you are the Drunk. You think you are a Townsfolk character, but you are not.",
@@ -589,7 +603,8 @@
         "the-wrong-name",
         "first-blood",
         "over-the-river",
-        "grapevine"
+        "grapevine",
+        "catfishing"
       ],
       "team": "outsider",
       "ability": "You might register as evil & as a Minion or Demon, even if dead.",
@@ -722,7 +737,8 @@
         "first-blood",
         "no-greater-joy",
         "over-the-river",
-        "grapevine"
+        "grapevine",
+        "catfishing"
       ],
       "team": "demon",
       "ability": "Each night*, choose a player: they die. If you kill yourself this way, a Minion becomes the Imp.",
@@ -743,7 +759,8 @@
         "everyone-can-play",
         "lunar-eclipse",
         "small-mercies",
-        "over-the-river"
+        "over-the-river",
+        "catfishing"
       ],
       "team": "townsfolk",
       "ability": "You start knowing a good player & their character. If the Demon kills them, you die too.",
@@ -837,7 +854,8 @@
       "edition": [
         "bmr",
         "everyone-can-play",
-        "last-rites"
+        "last-rites",
+        "catfishing"
       ],
       "team": "townsfolk",
       "ability": "Each night*, choose a player & guess their character: if you guess wrong, you die.",
@@ -1045,7 +1063,8 @@
         "bmr",
         "lunar-eclipse",
         "trust",
-        "over-the-river"
+        "over-the-river",
+        "catfishing"
       ],
       "team": "outsider",
       "ability": "You think you are a Demon, but you are not. The Demon knows who you are & who you choose at night.",
@@ -1069,7 +1088,8 @@
         "lunar-eclipse",
         "minotaurs-labyrinth",
         "overtime",
-        "over-the-river"
+        "over-the-river",
+        "catfishing"
       ],
       "team": "minion",
       "ability": "You start knowing which Outsiders are in play. If 1 died today, choose a player tonight: they die. [-1 or +1 Outsider]",
@@ -1082,6 +1102,21 @@
       "firstNightReminder": "Show each of the Outsider tokens in play.",
       "otherNightOrder": 37,
       "otherNightReminder": "If an Outsider died today: the Godfather points to a player. That player dies."
+    },
+    {
+      "id": "widow",
+      "name": "Widow",
+      "edition": [
+        "catfishing"
+      ],
+      "team": "minion",
+      "ability": "On your first night, look at the Grimoire. A player knows this happened.",
+      "setup": false,
+      "reminders": [],
+      "firstNightOrder": 95,
+      "firstNightReminder": "Show the Widow the Grimoire. Wake an arbitrary player, show the 'This character selected you' card, then the Widow token.",
+      "otherNightOrder": 0,
+      "otherNightReminder": ""
     },
     {
       "id": "devilsadvocate",
@@ -1244,7 +1279,8 @@
       "edition": [
         "sv",
         "hide-and-seek",
-        "last-rites"
+        "last-rites",
+        "catfishing"
       ],
       "team": "townsfolk",
       "ability": "Each night, choose a player (not yourself or Travellers): you learn 1 good and 1 evil character, 1 of which is correct.",
@@ -1261,7 +1297,8 @@
       "edition": [
         "sv",
         "overtime",
-        "over-the-river"
+        "over-the-river",
+        "catfishing"
       ],
       "team": "townsfolk",
       "ability": "Each night, choose an alive player: a chosen Demon swaps characters & alignments with you & is then poisoned.",
@@ -1357,7 +1394,8 @@
         "sv",
         "lunar-eclipse",
         "boozling",
-        "minotaurs-labyrinth"
+        "minotaurs-labyrinth",
+        "catfishing"
       ],
       "team": "townsfolk",
       "ability": "Each day, you may visit the Storyteller to learn 2 things in private: 1 is true & 1 is false.",
@@ -1394,7 +1432,8 @@
       "edition": [
         "sv",
         "trust",
-        "boozling"
+        "boozling",
+        "catfishing"
       ],
       "team": "townsfolk",
       "ability": "Once per game, at night, choose a good character: gain that ability. If this character is in play, they are drunk.",
@@ -1416,7 +1455,8 @@
         "everyone-can-play",
         "hide-and-seek",
         "lunar-eclipse",
-        "no-greater-joy"
+        "no-greater-joy",
+        "catfishing"
       ],
       "team": "townsfolk",
       "ability": "Once per game, during the day, privately ask the Storyteller any yes/no question.",
@@ -1472,7 +1512,8 @@
         "sv",
         "hide-and-seek",
         "boozling",
-        "minotaurs-labyrinth"
+        "minotaurs-labyrinth",
+        "catfishing"
       ],
       "team": "outsider",
       "ability": "If you are “mad” about being an Outsider, you might be executed.",
@@ -1488,7 +1529,8 @@
       "name": "Sweetheart",
       "edition": [
         "sv",
-        "overtime"
+        "overtime",
+        "catfishing"
       ],
       "team": "outsider",
       "ability": "When you die, 1 player is drunk from now on.",
@@ -1586,7 +1628,8 @@
         "hide-and-seek",
         "trust",
         "boozling",
-        "minotaurs-labyrinth"
+        "minotaurs-labyrinth",
+        "catfishing"
       ],
       "team": "minion",
       "ability": "Each night, choose a player & a good character: they are “mad” they are this character tomorrow, or might be executed.",
@@ -1604,7 +1647,8 @@
       "name": "Pit-Hag",
       "edition": [
         "sv",
-        "the-wrong-name"
+        "the-wrong-name",
+        "catfishing"
       ],
       "team": "minion",
       "ability": "Each night*, choose a player & a character they become (if not-in-play). If a Demon is made, deaths tonight are arbitrary.",
@@ -1622,7 +1666,8 @@
         "sv",
         "boozling",
         "minotaurs-labyrinth",
-        "the-wrong-name"
+        "the-wrong-name",
+        "catfishing"
       ],
       "team": "demon",
       "ability": "Each night*, choose a player: they die. The 1st Outsider this kills becomes an evil Fang Gu & you die instead. [+1 Outsider]",
@@ -1643,7 +1688,8 @@
         "sv",
         "hide-and-seek",
         "lunar-eclipse",
-        "trust"
+        "trust",
+        "catfishing"
       ],
       "team": "demon",
       "ability": "Each night*, choose a player: they die. Minions you kill keep their ability & poison 1 Townsfolk neighbour. [-1 Outsider]",
@@ -1856,7 +1902,8 @@
       "name": "Balloonist",
       "edition": [
         "boozling",
-        "the-wrong-name"
+        "the-wrong-name",
+        "catfishing"
       ],
       "team": "townsfolk",
       "ability": "Each night, you learn 1 player of each character type, until there are no more types to learn.",
@@ -2047,7 +2094,8 @@
         "lunar-eclipse",
         "trust",
         "boozling",
-        "minotaurs-labyrinth"
+        "minotaurs-labyrinth",
+        "catfishing"
       ],
       "team": "townsfolk",
       "ability": "You have the ability of the recently killed executee. If they are evil, you are poisoned until a good player dies by execution.",

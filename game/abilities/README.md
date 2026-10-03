@@ -11,7 +11,9 @@ that pattern. Now each character is one self-contained entry.
 ## Scope
 
 Only characters with a real night prompt, `resolveNight` behavior, and/or an
-`onDeath` reaction have an entry — 12 in `tb.js`, 15 in `bmr.js`, 22 (of
+`onDeath` reaction have an entry — 12 in `tb.js`, 16 in `bmr.js` (the Widow
+is the newest — a Catfishing-only addition, see its own entry's comment for
+why its firstNightOrder is deliberately last rather than official), 22 (of
 Sects & Violets' 25 — see below) in `sv.js`. Passive/reactive-only characters
 (Tea Lady, Fool, Mayor, Soldier, Recluse, Saint, Baron, Drunk, Scarlet Woman,
 Grandmother, Minstrel, Pacifist, Tinker, Moonchild, Goon, Lunatic,
