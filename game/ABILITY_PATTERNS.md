@@ -1,8 +1,17 @@
 # Modeling abilities that "need the Storyteller"
 
-There's no Storyteller in this app — the table plays unattended. Most abilities
-that read like they need one don't actually need a human at all once you look
-closely. This is the checklist for the ones that seem to.
+In Core and LLM Mode, there's no Storyteller in this app — the table plays
+unattended. Most abilities that read like they need one don't actually need a
+human at all once you look closely. This is the checklist for the ones that
+seem to.
+
+**Storyteller Assist mode is the one real exception** (ROADMAP.md's
+three-mode rollout, Phase 3) — a genuine human runs the table there, so the
+"no Storyteller" premise this whole file is built on stops being true for
+exactly the buckets below that exist to substitute for one. Each bucket says,
+at the end of its own section, what actually changes in that mode — in every
+case, not a parallel system, but the real human stepping into a seam this
+file already built for a judge of some kind to occupy.
 
 Sort the ability into exactly one of these three buckets.
 
@@ -81,6 +90,23 @@ flat rate.
   for them, which is the actual guarantee behind "never touching who lives
   or dies," not just a design intention.
 
+**In Storyteller Assist mode, a night still resolves through this exact same
+seam** — the LLM judge if `llmStorytellerEnabled` is on, the heuristic
+otherwise, zero new code path, `resolveNight()` running at the exact same
+speed it always has. What changes is what happens next: instead of
+committing immediately, the night waits (`game.nightPendingConfirmation`,
+set in `closeWindow()`) for the real Storyteller to review a draft
+(`/api/storyteller/night-draft`) showing every whim call that fired and why
+— reusing `g.decisionLog`'s own unconditional record, not `whimConfirmations`
+(which stays deliberately sparse, gated to `living.length <= 5`, for its own
+different purpose). The Storyteller can force a different outcome before
+confirming (`/api/storyteller/override-whims`): a clean re-run from a
+pre-night snapshot (`preNightSnapshot` in server.js) with the chosen kind's
+verdict forced via a temporary `setWhimJudge` swap, never a hand-edit of
+already-applied deaths/results. Either way, the LLM's (or heuristic's)
+verdict becomes a draft for a human to confirm or override — never something
+the table sees unreviewed.
+
 ## Bucket 2 — Real knowledge, fully derivable from game state
 
 The Storyteller isn't judging anything — they're just reading off a fact the
@@ -93,6 +119,12 @@ Godfather's outsider count.
 is most of the codebase; if an ability looks like it needs a human and the
 answer is sitting in `g.players`/`g.deaths`/`g.nominations`, it's this
 bucket, not the next one.
+
+**Storyteller Assist mode doesn't change this bucket at all.** The engine
+computes the same fact the same way; it's just relayed out loud by a human
+instead of pushed to a phone (`/api/storyteller/state`, read by `playerId`
+instead of a token — the Storyteller's own read-side counterpart to
+`/api/state`).
 
 ## Bucket 3 — A real-world fact the software can't observe
 
@@ -137,6 +169,12 @@ in for nuanced Storyteller judgment, or the Lunatic's simplified fake-target
 flow. Note it in the implementation rather than pretending the menu is a
 lossless translation.
 
+**Storyteller Assist mode doesn't change the menu path either** — the
+Storyteller operates it on the player's behalf (the same `/api/storyteller/*`
+routes used for every other action), through the exact same `evaluateClaim`
+ground-truth check. The free-text alternative is Bucket 4, below, and *that*
+one does change.
+
 ## Bucket 4 — An open-ended judgment, now that a judge exists
 
 Buckets 1-3 all exist because there's no Storyteller to ask. `game/llmStoryteller.js`
@@ -174,6 +212,20 @@ For Savant specifically, the LLM never gets to assert a new truth at all —
 it only rephrases two statements `buildSavantStatements` already decided,
 and any failure falls back to those originals verbatim. That's Bucket 2
 wearing better prose, not a new Bucket 4 judgment call.
+
+**In Storyteller Assist mode, the judge is the real Storyteller, not the
+LLM.** `gossipClaimHandler`/`artistQuestionHandler` (server.js) were split
+out of `/api/gossip-claim`/`/api/artist-question` specifically so both
+judges — the LLM and a human — run through the exact same pre-checks,
+impairment handling, and status-setting; only `judgeFn` differs.
+`/api/storyteller/claim-context` hands the Storyteller the identical
+`buildStorytellerContext` snapshot the LLM would have read, and
+`/api/storyteller/gossip-claim`/`/api/storyteller/artist-question` accept
+their verdict directly — no model call happens on this path at all. This is
+also the one bucket where Assist mode doesn't layer an LLM suggestion
+*underneath* the human's own judgment the way Bucket 1's draft-and-confirm
+does — the Storyteller judges the claim cold, the same way they would at a
+real table.
 
 ## Applying this
 

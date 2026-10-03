@@ -155,7 +155,7 @@ rewrite:
 
   `test/storyteller.js` now carries 40 checks total across every module in
   this tree.
-- **Phase 3 (Storyteller Assist) — steps 1–5 of 6 done.** The two open
+- **Phase 3 (Storyteller Assist) — all 6 steps done.** The two open
   decisions this section used to flag are answered: whims don't need a
   new pause-mid-resolution path at all —
   `resolveNight()` runs to completion exactly as it does today (the LLM
@@ -316,8 +316,20 @@ rewrite:
   tool in this environment, so this needs a real human click-through
   before it's trusted at a real table.
 
-  Step 6 (the `game/ABILITY_PATTERNS.md` update — the bucket table from
-  the Phase 3 design doc, not yet landed in that file) is still ahead.
+  **Step 6 is done**: `game/ABILITY_PATTERNS.md` now states each bucket's
+  Assist-mode behavior inline, at the end of its own section — Bucket 1
+  resolves through the same `resolveWhim` seam, now reviewable/overridable
+  via the night-confirmation draft; Buckets 2 and 3 are unchanged, just
+  operated by a human instead of a phone; Bucket 4 routes to the
+  Storyteller as the judge directly, no LLM call on that path at all. The
+  file's own opening premise ("there's no Storyteller in this app") is now
+  explicitly scoped to Core/LLM Mode, not stated as universal.
+
+  **Phase 3 is complete.** Everything in the "Phase 3 Design: Draft, Then
+  Confirm" doc is built and tested end to end, except the one thing that
+  genuinely needs a human: an actual live playthrough of the Storyteller
+  Console in a browser, at a real or practice table, before trusting any
+  of this live.
 
 Explicitly out of scope for this whole effort: refactoring all 81 routes
 (only the ones that actually grow a second caller), multi-table support
