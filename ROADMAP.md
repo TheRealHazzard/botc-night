@@ -155,7 +155,7 @@ rewrite:
 
   `test/storyteller.js` now carries 40 checks total across every module in
   this tree.
-- **Phase 3 (Storyteller Assist) — steps 1–2 of 6 done.** The two open
+- **Phase 3 (Storyteller Assist) — steps 1–3 of 6 done.** The two open
   decisions this section used to flag are answered: whims don't need a
   new pause-mid-resolution path at all —
   `resolveNight()` runs to completion exactly as it does today (the LLM
@@ -222,8 +222,39 @@ rewrite:
   (13 checks) proves Core mode is completely unaffected (same instant
   night-to-day flip as always, flag never sets) and drives the full
   Assist-mode loop — stop, read the draft, get blocked without the
-  cookie, confirm, and a clean 409 confirming twice. Steps 3–6 (surgical
-  overrides, the Bucket 4 human-judgment UI, the console client itself,
+  cookie, confirm, and a clean 409 confirming twice.
+
+  **Step 3 is built**: surgical whim overrides. Settled on a clean
+  snapshot-and-re-run instead of hand-editing already-applied deaths/
+  results — `closeWindow()` takes a `structuredClone(game)` right before
+  `resolveNight()` runs (Assist mode only, so no other table pays the
+  clone cost), and `/api/storyteller/override-whims` (POST, `{overrides:
+  [{kind, fire}]}`) restores that snapshot and re-runs `resolveNight()`
+  with the listed kinds forced via a temporary `setWhimJudge` swap —
+  every OTHER decision that night recomputes completely fresh, so nothing
+  can silently miss a dependency the way a field-by-field patch could.
+  Accepted, documented trade-off: a night with more than one genuinely
+  ambiguous whim could see an unrelated one re-roll differently alongside
+  the intended override — rare in practice (most real nights have fixed,
+  Storyteller-entered targets with no ambiguity to redraw), and far safer
+  than guessing at a surgical edit for every possible case. Scoped to the
+  three whim kinds that actually fire inside `resolveNight()` (mayor-
+  redirect, registration-ambiguity, sage-recluse-demon) — `pacifist-save`
+  fires inside `recordExecution()` during the day, a different code path
+  with no draft/confirm window built around it yet, and is rejected with
+  a clear 400 rather than silently no-oping. `night-draft` and
+  `override-whims` now share one `nightDraftPayload()` builder, so an
+  override hands back its own effect in the same response, no second
+  round trip needed. `test/server/whimOverride.js` (13 checks) deals a
+  real Mayor/Imp roster via `presetAssignment` (the replay tool's own
+  mechanism — the only way to know deterministically who's who), gets
+  the Imp's night-2 kill to target the Mayor directly, then forces
+  `mayor-redirect` to `true` and `false` in turn and confirms the
+  Mayor's own fate in the draft actually flips each time — proof the
+  override is authoritative over whatever the real judge would have
+  decided, not just coincidentally matching it once.
+
+  Steps 4–6 (the Bucket 4 human-judgment UI, the console client itself,
   and the `ABILITY_PATTERNS.md` update) are still ahead.
 
 Explicitly out of scope for this whole effort: refactoring all 81 routes

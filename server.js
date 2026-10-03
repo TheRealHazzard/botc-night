@@ -47,6 +47,21 @@ const SCRIPT_MAX_PLAYERS = Object.fromEntries(
 let game = E.newGame();
 let windowTimer = null;
 let voteTimer = null;
+// Storyteller Assist mode only — a deep clone of `game` taken right before
+// each night's resolveNight() call, so an override
+// (/api/storyteller/override-whims) can restore to the exact pre-night
+// state and re-run cleanly instead of hand-editing already-computed
+// deaths/results. See closeWindow()'s own comment for why a clean re-run,
+// not a surgical edit, is the safer choice here. Cleared once a night is
+// actually confirmed or the table resets — never meant to survive past
+// the one night it was taken for.
+let preNightSnapshot = null;
+// The whim kinds /api/storyteller/override-whims can actually affect —
+// deliberately NOT the full S.WHIM_KINDS (game/storyteller/narrativePlan.js),
+// which also lists pacifist-save: that one fires inside recordExecution()
+// during the day, never inside resolveNight(), so accepting it here would
+// let a Storyteller "override" something that silently does nothing.
+const NIGHT_WHIM_KINDS = ['mayor-redirect', 'registration-ambiguity', 'sage-recluse-demon'];
 
 /* ----------------------------------------------------------- transport */
 
@@ -482,6 +497,10 @@ async function actionHandler(body) {
 async function closeWindow() {
   clearTimeout(windowTimer);
   if (game.phase !== 'night') return;
+  // Only Assist mode ever consults this snapshot, so only Assist mode
+  // pays the clone cost — a Core/LLM Mode table's own closeWindow() is
+  // byte-for-byte what it always was.
+  if (game.config.mode === 'assist') preNightSnapshot = structuredClone(game);
   await E.resolveNight(game, 1);
   await maybeRephraseNightResults();
   // Storyteller Assist mode: resolveNight() has already mutated
@@ -520,6 +539,21 @@ async function maybeRephraseNightResults() {
   } catch (e) {
     // Never let a rephrase bug block the night from actually ending.
   }
+}
+
+/** The exact payload /api/storyteller/night-draft and /api/storyteller/
+    override-whims both return — see night-draft's own route comment for
+    why whimOutcomes reads g.decisionLog rather than g.whimConfirmations. */
+function nightDraftPayload() {
+  const whimOutcomes = game.decisionLog
+    .filter(d => d.night === game.nightNumber && d.tag.startsWith('whim:'))
+    .map(d => ({ kind: d.tag.slice('whim:'.length), fired: d.value.fired, reason: d.value.reason }));
+  return {
+    night: game.nightNumber,
+    deaths: game.deaths.filter(d => d.night === game.nightNumber).map(d => ({ name: d.name, cause: d.cause })),
+    results: game.results,
+    whimOutcomes,
+  };
 }
 
 /** Authors the narrative plan (game/storyteller/narrativePlan.js) right
@@ -2177,18 +2211,13 @@ async function requestHandler(req, res) {
       // whim this specific night, not just endgame ones. decisionLog
       // already carries every whim call unconditionally (resolveWhim's own
       // replay-feed logging), so no new logging anywhere in game/ was
-      // needed — only a filter, here, on data that already existed.
+      // needed — only a filter, here, on data that already existed. Shared
+      // with /api/storyteller/override-whims below, which hands back this
+      // exact same shape after re-resolving, so the console never needs a
+      // second round trip just to see the effect of an override.
       if (route === '/api/storyteller/night-draft') {
         if (!game.nightPendingConfirmation) return json(res, 409, { error: 'No night is pending confirmation.' });
-        const whimOutcomes = game.decisionLog
-          .filter(d => d.night === game.nightNumber && d.tag.startsWith('whim:'))
-          .map(d => ({ kind: d.tag.slice('whim:'.length), fired: d.value.fired, reason: d.value.reason }));
-        return json(res, 200, {
-          night: game.nightNumber,
-          deaths: game.deaths.filter(d => d.night === game.nightNumber).map(d => ({ name: d.name, cause: d.cause })),
-          results: game.results,
-          whimOutcomes,
-        });
+        return json(res, 200, nightDraftPayload());
       }
 
       if (route === '/api/host-state') {
@@ -2416,16 +2445,73 @@ async function requestHandler(req, res) {
         return json(res, status, payload);
       }
 
-      // The Storyteller has reviewed /api/storyteller/night-draft (and, in
-      // a later step, may have overridden something in it) and is ready
-      // for the table to actually see tonight's outcome. This is the only
-      // thing that ever calls endNight() in Assist mode — closeWindow()
-      // deliberately stops short of it (see that function's own comment).
+      // The Storyteller has reviewed /api/storyteller/night-draft (and
+      // possibly overridden something in it via /api/storyteller/
+      // override-whims below) and is ready for the table to actually see
+      // tonight's outcome. This is the only thing that ever calls
+      // endNight() in Assist mode — closeWindow() deliberately stops short
+      // of it (see that function's own comment).
       if (route === '/api/storyteller/confirm-night') {
         if (!game.nightPendingConfirmation) return json(res, 409, { error: 'No night is pending confirmation.' });
         game.nightPendingConfirmation = false;
+        preNightSnapshot = null; // nothing left to override once the table has seen it
         endNight();
         return json(res, 200, { ok: true });
+      }
+
+      // Restores the exact pre-night state (preNightSnapshot) and re-runs
+      // resolveNight() with the listed whim kinds forced to a specific
+      // outcome instead of consulting the real judge — every OTHER
+      // decision that night recomputes completely fresh, which is the
+      // whole reason this is a clean re-run instead of a hand-edit of
+      // already-applied deaths/results: nothing here can silently miss a
+      // dependency (triggerDeathHooks, Undertaker info, a victory
+      // re-check, ...) the way patching individual fields could.
+      // Accepted, documented trade-off: a night with more than one
+      // genuinely ambiguous whim/dramaticPick draw could see an
+      // UNRELATED one come out differently on a second re-run, since real
+      // randomness (not just the forced kind) runs again from scratch.
+      // Rare in practice — most real-table nights have fixed, Storyteller-
+      // entered targets with no ambiguity to redraw — and far safer than
+      // guessing at every surgical edit a given override could require.
+      //
+      // Scoped to the three whim kinds that fire during resolveNight()
+      // itself (mayor-redirect, registration-ambiguity, sage-recluse-
+      // demon) — pacifist-save fires inside recordExecution() during the
+      // DAY, a different code path with no draft/confirm window built
+      // around it yet (see ROADMAP.md). A real, explicitly deferred gap,
+      // not an oversight.
+      if (route === '/api/storyteller/override-whims') {
+        if (!game.nightPendingConfirmation || !preNightSnapshot) {
+          return json(res, 409, { error: 'No night is pending confirmation.' });
+        }
+        const overrides = Array.isArray(body.overrides) ? body.overrides : [];
+        const forced = new Map();
+        for (const o of overrides) {
+          // Deliberately NOT S.WHIM_KINDS (which also lists pacifist-save)
+          // — pacifist-save fires inside recordExecution() during the day,
+          // never inside resolveNight(), so "forcing" it here would
+          // silently do nothing rather than erroring clearly. A clear 400
+          // beats a no-op a Storyteller would have no way to notice.
+          if (!o || !NIGHT_WHIM_KINDS.includes(o.kind) || typeof o.fire !== 'boolean') {
+            return json(res, 400, { error: `Invalid override: ${JSON.stringify(o)}` });
+          }
+          forced.set(o.kind, o.fire);
+        }
+        game = structuredClone(preNightSnapshot);
+        const realJudge = (g, ctx) => S.llmWhimJudge(g, ctx, llmCall);
+        E.setWhimJudge((g, ctx) => forced.has(ctx.kind)
+          ? Promise.resolve({ fire: forced.get(ctx.kind), reason: 'Storyteller override' })
+          : realJudge(g, ctx));
+        try {
+          await E.resolveNight(game, 1);
+          await maybeRephraseNightResults();
+        } finally {
+          E.setWhimJudge(realJudge); // always restore, even if resolveNight somehow throws
+        }
+        game.nightPendingConfirmation = true;
+        pushHost();
+        return json(res, 200, nightDraftPayload());
       }
 
       if (route === '/api/slayer-shot') {
@@ -3207,6 +3293,7 @@ async function requestHandler(req, res) {
         game = E.newGame();
         game.config = config;
         playerStreams.clear();
+        preNightSnapshot = null; // a stale snapshot must never outlive the game it was taken for
         pushHost();
         return json(res, 200, { ok: true });
       }
