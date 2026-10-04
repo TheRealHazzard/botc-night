@@ -963,6 +963,12 @@
       .script-list-row {
         display: flex;
         align-items: center;
+        /* Same fix as .reference-menu-item's own rule, same root cause:
+   the global `button` rule sets justify-content: center, so without an
+   explicit override here each row's badge+name centered within its own
+   width — identical in effect only when every script's name happened to
+   be the same length. */
+        justify-content: flex-start;
         gap: 12px;
         width: 100%;
         padding: 14px 18px;
@@ -3142,6 +3148,15 @@
       .reference-menu-item {
         display: flex;
         align-items: center;
+        /* The real bug behind the inconsistent-looking row-to-row icon
+   position wasn't the icon's own size or box — it was this: the global
+   `button` rule (further below) sets justify-content: center, and
+   nothing here overrode it, so each row's icon+text group centered
+   within the row's own width instead of sharing one left edge.
+   Centering looks identical only when every row's content is the same
+   width — these four rows aren't (each has a different blurb length) —
+   so each icon landed at a different x. */
+        justify-content: flex-start;
         gap: 14px;
         width: 100%;
         text-align: left;
