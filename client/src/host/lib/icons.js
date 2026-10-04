@@ -12,7 +12,13 @@ export const ICON_PATHS = {
     '<path d="M6 20V11a6 6 0 0 1 12 0v9l-2.2-1.6L14 20l-2-1.6L10 20l-1.8-1.6L6 20Z"/><circle cx="9.6" cy="10.6" r=".9" fill="currentColor" stroke="none"/><circle cx="14.4" cy="10.6" r=".9" fill="currentColor" stroke="none"/>',
   users:
     '<circle cx="8.6" cy="8" r="3"/><path d="M2.6 19c0-3.3 2.6-5.4 6-5.4s6 2.1 6 5.4"/><circle cx="16.6" cy="9" r="2.3"/><path d="M15 13.7c2.5.3 4.4 2.3 4.4 5.3"/>',
-  check: '<path d="M5 13l4.5 4.5L19 8"/>',
+  // Spans close to the full 24x24 box (y:5-18, x:4-20) rather than hugging
+  // the vertical center the way a smaller checkmark naturally draws —
+  // next to scroll/trophy/bolt's own near-full-height paths (ReferenceOverlay's
+  // picker menu, all four sharing one row shape), the old, smaller mark
+  // read as noticeably lighter/smaller than its siblings despite sharing
+  // the exact same 20px icon box.
+  check: '<path d="M4 13l5 5L20 5"/>',
   play: '<path d="M8 5.5v13l11-6.5-11-6.5Z" fill="currentColor" stroke="none"/>',
   refresh:
     '<path d="M4 12a8 8 0 0 1 13.6-5.7M20 12a8 8 0 0 1-13.6 5.7"/><path d="M17.2 2.8v4h-4M6.8 21.2v-4h4"/>',

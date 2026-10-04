@@ -560,7 +560,7 @@ describe("App", () => {
       expect(await screen.findByRole("heading", { name: "Game history" })).toBeInTheDocument();
     });
 
-    it("an overlay opened from the Reference menu goes back to the menu on Close, not fully out of Reference", async () => {
+    it("an overlay opened from the Reference menu fully closes Reference on Close, not just back to the picker menu", async () => {
       mockFetch({
         "/api/tokens": {}, "/trivia.json": [], "/api/scripts": SCRIPTS,
         "/api/jinxes": { source: "seed", fetchedAt: null, pairs: [] },
@@ -571,7 +571,10 @@ describe("App", () => {
       expect(await screen.findByRole("heading", { name: "Jinxes" })).toBeInTheDocument();
 
       await userEvent.click(screen.getByRole("button", { name: /close/i }));
-      expect(await screen.findByRole("heading", { name: "Reference" })).toBeInTheDocument();
+      await vi.waitFor(() =>
+        expect(screen.queryByRole("heading", { name: "Jinxes" })).not.toBeInTheDocument()
+      );
+      expect(screen.queryByRole("heading", { name: "Reference" })).not.toBeInTheDocument();
     });
 
     it("Hall of Fame and Character checklist are both reachable from the same Reference menu", async () => {

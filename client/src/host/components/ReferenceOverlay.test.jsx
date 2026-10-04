@@ -34,7 +34,7 @@ describe('ReferenceOverlay', () => {
     expect(closed).toBe(true);
   });
 
-  it('picking Jinxes opens it full-screen; its own Close returns to the menu, not onClose', async () => {
+  it('picking Jinxes opens it full-screen; its own Close exits the whole drawer', async () => {
     mockFetch({ '/api/jinxes': { source: 'seed', fetchedAt: null, pairs: [] } });
     const onClose = vi.fn();
     render(<ReferenceOverlay onClose={onClose} />);
@@ -42,36 +42,38 @@ describe('ReferenceOverlay', () => {
     expect(await screen.findByRole('heading', { name: 'Jinxes' })).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('button', { name: /close/i }));
-    expect(onClose).not.toHaveBeenCalled();
-    expect(await screen.findByRole('heading', { name: 'Reference' })).toBeInTheDocument();
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it('picking Game history opens it full-screen; its own Close returns to the menu', async () => {
+  it('picking Game history opens it full-screen; its own Close exits the whole drawer', async () => {
     mockFetch({
       '/api/leaderboard/voting': [], '/api/leaderboard/characters': [], '/api/games?': { games: [], nextBefore: null },
     });
-    render(<ReferenceOverlay onClose={() => {}} />);
+    const onClose = vi.fn();
+    render(<ReferenceOverlay onClose={onClose} />);
     await userEvent.click(screen.getByText('Game history'));
     expect(await screen.findByRole('heading', { name: 'Game history' })).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Close' }));
-    expect(await screen.findByRole('heading', { name: 'Reference' })).toBeInTheDocument();
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it('picking Hall of Fame opens it full-screen; its own Close returns to the menu', async () => {
+  it('picking Hall of Fame opens it full-screen; its own Close exits the whole drawer', async () => {
     mockFetch({ '/api/profiles': [], '/api/leaderboard/voting': [], '/api/leaderboard/characters': [] });
-    render(<ReferenceOverlay onClose={() => {}} />);
+    const onClose = vi.fn();
+    render(<ReferenceOverlay onClose={onClose} />);
     await userEvent.click(screen.getByText('Hall of Fame'));
     expect(await screen.findByRole('heading', { name: 'Hall of Fame' })).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Close' }));
-    expect(await screen.findByRole('heading', { name: 'Reference' })).toBeInTheDocument();
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it('picking Character checklist opens it full-screen; its own Close returns to the menu', async () => {
+  it('picking Character checklist opens it full-screen; its own Close exits the whole drawer', async () => {
     mockFetch({ '/api/characters/checklist': [] });
-    render(<ReferenceOverlay onClose={() => {}} />);
+    const onClose = vi.fn();
+    render(<ReferenceOverlay onClose={onClose} />);
     await userEvent.click(screen.getByText('Character checklist'));
     expect(await screen.findByRole('heading', { name: 'Character checklist' })).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Close' }));
-    expect(await screen.findByRole('heading', { name: 'Reference' })).toBeInTheDocument();
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 });

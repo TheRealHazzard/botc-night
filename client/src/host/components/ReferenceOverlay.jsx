@@ -23,13 +23,18 @@ const ITEMS = [
 
 export default function ReferenceOverlay({ onClose }) {
   const [view, setView] = useState('menu');
-  const back = () => setView('menu');
 
+  // Each reused overlay's own "Close" now exits the whole Reference drawer
+  // (onClose), not just this picker menu — there's no separate "back to
+  // the menu" affordance once inside one, so Close genuinely means close.
+  // Picking a different reference tool means reopening Reference from the
+  // header, same as picking a different one used to mean a fresh click on
+  // its own header button before these four were bundled into one picker.
   let content;
-  if (view === 'history') content = <GameHistoryOverlay onClose={back} />;
-  else if (view === 'hallOfFame') content = <HallOfFameOverlay onClose={back} />;
-  else if (view === 'characters') content = <CharactersOverlay onClose={back} />;
-  else if (view === 'jinxes') content = <JinxesOverlay onClose={back} />;
+  if (view === 'history') content = <GameHistoryOverlay onClose={onClose} />;
+  else if (view === 'hallOfFame') content = <HallOfFameOverlay onClose={onClose} />;
+  else if (view === 'characters') content = <CharactersOverlay onClose={onClose} />;
+  else if (view === 'jinxes') content = <JinxesOverlay onClose={onClose} />;
   else {
     content = (
       <div className="settings-overlay">
