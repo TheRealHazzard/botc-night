@@ -631,32 +631,17 @@
         opacity: 0.24;
         mix-blend-mode: luminosity;
       }
+      /* Centering (the old transform: translate(-50%,-50%)) and the
+   entering pop are both set inline now by RingSeat.jsx's own motion.div
+   (framer-motion) — x/y/scale/opacity all composed into one transform
+   there, so none of it belongs in the stylesheet anymore. */
       .rseat {
         position: absolute;
-        transform: translate(-50%, -50%);
         white-space: nowrap;
         display: flex;
         flex-direction: column;
         align-items: center;
         gap: 7px;
-      }
-      /* A seat that just joined the lobby gets a beat of its own rather
-   than snapping into place with the rest of a full re-render — the
-   translate(-50%,-50%) centering has to stay part of the same transform
-   throughout, or the seat would jump to the wrong anchor mid-animation. */
-      .rseat.entering {
-        animation: seat-enter 0.5s ease-out;
-      }
-      @keyframes seat-enter {
-        from {
-          transform: translate(-50%, -50%) scale(0.4);
-          opacity: 0;
-        }
-      }
-      @media (prefers-reduced-motion: reduce) {
-        .rseat.entering {
-          animation: none;
-        }
       }
       .rseat-avatar {
         position: relative;
@@ -2297,6 +2282,9 @@
           animation: none;
         }
       }
+      /* Opacity is set inline by FatalFlashOverlay.jsx's own motion.div
+   (framer-motion) — nothing left to declare here for that, just the
+   static box styling. */
       .fatal-flash {
         position: fixed;
         inset: 0;
@@ -2308,11 +2296,6 @@
         gap: 18px;
         background: var(--oxblood);
         color: var(--cream);
-        opacity: 0;
-        transition: opacity 0.35s ease;
-      }
-      .fatal-flash.show {
-        opacity: 1;
       }
       .fatal-flash .icon {
         width: 88px;

@@ -1,6 +1,17 @@
 import { useState } from 'react';
+import { motion, useReducedMotion } from 'framer-motion';
 import { useTokens } from '../../hooks/useTokens.js';
 import { seatPosition } from '../lib/ringLayout.js';
+
+// A spring instead of the old seat-enter keyframe's fixed 0.5s ease-out —
+// a seat popping into the lobby reads as a little livelier with real
+// overshoot than a fixed-duration ease. initial is only ever read once,
+// on mount (React/framer-motion semantics) — and RingSeats.jsx keys each
+// instance by the player's own stable id, so a seat only ever actually
+// mounts fresh at the exact moment it first becomes "entering"; this
+// never needs to replay on a later re-render the way the old CSS class
+// toggle incidentally could have.
+const ENTER_TRANSITION = { type: 'spring', stiffness: 260, damping: 20 };
 
 // One seat's avatar + name. A separate component (not inlined in
 // RingSeats' map) because the revealed token image and team-badge image
@@ -10,6 +21,7 @@ export default function RingSeat({ player: p, index, total, revealed, entering }
   const tokens = useTokens();
   const [tokenFailed, setTokenFailed] = useState(false);
   const [badgeFailed, setBadgeFailed] = useState(false);
+  const reduceMotion = useReducedMotion();
 
   const { left, top } = seatPosition(index, total);
 
@@ -37,13 +49,19 @@ export default function RingSeat({ player: p, index, total, revealed, entering }
     : (!revealed && !p.alive ? undefined : fallbackStyle);
 
   return (
-    <div
+    <motion.div
       className={'rseat' + (p.alive ? '' : ' dead') + (p.connected ? '' : ' offline') + (entering ? ' entering' : '')}
+      // x/y: '-50%' replaces the old CSS transform: translate(-50%,-50%) —
+      // framer-motion composes x/y/scale into one transform itself, so the
+      // centering has to move here rather than stay a separate stylesheet
+      // rule, or its own inline transform would silently overwrite it.
       // --seat-i drives the dusk/dawn seat-by-seat sweep in styles.css
-      // (.view.trans-dusk/dawn.fading .rseat) — this component's only
-      // involvement in that ceremony, everything else is pure CSS reacting
-      // to usePhaseFade's existing class toggle.
-      style={{ left: left + '%', top: top + '%', '--seat-i': index }}
+      // (.view.trans-dusk/dawn.fading .rseat) — untouched by any of this,
+      // since that sweep only ever animates `filter`, never transform.
+      style={{ left: left + '%', top: top + '%', x: '-50%', y: '-50%', '--seat-i': index }}
+      initial={entering && !reduceMotion ? { scale: 0.4, opacity: 0 } : false}
+      animate={{ scale: 1, opacity: 1 }}
+      transition={ENTER_TRANSITION}
     >
       <div className={'rseat-avatar' + (showToken && !p.alive ? ' shrouded' : '')} style={avatarStyle}>
         {avatarContent}
@@ -58,6 +76,6 @@ export default function RingSeat({ player: p, index, total, revealed, entering }
         )}
       </div>
       <span className="rseat-name">{p.name}</span>
-    </div>
+    </motion.div>
   );
 }
