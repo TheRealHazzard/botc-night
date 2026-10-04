@@ -2359,6 +2359,9 @@
         background: var(--void);
         cursor: pointer;
       }
+      /* Enter/exit opacity+transform are set inline by RevealCardOverlay.jsx's
+   own motion.div (spring-animated via framer-motion) — nothing left to
+   declare here for that, just the static box/text styling. */
       .reveal-card {
         display: flex;
         flex-direction: column;
@@ -2368,11 +2371,6 @@
         padding: 0 24px;
         text-align: center;
         color: var(--bone);
-        opacity: 0;
-        transform: translateY(14px) scale(0.96);
-      }
-      .reveal-card.show {
-        animation: victory-reveal 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
       }
       .reveal-card .icon {
         width: 64px;
@@ -2413,15 +2411,10 @@
         top: 20px;
         right: 20px;
       }
-      @media (prefers-reduced-motion: reduce) {
-        .reveal-card {
-          opacity: 1;
-          transform: none;
-        }
-        .reveal-card.show {
-          animation: none;
-        }
-      }
+      /* No .reveal-card reduced-motion override needed here any more —
+   RevealCardOverlay.jsx's own useReducedMotion() check now skips straight
+   to the resting opacity/transform with a 0-duration transition, same
+   effect, decided in JS alongside the spring it's replacing. */
 
       /* A lighter sibling of .fatal-flash above, for a death that doesn't
    end the game — today only a game-ending death gets any beat at all, so

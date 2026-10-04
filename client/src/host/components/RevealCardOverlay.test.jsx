@@ -18,18 +18,10 @@ describe('RevealCardOverlay', () => {
     expect(container.firstChild).toBeNull();
   });
 
-  it('shows the first card immediately, before the "show" transition frame', () => {
+  it('shows the first card\'s content immediately, mid entrance animation', () => {
     render(<RevealCardOverlay cards={oneCard} onDone={() => {}} />);
     expect(screen.getByText('Play of the Game')).toBeInTheDocument();
     expect(screen.getByText('Fay took the shot.')).toBeInTheDocument();
-    expect(document.querySelector('.reveal-card')).not.toHaveClass('show');
-  });
-
-  it('gains the "show" class on the next animation frame', async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    render(<RevealCardOverlay cards={oneCard} onDone={() => {}} />);
-    await vi.advanceTimersByTimeAsync(20);
-    expect(document.querySelector('.reveal-card')).toHaveClass('show');
   });
 
   it('auto-advances to the next card after its hold timer, without calling onDone yet', async () => {
