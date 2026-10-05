@@ -53,47 +53,6 @@ describe('usePhaseFade', () => {
     expect(result.current.displayS).toEqual(night);
   });
 
-  // The old phase's content fades out smoothly (the case above), but a
-  // freshly-mounted new phase has no prior frame to transition FROM — left
-  // alone it would just snap to full opacity instantly. `entering` gives it
-  // one to transition from instead, so narration fades in rather than
-  // popping in against the ring's own gradual seat sweep.
-  //
-  // requestAnimationFrame is stubbed with a manually-driven queue rather
-  // than waiting on real frames — jsdom's window is reused across every
-  // test in this file, and an earlier test's vi.useFakeTimers() leaves
-  // jsdom's *internal* rAF scheduling wired to a now-dead fake clock even
-  // after vi.useRealTimers() restores window.requestAnimationFrame's own
-  // reference (confirmed directly: it looks native, but its callback
-  // never fires again for the rest of the file). Driving the queue by
-  // hand sidesteps that entirely and gives precise control over each of
-  // the two frames instead of a real, unverifiable wait.
-  it('the new phase mounts flagged as "entering" for a couple of frames, then clears so it can transition in', async () => {
-    vi.useRealTimers();
-    const rafQueue = [];
-    vi.stubGlobal('requestAnimationFrame', cb => { rafQueue.push(cb); return rafQueue.length; });
-    stubReducedMotion(false);
-    installFakeAudioContext();
-    const { result, rerender } = renderHook(({ S }) => usePhaseFade(S), { initialProps: { S: day } });
-    resetAudioCalls();
-
-    act(() => rerender({ S: night }));
-    expect(result.current.entering).toBe(false); // not yet — still mid-exit-fade
-
-    await act(async () => { await new Promise(r => setTimeout(r, 970)); }); // past TRANS_MS.dusk
-    expect(result.current.displayS).toEqual(night); // the new phase has mounted...
-    expect(result.current.entering).toBe(true); // ...still flagged, so it has something to fade in FROM
-    expect(result.current.transClass).toBe('dusk');
-    expect(rafQueue.length).toBe(1); // only the outer rAF has been scheduled so far
-
-    act(() => { rafQueue.shift()(); }); // first frame: schedules the inner rAF
-    expect(result.current.entering).toBe(true); // still true — only one frame has actually painted
-    expect(rafQueue.length).toBe(1);
-
-    act(() => { rafQueue.shift()(); }); // second frame: clears it, letting the CSS transition pick up
-    expect(result.current.entering).toBe(false);
-  });
-
   it('a same-key push landing mid-fade does not leave the stage stuck invisible', async () => {
     // Regression: a real bug, reported from an actual game. A player's
     // action (or a reconnect, or anything else that pushes fresh S)

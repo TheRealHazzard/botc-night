@@ -1,5 +1,6 @@
 import TabPanel from './TabPanel.jsx';
 import DayCounterLabel from './DayCounterLabel.jsx';
+import FadeWrap from './FadeWrap.jsx';
 
 /** The main stage for every phase view except LobbyView's script-browsing
     takeover (which still uses the older 3-column DashboardLayout
@@ -12,16 +13,16 @@ import DayCounterLabel from './DayCounterLabel.jsx';
     tab instead. That's what frees this region to be just the ring (now
     with the full stage width to itself, see styles.css's `.ring` sizing)
     and the script/characters/controls tab group beside it (`tabs`). */
-export default function GameStage({ phaseHeading, ringSlotRef, ringHidden, tabs, defaultTab, fadeClass = '' }) {
+export default function GameStage({ phaseHeading, ringSlotRef, ringHidden, tabs, defaultTab, fading, transClass }) {
   return (
     <div className="game-stage">
       <div className="game-ring-zone">
         {phaseHeading && <DayCounterLabel text={phaseHeading} />}
         <div className={'ring-slot' + (ringHidden ? ' ring-slot-hidden' : '')} ref={ringSlotRef} />
       </div>
-      <div className={'game-stage-tabs ' + fadeClass}>
+      <FadeWrap className="game-stage-tabs" fading={fading} transClass={transClass}>
         <TabPanel tabs={tabs} defaultTab={defaultTab} />
-      </div>
+      </FadeWrap>
     </div>
   );
 }

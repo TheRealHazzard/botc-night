@@ -9,7 +9,7 @@ import { useSpeak } from '../hooks/useSpeak.js';
 import { revealLine } from '../lib/narratorLines.js';
 import { post } from '../../lib/api.js';
 
-export default function RevealView({ config, scriptChars, activeScriptMeta, muted, ringSlotRef, fadeClass = '' }) {
+export default function RevealView({ config, scriptChars, activeScriptMeta, muted, ringSlotRef, fading, transClass }) {
   // Captured once per mount — App.jsx only mounts RevealView while
   // phase === 'reveal', so this is stable for this game's whole reveal
   // phase and fresh again for the next game's. Spoken (and logged, see
@@ -42,7 +42,8 @@ export default function RevealView({ config, scriptChars, activeScriptMeta, mute
     <GameStage
       ringSlotRef={ringSlotRef}
       tabs={tabs}
-      fadeClass={`fade-wrap ${fadeClass}`}
+      fading={fading}
+      transClass={transClass}
     />
   );
 }

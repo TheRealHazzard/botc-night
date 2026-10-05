@@ -21,7 +21,7 @@ function logLabel(l) {
   return ''; // lobby/reveal/over, or older data with no recorded phase
 }
 
-export default function OverView({ players, victory, gameSummary, pivotalHighlights, shareCardEnabled, log, actionLog, resultsLog, nightNumber, muted, ringSlotRef, fadeClass = '' }) {
+export default function OverView({ players, victory, gameSummary, pivotalHighlights, shareCardEnabled, log, actionLog, resultsLog, nightNumber, muted, ringSlotRef, fading, transClass }) {
   const [showPowerLog, setShowPowerLog] = useState(false);
   const [showShareCard, setShowShareCard] = useState(false);
 
@@ -91,7 +91,8 @@ export default function OverView({ players, victory, gameSummary, pivotalHighlig
         ringSlotRef={ringSlotRef}
         tabs={tabs}
         defaultTab="summary"
-        fadeClass={`fade-wrap ${fadeClass}`}
+        fading={fading}
+        transClass={transClass}
       />
       {showPowerLog && (
         <PowerLogOverlay players={players} actionLog={actionLog} resultsLog={resultsLog} nightNumber={nightNumber} onClose={() => setShowPowerLog(false)} />

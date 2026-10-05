@@ -1,5 +1,6 @@
 import DashboardLayout from '../components/DashboardLayout.jsx';
 import GameStage from '../components/GameStage.jsx';
+import FadeWrap from '../components/FadeWrap.jsx';
 import TriviaLine from '../components/TriviaLine.jsx';
 import ScriptViewPanel from '../components/script/ScriptViewPanel.jsx';
 import ScriptSelectorList from '../components/script/ScriptSelectorList.jsx';
@@ -22,7 +23,7 @@ import { useJoinAddress } from '../hooks/useJoinAddress.js';
     actual commit/back-out (Choose/Cancel) live in the header now, not
     down here — see App.jsx, which owns the browsing state this view is
     controlled by. */
-export default function LobbyView({ players, script, scripts, setupRatio, browsing, browseIndex, browsedMeta, onBrowse, onEnterBrowse, onBuildScript, ringSlotRef, fadeClass = '' }) {
+export default function LobbyView({ players, script, scripts, setupRatio, browsing, browseIndex, browsedMeta, onBrowse, onEnterBrowse, onBuildScript, ringSlotRef, fading, transClass }) {
   const joinAddr = useJoinAddress();
 
   const activeMeta = scripts && (scripts.find(m => m.id === script) || scripts[0]);
@@ -40,9 +41,9 @@ export default function LobbyView({ players, script, scripts, setupRatio, browsi
     );
     const main = (
       <div className="stage-main">
-        <div className={`fade-wrap stage-narration ${fadeClass}`}>
+        <FadeWrap className="stage-narration" fading={fading} transClass={transClass}>
           {browsedMeta && <ScriptBrowsePreview meta={browsedMeta} />}
-        </div>
+        </FadeWrap>
         {/* Always mounted — unmounting here would drop the ring's portal
             target (it lives permanently in App.jsx) — just visually
             hidden while this preview panel takes over the column. */}
@@ -52,7 +53,7 @@ export default function LobbyView({ players, script, scripts, setupRatio, browsi
       </div>
     );
     const right = browsedMeta && <ScriptBrowseRoster meta={browsedMeta} />;
-    return <DashboardLayout left={left} main={main} right={right} fadeClass={`fade-wrap ${fadeClass}`} />;
+    return <DashboardLayout left={left} main={main} right={right} fading={fading} transClass={transClass} />;
   }
 
   const tabs = [
@@ -105,7 +106,8 @@ export default function LobbyView({ players, script, scripts, setupRatio, browsi
     <GameStage
       ringSlotRef={ringSlotRef}
       tabs={tabs}
-      fadeClass={`fade-wrap ${fadeClass}`}
+      fading={fading}
+      transClass={transClass}
     />
   );
 }

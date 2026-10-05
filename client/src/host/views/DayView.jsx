@@ -22,7 +22,7 @@ import { post } from '../../lib/api.js';
 import { showToast } from '../../lib/toast.js';
 import { leadingNominee } from '../../lib/leadingNominee.js';
 
-export default function DayView({ players, nightNumber, deaths, nominations, config, script, scriptChars, activeScriptMeta, muted, log = [], dayStartedAt, ringSlotRef, fadeClass = '' }) {
+export default function DayView({ players, nightNumber, deaths, nominations, config, script, scriptChars, activeScriptMeta, muted, log = [], dayStartedAt, ringSlotRef, fading, transClass }) {
   const lastNight = deaths.filter(d => d.night === nightNumber && d.cause !== 'execution');
   // No Mastermind hint here on purpose — the wiki is explicit: "Add a
   // shroud as normal. Do not say that the Demon has died." The bonus day
@@ -95,7 +95,8 @@ export default function DayView({ players, nightNumber, deaths, nominations, con
         // doing during the day — Characters/Script are reference
         // material, not the thing that needs attention right now.
         defaultTab="controls"
-        fadeClass={`fade-wrap ${fadeClass}`}
+        fading={fading}
+        transClass={transClass}
       />
       {minorBeat && <MinorBeatOverlay name={minorBeat.name} />}
     </>

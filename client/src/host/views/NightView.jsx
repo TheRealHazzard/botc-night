@@ -11,7 +11,7 @@ import { useWhimBeat } from '../hooks/useWhimBeat.js';
 import { nightOpenLine } from '../lib/narratorLines.js';
 import { logNarration } from '../lib/narratorLog.js';
 
-export default function NightView({ players, nightNumber, windowEndsAt, windowTotalSeconds, config, script, scriptChars, activeScriptMeta, muted, log, ringSlotRef, fadeClass = '' }) {
+export default function NightView({ players, nightNumber, windowEndsAt, windowTotalSeconds, config, script, scriptChars, activeScriptMeta, muted, log, ringSlotRef, fading, transClass }) {
   const deathsSoFar = players.filter(p => !p.alive).length;
   const line = nightOpenLine(nightNumber, deathsSoFar, config.narratorPersona);
   useSpeak(line, { dread: deathsSoFar > 0, muted });
@@ -62,7 +62,8 @@ export default function NightView({ players, nightNumber, windowEndsAt, windowTo
       // checks during a night window — Characters/Script are reference
       // material, not the thing in motion right now.
       defaultTab="controls"
-      fadeClass={`fade-wrap ${fadeClass}`}
+      fading={fading}
+      transClass={transClass}
     />
   );
 }

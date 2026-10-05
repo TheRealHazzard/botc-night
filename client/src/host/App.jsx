@@ -53,7 +53,6 @@ export default function App() {
   const {
     displayS,
     fading,
-    entering,
     transClass,
     fatalFlashing,
     blow,
@@ -279,17 +278,16 @@ export default function App() {
         ? `Day ${displayS.nightNumber}`
         : displayS.phase;
 
+  // Drives the ring's own dusk/dawn seat-by-seat sweep (styles.css's
+  // .view.trans-dusk/dawn.fading .rseat) — the ring lives permanently
+  // outside the React tree that unmounts per phase (see the portal
+  // below), so it can't fade through FadeWrap the way each view's own
+  // tabs/narration content does; this class toggle is the only way it
+  // still reacts to a transition at all. fading/transClass themselves
+  // pass straight through to each view's own FadeWrap now, not a
+  // pre-built class string — see FadeWrap.jsx for why no extra
+  // "entering" hold is needed any more.
   const stageClass = "view" + (fading ? " fading trans-" + transClass : "");
-  // Applied to the narrower fade-wrap elements each view wraps its own
-  // narration in (and DashboardLayout wraps left/right in) — kept
-  // separate from stageClass since .view itself no longer carries the
-  // opacity/filter fade (see styles.css's .fade-wrap). Unlike
-  // stageClass, this also picks up `entering` (fading OUT and fading
-  // IN both read the same class here) so narration gets a real fade-in
-  // instead of snapping to full opacity the instant it mounts — see
-  // usePhaseFade's own comment on why the seat-sweep (which uses
-  // stageClass) deliberately does NOT also pick up `entering`.
-  const fadeClass = (fading || entering) ? "fading trans-" + transClass : "";
 
   const revealedForRing = displayS.phase === "over" || displayS.revealed;
   const enteringIds = displayS.phase === "lobby" ? allEnteringIds : null;
@@ -362,7 +360,8 @@ export default function App() {
                     onEnterBrowse={enterBrowse}
                     onBuildScript={() => setBuildingScript(true)}
                     ringSlotRef={registerRingSlot}
-                    fadeClass={fadeClass}
+                    fading={fading}
+                    transClass={transClass}
                   />
                 )}
                 {displayS.phase === "reveal" && (
@@ -372,7 +371,8 @@ export default function App() {
                     activeScriptMeta={activeScriptMeta}
                     muted={muted}
                     ringSlotRef={registerRingSlot}
-                    fadeClass={fadeClass}
+                    fading={fading}
+                    transClass={transClass}
                   />
                 )}
                 {displayS.phase === "night" && (
@@ -388,7 +388,8 @@ export default function App() {
                     muted={muted}
                     log={displayS.log}
                     ringSlotRef={registerRingSlot}
-                    fadeClass={fadeClass}
+                    fading={fading}
+                    transClass={transClass}
                   />
                 )}
                 {displayS.phase === "day" && (
@@ -405,7 +406,8 @@ export default function App() {
                     log={displayS.log}
                     dayStartedAt={displayS.dayStartedAt}
                     ringSlotRef={registerRingSlot}
-                    fadeClass={fadeClass}
+                    fading={fading}
+                    transClass={transClass}
                   />
                 )}
                 {(displayS.phase === "over" || displayS.revealed) && (
@@ -421,7 +423,8 @@ export default function App() {
                     nightNumber={displayS.nightNumber}
                     muted={muted}
                     ringSlotRef={registerRingSlot}
-                    fadeClass={fadeClass}
+                    fading={fading}
+                    transClass={transClass}
                   />
                 )}
               </div>

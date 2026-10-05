@@ -1,3 +1,5 @@
+import FadeWrap from './FadeWrap.jsx';
+
 // Down to one caller now — LobbyView's own script-browsing takeover
 // (list left, big preview center, playable roster right), the one case
 // left that genuinely needs three independent columns at once. Every
@@ -10,7 +12,7 @@
 // effect as flex's justify-content:space-between would give a 3-up row,
 // but with a middle track that can grow.
 //
-// `fadeClass` wraps right only — left is deliberately never wrapped in
+// FadeWrap wraps right only — left is deliberately never wrapped in
 // it (same reasoning as the ring, which also never fades): it's the same
 // script list reference material regardless of which row is browsed, so
 // fading it out and back in on every browse would be pure flicker with
@@ -19,7 +21,7 @@
 // wrapped here either, since the ring lives inside it (a portal target,
 // see App.jsx) and must NOT be inside anything that fades — a parent's
 // opacity can't be countermanded by a child's own CSS.
-export default function DashboardLayout({ left, main, right, fadeClass = '' }) {
+export default function DashboardLayout({ left, main, right, fading, transClass }) {
   const cols = [];
   if (left) cols.push('minmax(300px,400px)');
   cols.push('1fr');
@@ -35,7 +37,7 @@ export default function DashboardLayout({ left, main, right, fadeClass = '' }) {
     <div className="dashboard" style={{ gridTemplateColumns: cols.join(' ') }}>
       {left}
       {main}
-      {right && <div className={fadeClass}>{right}</div>}
+      {right && <FadeWrap fading={fading} transClass={transClass}>{right}</FadeWrap>}
     </div>
   );
 }

@@ -23,14 +23,17 @@ describe('DashboardLayout', () => {
   // it's the same GameLeftPanel reference material every render, so
   // fading it in and out on every phase change was pure flicker with
   // nothing actually changing underneath — only right genuinely swaps
-  // content per phase, so only right keeps the fade.
-  it('wraps right in fadeClass, but leaves left and main untouched', () => {
+  // content per phase, so only right keeps the fade (via FadeWrap, see
+  // that component's own test for its actual animated values).
+  it('wraps right in FadeWrap, but leaves left and main untouched', () => {
     const { container } = render(
-      <DashboardLayout left={<div>Left</div>} main={<div className="stage-main">Main</div>} right={<div>Right</div>} fadeClass="fade-wrap fading trans-dusk" />
+      <DashboardLayout left={<div>Left</div>} main={<div className="stage-main">Main</div>} right={<div>Right</div>} fading transClass="dusk" />
     );
-    expect(screen.getByText('Left')).not.toHaveClass('fade-wrap');
     expect(screen.getByText('Left').parentElement).toBe(container.querySelector('.dashboard'));
-    expect(screen.getByText('Right').parentElement).toHaveClass('fade-wrap', 'fading', 'trans-dusk');
-    expect(container.querySelector('.stage-main')).not.toHaveClass('fade-wrap');
+    expect(container.querySelector('.stage-main').parentElement).toBe(container.querySelector('.dashboard'));
+
+    const rightWrapper = screen.getByText('Right').parentElement;
+    expect(rightWrapper).not.toBe(container.querySelector('.dashboard'));
+    expect(rightWrapper.parentElement).toBe(container.querySelector('.dashboard'));
   });
 });

@@ -261,55 +261,20 @@
         align-items: center;
         gap: 16px;
       }
-      /* The phase fade shares one mechanism (opacity + filter, debounced from
-   render() by the same setTimeout pattern) across every phase change, but
-   each destination phase tunes duration/filter to its own mood — dawn
-   quick and warm, dusk a little slower and dipping dark, the game's end
-   heavier still, a fresh reveal a bright quick flash. Plain opacity-only
-   for anything else (e.g. into the lobby).
-   This used to target .view itself, but the ring now lives permanently
-   outside the React tree that unmounts per phase (see App.jsx's portal),
-   and a parent's opacity can't be countermanded by a child's own CSS —
-   so .view keeps the fading/trans-* classes (the seat-sweep rules below
-   still key off them) but no longer applies opacity/filter itself.
-   .fade-wrap is the actual fade target now: each view wraps its own
-   narration in it, and DashboardLayout wraps left/right in it, leaving
-   the ring-slot as an unwrapped sibling that never fades. */
-      .view {
-        transition-property: opacity, filter;
-        transition-duration: 0.38s;
-        transition-timing-function: ease;
-      }
-      .fade-wrap {
-        transition-property: opacity, filter;
-        transition-duration: 0.38s;
-        transition-timing-function: ease;
-      }
-      .fade-wrap.fading {
-        opacity: 0;
-      }
-      .fade-wrap.trans-dawn.fading {
-        transition-duration: 0.28s;
-        filter: brightness(1.18) saturate(1.08);
-      }
-      .fade-wrap.trans-dusk.fading {
-        transition-duration: 0.46s;
-        filter: brightness(0.5);
-      }
-      .fade-wrap.trans-over.fading {
-        transition-duration: 0.56s;
-        filter: brightness(0.32) saturate(0.75);
-      }
-      .fade-wrap.trans-reveal.fading {
-        transition-duration: 0.3s;
-        filter: brightness(1.3);
-      }
-      @media (prefers-reduced-motion: reduce) {
-        .view,
-        .fade-wrap {
-          transition: none;
-        }
-      }
+      /* .view itself carries no visual fade of its own any more — only the
+   fading/trans-* classNAMES, kept purely so the seat-sweep rules further
+   below (.view.trans-dusk/dawn.fading .rseat, with their own separate
+   reduced-motion override there) can still match. The actual fade
+   (opacity + a phase-tuned filter: dawn quick and warm, dusk a little
+   slower and dipping dark, the game's end heavier still, a fresh reveal
+   a bright quick flash) is set inline per phase by each view's own
+   FadeWrap (framer-motion) now — GameStage's .game-stage-tabs,
+   DashboardLayout's right column, LobbyView's own browsing-mode
+   .stage-narration — never .view itself, since the ring lives permanently
+   outside the React tree that unmounts per phase (App.jsx's portal) and a
+   parent's opacity can't be countermanded by a child's own CSS anyway.
+   See FadeWrap.jsx for the actual duration/filter values and its own
+   reduced-motion handling — nothing left to declare here for either. */
       /* Reproduces .stage-main's own flex-column/gap for the narration
          content specifically — needed because that content is now wrapped
          in .fade-wrap (a real box, unlike .ring-slot) instead of sitting
@@ -2181,46 +2146,6 @@
         cursor: pointer;
       }
 
-      /* The game-over win-condition line — plain .narration styling, held
-   out of view until OverView.jsx flips .show a beat after mount, so the
-   one line every game's been building toward lands as a moment instead
-   of popping in flat the instant this view mounts. No banner box, no
-   "Good wins"/"Evil wins" label — the ring's border glow (see .ring.glow-
-   good/.glow-evil above) already says who won. */
-      .narration.reveal {
-        opacity: 0;
-        transform: translateY(14px) scale(0.96);
-      }
-      .narration.reveal.show {
-        animation: victory-reveal 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-      }
-      /* Same "flare/overshoot, then settle" character as .rseat's own
-   seat-dawn keyframe below — a small overshoot past the resting position
-   reads as real weight landing, not just a linear fade-up. */
-      @keyframes victory-reveal {
-        0% {
-          opacity: 0;
-          transform: translateY(14px) scale(0.96);
-        }
-        60% {
-          opacity: 1;
-          transform: translateY(-3px) scale(1.015);
-        }
-        100% {
-          opacity: 1;
-          transform: translateY(0) scale(1);
-        }
-      }
-      @media (prefers-reduced-motion: reduce) {
-        .narration.reveal {
-          opacity: 1;
-          transform: none;
-        }
-        .narration.reveal.show {
-          animation: none;
-        }
-      }
-
       /* The fatal blow that ends the game gets its own beat before the usual
    reveal fades in — a flat oxblood fill, not a gradient (a smooth radial
    over this much of the screen is exactly what banded on the TV before).
@@ -2325,11 +2250,12 @@
       }
 
       /* The MVP/Play-of-the-Game/game-winning-nomination cards — an
-   encore after .fatal-flash/.narration.reveal have already had their
-   moment (see useRevealCardSequencer.js), never shown at the same time
-   as either, hence the same z-index tier as .fatal-flash. Brass, not
-   oxblood/good-blue, deliberately: this isn't a verdict color, it's an
-   award-ceremony one, distinct from both teams' win colors. */
+   encore after .fatal-flash and the ring-glow/narration beat have
+   already had their moment (see useRevealCardSequencer.js), never shown
+   at the same time as either, hence the same z-index tier as
+   .fatal-flash. Brass, not oxblood/good-blue, deliberately: this isn't a
+   verdict color, it's an award-ceremony one, distinct from both teams'
+   win colors. */
       .reveal-card-scrim {
         position: fixed;
         inset: 0;
