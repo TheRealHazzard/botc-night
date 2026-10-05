@@ -2167,6 +2167,11 @@
         gap: 8px;
         pointer-events: none;
       }
+      /* Opacity/transform are set inline now by ToastStack.jsx's own
+   motion.div (framer-motion, AnimatePresence) — a real exit animation
+   that didn't exist before (a dismissed/expired toast just vanished
+   instantly; only the entrance had ever been animated). Nothing left to
+   declare here for either direction, just the static box styling. */
       .toast {
         pointer-events: auto;
         cursor: pointer;
@@ -2175,7 +2180,6 @@
         font-size: 0.92rem;
         line-height: 1.4;
         box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35);
-        animation: toast-in 0.22s ease-out;
         max-width: 640px;
         margin: 0 auto;
       }
@@ -2191,21 +2195,6 @@
         font-family: "Cormorant Garamond", Georgia, serif;
         font-size: 1.15rem;
         text-align: center;
-      }
-      @keyframes toast-in {
-        from {
-          opacity: 0;
-          transform: translateY(8px);
-        }
-        to {
-          opacity: 1;
-          transform: translateY(0);
-        }
-      }
-      @media (prefers-reduced-motion: reduce) {
-        .toast {
-          animation: none;
-        }
       }
       /* Opacity is set inline by FatalFlashOverlay.jsx's own motion.div
    (framer-motion) — nothing left to declare here for that, just the
@@ -2393,7 +2382,10 @@
    small centered card, not a full-bleed overlay like Settings/Power log
    below: this is a yes/no gate, not a screen of its own. z-index above
    every other overlay (45) since it can, in principle, be triggered from
-   the header regardless of what else is open. */
+   the header regardless of what else is open. Opacity/scale/transform are
+   set inline now by ConfirmModal.jsx's own two motion.div (framer-motion,
+   backdrop and card each animated separately) — nothing left to declare
+   for either here, just the static box styling. */
       .confirm-modal-backdrop {
         position: fixed;
         inset: 0;
@@ -2412,16 +2404,6 @@
         border-radius: 12px;
         padding: 24px 26px;
         box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
-      }
-      .confirm-modal-card.animate {
-        animation: confirm-modal-in 0.18s ease-out;
-      }
-      @keyframes confirm-modal-in {
-        from { opacity: 0; transform: scale(0.96) translateY(6px); }
-        to { opacity: 1; transform: scale(1) translateY(0); }
-      }
-      @media (prefers-reduced-motion: reduce) {
-        .confirm-modal-card.animate { animation: none; }
       }
       .confirm-modal-message {
         margin: 0 0 20px;

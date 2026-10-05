@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import { AnimatePresence } from "framer-motion";
 import { useHostState } from "./hooks/useHostState.js";
 import { useSoundEngine } from "./hooks/useSoundEngine.js";
 import { usePhaseFade } from "./hooks/usePhaseFade.js";
@@ -487,14 +488,21 @@ export default function App() {
         />
       )}
 
-      {pendingConfirm && (
-        <ConfirmModal
-          message={pendingConfirm.message}
-          confirmLabel={pendingConfirm.confirmLabel}
-          onConfirm={pendingConfirm.onConfirm}
-          onCancel={() => setPendingConfirm(null)}
-        />
-      )}
+      {/* AnimatePresence gives ConfirmModal's own exit (Cancel/Confirm)
+          a chance to actually play before it unmounts — a plain
+          conditional here would remove it from the DOM the instant
+          pendingConfirm clears, before any exit animation could run. */}
+      <AnimatePresence>
+        {pendingConfirm && (
+          <ConfirmModal
+            key="confirm-modal"
+            message={pendingConfirm.message}
+            confirmLabel={pendingConfirm.confirmLabel}
+            onConfirm={pendingConfirm.onConfirm}
+            onCancel={() => setPendingConfirm(null)}
+          />
+        )}
+      </AnimatePresence>
 
       {viewingReference && (
         <ReferenceOverlay onClose={() => setViewingReference(false)} />

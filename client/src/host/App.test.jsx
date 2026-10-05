@@ -515,7 +515,12 @@ describe("App", () => {
       expect(
         fetchMock.calls.some(c => c.url.includes("/api/table/deal")),
       ).toBe(false);
-      expect(screen.queryByRole("button", { name: "Cancel" })).not.toBeInTheDocument();
+      // AnimatePresence keeps the modal mounted through its own exit
+      // animation rather than removing it the instant pendingConfirm
+      // clears — waitFor gives that a moment to actually finish.
+      await vi.waitFor(() =>
+        expect(screen.queryByRole("button", { name: "Cancel" })).not.toBeInTheDocument()
+      );
     });
 
     it("Clear the lobby confirms, and only posts on accept", async () => {

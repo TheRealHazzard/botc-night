@@ -8,9 +8,9 @@ import { showToast } from '../../lib/toast.js';
 // confirms the host's own copy is wired to it correctly too, since a
 // wrong relative import path here would silently render nothing at all.
 describe('ToastStack (host)', () => {
-  it('renders nothing with no toasts shown', () => {
+  it('shows no toast content with none queued', () => {
     const { container } = render(<ToastStack />);
-    expect(container).toBeEmptyDOMElement();
+    expect(container.querySelectorAll('.toast').length).toBe(0);
   });
 
   it('renders a shown toast from the shared queue', () => {
