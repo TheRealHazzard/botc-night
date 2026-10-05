@@ -1854,6 +1854,7 @@
         margin-bottom: 14px;
       }
       .panel-tab {
+        position: relative;
         flex: 1;
         width: auto;
         margin: 0;
@@ -1863,6 +1864,7 @@
         border: 1px solid var(--line);
         color: var(--bone-dim);
         border-radius: 8px;
+        overflow: hidden;
       }
       .panel-tab:hover:not(:disabled) {
         color: var(--bone);
@@ -1871,7 +1873,21 @@
       .panel-tab.active {
         border-color: var(--brass);
         color: var(--brass);
+      }
+      /* The active tab's own highlighted background — a shared layoutId
+   element TabPanel.jsx's own motion.span tracks across whichever button
+   currently renders it, so switching tabs slides this rather than
+   teleporting a plain .active background class the way it used to.
+   z-index 0 so .panel-tab-label's own z-index 1 still paints on top. */
+      .panel-tab-pill {
+        position: absolute;
+        inset: 0;
         background: var(--surface-2);
+        z-index: 0;
+      }
+      .panel-tab-label {
+        position: relative;
+        z-index: 1;
       }
 
       button.ghost {
