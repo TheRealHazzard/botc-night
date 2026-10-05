@@ -1,7 +1,16 @@
+import { motion, useReducedMotion } from 'framer-motion';
 import Icon from './Icon.jsx';
 import Countdown from './Countdown.jsx';
 import VoteBar from './VoteBar.jsx';
 import { useEnteringSeatIds } from '../hooks/useEnteringSeatIds.js';
+
+// A spring instead of the old nomline-enter keyframe's fixed 0.5s
+// ease-out — same reasoning as RingSeat's own seat-enter conversion: a
+// nomination that just landed reads livelier with real overshoot than a
+// fixed-duration ease. Only ever plays on mount (never a replay later),
+// since NominationList keys each row by a stable id/name combo the same
+// way RingSeats keys each seat by the player's own id.
+const NOM_ENTER_TRANSITION = { type: 'spring', stiffness: 300, damping: 24 };
 
 // The presentational half of what used to be one NominationPanel — the
 // table's own eyes on today's nominations and the live vote tally. Who
@@ -15,6 +24,7 @@ export default function NominationList({ nominations, nightNumber, players, vote
 
   const nomKey = n => n.nominationId || `${n.nominatorName}-${n.nomineeName}-${n.day}`;
   const enteringKeys = useEnteringSeatIds(todays.map(nomKey));
+  const reduceMotion = useReducedMotion();
 
   return (
     <div className="nompanel">
@@ -39,15 +49,22 @@ export default function NominationList({ nominations, nightNumber, players, vote
             const met = n.closed && yesCount >= threshold;
             const status = n.closed ? `${yesCount} / ${threshold} yes` : 'voting…';
             const key = nomKey(n);
+            const entering = enteringKeys.has(key);
             return (
-              <div className={'nomline' + (enteringKeys.has(key) ? ' entering' : '')} key={key}>
+              <motion.div
+                className={'nomline' + (entering ? ' entering' : '')}
+                key={key}
+                initial={entering && !reduceMotion ? { opacity: 0, x: -8, backgroundColor: 'rgba(184, 134, 63, 0.28)' } : false}
+                animate={{ opacity: 1, x: 0, backgroundColor: 'rgba(184, 134, 63, 0)' }}
+                transition={NOM_ENTER_TRANSITION}
+              >
                 {n.virginFired && <Icon name="bolt" size={13} />}
                 <span>
                   {n.nominatorName} → {n.nomineeName} —{' '}
                   {n.closed ? <span className={'tally' + (met ? ' met' : '')}>{status}</span> : status}
                   {n.virginFired ? '  —  Virgin fired, nominator executed' : ''}
                 </span>
-              </div>
+              </motion.div>
             );
           })}
         </div>

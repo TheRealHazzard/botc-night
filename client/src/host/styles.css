@@ -1443,6 +1443,11 @@
    a different phase than the one the decision was made in. Persistent
    (no auto-fade) since it's meant to be read and dismissed, not glanced at
    like the beat. */
+      /* Opacity/transform are set inline now by WhimConfirmCard.jsx's own
+   motion.div (framer-motion, AnimatePresence) — a real exit ("Got it")
+   that didn't exist before, same gap RevealCardOverlay/ToastStack/
+   ConfirmModal all shared; nothing left to declare here for either
+   direction, just the static box styling. */
       .whim-confirm {
         position: fixed;
         right: 20px;
@@ -1454,7 +1459,6 @@
         border-radius: 8px;
         padding: 16px 18px;
         box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
-        animation: whim-confirm-in 0.25s ease-out;
       }
       .whim-confirm-head {
         display: flex;
@@ -1474,13 +1478,6 @@
       }
       .whim-confirm button {
         width: 100%;
-      }
-      @keyframes whim-confirm-in {
-        from { opacity: 0; transform: translateY(8px); }
-        to { opacity: 1; transform: translateY(0); }
-      }
-      @media (prefers-reduced-motion: reduce) {
-        .whim-confirm { animation: none; }
       }
 
       /* The Read — a nudge, not a timer: quiet by design (italic, no
@@ -2027,22 +2024,10 @@
       }
       /* A nomination that just landed gets one brief slide-and-flash so it
    reads as new, not just present — same "entering" convention a seat
-   joining the ring already uses. */
-      .nomline.entering {
-        animation: nomline-enter 0.5s ease-out;
-      }
-      @keyframes nomline-enter {
-        from {
-          opacity: 0;
-          transform: translateX(-8px);
-          background: rgba(184, 134, 63, 0.28);
-        }
-      }
-      @media (prefers-reduced-motion: reduce) {
-        .nomline.entering {
-          animation: none;
-        }
-      }
+   joining the ring already uses. Opacity/x/backgroundColor are set
+   inline now by NominationList.jsx's own motion.div (framer-motion, a
+   spring replacing the old fixed ease-out) — nothing left to declare
+   here for either. */
       .nomrow {
         display: flex;
         align-items: center;
@@ -2631,6 +2616,12 @@
    cover something to make it hard to read through. Keep both in sync
    with header's real height if that ever changes — same note as
    `.ring`'s and `.minor-beat`'s own. */
+      /* Opacity/transform are set inline now by ReferenceOverlay.jsx's own
+   two motion.div (framer-motion, AnimatePresence via App.jsx) — a real
+   slide-out exit that didn't exist before (closing used to just vanish
+   the drawer instantly; only the entrance had ever been animated).
+   Nothing left to declare here for either direction, just the static
+   box styling. */
       .slide-scrim {
         position: fixed;
         top: 77px;
@@ -2639,7 +2630,6 @@
         left: 0;
         z-index: 44;
         background: rgba(5, 3, 7, 0.6);
-        animation: slide-scrim-in 0.25s ease-out;
       }
       .slide-panel {
         position: fixed;
@@ -2651,7 +2641,6 @@
         display: flex;
         flex-direction: column;
         box-shadow: -24px 0 60px rgba(0, 0, 0, 0.55);
-        animation: slide-panel-in 0.3s cubic-bezier(0.16, 1, 0.3, 1);
       }
       /* The reused overlay components (GameHistoryOverlay etc.) each
    still render their own full-viewport .settings-overlay internally,
@@ -2663,18 +2652,6 @@
         position: static;
         inset: auto;
         height: 100%;
-      }
-      @keyframes slide-panel-in {
-        from { transform: translateX(100%); }
-      }
-      @keyframes slide-scrim-in {
-        from { opacity: 0; }
-      }
-      @media (prefers-reduced-motion: reduce) {
-        .slide-panel,
-        .slide-scrim {
-          animation: none;
-        }
       }
 
       /* ----------------------------------------------------------- settings */

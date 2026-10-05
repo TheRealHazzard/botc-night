@@ -1,9 +1,14 @@
 import { useState } from 'react';
+import { motion } from 'framer-motion';
+import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion.js';
 import Icon from './Icon.jsx';
 import GameHistoryOverlay from './GameHistoryOverlay.jsx';
 import HallOfFameOverlay from './HallOfFameOverlay.jsx';
 import CharactersOverlay from './CharactersOverlay.jsx';
 import JinxesOverlay from './JinxesOverlay.jsx';
+
+const SCRIM_TRANSITION = { duration: 0.25, ease: 'easeOut' };
+const PANEL_TRANSITION = { duration: 0.3, ease: [0.16, 1, 0.3, 1] };
 
 // What used to be 4 separate header buttons (History/Hall of
 // Fame/Characters/Jinxes — one more added for each of several sessions in
@@ -23,6 +28,7 @@ const ITEMS = [
 
 export default function ReferenceOverlay({ onClose }) {
   const [view, setView] = useState('menu');
+  const reduceMotion = usePrefersReducedMotion();
 
   // Each reused overlay's own "Close" now exits the whole Reference drawer
   // (onClose), not just this picker menu — there's no separate "back to
@@ -69,10 +75,32 @@ export default function ReferenceOverlay({ onClose }) {
   // one inside .slide-panel is what turns it from a fixed, full-viewport
   // box into this panel's own normal content area — see that CSS rule's
   // own comment.
+  //
+  // Both motion.div below rely on App.jsx wrapping {viewingReference &&
+  // <ReferenceOverlay/>} in its own <AnimatePresence> — without an
+  // AnimatePresence ancestor managing the unmount, `exit` is simply
+  // never read and this still renders (and closes) identically to
+  // before, just without the slide-out; the entrance (initial->animate)
+  // works regardless either way.
   return (
     <>
-      <div className="slide-scrim" onClick={onClose} />
-      <div className="slide-panel">{content}</div>
+      <motion.div
+        className="slide-scrim"
+        onClick={onClose}
+        initial={reduceMotion ? false : { opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={reduceMotion ? undefined : { opacity: 0 }}
+        transition={reduceMotion ? { duration: 0 } : SCRIM_TRANSITION}
+      />
+      <motion.div
+        className="slide-panel"
+        initial={reduceMotion ? false : { x: '100%' }}
+        animate={{ x: 0 }}
+        exit={reduceMotion ? undefined : { x: '100%' }}
+        transition={reduceMotion ? { duration: 0 } : PANEL_TRANSITION}
+      >
+        {content}
+      </motion.div>
     </>
   );
 }

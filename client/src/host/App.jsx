@@ -504,9 +504,11 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      {viewingReference && (
-        <ReferenceOverlay onClose={() => setViewingReference(false)} />
-      )}
+      <AnimatePresence>
+        {viewingReference && (
+          <ReferenceOverlay key="reference-overlay" onClose={() => setViewingReference(false)} />
+        )}
+      </AnimatePresence>
 
       {viewingSimulate && (
         <SimulateOverlay
