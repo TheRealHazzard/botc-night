@@ -17,7 +17,6 @@ import { useWakeLock } from "../hooks/useWakeLock.js";
 import { useTextScale } from "../hooks/useTextScale.js";
 import { post } from "../lib/api.js";
 import { showToast } from "../lib/toast.js";
-import { useWhimConfirm } from "./hooks/useWhimConfirm.js";
 import { useHostAnnouncement } from "./hooks/useHostAnnouncement.js";
 import { useBluffBeat } from "../hooks/useBluffBeat.js";
 import Header from "./components/Header.jsx";
@@ -25,7 +24,6 @@ import RingSeats from "./components/RingSeats.jsx";
 import ReclaimBanner from "./components/ReclaimBanner.jsx";
 import FatalFlashOverlay from "./components/FatalFlashOverlay.jsx";
 import RevealCardOverlay from "./components/RevealCardOverlay.jsx";
-import WhimConfirmCard from "./components/WhimConfirmCard.jsx";
 import ToastStack from "./components/ToastStack.jsx";
 import BluffBeat from "../components/BluffBeat.jsx";
 import SettingsOverlay from "./components/SettingsOverlay.jsx";
@@ -62,7 +60,6 @@ export default function App() {
   const fullscreen = useFullscreen();
   const scripts = useScripts();
   const scriptChars = useScriptRoster(displayS?.script);
-  const { card: whimCard, dismiss: dismissWhimCard } = useWhimConfirm(displayS?.whimConfirmations);
   const bluffBeat = useBluffBeat(displayS?.bluffBeatAt);
   // Off raw S, not displayS — an accessibility announcement should fire
   // the moment the real state changes, not wait on usePhaseFade's own
@@ -458,7 +455,6 @@ export default function App() {
         <RevealCardOverlay cards={revealCards} onDone={finishRevealCards} />
       )}
 
-      <WhimConfirmCard card={whimCard} onDismiss={dismissWhimCard} />
       <BluffBeat active={bluffBeat} />
 
       {settingsOpen && displayS.config && (

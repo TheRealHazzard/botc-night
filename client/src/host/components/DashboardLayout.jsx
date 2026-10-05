@@ -28,10 +28,10 @@ export default function DashboardLayout({ left, main, right, fading, transClass 
   // Wider cap than the left column's own 400px — this is the one other
   // caller of ScriptRosterCard's .roster-grid (fixed 84px tokens, see
   // that grid's own comment in styles.css), and 400px only ever fit 3
-  // columns of those before a short row forced extra scrolling. 460px
+  // columns of those before a short row forced extra scrolling. 540px
   // matches the Characters tab's own already-tuned .game-stage-tabs
-  // width, which reliably fits 4.
-  if (right) cols.push('minmax(300px,460px)');
+  // width, which reliably fits 5.
+  if (right) cols.push('minmax(300px,540px)');
 
   return (
     <div className="dashboard" style={{ gridTemplateColumns: cols.join(' ') }}>

@@ -67,14 +67,20 @@ flat rate.
 
 - **The Confirm**: whenever the game is close enough that a whim decision
   could plausibly matter (`alive(g).length <= 5`), `resolveWhim` also calls
-  `logWhimConfirm` — a host-facing, advisory-only record (`g.whimConfirmations`)
-  of what was decided and why. Advisory only, deliberately: by the time a
-  night's results reach the host, players may already have seen the
-  consequence, so there's no reversal, just transparency. `kind` and
-  `reason` can each name a character, so `publicState()` withholds those
-  two fields until `g.revealed` — same "the Storyteller stays blind until
-  reveal" principle as everywhere else, but *not* resultsLog/actionLog's
-  all-or-nothing gate, since this needs to stay usable live.
+  `logWhimConfirm` — an advisory-only record (`g.whimConfirmations`) of
+  what was decided and why. Advisory only, deliberately: by the time a
+  night's results reach anyone, players may already have seen the
+  consequence, so there's no reversal, just transparency. Originally shown
+  live on the TV screen (a WhimConfirmCard, "host-facing" on the theory
+  that the host screen was somehow distinct from what the table watches) —
+  retired from live display entirely once that theory didn't hold up in
+  practice: `/host` *is* the shared table display, so showing a borderline
+  judgment call's reasoning there leaked exactly the kind of mid-game
+  information this whole redaction scheme exists to prevent. `kind` and
+  `reason` still withhold until `g.revealed` in `publicState()` (same "the
+  Storyteller stays blind until reveal" principle as everywhere else), but
+  the only place any of it is ever actually shown now is Game History's
+  post-game "Storyteller's calls" panel, after a game has already ended.
 - **The Mercy** (`maybeMercy` in `helpers.js`): at most once a game, only
   when good is clearly losing (more evil alive than good), quietly lets one
   impaired good player's info come through right instead of guaranteed-

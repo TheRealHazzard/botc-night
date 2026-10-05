@@ -1436,50 +1436,6 @@
         }
       }
 
-      /* The Confirm — a stronger, harder-to-miss sibling of .whim-beat,
-   reserved for the rarer case where the game is close enough that the call
-   plausibly mattered. Fixed and view-agnostic (rendered from App.jsx, not
-   any one phase view) because the state carrying it can arrive already on
-   a different phase than the one the decision was made in. Persistent
-   (no auto-fade) since it's meant to be read and dismissed, not glanced at
-   like the beat. */
-      /* Opacity/transform are set inline now by WhimConfirmCard.jsx's own
-   motion.div (framer-motion, AnimatePresence) — a real exit ("Got it")
-   that didn't exist before, same gap RevealCardOverlay/ToastStack/
-   ConfirmModal all shared; nothing left to declare here for either
-   direction, just the static box styling. */
-      .whim-confirm {
-        position: fixed;
-        right: 20px;
-        bottom: 20px;
-        z-index: 40;
-        width: min(340px, calc(100vw - 40px));
-        background: var(--surface);
-        border: 1px solid var(--brass);
-        border-radius: 8px;
-        padding: 16px 18px;
-        box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
-      }
-      .whim-confirm-head {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        color: var(--brass);
-        font-size: 0.78rem;
-        text-transform: uppercase;
-        letter-spacing: 0.08em;
-        margin-bottom: 8px;
-      }
-      .whim-confirm p {
-        margin: 0 0 12px;
-        font-size: 0.92rem;
-        color: var(--bone);
-        line-height: 1.4;
-      }
-      .whim-confirm button {
-        width: 100%;
-      }
-
       /* The Read — a nudge, not a timer: quiet by design (italic, no
    border, no background) so it reads as a suggestion easy to keep ignoring,
    the same way .whim-beat does. The "pressure" escalation drops the italic
@@ -1645,17 +1601,14 @@
         overflow: hidden;
         height: 100%;
       }
-      /* Widened from the original 340px — at that width the Characters
-   tab's roster-grid (.roster-grid, auto-fill minmax(72px,1fr)) only fit
-   3 columns, stacking a ~22-character script into 10+ rows tall enough
-   to force scrolling even on a full-height panel. More width lets that
-   grid auto-fill 5-6 columns instead, which is what actually buys back
-   the vertical room — overflow-y:auto stays as the backstop for scripts
-   or window heights where it still doesn't quite fit, not the design
-   target. */
+      /* Widened twice now (340px -> 460px -> 540px) — each time because a
+   host screen genuinely felt cramped running a real game (several
+   sidepanel-cards stacked deep during Day especially), not just to fit
+   the roster grid below; see that grid's own comment for the column-count
+   side of this same width. */
       .game-stage-tabs {
-        flex: 0 0 460px;
-        max-width: 460px;
+        flex: 0 0 540px;
+        max-width: 540px;
         align-self: stretch;
         min-height: 0;
         overflow-y: auto;
@@ -1720,23 +1673,21 @@
       }
       /* Fixed-size 84px columns via auto-fill, not auto-fill's old
    minmax(72px,1fr) or a hardcoded repeat(4,1fr) (tried both). minmax(…,1fr)
-   stretched tokens to fill whatever column width existed: at
-   .game-stage-tabs' widened 460px that meant 5-6 small columns, leaving
-   real unused height below a short roster instead of using the space a
-   wider panel bought back; a hardcoded 4 columns fixed that there but
-   then overflowed its *other* caller — ScriptBrowseRoster reuses this
-   same grid inside DashboardLayout's right column (see that file), whose
-   cap was later widened to match this one's 460px specifically so 4
-   columns fit there too, but whose minmax() floor can still shrink it
-   to 300px on a cramped viewport, where 4 forced columns of a now-fixed
-   84px token would spill past the panel edge. Fixed-size auto-fill
-   columns solve both at once: however many 84px tracks actually fit is
-   how many show up — 4 at both callers' usual width, fewer only if a
-   caller's own column genuinely shrinks that far — with nothing forced
-   and nothing overflowing either way.
+   stretched tokens to fill whatever column width existed, which varied by
+   caller in a way that fought a fixed column count either way; a hardcoded
+   count fixed one caller's fit while overflowing or under-filling the
+   other. ScriptBrowseRoster reuses this same grid inside DashboardLayout's
+   right column (see that file), whose cap is kept matching this one's own
+   .game-stage-tabs width deliberately, but whose minmax() floor can still
+   shrink it to 300px on a cramped viewport, where a hardcoded column count
+   sized for the usual width would spill past the panel edge. Fixed-size
+   auto-fill columns solve both at once: however many 84px tracks actually
+   fit is how many show up — 5 at both callers' usual (540px) width, fewer
+   only if a caller's own column genuinely shrinks that far — with nothing
+   forced and nothing overflowing either way.
    justify-content:center (not the default start) keeps a short last row
    centered rather than hugging the left edge, and matters more now that
-   the column count itself varies by caller instead of always being 4. */
+   the column count itself varies by caller instead of always being fixed. */
       .roster-grid {
         display: grid;
         grid-template-columns: repeat(auto-fill, 84px);
@@ -2324,7 +2275,7 @@
    owns the whole lifetime (mount-to-unmount), so one keyframe covers
    fade-in/hold/fade-out rather than a separate .show class.
 
-   `right: 460px`, not a plain inset:0 — this centers over the ring's own
+   `right: 540px`, not a plain inset:0 — this centers over the ring's own
    area (.game-ring-zone), not the full viewport. Those used to coincide
    closely enough not to matter, back when the narration panel balanced
    .game-stage-tabs on the other side; with that panel gone, the ring's
@@ -2338,7 +2289,7 @@
         position: fixed;
         top: 0;
         left: 0;
-        right: 460px;
+        right: 540px;
         bottom: 0;
         z-index: 40;
         display: flex;

@@ -5,8 +5,10 @@ const EDITION_NAMES = { tb: 'Trouble Brewing', bmr: 'Bad Moon Rising', sv: 'Sect
 
 // Matches the kind strings resolveWhim()'s callers pass as ctx.kind (see
 // WHIM_SYSTEM in server.js) — human labels for the same four judgment
-// calls the live WhimConfirmCard already names, just read back here from
-// the persisted record instead of a live SSE push.
+// calls, read back here from the persisted record. The only place any of
+// this reasoning is ever shown — see WhimCallsPanel below, post-game only,
+// a table never sees it live (the TV screen's own WhimConfirmCard, which
+// did show it live, was retired for exactly that reason).
 const WHIM_KIND_LABELS = {
   'mayor-redirect': 'Mayor redirect',
   'registration-ambiguity': 'Misregistration',
