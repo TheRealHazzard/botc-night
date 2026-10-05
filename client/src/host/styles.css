@@ -535,7 +535,7 @@
    swapping one for another restarts the newly-applied class's animation
    the same way a fresh glow-good/glow-evil mount does. */
       .ring.pace-green::before {
-        border-color: #5c9c68;
+        border-color: var(--sage);
         animation: ring-pace-green 1.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
       }
       .ring.pace-yellow::before {
@@ -3160,7 +3160,7 @@
         margin-top: 6px;
       }
       .llm-status.ok {
-        color: var(--verdigris, #6b9b7c);
+        color: #6b9b7c;
       }
       .llm-status.off {
         color: var(--bone-dim);
@@ -4040,7 +4040,7 @@
       }
       .sim-llmcall-badge.ok {
         background: rgba(92, 156, 104, 0.2);
-        color: #5c9c68;
+        color: var(--sage);
       }
       .sim-llmcall-badge.fail {
         background: rgba(169, 44, 47, 0.2);

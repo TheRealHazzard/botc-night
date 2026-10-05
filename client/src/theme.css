@@ -30,6 +30,13 @@
   --good:#5c86ab;
   --good-hi:#7aa0c2;
   --violet:#5b3f80;
+  /* Muted success green — day-pace's own "plenty of time left" state and
+     an LLM call that actually succeeded, both host-only so far. Not named
+     after either specific use (same reasoning --oxblood/--brass are named
+     for the color itself, not a role) since nothing says a third, unrelated
+     "this went fine" indicator won't want it too. Was three literal
+     #5c9c68s with nothing tying them together before this. */
+  --sage:#5c9c68;
   /* Near-white text for a saturated oxblood/primary-colored surface
      (a toast, a fatal-flash flood, a primary button) — previously two
      different hardcoded hex values (#fff2e8 and #fff8ef) doing the exact
