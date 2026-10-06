@@ -79,7 +79,7 @@ export default function DayView({ players, nightNumber, deaths, nominations, con
             </div>
           </SidepanelCard>
           <NarratorLogCard />
-          {anyOpen && <TriviaLine scriptId={script} compact />}
+          {anyOpen && <TriviaLine scriptId={script} />}
         </>
       ),
     },

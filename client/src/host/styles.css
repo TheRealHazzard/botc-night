@@ -842,24 +842,6 @@
         height: 100%;
         display: block;
       }
-      /* The lobby's own trivia sits inside the Join Here card, not the wide
-   center stage Day/Night use it in — the bordered "wiki fact" callout
-   reads as a second nested panel in a card this narrow, so it drops the
-   border/background here and just sits as quiet, centered caption text. */
-      .trivia.compact {
-        border-left: none;
-        background: transparent;
-        border-radius: 0;
-        padding: 0;
-        max-width: 100%;
-        text-align: center;
-        justify-content: center;
-        font-size: 0.88rem;
-      }
-      .trivia.compact .icon {
-        margin-top: 0;
-      }
-
       /* The left dashboard panel's script-selector state — a plain list,
    embedded in the sidepanel rather than a wide modal column, so it fills
    whatever width the panel has rather than a fixed 320px. Height-capped
@@ -1337,33 +1319,56 @@
         font-style: normal;
       }
 
-      /* Deliberately not styled like .hint above — a wiki fact is a curiosity for
-   idle hands, not a Storyteller's dread-toned warning, so it gets brass
-   instead of oxblood and no italic urgency. */
-      .trivia {
+      /* A small trading-card shape — a bold title bar over a bordered
+   body — adapted from a CodePen design a human found
+   (codepen.io/simeydotme/pen/abYWJdX) into this app's dark/brass
+   palette; just the card shape, not that pen's own side action-button
+   bar, which had nothing to attach to here. Deliberately not styled
+   like .hint above — a wiki fact is a curiosity for idle hands, not a
+   Storyteller's dread-toned warning, so it gets brass instead of
+   oxblood and no italic urgency. One shape everywhere this renders now
+   (Lobby's Join Here card, Night/Day's own Controls tab) — no more
+   compact/non-compact split; every real call site already used the
+   same narrow-column treatment, so there was nothing left for a second
+   variant to actually serve. */
+      .trivia-card {
+        border: 1px solid var(--brass);
+        border-radius: 8px;
+        overflow: hidden;
+        flex-shrink: 0;
+        max-width: 100%;
+      }
+      .trivia-card-title {
+        font-family: "Cinzel Decorative", Georgia, serif;
+        font-size: 0.78rem;
+        text-align: center;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--brass);
+        background: var(--surface-2);
+        padding: 8px 14px;
+        border-bottom: 1px solid var(--brass);
+      }
+      .trivia-card-body {
         display: flex;
         align-items: flex-start;
-        gap: 10px;
-        border-left: 2px solid var(--brass);
-        padding: 12px 20px;
-        max-width: 52ch;
-        color: var(--bone-dim);
-        font-size: 0.95rem;
-        text-align: left;
+        gap: 8px;
+        padding: 12px 16px;
         background: var(--surface);
-        flex-shrink: 0;
-        border-radius: 0 8px 8px 0;
+        color: var(--bone-dim);
+        font-size: 0.92rem;
+        text-align: left;
       }
-      .trivia .icon {
-        width: 16px;
-        height: 16px;
+      .trivia-card-body .icon {
+        width: 15px;
+        height: 15px;
         margin-top: 2px;
         color: var(--brass);
         flex-shrink: 0;
       }
 
       /* Deliberately the quietest cue on the whole stage — a felt aside, not
-   a warning (.hint, oxblood) or a curiosity (.trivia, brass). Mounts only
+   a warning (.hint, oxblood) or a curiosity (.trivia-card, brass). Mounts only
    for the few seconds useWhimBeat() reports true, so the fade is a plain
    keyframe rather than a mount/unmount transition. */
       .whim-beat {

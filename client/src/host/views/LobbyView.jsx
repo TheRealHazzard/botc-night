@@ -93,7 +93,7 @@ export default function LobbyView({ players, script, scripts, setupRatio, browsi
               ) : (
                 <div className="sub">Open that address on your phone to take a seat.</div>
               )}
-              <TriviaLine scriptId={script} compact />
+              <TriviaLine scriptId={script} />
             </div>
           </SidepanelCard>
           <AddBotsCard room={room} />

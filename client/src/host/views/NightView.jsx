@@ -47,7 +47,7 @@ export default function NightView({ players, nightNumber, windowEndsAt, windowTo
             <div className="sub">{acted} of {living} have answered.</div>
           </SidepanelCard>
           <NarratorLogCard />
-          <TriviaLine scriptId={script} compact />
+          <TriviaLine scriptId={script} />
         </>
       ),
     },

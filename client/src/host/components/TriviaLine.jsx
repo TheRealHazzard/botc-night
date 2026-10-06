@@ -14,8 +14,16 @@ import Icon from './Icon.jsx';
     synchronously during render whenever it's no longer valid for the
     current `trivia`/`scriptId` — an officially-supported React pattern
     for state that needs to react to a prop change without waiting for an
-    effect+extra paint. */
-export default function TriviaLine({ scriptId, compact }) {
+    effect+extra paint.
+
+    One card shape everywhere now, no `compact` variant — every real call
+    site already used it, the plain bordered-callout version was dead CSS
+    nothing actually rendered. Card styling (a bold title bar over a
+    bordered body) adapted from a trading-card design the project's own
+    human found on CodePen (codepen.io/simeydotme/pen/abYWJdX), translated
+    into this app's dark/brass palette — just the card shape, not that
+    pen's own side action-button bar, which had no real use here. */
+export default function TriviaLine({ scriptId }) {
   const trivia = useTrivia();
   const eligible = eligibleTrivia(trivia, scriptId);
   const [fact, setFact] = useState(null);
@@ -38,9 +46,12 @@ export default function TriviaLine({ scriptId, compact }) {
   if (!fact) return null;
 
   return (
-    <div className={'trivia' + (compact ? ' compact' : '')}>
-      <Icon name="bulb" size={15} />
-      <span>{fact}</span>
+    <div className="trivia-card">
+      <div className="trivia-card-title">Did you know</div>
+      <div className="trivia-card-body">
+        <Icon name="bulb" size={15} />
+        <span>{fact}</span>
+      </div>
     </div>
   );
 }
