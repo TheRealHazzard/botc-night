@@ -1366,6 +1366,19 @@
         color: var(--brass);
         flex-shrink: 0;
       }
+      /* A real character token in place of the plain bulb, when the fact
+   actually names one (TriviaLine.jsx's own entry.character) and its art
+   exists on this machine — sized well past the icon's own 15px since a
+   portrait that small reads as a blur, not a recognizable character. */
+      .trivia-card-token {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 1px solid var(--brass);
+        background: var(--surface-2);
+        flex-shrink: 0;
+      }
 
       /* Deliberately the quietest cue on the whole stage — a felt aside, not
    a warning (.hint, oxblood) or a curiosity (.trivia-card, brass). Mounts only

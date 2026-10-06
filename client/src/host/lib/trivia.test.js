@@ -21,14 +21,15 @@ describe('rollTrivia', () => {
     expect(rollTrivia([], 'x')).toBeNull();
   });
 
-  it('returns the only fact when the pool has exactly one', () => {
-    expect(rollTrivia([{ fact: 'only' }], null)).toBe('only');
+  it('returns the whole entry (not just .fact) when the pool has exactly one', () => {
+    const entry = { fact: 'only', character: 'imp' };
+    expect(rollTrivia([entry], null)).toBe(entry);
   });
 
-  it('picks a different fact than `avoid` given a real random source, over many draws', () => {
+  it('picks a different fact than `avoidFact` given a real random source, over many draws', () => {
     const pool = [{ fact: 'a' }, { fact: 'b' }];
     for (let i = 0; i < 50; i++) {
-      expect(rollTrivia(pool, 'a')).toBe('b');
+      expect(rollTrivia(pool, 'a').fact).toBe('b');
     }
   });
 });
