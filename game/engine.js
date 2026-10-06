@@ -1435,6 +1435,26 @@ function gameSummary(g) {
 
   const dead = g.players.filter(p => !p.alive);
 
+  // Earliest entry in g.deaths is the earliest death chronologically —
+  // every push site across engine.js/server.js adds to it in the order
+  // deaths actually happen, night-then-day, never reordered after the
+  // fact. Skips a bot's death for the same reason longestSurvivingEvil
+  // skips bots below: filling an empty seat isn't anyone's real moment.
+  const firstDeath = g.deaths.find(d => {
+    const p = g.players.find(pl => pl.name === d.name);
+    return !p || !p.bot;
+  }) || null;
+
+  // Ties keep whichever nominee's count reached the max first — nomCounts
+  // is built in nomination order, so that's also insertion order.
+  const nomCounts = {};
+  closedNoms.forEach(n => { nomCounts[n.nomineeId] = (nomCounts[n.nomineeId] || 0) + 1; });
+  let mostNominated = null, mostNominatedCount = 0;
+  Object.entries(nomCounts).forEach(([id, count]) => {
+    if (count > mostNominatedCount) { mostNominatedCount = count; mostNominated = id; }
+  });
+  const mostNominatedPlayer = mostNominated ? byId(g, mostNominated) : null;
+
   let longestSurvivingEvil = null;
   // !p.bot — a bot seat filling out the table (/api/table/add-bots) is
   // nobody's actual achievement to be credited with; without this, a bot
@@ -1458,6 +1478,8 @@ function gameSummary(g) {
     ghostVotesUsed: dead.filter(p => p.ghostVoteUsed).length,
     ghostVotesEligible: dead.length,
     longestSurvivingEvil,
+    firstToDie: firstDeath ? { name: firstDeath.name, night: firstDeath.night, phase: firstDeath.phase || 'night' } : null,
+    mostNominated: mostNominatedPlayer ? { name: mostNominatedPlayer.name, count: mostNominatedCount } : null,
   };
 }
 

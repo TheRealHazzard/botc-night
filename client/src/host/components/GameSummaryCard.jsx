@@ -9,11 +9,19 @@ export default function GameSummaryCard({ gs }) {
     ? `${survivor.name}${survivor.survived ? ' — made it' : ' — fell N' + survivor.night}`
     : '—';
 
+  const first = gs.firstToDie;
+  const firstText = first ? `${first.name} — ${first.phase === 'day' ? 'Day' : 'Night'} ${first.night}` : '—';
+
+  const nominated = gs.mostNominated;
+  const nominatedText = nominated ? `${nominated.name} (${nominated.count})` : '—';
+
   const stats = [
     ['Nominations', String(gs.nominations), true],
     ['Town accuracy', gs.voteAccuracy == null ? '—' : Math.round(gs.voteAccuracy * 100) + '%', true],
     ['Ghost votes used', `${gs.ghostVotesUsed} / ${gs.ghostVotesEligible}`, true],
     ['Longest-lived evil', survivorText, false],
+    ['First to die', firstText, false],
+    ['Most nominated', nominatedText, false],
   ];
 
   return (
