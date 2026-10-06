@@ -2405,11 +2405,20 @@
    set inline now by ConfirmModal.jsx's own two motion.div (framer-motion,
    backdrop and card each animated separately) — nothing left to declare
    for either here, just the static box styling. */
+      /* backdrop-filter, not another CSS trick, specifically because this
+   scrim is translucent (the live game stays visibly dimmed behind it) —
+   unlike .settings-overlay elsewhere, which is fully opaque and would
+   show nothing for a blur to actually blur. This is the one place in
+   the whole cinematic pass with a real, unverified GPU cost (see the
+   plan doc's own risk note) — kept to a modest 6px specifically so it's
+   cheap to drop back to 0 if it stutters on real hardware. */
       .confirm-modal-backdrop {
         position: fixed;
         inset: 0;
         z-index: 60;
         background: rgba(0, 0, 0, 0.6);
+        backdrop-filter: blur(6px);
+        -webkit-backdrop-filter: blur(6px);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -2656,6 +2665,9 @@
    the drawer instantly; only the entrance had ever been animated).
    Nothing left to declare here for either direction, just the static
    box styling. */
+      /* Same reasoning as .confirm-modal-backdrop's own backdrop-filter,
+   just above — translucent, so there's actually something behind it to
+   blur, and kept to the same modest 6px for the same GPU-cost caution. */
       .slide-scrim {
         position: fixed;
         top: 77px;
@@ -2664,6 +2676,8 @@
         left: 0;
         z-index: 44;
         background: rgba(5, 3, 7, 0.6);
+        backdrop-filter: blur(6px);
+        -webkit-backdrop-filter: blur(6px);
       }
       .slide-panel {
         position: fixed;
