@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import GameStage from '../components/GameStage.jsx';
 import GameSummaryCard from '../components/GameSummaryCard.jsx';
+import PivotalMomentsCard from '../components/PivotalMomentsCard.jsx';
 import SidepanelCard from '../components/SidepanelCard.jsx';
 import NarratorLogCard from '../components/NarratorLogCard.jsx';
 import SessionStatsCard from '../components/SessionStatsCard.jsx';
@@ -41,6 +42,7 @@ export default function OverView({ players, victory, gameSummary, pivotalHighlig
       content: (
         <>
           {gameSummary && <GameSummaryCard gs={gameSummary} />}
+          <PivotalMomentsCard players={players} pivotalHighlights={pivotalHighlights} />
           <SidepanelCard icon="scroll" title="What actually happened">
             <div className="log">
               {log.map((l, i) => <p key={i}>{logLabel(l)}{l.text}</p>)}

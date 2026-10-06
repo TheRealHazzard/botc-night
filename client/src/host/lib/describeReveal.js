@@ -78,3 +78,54 @@ export function describeGameWinningNomination(nom, { nominatorName, nomineeName 
     body: `${nomineeName} was executed on night ${nom.night} — the nomination that decided the game.`,
   };
 }
+
+// ID-resolution helpers shared by every consumer of pivotalScoring.js's
+// raw {playerId, targetId, ...} shape (useRevealCardSequencer.js,
+// SessionShareCard.jsx, PivotalMomentsCard.jsx) — kept here rather than
+// copied into each, same reasoning as the describe* functions above.
+export function nameFor(players, id) {
+  const p = (players || []).find(x => x.id === id);
+  return p ? p.name : 'Someone';
+}
+export function characterFor(players, id) {
+  const p = (players || []).find(x => x.id === id);
+  return p ? p.character : null;
+}
+export function namesFor(players, event) {
+  return {
+    playerName: nameFor(players, event.playerId),
+    targetName: event.targetId ? nameFor(players, event.targetId) : undefined,
+  };
+}
+
+/** Builds the ordered, filtered reveal-card list from a finished game's
+    pivotalHighlights — Play of the Game, then the game-winning
+    nomination, then MVP (moment, then resolution, then credit — ending
+    on the trophy card). Any null field is simply left out; an empty
+    result means this game had no candidate events at all, and the
+    caller never shows anything for it. Shared by the transient
+    RevealCardOverlay sequence (useRevealCardSequencer.js) and the
+    persistent Summary-tab recap (PivotalMomentsCard.jsx) — one place
+    that turns pivotalHighlights into the same ordered card list either
+    way. */
+export function buildRevealCards(pivotalHighlights, players) {
+  if (!pivotalHighlights) return [];
+  const cards = [];
+
+  if (pivotalHighlights.playOfTheGame) {
+    cards.push(describePlayOfTheGame(pivotalHighlights.playOfTheGame, namesFor(players, pivotalHighlights.playOfTheGame)));
+  }
+  if (pivotalHighlights.gameWinningNomination) {
+    const nom = pivotalHighlights.gameWinningNomination;
+    cards.push(describeGameWinningNomination(nom, {
+      nominatorName: nameFor(players, nom.nominatorId),
+      nomineeName: nameFor(players, nom.nomineeId),
+    }));
+  }
+  if (pivotalHighlights.mvp) {
+    const mvpNames = { playerName: nameFor(players, pivotalHighlights.mvp.playerId), characterName: characterFor(players, pivotalHighlights.mvp.playerId) };
+    const topNames = pivotalHighlights.mvp.topEvent ? namesFor(players, pivotalHighlights.mvp.topEvent) : {};
+    cards.push(describeMvp(pivotalHighlights.mvp, mvpNames, topNames));
+  }
+  return cards;
+}

@@ -1,17 +1,5 @@
-import { describePlayOfTheGame, describeMvp } from '../lib/describeReveal.js';
+import { describePlayOfTheGame, describeMvp, nameFor, characterFor, namesFor } from '../lib/describeReveal.js';
 import Icon from './Icon.jsx';
-
-function nameFor(players, id) {
-  const p = (players || []).find(x => x.id === id);
-  return p ? p.name : 'Someone';
-}
-function characterFor(players, id) {
-  const p = (players || []).find(x => x.id === id);
-  return p ? p.character : null;
-}
-function namesFor(players, event) {
-  return { playerName: nameFor(players, event.playerId), targetName: event.targetId ? nameFor(players, event.targetId) : undefined };
-}
 
 /** Purely presentational — same "renders from a plain data object, fetches
     nothing itself" shape as GameSummaryCard.jsx/RevealCardOverlay.jsx's

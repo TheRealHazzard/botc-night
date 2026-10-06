@@ -1792,6 +1792,36 @@
         flex-direction: column;
         gap: 12px;
       }
+      /* PivotalMomentsCard's persistent Summary-tab recap — same icon+title+
+   body shape as SessionShareCard's own .share-card-highlight (both built
+   from the same buildRevealCards list), kept as its own class because
+   this one lives inside a plain .sidepanel-card, not the share-card's
+   rendered-to-PNG surface. */
+      .pivotal-list {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+      .pivotal-item {
+        display: flex;
+        gap: 10px;
+        align-items: flex-start;
+      }
+      .pivotal-item .icon {
+        flex: none;
+        color: var(--brass);
+        margin-top: 2px;
+      }
+      .pivotal-item-title {
+        font-weight: 600;
+        font-size: 0.9rem;
+        color: var(--bone);
+      }
+      .pivotal-item-body {
+        font-size: 0.85rem;
+        color: var(--bone-dim);
+        line-height: 1.4;
+      }
       .sidepanel-title {
         font-size: 0.68rem;
         text-transform: uppercase;

@@ -1,55 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { describePlayOfTheGame, describeMvp, describeGameWinningNomination } from '../lib/describeReveal.js';
+import { buildRevealCards } from '../lib/describeReveal.js';
 
 // A beat after the ring-glow/narration reveal has already landed
 // (bannerShown), not simultaneous with it — cards are an encore, not a
 // race. See useVictoryReveal's own 550ms delay, which this chains after.
 const START_DELAY_MS = 900;
-
-function nameFor(players, id) {
-  const p = players.find(x => x.id === id);
-  return p ? p.name : 'Someone';
-}
-function characterFor(players, id) {
-  const p = players.find(x => x.id === id);
-  return p ? p.character : null;
-}
-function namesFor(players, event) {
-  return {
-    playerName: nameFor(players, event.playerId),
-    targetName: event.targetId ? nameFor(players, event.targetId) : undefined,
-  };
-}
-
-/** Builds the ordered, filtered reveal-card list from a finished game's
-    pivotalHighlights — Play of the Game, then the game-winning
-    nomination, then MVP (moment, then resolution, then credit — ending
-    on the trophy card). Any null field is simply left out; an empty
-    result means this game had no candidate events at all, and the
-    caller never shows anything for it. */
-function buildCards(S) {
-  const ph = S.pivotalHighlights;
-  if (!ph) return [];
-  const players = S.players || [];
-  const cards = [];
-
-  if (ph.playOfTheGame) {
-    cards.push(describePlayOfTheGame(ph.playOfTheGame, namesFor(players, ph.playOfTheGame)));
-  }
-  if (ph.gameWinningNomination) {
-    const nom = ph.gameWinningNomination;
-    cards.push(describeGameWinningNomination(nom, {
-      nominatorName: nameFor(players, nom.nominatorId),
-      nomineeName: nameFor(players, nom.nomineeId),
-    }));
-  }
-  if (ph.mvp) {
-    const mvpNames = { playerName: nameFor(players, ph.mvp.playerId), characterName: characterFor(players, ph.mvp.playerId) };
-    const topNames = ph.mvp.topEvent ? namesFor(players, ph.mvp.topEvent) : {};
-    cards.push(describeMvp(ph.mvp, mvpNames, topNames));
-  }
-  return cards;
-}
 
 /** Sequences the MVP/Play-of-the-Game/game-winning-nomination cards as
     an encore after the existing ring-glow/narration beat (`bannerShown`,
@@ -82,7 +37,7 @@ export function useRevealCardSequencer(S, bannerShown) {
       pendingCardsRef.current = null;
       armedRef.current = false;
       if (!coldStart && S.phase === 'over') {
-        const cards = buildCards(S);
+        const cards = buildRevealCards(S.pivotalHighlights, S.players);
         if (cards.length) {
           pendingCardsRef.current = cards;
           armedRef.current = true;
