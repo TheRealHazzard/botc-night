@@ -32,7 +32,7 @@ describe('ShareCardOverlay', () => {
   it('falls back to an empty session on a load failure, without crashing', async () => {
     globalThis.fetch = () => Promise.reject(new Error('down'));
     render(<ShareCardOverlay players={players} pivotalHighlights={pivotalHighlights} onClose={() => {}} />);
-    const gamesStat = (await screen.findByText('Games')).closest('.stat');
+    const gamesStat = (await screen.findByText('Games')).closest('.ledger-row');
     expect(gamesStat).toHaveTextContent('0');
   });
 

@@ -1,5 +1,6 @@
 import { motion, useReducedMotion } from 'framer-motion';
 import Icon from './Icon.jsx';
+import SidepanelCard from './SidepanelCard.jsx';
 import Countdown from './Countdown.jsx';
 import VoteBar from './VoteBar.jsx';
 import { useEnteringSeatIds } from '../hooks/useEnteringSeatIds.js';
@@ -27,12 +28,7 @@ export default function NominationList({ nominations, nightNumber, players, vote
   const reduceMotion = useReducedMotion();
 
   return (
-    <div className="nompanel">
-      <div className="dayreport-title">
-        <Icon name="hand" size={14} />
-        <span>Nominations</span>
-      </div>
-
+    <SidepanelCard title="Nominations">
       {todays.length > 0 && (
         <div className="nomlist">
           {/* threshold is n.threshold — the majority as it stood the moment
@@ -71,7 +67,7 @@ export default function NominationList({ nominations, nightNumber, players, vote
       )}
 
       {openNom && <OpenVote nomination={openNom} players={players} voteWindowSeconds={voteWindowSeconds} />}
-    </div>
+    </SidepanelCard>
   );
 }
 

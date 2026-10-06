@@ -11,7 +11,14 @@ import Icon from './Icon.jsx';
     targetId fields) — the persisted history record has no id field to
     resolve those against, only seat names, which is why this card is
     only ever built from the just-finished game still in memory, not a
-    re-fetched history record. */
+    re-fetched history record.
+
+    Keeps its own brand row (this is an exported, shareable PNG, viewed
+    in its own overlay — not a live sidebar card, so it isn't built on
+    SidepanelCard), but otherwise joined the Illuminated Ledger redesign:
+    stats as ledger rows, highlights with PivotalMomentsCard's own drop-
+    cap title (reusing its .pivotal-item* classes directly, not a
+    separate copy) instead of an icon. */
 export default function SessionShareCard({ session, pivotalHighlights, players }) {
   const potg = pivotalHighlights && pivotalHighlights.playOfTheGame
     ? describePlayOfTheGame(pivotalHighlights.playOfTheGame, namesFor(players, pivotalHighlights.playOfTheGame))
@@ -24,46 +31,48 @@ export default function SessionShareCard({ session, pivotalHighlights, players }
     )
     : null;
 
+  const stats = [
+    [session.gamesPlayed === 1 ? 'Game' : 'Games', session.gamesPlayed],
+    ['Good wins', session.goodWins],
+    ['Evil wins', session.evilWins],
+  ];
+
   return (
     <div className="share-card">
-      <div className="share-card-brand">
-        <Icon name="brandmark" size={22} />
-        <span>Blood on the Clocktower</span>
+      {/* One wrapper, not three siblings — .share-card's own flex gap
+          would otherwise stack on top of the rule divs' own margin-
+          bottom (they're sized for a plain block parent, like
+          .sidepanel-card, not one applying a uniform gap to every
+          child), doubling the space around them. */}
+      <div>
+        <div className="share-card-brand">
+          <Icon name="brandmark" size={22} />
+          <span>Blood on the Clocktower</span>
+        </div>
+        <div className="sidepanel-rule-brass" />
+        <div className="sidepanel-rule-soft" />
       </div>
-      {/* Same tile layout as GameSummaryCard/SessionStatsCard — .dayreport's
-          own house style, not a bespoke one just for this card. */}
-      <div className="dayreport-rows">
-        <div className="stat">
-          <div className="stat-n mono">{session.gamesPlayed}</div>
-          <div className="stat-lbl">{session.gamesPlayed === 1 ? 'Game' : 'Games'}</div>
-        </div>
-        <div className="stat">
-          <div className="stat-n mono">{session.goodWins}</div>
-          <div className="stat-lbl">Good wins</div>
-        </div>
-        <div className="stat">
-          <div className="stat-n mono">{session.evilWins}</div>
-          <div className="stat-lbl">Evil wins</div>
-        </div>
+      <div className="ledger">
+        {stats.map(([lbl, val]) => (
+          <div className="ledger-row" key={lbl}>
+            <span className="ledger-label">{lbl}</span>
+            <span className="ledger-leader" />
+            <span className="ledger-value">{val}</span>
+          </div>
+        ))}
       </div>
       {(potg || mvp) && (
         <div className="share-card-highlights">
           {potg && (
-            <div className="share-card-highlight">
-              <Icon name={potg.icon} size={20} />
-              <div>
-                <div className="share-card-highlight-title">{potg.title}</div>
-                <div className="share-card-highlight-body">{potg.body}</div>
-              </div>
+            <div className="pivotal-item">
+              <div className="pivotal-item-title">{potg.title}</div>
+              <div className="pivotal-item-body">{potg.body}</div>
             </div>
           )}
           {mvp && (
-            <div className="share-card-highlight">
-              <Icon name={mvp.icon} size={20} />
-              <div>
-                <div className="share-card-highlight-title">{mvp.title} — {mvp.subtitle}</div>
-                <div className="share-card-highlight-body">{mvp.body}</div>
-              </div>
+            <div className="pivotal-item">
+              <div className="pivotal-item-title">{mvp.title} — {mvp.subtitle}</div>
+              <div className="pivotal-item-body">{mvp.body}</div>
             </div>
           )}
         </div>

@@ -1895,11 +1895,12 @@
         color: var(--brass);
         border: 1px solid var(--brass);
       }
-      /* PivotalMomentsCard's persistent Summary-tab recap — same icon+title+
-   body shape as SessionShareCard's own .share-card-highlight (both built
-   from the same buildRevealCards list), kept as its own class because
-   this one lives inside a plain .sidepanel-card, not the share-card's
-   rendered-to-PNG surface. */
+      /* PivotalMomentsCard's persistent Summary-tab recap. SessionShareCard
+   reuses .pivotal-item/-title/-body directly for its own highlight rows
+   (both built from the same buildRevealCards list) rather than keeping
+   a separate .share-card-highlight copy — only this wrapper stays its
+   own class, since .share-card's rendered-to-PNG surface still needs a
+   border-top/padding-top .sidepanel-card never did. */
       .pivotal-list {
         display: flex;
         flex-direction: column;
@@ -2168,22 +2169,19 @@
         height: 12px;
       }
 
-      .nompanel {
-        width: 100%;
-        border: 1px solid var(--line);
-        border-radius: 12px;
-        padding: 18px 20px;
-        background: var(--surface);
-        text-align: left;
-      }
+      /* NominationList's own card shell is SidepanelCard now (the
+   Illuminated Ledger heading/grain/border) — .nompanel, its old plain-
+   boxed wrapper, is gone; .nomlist/.nomline are the only pieces still
+   its own, now in the ledger's Cormorant Garamond body font. */
       .nomlist {
         margin-bottom: 10px;
       }
       .nomline {
-        font-size: 0.88rem;
+        font-family: "Cormorant Garamond", Georgia, serif;
+        font-size: 1.05rem;
         color: var(--bone-dim);
-        padding: 6px 0;
-        border-bottom: 1px dashed var(--line-soft);
+        padding: 7px 0;
+        border-bottom: 1px dotted var(--line-soft);
         display: flex;
         align-items: center;
         gap: 8px;
@@ -2200,11 +2198,14 @@
       /* Met/not-met at a glance for a closed nomination's own tally — the
    same distinction .votebar-fill.met already draws for the live vote,
    reused here so the table's own history doesn't need mental majority
-   math for every past nomination today. */
+   math for every past nomination today. Space Mono, not the line's own
+   Cormorant Garamond — a tally is a number to read precisely, same
+   reasoning every other ledger value in this app uses it. */
       .nomline .tally {
+        font-family: "Space Mono", monospace;
         font-variant-numeric: tabular-nums;
         color: var(--brass);
-        font-weight: 600;
+        font-weight: 700;
       }
       .nomline .tally.met {
         color: var(--oxblood);
@@ -2992,8 +2993,10 @@
         width: 420px;
         max-width: 100%;
         background: var(--surface);
-        border: 1px solid var(--line);
-        border-radius: 12px;
+        background-image: var(--grain);
+        background-repeat: repeat;
+        border: 1px solid var(--brass);
+        border-radius: 6px;
         padding: 24px;
         display: flex;
         flex-direction: column;
@@ -3011,32 +3014,16 @@
       .share-card-brand .icon {
         color: var(--brass);
       }
+      /* The highlight rows themselves are .pivotal-item/-title/-body,
+   reused directly from PivotalMomentsCard — only this wrapper (the
+   border-top/padding-top separating them from the stats above) is
+   still its own class. */
       .share-card-highlights {
         display: flex;
         flex-direction: column;
         gap: 14px;
         border-top: 1px solid var(--line-soft);
         padding-top: 16px;
-      }
-      .share-card-highlight {
-        display: flex;
-        gap: 10px;
-        align-items: flex-start;
-      }
-      .share-card-highlight .icon {
-        flex: none;
-        color: var(--brass);
-        margin-top: 2px;
-      }
-      .share-card-highlight-title {
-        font-weight: 600;
-        font-size: 0.9rem;
-        color: var(--bone);
-      }
-      .share-card-highlight-body {
-        font-size: 0.85rem;
-        color: var(--bone-dim);
-        line-height: 1.4;
       }
       .share-card-actions {
         display: flex;
