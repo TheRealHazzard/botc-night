@@ -1,4 +1,5 @@
 import Countdown from './Countdown.jsx';
+import LbPanel from './LbPanel.jsx';
 
 // t is the sim's own table state — the exact same shape displayS already
 // is on the real host screens (E.publicState), so this reads the same
@@ -14,9 +15,7 @@ export default function SimStagePanel({ t }) {
   const aliveCount = t.players.filter(p => p.alive).length;
 
   return (
-    <div className="lb-panel sim-stage">
-      <div className="sim-stage-phase">{phaseLabel}</div>
-
+    <LbPanel title={phaseLabel} className="sim-stage">
       {t.phase === 'night' && (
         <>
           <div className="narration dread">Close your eyes.</div>
@@ -47,6 +46,6 @@ export default function SimStagePanel({ t }) {
       )}
 
       <div className="sim-stage-alive">{aliveCount} alive of {t.players.length}</div>
-    </div>
+    </LbPanel>
   );
 }

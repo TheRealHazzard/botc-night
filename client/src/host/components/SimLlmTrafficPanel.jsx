@@ -1,10 +1,11 @@
+import LbPanel from './LbPanel.jsx';
+
 // Observer-only: what the LLM Storyteller was actually sent and actually
 // sent back, in full — a simulation has no real secrets, so nothing here
 // needs redacting the way a real player's own claim would. Newest first.
 export default function SimLlmTrafficPanel({ entries }) {
   return (
-    <div className="lb-panel">
-      <h3>LLM Storyteller traffic</h3>
+    <LbPanel title="LLM Storyteller traffic">
       {!entries.length ? (
         <p className="sub">
           Nothing sent yet — fires on a Gossip/Artist/Savant visit (a real player only, bots can't) or a
@@ -34,6 +35,6 @@ export default function SimLlmTrafficPanel({ entries }) {
           ))}
         </>
       )}
-    </div>
+    </LbPanel>
   );
 }

@@ -33,7 +33,13 @@ export default function SimPhonePanel({ s, table }) {
   return (
     <div className="sim-phonewrap">
       <div className="sim-phone">
-        <h1>Blood On The Clocktower</h1>
+        <div className="sim-phone-heading">
+          <span className="sim-phone-rule" />
+          <span className="sim-phone-title">Blood On The Clocktower</span>
+          <span className="sim-phone-rule end" />
+        </div>
+        <div className="sim-phone-rule-brass" />
+        <div className="sim-phone-rule-soft" />
 
         {!s.you.alive && (
           <div className={'sim-pdead' + (s.you.ghostVoteUsed ? '' : ' hasvote')}>

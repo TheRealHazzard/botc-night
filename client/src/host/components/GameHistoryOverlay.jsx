@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import LeaderboardPanel from './LeaderboardPanel.jsx';
+import LbPanel from './LbPanel.jsx';
 
 const EDITION_NAMES = { tb: 'Trouble Brewing', bmr: 'Bad Moon Rising', sv: 'Sects & Violets', custom: 'Custom script' };
 
@@ -113,14 +114,15 @@ function GameList({ onSelect }) {
         emptyText="No completed games yet."
       />
 
-      <div className="lb-panel">
-        <div className="gh-list-head">
-          <h3>Past games</h3>
+      <LbPanel
+        title="Past games"
+        action={
           <label className="gh-bot-toggle">
             <input type="checkbox" checked={includeBots} onChange={toggleIncludeBots} />
             Show bot-test games
           </label>
-        </div>
+        }
+      >
         {!loaded && !failed && <p className="sub">Loading…</p>}
         {failed && <p className="sub">Could not load game history.</p>}
         {loaded && !failed && games.length === 0 && (
@@ -152,7 +154,7 @@ function GameList({ onSelect }) {
             )}
           </>
         )}
-      </div>
+      </LbPanel>
     </>
   );
 }
@@ -193,7 +195,7 @@ function GameDetail({ id, onBack }) {
       {error && <p className="sub">{error}</p>}
       {game && (
         <>
-          <div className="lb-panel">
+          <LbPanel>
             <div className="gh-victory">
               <span className="gh-who">
                 {game.winner === 'good' ? 'Good wins' : game.winner === 'evil' ? 'Evil wins' : 'Unresolved'}
@@ -210,10 +212,9 @@ function GameDetail({ id, onBack }) {
               Paste-ready for a group chat:{' '}
               <a href={`/recap?id=${encodeURIComponent(id)}`} target="_blank" rel="noopener noreferrer">Shareable recap →</a>
             </p>
-          </div>
+          </LbPanel>
 
-          <div className="lb-panel">
-            <h3>Roster</h3>
+          <LbPanel title="Roster">
             <div className="table-scroll">
               <table className="powerlog-table">
                 <thead><tr><th>Name</th><th>Role</th><th>Outcome</th></tr></thead>
@@ -235,10 +236,9 @@ function GameDetail({ id, onBack }) {
                 </tbody>
               </table>
             </div>
-          </div>
+          </LbPanel>
 
-          <div className="lb-panel">
-            <h3>Timeline</h3>
+          <LbPanel title="Timeline">
             {!days.length && <p className="sub">No recorded nominations or log entries for this game.</p>}
             <div className="gh-timeline">
               {days.map(day => (
@@ -256,7 +256,7 @@ function GameDetail({ id, onBack }) {
                 </div>
               ))}
             </div>
-          </div>
+          </LbPanel>
 
           <WhimCallsPanel decisionLog={game.decisionLog} />
         </>
@@ -285,8 +285,7 @@ function WhimCallsPanel({ decisionLog }) {
   if (!calls.length) return null;
 
   return (
-    <div className="lb-panel">
-      <h3>Storyteller's calls</h3>
+    <LbPanel title="Storyteller's calls">
       <p className="sub">
         Every borderline judgment call made this game, and why — shown now that the game is
         over, so it can't be used to read the table while it's still being played.
@@ -306,6 +305,6 @@ function WhimCallsPanel({ decisionLog }) {
           </tbody>
         </table>
       </div>
-    </div>
+    </LbPanel>
   );
 }

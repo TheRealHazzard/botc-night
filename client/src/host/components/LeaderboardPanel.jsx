@@ -1,10 +1,11 @@
+import LbPanel from './LbPanel.jsx';
+
 // hall-of-fame.html and games.html both rendered this exact same panel
 // shape (a titled card of ranked rows) verbatim — factored out once here,
 // shared by HallOfFameOverlay.jsx and GameHistoryOverlay.jsx.
 export default function LeaderboardPanel({ title, subtitle, rows, renderValue, emptyText }) {
   return (
-    <div className="lb-panel">
-      <h3>{title}</h3>
+    <LbPanel title={title}>
       {subtitle && <p className="sub">{subtitle}</p>}
       {!rows.length && <p className="sub">{emptyText}</p>}
       {rows.map((row, i) => (
@@ -13,6 +14,6 @@ export default function LeaderboardPanel({ title, subtitle, rows, renderValue, e
           <span className="lb-value">{renderValue(row)}</span>
         </div>
       ))}
-    </div>
+    </LbPanel>
   );
 }

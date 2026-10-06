@@ -3702,16 +3702,46 @@
          the profile ranking grid rather than a new table style. */
       .lb-panel {
         border: 1px solid var(--line);
-        border-radius: 10px;
+        border-radius: 6px;
         background: var(--surface);
-        padding: 18px 20px;
+        background-image: var(--grain);
+        background-repeat: repeat;
+        padding: 20px 22px;
         margin-bottom: 20px;
       }
-      .lb-panel h3 {
-        margin: 0 0 6px;
+      /* Via LbPanel.jsx now, not a hand-written <h3> — same flanked-rule
+   heading language as SidepanelCard's own .sidepanel-heading. */
+      .lb-panel-heading {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 4px;
+      }
+      .lb-panel-rule {
+        flex: 1;
+        height: 1px;
+        background: linear-gradient(90deg, transparent, var(--brass));
+      }
+      .lb-panel-rule.end {
+        background: linear-gradient(90deg, var(--brass), transparent);
+      }
+      .lb-panel-title {
         font-family: "Cinzel Decorative", Georgia, serif;
-        font-size: 1.05rem;
-        color: var(--bone);
+        font-size: 0.85rem;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--brass);
+        white-space: nowrap;
+      }
+      .lb-rule-brass {
+        height: 1px;
+        background: var(--brass);
+        margin-bottom: 2px;
+      }
+      .lb-rule-soft {
+        height: 1px;
+        background: var(--line-soft);
+        margin-bottom: 16px;
       }
       .lb-row {
         display: flex;
@@ -3853,13 +3883,6 @@
         color: var(--bone-dim);
         margin: 3px 0;
       }
-      .gh-list-head {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 12px;
-        margin-bottom: 6px;
-      }
       .gh-bot-toggle {
         display: flex;
         align-items: center;
@@ -3940,14 +3963,6 @@
 
       .sim-stage {
         text-align: center;
-      }
-      .sim-stage-phase {
-        font-family: "Cinzel Decorative", Georgia, serif;
-        font-size: 1.1rem;
-        color: var(--brass);
-        text-transform: uppercase;
-        letter-spacing: 0.08em;
-        margin-bottom: 8px;
       }
       .sim-stage .clockwrap {
         width: 90px;
@@ -4108,19 +4123,53 @@
         flex-wrap: wrap;
         margin: 20px 0;
       }
+      /* A mock of what the bot's own phone screen actually shows — the
+   radius stays a deliberate 20px (a phone silhouette, not a plain card
+   shape), but the content now matches the real player app's own card
+   since that moved to the Illuminated Ledger look too: a grain texture
+   and the same flanked-rule heading in place of the plain <h1>, so this
+   preview doesn't go stale relative to the real UI it's mocking. */
       .sim-phone {
         width: 300px;
         border: 1px solid var(--line);
         border-radius: 20px;
         background: var(--surface);
+        background-image: var(--grain);
+        background-repeat: repeat;
         padding: 20px 16px;
         text-align: center;
       }
-      .sim-phone h1 {
-        font-size: 0.9rem;
+      .sim-phone-heading {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 4px;
+      }
+      .sim-phone-rule {
+        flex: 1;
+        height: 1px;
+        background: linear-gradient(90deg, transparent, var(--brass));
+      }
+      .sim-phone-rule.end {
+        background: linear-gradient(90deg, var(--brass), transparent);
+      }
+      .sim-phone-title {
+        font-size: 0.78rem;
         font-family: "Cinzel Decorative", Georgia, serif;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
         color: var(--brass);
-        margin: 0 0 14px;
+        white-space: nowrap;
+      }
+      .sim-phone-rule-brass {
+        height: 1px;
+        background: var(--brass);
+        margin-bottom: 2px;
+      }
+      .sim-phone-rule-soft {
+        height: 1px;
+        background: var(--line-soft);
+        margin-bottom: 14px;
       }
       .sim-pdead {
         font-size: 0.82rem;

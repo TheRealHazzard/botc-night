@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import LeaderboardPanel from './LeaderboardPanel.jsx';
+import LbPanel from './LbPanel.jsx';
 import { rankProfiles } from '../lib/leaderboard.js';
 
 function fmtPct(x) { return x == null ? '—' : Math.round(x * 100) + '%'; }
@@ -42,8 +43,7 @@ export default function HallOfFameOverlay({ onClose }) {
         {failed && <p className="sub">Could not load the Hall of Fame right now.</p>}
         {profiles !== null && !failed && (
           <>
-            <div className="lb-panel">
-              <h3>Every profile, ranked</h3>
+            <LbPanel title="Every profile, ranked">
               <p className="sub">Most wins first, then win rate — every table this app has ever kept score for.</p>
               {!ranked.length ? (
                 <p className="sub">Nobody's finished a game yet — this fills in the first time one does.</p>
@@ -84,7 +84,7 @@ export default function HallOfFameOverlay({ onClose }) {
                   </table>
                 </div>
               )}
-            </div>
+            </LbPanel>
 
             <LeaderboardPanel
               title="Best good voters"

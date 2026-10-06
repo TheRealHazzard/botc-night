@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useScripts } from '../hooks/useScripts.js';
 import { post } from '../../lib/api.js';
+import LbPanel from './LbPanel.jsx';
 
 const FALLBACK_SCRIPTS = [
   { id: 'tb', name: 'Trouble Brewing' },
@@ -40,7 +41,7 @@ export default function SimStartForm({ realPhase, realPlayerCount, onStarted }) 
   };
 
   return (
-    <div className="lb-panel sim-start">
+    <LbPanel title="Start a Dry Run" className="sim-start">
       <p className="sub">Press Run a game to watch a table of bots play a full game, start to finish.</p>
       {tableBusy && (
         <p className="sub sim-start-warning">
@@ -77,6 +78,6 @@ export default function SimStartForm({ realPhase, realPlayerCount, onStarted }) 
       <button type="button" className="primary" disabled={tableBusy || starting} onClick={run}>
         {starting ? 'Starting…' : 'Run a game'}
       </button>
-    </div>
+    </LbPanel>
   );
 }
