@@ -72,7 +72,6 @@ export default function DayView({ players, nightNumber, deaths, nominations, con
         <>
           <NominationList nominations={nominations} nightNumber={nightNumber} players={players} voteWindowSeconds={config.voteWindowSeconds} />
           <DayReport deaths={deaths} players={players} nightNumber={nightNumber} />
-          {anyOpen && <TriviaLine scriptId={script} compact />}
           <SidepanelCard icon="gear" title="Storyteller controls">
             <div className="sidepanel-card-stack">
               <NominateAction nominations={nominations} nightNumber={nightNumber} players={players} />
@@ -80,6 +79,7 @@ export default function DayView({ players, nightNumber, deaths, nominations, con
             </div>
           </SidepanelCard>
           <NarratorLogCard />
+          {anyOpen && <TriviaLine scriptId={script} compact />}
         </>
       ),
     },
