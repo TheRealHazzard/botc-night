@@ -2205,12 +2205,28 @@
         height: 88px;
         animation: fatal-pulse 1.1s ease-in-out infinite;
       }
+      /* A brief chromatic-aberration converge on arrival — a cheap lens
+   splitting color at a hard edge, read here as the cause of this
+   moment's own violence rather than a glitch. A plain keyframe (not
+   framer-motion): fires on its own the instant this mounts, with no
+   raf-forced-reflow trick needed the way a bare CSS *transition* would
+   have, so there's nothing to wire up beyond the class itself. Pulled
+   straight from the existing good/oxblood-hi tokens, not new colors. */
       .fatal-flash-text {
         font-family: "Cinzel Decorative", Georgia, serif;
         font-size: 2.2rem;
         letter-spacing: 0.03em;
         text-align: center;
         padding: 0 20px;
+        animation: chroma-converge 0.4s ease-out;
+      }
+      @keyframes chroma-converge {
+        0% {
+          text-shadow: -3px 0 var(--good), 3px 0 var(--oxblood-hi);
+        }
+        100% {
+          text-shadow: none;
+        }
       }
       @keyframes fatal-pulse {
         0%,
@@ -2223,6 +2239,9 @@
       }
       @media (prefers-reduced-motion: reduce) {
         .fatal-flash .icon {
+          animation: none;
+        }
+        .fatal-flash-text {
           animation: none;
         }
       }
@@ -2264,10 +2283,16 @@
         text-align: center;
         color: var(--bone);
       }
+      /* A soft glow following the icon's own silhouette, not a bounding-box
+   box-shadow (a plain SVG has no filled background, so box-shadow would
+   just halo a rectangle around it instead of the actual glyph) — the
+   award-ceremony spotlight this card's own comment already describes
+   this color choice as. */
       .reveal-card .icon {
         width: 64px;
         height: 64px;
         color: var(--brass);
+        filter: drop-shadow(0 0 12px rgba(184, 134, 63, 0.6));
       }
       .reveal-card-title {
         font-family: "Cinzel Decorative", Georgia, serif;

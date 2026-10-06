@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import Icon from './Icon.jsx';
 
 // The fade's own duration — matches the old CSS transition's 0.35s ease.
@@ -8,6 +8,14 @@ import Icon from './Icon.jsx';
 // read as MORE jarring for motion-sensitive users here, not less. Only the
 // icon's own pulse keyframe is disabled under reduced motion (styles.css).
 const FLASH_TRANSITION = { duration: 0.35, ease: 'easeOut' };
+
+// A brief camera-shake on arrival only — a handheld camera reacting to the
+// impact this overlay announces. Genuinely motion (unlike the fade above,
+// which stays on regardless), so this one DOES respect reduced motion.
+// Settles back to 0 well before the 2200ms hold ends; the fade-out later
+// never gets its own shake, only the arrival does.
+const SHAKE_KEYFRAMES = [0, -6, 6, -4, 4, 0];
+const SHAKE_TRANSITION = { duration: 0.4, ease: 'easeOut' };
 
 /** A handful of game endings are dramatic enough to earn a beat of their
     own before the usual reveal fades in. Self-contained timing, mirroring
@@ -26,6 +34,7 @@ const FLASH_TRANSITION = { duration: 0.35, ease: 'easeOut' };
     instance was mounted with. */
 export default function FatalFlashOverlay({ blow, onDone }) {
   const [show, setShow] = useState(true);
+  const reduceMotion = useReducedMotion();
 
   useEffect(() => {
     const hideTimer = setTimeout(() => setShow(false), 2200);
@@ -40,9 +49,9 @@ export default function FatalFlashOverlay({ blow, onDone }) {
   return (
     <motion.div
       className="fatal-flash"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: show ? 1 : 0 }}
-      transition={FLASH_TRANSITION}
+      initial={{ opacity: 0, x: 0 }}
+      animate={{ opacity: show ? 1 : 0, x: show && !reduceMotion ? SHAKE_KEYFRAMES : 0 }}
+      transition={{ opacity: FLASH_TRANSITION, x: SHAKE_TRANSITION }}
     >
       <Icon name={blow.icon} size={88} />
       <div className="fatal-flash-text">{blow.text}</div>
