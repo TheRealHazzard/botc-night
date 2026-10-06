@@ -1,9 +1,12 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import ScriptViewPanel from './ScriptViewPanel.jsx';
+import { mockFetch } from '../../../../test/fetchMock.js';
 
 const meta = { id: 'tb', name: 'Trouble Brewing', difficulty: 1, description: 'The original.', decidedGames: 0 };
+
+beforeEach(() => mockFetch({ '/api/tokens': {} }));
 
 describe('ScriptViewPanel', () => {
   it('shows the script name and description, with an enabled Change script button by default', async () => {
@@ -35,5 +38,21 @@ describe('ScriptViewPanel', () => {
     render(<ScriptViewPanel meta={meta} onChangeScript={() => {}} onBuildScript={onBuildScript} />);
     await userEvent.click(screen.getByText(/build a script/i));
     expect(onBuildScript).toHaveBeenCalledTimes(1);
+  });
+
+  it('omits the featured-role spotlight when the script has none', () => {
+    render(<ScriptViewPanel meta={meta} onChangeScript={() => {}} />);
+    expect(screen.queryByText('Featured Role')).not.toBeInTheDocument();
+  });
+
+  it('shows the featured-role spotlight when the script has one — in the locked, in-game state too', () => {
+    const metaWithFeature = {
+      ...meta,
+      featuredCharacter: { id: 'vortox', name: 'Vortox', team: 'demon', ability: 'Everything registers wrong tonight.' },
+    };
+    render(<ScriptViewPanel meta={metaWithFeature} locked />);
+    expect(screen.getByText('Featured Role')).toBeInTheDocument();
+    expect(screen.getByText('Vortox')).toBeInTheDocument();
+    expect(screen.getByText('Everything registers wrong tonight.')).toBeInTheDocument();
   });
 });
