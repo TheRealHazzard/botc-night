@@ -1654,6 +1654,17 @@
         text-align: left;
         min-width: 0;
       }
+      /* TabPanel.jsx's own motion.div (the fade wrapper around the active
+   tab's content) — repeats .sidepanel's own flex-column + gap exactly,
+   since it's the one thing standing between .sidepanel and that
+   content's actual buttons/cards now. See that component's own comment
+   on why this is load-bearing, not cosmetic. */
+      .sidepanel-content {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        min-width: 0;
+      }
       /* The sidepanels that need to actually claim the dashboard row's real
    height instead of just hugging their own content (every other
    sidepanel stays top-anchored, unchanged) — both sides of script

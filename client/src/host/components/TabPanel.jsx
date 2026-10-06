@@ -57,8 +57,18 @@ export default function TabPanel({ tabs, defaultTab }) {
           feel instant. The crossfade overlaps instead: the new tab's
           content starts fading in the same render the click happens. */}
       <AnimatePresence>
+        {/* className is load-bearing, not cosmetic: this motion.div is the
+            one and only direct child of .sidepanel that current.content's
+            own buttons/cards ever reach, now that it sits between them —
+            without its own flex-column + gap here, everything inside falls
+            back to plain block/inline flow (a <button> is display:inline-flex
+            by default, so adjacent ones run side by side instead of
+            stacking; cards touch with zero gap, having never had their own
+            margin, only ever relying on .sidepanel's gap reaching them
+            directly). Repeats .sidepanel's own values exactly. */}
         <motion.div
           key={current.id}
+          className="sidepanel-content"
           initial={reduceMotion ? false : { opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={reduceMotion ? undefined : { opacity: 0 }}

@@ -61,4 +61,17 @@ describe('TabPanel', () => {
     render(<TabPanel tabs={tabs} defaultTab="not-a-real-tab" />);
     expect(screen.getByText('Script content')).toBeInTheDocument();
   });
+
+  // Regression: the fade wrapper around the active tab's content (added
+  // for the crossfade above) sits between .sidepanel and that content's
+  // own buttons/cards now — without its own flex-column + gap it silently
+  // dropped the stacking and spacing .sidepanel used to provide them
+  // directly, no test catching it since every other test here only checks
+  // text presence, never layout. This is the structural guard: the actual
+  // wrapper directly around a tab's content carries the class the real
+  // CSS rule targets, not just "some ancestor, somewhere".
+  it('wraps the active tab\'s content in .sidepanel-content, not a bare div', () => {
+    render(<TabPanel tabs={tabs} />);
+    expect(screen.getByText('Script content').parentElement).toHaveClass('sidepanel-content');
+  });
 });
