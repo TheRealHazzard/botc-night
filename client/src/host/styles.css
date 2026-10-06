@@ -466,6 +466,13 @@
         border: 1px dashed var(--line);
         border-radius: 50%;
         transition: border-color 0.5s ease;
+        /* A faint, permanent ambient glow — box-shadow is a single
+   property, so every glow-good/glow-evil/glow-notable/pace-* state
+   below fully replaces this (not adds to it) while it's playing; this
+   is only ever visible the rest of the time, a baseline "lit" feel for
+   the one shape every player watches all game instead of a flat dashed
+   line sitting in the dark. */
+        box-shadow: 0 0 40px 4px rgba(184, 134, 63, 0.08);
       }
       /* The verdict, told through the one shape every player has been
    watching all game: the dashed circle connecting the seats. Lights up
@@ -1589,6 +1596,22 @@
    also competing for this space; GameStage.jsx only ever renders that
    heading conditionally, so phases without one (Lobby/Reveal/Over) just
    get the ring alone, still centered. */
+      /* A subtle vignette, pulling focus toward the ring at this zone's
+   own true center (align-items/justify-content:center above already
+   centers the ring here specifically, not just somewhere in .view's
+   wider box that also holds the tabs panel). Deliberately layered on
+   top of body's own grain rather than a bare gradient alone — nothing
+   between body and here sets an opaque background (#root/.app-shell/
+   .stage-col/main are all transparent), so body's grain already shows
+   straight through this element; relying on it as the dither UNDER this
+   gradient instead of adding a second grain layer here. This app has a
+   real, already-paid-for lesson on exactly this failure mode: body
+   itself briefly had a vignette gradient directly on it, and a smooth
+   transition over that much dark area visibly banded on a real TV
+   panel — see body's own comment, grain is what replaced it. Kept
+   deliberately subtle (12% delta) and unverified on real hardware until
+   it's actually been seen live — treat any larger version of this with
+   real suspicion first. */
       .game-ring-zone {
         flex: 1;
         min-width: 0;
@@ -1600,6 +1623,7 @@
         gap: 18px;
         overflow: hidden;
         height: 100%;
+        background-image: radial-gradient(ellipse at center, transparent 50%, rgba(13, 8, 17, 0.12) 100%);
       }
       /* Widened twice now (340px -> 460px -> 540px) — each time because a
    host screen genuinely felt cramped running a real game (several
@@ -1718,11 +1742,18 @@
         padding: 3px;
       }
 
+      /* A thin inset top highlight + a real drop shadow, not just the flat
+   border this had before — reads as lit from above rather than a plain
+   filled rectangle, the same "rim light" language the ring's own base
+   glow below now carries too. Subtle on purpose: this card renders
+   dozens of times a session, nothing about it should fight for
+   attention. */
       .sidepanel-card {
         border: 1px solid var(--line);
         border-radius: 12px;
         background: var(--surface);
         padding: 18px 20px;
+        box-shadow: inset 0 1px 0 rgba(232, 220, 196, 0.05), 0 6px 16px rgba(0, 0, 0, 0.28);
       }
       /* Multiple control blocks stacked inside a single SidepanelCard —
    SidepanelCard itself is a plain block container, so without this its
@@ -2150,7 +2181,11 @@
       }
       /* Opacity is set inline by FatalFlashOverlay.jsx's own motion.div
    (framer-motion) — nothing left to declare here for that, just the
-   static box styling. */
+   static box styling. Carries its own grain (body's own comment on
+   --grain) rather than relying on body's, the same reasoning
+   .settings-overlay already does below: a solid, opaque, full-viewport
+   fill like this one blocks whatever's behind it from ever showing
+   through, grain included. */
       .fatal-flash {
         position: fixed;
         inset: 0;
@@ -2161,6 +2196,8 @@
         justify-content: center;
         gap: 18px;
         background: var(--oxblood);
+        background-image: var(--grain);
+        background-repeat: repeat;
         color: var(--cream);
       }
       .fatal-flash .icon {
@@ -2207,6 +2244,11 @@
         justify-content: center;
         gap: 22px;
         background: var(--void);
+        /* Same reasoning as .fatal-flash's own grain, just above — a
+   solid, opaque, full-viewport fill blocks body's grain from ever
+   showing through, so it needs its own copy. */
+        background-image: var(--grain);
+        background-repeat: repeat;
         cursor: pointer;
       }
       /* Enter/exit opacity+transform are set inline by RevealCardOverlay.jsx's
