@@ -2312,6 +2312,10 @@ async function requestHandler(req, res) {
         return json(res, 200, H.characterWinRates());
       }
 
+      if (route === '/api/leaderboard/theory') {
+        return json(res, 200, H.theoryLeaderboard({ minGuesses: Math.max(1, Number(url.searchParams.get('minGuesses')) || 5) }));
+      }
+
       if (route === '/api/characters/checklist') {
         // Every real, dealable character (see /api/characters above) cross-
         // referenced against every completed real game ever recorded — the

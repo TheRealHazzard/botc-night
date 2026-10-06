@@ -47,7 +47,7 @@ describe('ReferenceOverlay', () => {
 
   it('picking Game history opens it full-screen; its own Close exits the whole drawer', async () => {
     mockFetch({
-      '/api/leaderboard/voting': [], '/api/leaderboard/characters': [], '/api/games?': { games: [], nextBefore: null },
+      '/api/leaderboard/voting': [], '/api/leaderboard/characters': [], '/api/leaderboard/theory': [], '/api/games?': { games: [], nextBefore: null },
     });
     const onClose = vi.fn();
     render(<ReferenceOverlay onClose={onClose} />);
@@ -58,7 +58,7 @@ describe('ReferenceOverlay', () => {
   });
 
   it('picking Hall of Fame opens it full-screen; its own Close exits the whole drawer', async () => {
-    mockFetch({ '/api/profiles': [], '/api/leaderboard/voting': [], '/api/leaderboard/characters': [] });
+    mockFetch({ '/api/profiles': [], '/api/leaderboard/voting': [], '/api/leaderboard/characters': [], '/api/leaderboard/theory': [] });
     const onClose = vi.fn();
     render(<ReferenceOverlay onClose={onClose} />);
     await userEvent.click(screen.getByText('Hall of Fame'));

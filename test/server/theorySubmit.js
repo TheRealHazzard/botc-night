@@ -132,6 +132,13 @@ function waitUntil(fn, timeoutMs, intervalMs = 200) {
       score && score.correct === expectedCorrect,
       JSON.stringify({ score, boId, cyId, diId, actual: { bo: trueCharacterId(boId), cy: trueCharacterId(cyId), di: trueCharacterId(diId) } }),
     );
+    const adaRevealed = revealed.players.find(p => p.id === adaId);
+    const adaActuallyGood = adaRevealed.team === 'townsfolk' || adaRevealed.team === 'outsider';
+    check(
+      `theoryScores' own good flag (${score && score.good}) matches Ada's real team (${adaRevealed.team})`,
+      score && score.good === adaActuallyGood,
+      JSON.stringify({ score, team: adaRevealed.team }),
+    );
   } finally {
     await server.stop();
   }

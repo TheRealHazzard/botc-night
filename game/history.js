@@ -304,6 +304,42 @@ function votingLeaderboard({ minVotes = 5 } = {}) {
     .sort((a, b) => b.accuracy - a.accuracy);
 }
 
+/** "Best theorist" — same shape and the same good-only filter
+    votingLeaderboard uses just above, for the same reason: an evil
+    player's "theory" is informed by things they already know (their
+    teammates, often the Demon), not a real deduction, so it isn't a fair
+    measure of the same skill this is trying to rank. Only a theory shared
+    while GOOD that game counts at all — every guess in it, correct
+    against that target's own real characterId. Names, not in-game ids,
+    same cross-game lookup constraint votingLeaderboard's own comment
+    documents (game.theories' playerId/targetId are ephemeral and never
+    persisted — only playerName/targetName survive into the record). */
+function theoryLeaderboard({ minGuesses = 5 } = {}) {
+  const tally = {}; // profileId -> { name, correct, total }
+  for (const g of readAllGames()) {
+    const byName = {};
+    for (const p of g.players || []) byName[p.seatName] = p;
+    for (const theory of g.theories || []) {
+      const theorist = byName[theory.playerName];
+      if (!theorist || !theorist.profileId) continue;
+      const theoristGood = theorist.team === 'townsfolk' || theorist.team === 'outsider';
+      if (!theoristGood) continue;
+      const entry = tally[theorist.profileId] = tally[theorist.profileId] || { name: theory.playerName, correct: 0, total: 0 };
+      entry.name = theory.playerName;
+      for (const guess of theory.guesses || []) {
+        const target = byName[guess.targetName];
+        if (!target) continue;
+        entry.total++;
+        if (target.characterId === guess.characterId) entry.correct++;
+      }
+    }
+  }
+  return Object.entries(tally)
+    .map(([profileId, e]) => ({ profileId, name: e.name, correctGuesses: e.correct, totalGuesses: e.total, accuracy: e.total ? e.correct / e.total : null }))
+    .filter(e => e.totalGuesses >= minGuesses)
+    .sort((a, b) => b.accuracy - a.accuracy);
+}
+
 /** Win rate per character across every recorded game — no new data, this is
     already sitting in each game's own players[] list. */
 function characterWinRates() {
@@ -611,7 +647,7 @@ function recapFor(id) {
 module.exports = {
   findProfile, findOrCreateProfile, appendGameRecord,
   statsFor, statsForAll, statsForEdition, colorFor, listColors, setProfileColor,
-  listGames, getGame, votingLeaderboard, characterWinRates, sessionStats,
+  listGames, getGame, votingLeaderboard, characterWinRates, theoryLeaderboard, sessionStats,
   closestVote, biggestSwing, longestSurvivingEvil, pivotalMoment, recapNarration, recapFor,
   aggregate, normalizeName,
   // The isolated-per-test-run override (see this file's own DATA_DIR

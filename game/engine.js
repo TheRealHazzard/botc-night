@@ -1496,11 +1496,22 @@ function gameSummary(g) {
     sums across all of them rather than keeping a separate line per day),
     correct/total guesses against each target's own true character.
     Reveal-gated by publicState() the same way gameSummary is, since this
-    compares against trueChar() directly. */
+    compares against trueChar() directly.
+
+    `good` is the theorist's own true alignment (isEvil, not a plain team
+    check — catches a mid-game Goon flip too) — an evil player's "theory"
+    is informed by things they already know, not a real deduction, so the
+    client greys their line out and the all-time leaderboard
+    (game/history.js's theoryLeaderboard) excludes it entirely. Still
+    computed and returned here rather than dropped: this game's own
+    recap shouldn't hide what an evil player actually guessed, only mark
+    it as not a fair measure. */
 function theoryScores(g) {
   const byPlayer = {};
   g.theories.forEach(t => {
-    const bucket = byPlayer[t.playerId] || { playerId: t.playerId, playerName: t.playerName, correct: 0, total: 0 };
+    const bucket = byPlayer[t.playerId] || { playerId: t.playerId, playerName: t.playerName, correct: 0, total: 0, good: true };
+    const theorist = byId(g, t.playerId);
+    bucket.good = !(theorist && isEvil(g, theorist));
     t.guesses.forEach(gs => {
       const target = byId(g, gs.targetId);
       const trueC = target && trueChar(target);

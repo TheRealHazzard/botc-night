@@ -56,6 +56,7 @@ function GameList({ onSelect }) {
   const [failed, setFailed] = useState(false);
   const [voting, setVoting] = useState([]);
   const [charWinRates, setCharWinRates] = useState([]);
+  const [theoryBoard, setTheoryBoard] = useState([]);
   // Off by default — a game a bot filled a seat in
   // (/api/table/add-bots) is real, but not what browsing "what have we
   // actually played" wants cluttering the list. Still one tap away for
@@ -77,6 +78,7 @@ function GameList({ onSelect }) {
   useEffect(() => {
     fetch('/api/leaderboard/voting').then(r => r.json()).then(setVoting).catch(() => {});
     fetch('/api/leaderboard/characters').then(r => r.json()).then(setCharWinRates).catch(() => {});
+    fetch('/api/leaderboard/theory').then(r => r.json()).then(setTheoryBoard).catch(() => {});
     loadPage(undefined, false);
     // Mount-once, matching games.html's own single initial loadPage() call
     // — loadPage's "before" cursor param is threaded explicitly by the
@@ -112,6 +114,13 @@ function GameList({ onSelect }) {
         rows={charWinRates.slice(0, 5)}
         renderValue={row => `${fmtPct(row.winRate)} (${row.wins}/${row.total})`}
         emptyText="No completed games yet."
+      />
+      <LeaderboardPanel
+        title="Best theorists"
+        subtitle="Correct guesses in a shared theory — good-aligned games only (needs at least 5 guesses on record)."
+        rows={theoryBoard.slice(0, 5)}
+        renderValue={row => `${fmtPct(row.accuracy)} (${row.correctGuesses}/${row.totalGuesses})`}
+        emptyText="Nobody's shared a theory as a good player yet — this fills in as real games get played."
       />
 
       <LbPanel

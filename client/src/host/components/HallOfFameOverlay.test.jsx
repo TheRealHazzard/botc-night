@@ -15,6 +15,7 @@ function baseMocks(overrides = {}) {
     '/api/profiles': profiles,
     '/api/leaderboard/voting': [],
     '/api/leaderboard/characters': [],
+    '/api/leaderboard/theory': [],
     ...overrides,
   });
 }
@@ -40,14 +41,17 @@ describe('HallOfFameOverlay', () => {
     expect(screen.getByText('best: 2')).toBeInTheDocument(); // Bo, currentWinStreak 0 but longest 2
   });
 
-  it('shows both leaderboards once they load', async () => {
+  it('shows all three leaderboards once they load', async () => {
     baseMocks({
       '/api/leaderboard/voting': [{ profileId: 'ada', name: 'Ada', accuracy: 0.8, correctVotes: 4, totalVotes: 5 }],
       '/api/leaderboard/characters': [{ characterId: 'imp', name: 'Imp', wins: 2, total: 3, winRate: 2 / 3 }],
+      '/api/leaderboard/theory': [{ profileId: 'ada', name: 'Ada', accuracy: 0.6, correctGuesses: 3, totalGuesses: 5 }],
     });
     render(<HallOfFameOverlay onClose={() => {}} />);
     expect(await screen.findByText('80% (4/5)')).toBeInTheDocument();
     expect(screen.getByText('67% (2/3)')).toBeInTheDocument();
+    expect(screen.getByText('60% (3/5)')).toBeInTheDocument();
+    expect(screen.getByText('Best theorists')).toBeInTheDocument();
   });
 
   it('says so plainly when nobody has finished a game yet', async () => {

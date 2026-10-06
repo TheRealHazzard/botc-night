@@ -1846,6 +1846,21 @@
         color: var(--brass);
         white-space: nowrap;
       }
+      /* TheoryResultsCard's own take on a ledger row, for an evil
+   theorist's line — still fully shown (everything here is already
+   public post-reveal), just visually marked as excluded from the
+   ranking. */
+      .ledger-row-excluded {
+        opacity: 0.5;
+      }
+      .ledger-row-excluded .ledger-value {
+        color: var(--bone-dim);
+      }
+      .ledger-row-note {
+        font-style: italic;
+        font-size: 0.85em;
+        color: var(--bone-dim);
+      }
       /* LeaderboardTeaserCard's own row shape — a rank numeral in Cinzel
    Decorative (brass for #1, line-soft for the rest) rather than another
    dotted-leader row: a leaderboard reads as a ranking, not a ledger of

@@ -554,7 +554,7 @@ describe("App", () => {
       const openSpy = vi.spyOn(window, "open").mockImplementation(() => {});
       mockFetch({
         "/api/tokens": {}, "/trivia.json": [], "/api/scripts": SCRIPTS,
-        "/api/leaderboard/voting": [], "/api/leaderboard/characters": [], "/api/games?": { games: [], nextBefore: null },
+        "/api/leaderboard/voting": [], "/api/leaderboard/characters": [], "/api/leaderboard/theory": [], "/api/games?": { games: [], nextBefore: null },
       });
       render(<App />);
       await userEvent.click(screen.getByTitle(/^reference/i));
@@ -585,7 +585,7 @@ describe("App", () => {
     it("Hall of Fame and Character checklist are both reachable from the same Reference menu", async () => {
       mockFetch({
         "/api/tokens": {}, "/trivia.json": [], "/api/scripts": SCRIPTS,
-        "/api/profiles": [], "/api/leaderboard/voting": [], "/api/leaderboard/characters": [],
+        "/api/profiles": [], "/api/leaderboard/voting": [], "/api/leaderboard/characters": [], "/api/leaderboard/theory": [],
         "/api/characters/checklist": [],
       });
       render(<App />);

@@ -43,6 +43,7 @@ function baseMocks(overrides = {}) {
   return mockFetch({
     '/api/leaderboard/voting': [],
     '/api/leaderboard/characters': [],
+    '/api/leaderboard/theory': [],
     '/api/games?': page1,
     ...overrides,
   });
@@ -65,7 +66,7 @@ describe('GameHistoryOverlay', () => {
     // let the first-registered one shadow the second in mockFetch's
     // substring matching.
     const fetchMock = mockFetch({
-      '/api/leaderboard/voting': [], '/api/leaderboard/characters': [],
+      '/api/leaderboard/voting': [], '/api/leaderboard/characters': [], '/api/leaderboard/theory': [],
       '/api/games?': url => (url.includes('before=111') ? page2 : page1),
     });
     render(<GameHistoryOverlay onClose={() => {}} />);
@@ -81,7 +82,7 @@ describe('GameHistoryOverlay', () => {
   it('"Show bot-test games" is off by default, and toggling it refetches with the bot-inclusive flag', async () => {
     const botsPage = { games: [{ id: 'gbot', endedAt: Date.UTC(2026, 8, 21, 10, 0), edition: 'custom', playerCount: 5, winner: 'evil' }], nextBefore: null };
     mockFetch({
-      '/api/leaderboard/voting': [], '/api/leaderboard/characters': [],
+      '/api/leaderboard/voting': [], '/api/leaderboard/characters': [], '/api/leaderboard/theory': [],
       '/api/games?': url => (url.includes('includeBots=1') ? botsPage : page1),
     });
     render(<GameHistoryOverlay onClose={() => {}} />);
@@ -96,7 +97,7 @@ describe('GameHistoryOverlay', () => {
   });
 
   it('shows an empty state when there are no games at all', async () => {
-    mockFetch({ '/api/leaderboard/voting': [], '/api/leaderboard/characters': [], '/api/games?': { games: [], nextBefore: null } });
+    mockFetch({ '/api/leaderboard/voting': [], '/api/leaderboard/characters': [], '/api/leaderboard/theory': [], '/api/games?': { games: [], nextBefore: null } });
     render(<GameHistoryOverlay onClose={() => {}} />);
     expect(await screen.findByText(/No games recorded yet/)).toBeInTheDocument();
   });

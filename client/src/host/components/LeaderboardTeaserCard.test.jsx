@@ -9,6 +9,7 @@ function baseMocks(profiles) {
     '/api/profiles': profiles,
     '/api/leaderboard/voting': [],
     '/api/leaderboard/characters': [],
+    '/api/leaderboard/theory': [],
   });
 }
 

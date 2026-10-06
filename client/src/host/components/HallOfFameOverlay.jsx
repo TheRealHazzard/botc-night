@@ -15,6 +15,7 @@ export default function HallOfFameOverlay({ onClose }) {
   const [failed, setFailed] = useState(false);
   const [voting, setVoting] = useState([]);
   const [charWinRates, setCharWinRates] = useState([]);
+  const [theoryBoard, setTheoryBoard] = useState([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -27,6 +28,7 @@ export default function HallOfFameOverlay({ onClose }) {
     // hall-of-fame.html's own three independent fetches.
     fetch('/api/leaderboard/voting').then(r => r.json()).then(data => { if (!cancelled) setVoting(data); }).catch(() => {});
     fetch('/api/leaderboard/characters').then(r => r.json()).then(data => { if (!cancelled) setCharWinRates(data); }).catch(() => {});
+    fetch('/api/leaderboard/theory').then(r => r.json()).then(data => { if (!cancelled) setTheoryBoard(data); }).catch(() => {});
     return () => { cancelled = true; };
   }, []);
 
@@ -99,6 +101,13 @@ export default function HallOfFameOverlay({ onClose }) {
               rows={charWinRates}
               renderValue={row => `${fmtPct(row.winRate)} (${row.wins}/${row.total})`}
               emptyText="No completed games yet."
+            />
+            <LeaderboardPanel
+              title="Best theorists"
+              subtitle="Correct guesses in a shared theory — good-aligned games only (needs at least 5 guesses on record)."
+              rows={theoryBoard}
+              renderValue={row => `${fmtPct(row.accuracy)} (${row.correctGuesses}/${row.totalGuesses})`}
+              emptyText="Nobody's shared a theory as a good player yet — this fills in as real games get played."
             />
           </>
         )}
