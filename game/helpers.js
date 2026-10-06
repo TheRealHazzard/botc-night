@@ -508,7 +508,7 @@ const MERCY_ELIGIBLE_IDS = new Set([
       diedTonight duplicates `alive: false` itself) */
 const INTERNAL_ONLY_STATUSES = new Set([
   // Night-number thresholds, not facts
-  'poisonedUntilNight', 'drunkUntilNight', 'gossipClaimDay', 'savantVisitDay',
+  'poisonedUntilNight', 'drunkUntilNight', 'gossipClaimDay', 'savantVisitDay', 'theoryDay',
   // Stashed ids from a previous choice
   'exorcistLastTarget', 'daLastTarget', 'pukkaLastTarget', 'grandchildId',
   'evilTwinId', 'twinId', 'pixieRevealedId', 'bountyHunterTargetId',
@@ -712,6 +712,37 @@ function recordClaim(g, player, claimedCharacterId, statement) {
   };
   g.claims.push(entry);
   logEvent(g, `${player.name} claims the ${entry.claimedCharacterName}. "${statement}"`);
+  return entry;
+}
+
+/** Records a "Showcase Theory" submission into g.theories (parallel to
+    recordClaim just above) — a living player's own public guesses at who
+    else really is which character, submitted from their own phone
+    (server.js's /api/theory). `guesses` is already validated by the
+    caller: each entry's targetId is a real, other player and each
+    characterId is in this script's pool — this just resolves display
+    names and appends. Deliberately flat and public-only, same split as
+    every other day-event record in this file: what was GUESSED, not
+    whether it's right — theoryScores() in engine.js is the only place
+    that ever compares a guess against the truth, and only once revealed. */
+function recordTheory(g, player, guesses) {
+  const entry = {
+    day: g.nightNumber,
+    playerId: player.id,
+    playerName: player.name,
+    guesses: guesses.map(x => {
+      const target = byId(g, x.targetId);
+      const c = char(x.characterId);
+      return {
+        targetId: x.targetId,
+        targetName: target ? target.name : x.targetId,
+        characterId: x.characterId,
+        characterName: c ? c.name : x.characterId,
+      };
+    }),
+  };
+  g.theories.push(entry);
+  logEvent(g, `${player.name} shares a theory about ${entry.guesses.length} player${entry.guesses.length === 1 ? '' : 's'}.`);
   return entry;
 }
 
@@ -1111,7 +1142,7 @@ module.exports = {
   resolveWhim, setWhimJudge, heuristicWhim, WHIM_FIRING_HELPS_GOOD, maybeMercy, triggerMoonchildIfNeeded,
   triggerPixieIfNeeded, applyCannibalTransform,
   reassignCharacter, flagAbnormal,
-  logEvent, logWhim, recordClaim, heuristicBotClaim, BOT_PERSONALITIES, outsiderDiedToday, minionDiedToday, somebodyDiedYesterday,
+  logEvent, logWhim, recordClaim, recordTheory, heuristicBotClaim, BOT_PERSONALITIES, outsiderDiedToday, minionDiedToday, somebodyDiedYesterday,
   minionNominatedToday, demonVotedToday, vortoxActive,
   numberSignal, falseNumber, logTrueValue, evilNeighbourCount, evilPairCount, pairInfo,
   resultCount, resultYesNo, resultPointer, resolveRavenkeeperChoice,

@@ -119,6 +119,24 @@ h1{margin:0; line-height:0; flex-shrink:0}
 .scriptchar-body{flex:1; min-width:0; padding:10px 12px; display:flex; flex-direction:column; justify-content:center; gap:4px}
 .scriptchar .cname{font-family:'Cormorant Garamond',Georgia,serif; font-weight:700; font-size:1.05rem}
 .scriptchar .ability{font-size:.88rem; color:var(--bone-dim)}
+/* TheoryBuilderOverlay's own selectable take on .scriptchar — a <button>
+   wrapping the exact same row shape, reset back from the generic
+   `button{}` rule's centered/bold/padded defaults to .scriptchar's own
+   box model, plus a brass border once picked (same .on convention
+   TargetButton.jsx already uses). */
+.scriptchar-pick{
+  width:100%; text-align:left; padding:0; font-weight:400; font-size:inherit;
+  justify-content:flex-start; cursor:pointer;
+}
+.scriptchar-pick.on{border-color:var(--brass)}
+.theory-targets{display:flex; flex-direction:column; gap:8px; margin-bottom:16px}
+.theory-target-row{
+  width:100%; display:flex; align-items:center; justify-content:space-between; gap:10px;
+  padding:12px 14px; font-weight:400; font-size:1rem; text-align:left;
+}
+.theory-target-name{display:flex; align-items:center; gap:6px}
+.theory-target-name .icon{width:14px; height:14px; color:var(--bone-dim)}
+.theory-target-guess{color:var(--bone-dim); font-size:.9rem; flex-shrink:0}
 h2{font-family:'Cormorant Garamond',Georgia,serif; font-size:1.5rem; margin:0 0 8px; text-wrap:balance}
 .dim{color:var(--bone-dim)}
 .small{font-size:.85rem}

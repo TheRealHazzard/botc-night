@@ -13,6 +13,7 @@ import { useVictoryReveal } from "./hooks/useVictoryReveal.js";
 import { useRevealCardSequencer } from "./hooks/useRevealCardSequencer.js";
 import { useNotableBeat } from "./hooks/useNotableBeat.js";
 import { useTensionLevel } from "./hooks/useTensionLevel.js";
+import { useTheorySequencer } from "./hooks/useTheorySequencer.js";
 import { useWakeLock } from "../hooks/useWakeLock.js";
 import { useTextScale } from "../hooks/useTextScale.js";
 import { post } from "../lib/api.js";
@@ -23,6 +24,7 @@ import Header from "./components/Header.jsx";
 import RingSeats from "./components/RingSeats.jsx";
 import ReclaimBanner from "./components/ReclaimBanner.jsx";
 import FatalFlashOverlay from "./components/FatalFlashOverlay.jsx";
+import TheoryShowcaseOverlay from "./components/TheoryShowcaseOverlay.jsx";
 import RevealCardOverlay from "./components/RevealCardOverlay.jsx";
 import ToastStack from "./components/ToastStack.jsx";
 import BluffBeat from "../components/BluffBeat.jsx";
@@ -65,6 +67,9 @@ export default function App() {
   // the moment the real state changes, not wait on usePhaseFade's own
   // purely-visual transition delay.
   const announcement = useHostAnnouncement(S);
+  // Same reasoning, same raw S — a theory landing is independent of
+  // usePhaseFade's own phase-transition timing entirely.
+  const { current: theoryShowcase, finish: finishTheoryShowcase } = useTheorySequencer(S);
 
   // The ring itself: a single element that lives here, permanently
   // mounted, and is portaled into whichever phase view is currently
@@ -396,6 +401,7 @@ export default function App() {
                     nightNumber={displayS.nightNumber}
                     deaths={displayS.deaths}
                     nominations={displayS.nominations}
+                    theories={displayS.theories}
                     config={displayS.config}
                     script={displayS.script}
                     scriptChars={scriptChars}
@@ -414,6 +420,7 @@ export default function App() {
                     victory={displayS.victory}
                     gameSummary={displayS.gameSummary}
                     pivotalHighlights={displayS.pivotalHighlights}
+                    theoryScores={displayS.theoryScores}
                     shareCardEnabled={displayS.config?.shareCardEnabled}
                     log={displayS.log}
                     actionLog={displayS.actionLog}
@@ -449,6 +456,10 @@ export default function App() {
 
       {fatalFlashing && (
         <FatalFlashOverlay blow={blow} onDone={onFatalFlashDone} />
+      )}
+
+      {theoryShowcase && (
+        <TheoryShowcaseOverlay theory={theoryShowcase} onDone={finishTheoryShowcase} />
       )}
 
       {revealCardStage === "active" && (

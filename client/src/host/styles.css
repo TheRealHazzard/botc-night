@@ -2431,6 +2431,51 @@
         }
       }
 
+      /* Showcase Theory's own arrival beat — deliberately a banner, not a
+   full-screen takeover like .fatal-flash: a theory can land several
+   times in one day phase, so blacking out the whole ring every time
+   would be exhausting rather than exciting. pointer-events:none keeps
+   it from blocking a tap on whatever's underneath while it's up. Lower
+   z-index than .fatal-flash/.reveal-card-scrim — an actual death or the
+   end-of-game ceremony always wins if they ever somehow coincide. */
+      .theory-showcase {
+        position: fixed;
+        top: 32px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 40;
+        pointer-events: none;
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 14px 26px;
+        border: 1px solid var(--brass);
+        border-radius: 8px;
+        background: var(--surface);
+        background-image: var(--grain);
+        background-repeat: repeat;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+        color: var(--bone);
+      }
+      .theory-showcase .icon {
+        width: 32px;
+        height: 32px;
+        flex-shrink: 0;
+        color: var(--brass);
+      }
+      .theory-showcase-text {
+        font-size: 1.1rem;
+        line-height: 1.3;
+      }
+      .theory-showcase-name {
+        font-family: "Cinzel Decorative", Georgia, serif;
+        color: var(--brass);
+      }
+      .theory-showcase-count {
+        font-size: 0.82rem;
+        color: var(--bone-dim);
+      }
+
       /* The MVP/Play-of-the-Game/game-winning-nomination cards — an
    encore after .fatal-flash and the ring-glow/narration beat have
    already had their moment (see useRevealCardSequencer.js), never shown

@@ -914,6 +914,9 @@ function recordGameHistory() {
     // — every nomination's vote tally, and the complete night-by-night log,
     // not just the aggregate outcome the profile stats need.
     nominations: game.nominations,
+    // Showcase Theory — same "kept in full, verbatim" treatment as
+    // nominations just above.
+    theories: game.theories,
     log: game.log,
     actionLog: game.actionLog,
     // What each player actually chose on their own private night prompt,
@@ -1168,6 +1171,38 @@ async function nominateHandler(body) {
   if (game.players.some(p => p.bot)) setTimeout(botsVote, Math.max(400, game.config.voteWindowSeconds * 200));
   pushAll();
   return { status: 200, payload: { ok: true, virginFired } };
+}
+
+/** The actual logic behind /api/theory — "Showcase Theory": a living
+    player, from their own phone, publicly guessing which script character
+    each of a chosen subset of OTHER players actually is. Same
+    token-or-explicit-id auth split as nominateHandler above (a real
+    player's token, or an explicit theoristId for a trusted caller — kept
+    for parity/testability, though no host-side UI drives that path yet).
+    Validates per-guess rather than rejecting the whole submission on one
+    bad entry — a stale reference shouldn't cost every other guess the
+    player bothered to make. */
+function theoryHandler(body) {
+  if (game.phase !== 'day') return { status: 409, payload: { error: 'Not day.' } };
+  const theorist = body.token ? E.byToken(game, body.token) : E.byId(game, body.theoristId);
+  if (!theorist) return { status: 404, payload: { error: 'Unknown player.' } };
+  if (!E.publiclyAlive(theorist)) return { status: 400, payload: { error: 'Only living players may share a theory.' } };
+  if (theorist.statuses.theoryDay === game.nightNumber) {
+    return { status: 409, payload: { error: 'You have already shared a theory today.' } };
+  }
+
+  const pool = new Set(E.activeScriptPool(game).map(c => c.id));
+  const guesses = (Array.isArray(body.guesses) ? body.guesses : [])
+    .filter(x => x && typeof x.targetId === 'string' && typeof x.characterId === 'string')
+    .filter(x => x.targetId !== theorist.id)
+    .filter(x => E.byId(game, x.targetId))
+    .filter(x => pool.has(x.characterId));
+  if (!guesses.length) return { status: 400, payload: { error: 'No valid guesses.' } };
+
+  theorist.statuses.theoryDay = game.nightNumber;
+  const entry = E.recordTheory(game, theorist, guesses);
+  pushAll();
+  return { status: 200, payload: { ok: true, theory: entry } };
 }
 
 /** The actual logic behind /api/table/vote, extracted for the same reason
@@ -3110,6 +3145,11 @@ async function requestHandler(req, res) {
 
       if (route === '/api/table/vote') {
         const { status, payload } = voteHandler(body);
+        return json(res, status, payload);
+      }
+
+      if (route === '/api/table/theory') {
+        const { status, payload } = theoryHandler(body);
         return json(res, status, payload);
       }
 

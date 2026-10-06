@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import GameStage from '../components/GameStage.jsx';
 import GameSummaryCard from '../components/GameSummaryCard.jsx';
 import PivotalMomentsCard from '../components/PivotalMomentsCard.jsx';
+import TheoryResultsCard from '../components/TheoryResultsCard.jsx';
 import SidepanelCard from '../components/SidepanelCard.jsx';
 import NarratorLogCard from '../components/NarratorLogCard.jsx';
 import SessionStatsCard from '../components/SessionStatsCard.jsx';
@@ -23,7 +24,7 @@ function logLabel(l) {
   return ''; // lobby/reveal/over, or older data with no recorded phase
 }
 
-export default function OverView({ players, victory, gameSummary, pivotalHighlights, shareCardEnabled, log, actionLog, resultsLog, nightNumber, muted, ringSlotRef, fading, transClass }) {
+export default function OverView({ players, victory, gameSummary, pivotalHighlights, theoryScores, shareCardEnabled, log, actionLog, resultsLog, nightNumber, muted, ringSlotRef, fading, transClass }) {
   const [showPowerLog, setShowPowerLog] = useState(false);
   const [showShareCard, setShowShareCard] = useState(false);
 
@@ -44,6 +45,7 @@ export default function OverView({ players, victory, gameSummary, pivotalHighlig
         <>
           {gameSummary && <GameSummaryCard gs={gameSummary} />}
           <PivotalMomentsCard players={players} pivotalHighlights={pivotalHighlights} />
+          <TheoryResultsCard theoryScores={theoryScores} />
           <SidepanelCard title="What actually happened">
             <div className="log">
               {log.map((l, i) => <p key={i}>{logLabel(l)}{l.text}</p>)}

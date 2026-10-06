@@ -8,6 +8,7 @@ import NarratorLogCard from '../components/NarratorLogCard.jsx';
 import NominationList from '../components/NominationList.jsx';
 import NominateAction from '../components/NominateAction.jsx';
 import DayReport from '../components/DayReport.jsx';
+import TheoriesCard from '../components/TheoriesCard.jsx';
 import Icon from '../components/Icon.jsx';
 import MinorBeatOverlay from '../components/MinorBeatOverlay.jsx';
 import { PACING_COPY } from '../components/RoomPacingNudge.jsx';
@@ -22,7 +23,7 @@ import { post } from '../../lib/api.js';
 import { showToast } from '../../lib/toast.js';
 import { leadingNominee } from '../../lib/leadingNominee.js';
 
-export default function DayView({ players, nightNumber, deaths, nominations, config, script, scriptChars, activeScriptMeta, muted, log = [], dayStartedAt, ringSlotRef, fading, transClass }) {
+export default function DayView({ players, nightNumber, deaths, nominations, theories, config, script, scriptChars, activeScriptMeta, muted, log = [], dayStartedAt, ringSlotRef, fading, transClass }) {
   const lastNight = deaths.filter(d => d.night === nightNumber && d.cause !== 'execution');
   // No Mastermind hint here on purpose — the wiki is explicit: "Add a
   // shroud as normal. Do not say that the Demon has died." The bonus day
@@ -72,6 +73,7 @@ export default function DayView({ players, nightNumber, deaths, nominations, con
         <>
           <NominationList nominations={nominations} nightNumber={nightNumber} players={players} voteWindowSeconds={config.voteWindowSeconds} />
           <DayReport deaths={deaths} players={players} nightNumber={nightNumber} />
+          <TheoriesCard theories={theories} nightNumber={nightNumber} />
           <SidepanelCard title="Storyteller controls">
             <div className="sidepanel-card-stack">
               <NominateAction nominations={nominations} nightNumber={nightNumber} players={players} />

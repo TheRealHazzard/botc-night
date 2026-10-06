@@ -12,7 +12,7 @@ const {
   wouldBlockKill, randomKiller, checkKill, isEvil, isEvilRegistration, resolveWhim, setWhimJudge, effectiveDramaBias,
   heuristicWhim, WHIM_FIRING_HELPS_GOOD, maybeMercy, triggerMoonchildIfNeeded, flagAbnormal,
   triggerPixieIfNeeded, applyCannibalTransform, resolveRavenkeeperChoice,
-  logEvent, recordClaim, heuristicBotClaim, BOT_PERSONALITIES, outsiderDiedToday, minionDiedToday, somebodyDiedYesterday,
+  logEvent, recordClaim, recordTheory, heuristicBotClaim, BOT_PERSONALITIES, outsiderDiedToday, minionDiedToday, somebodyDiedYesterday,
   numberSignal, falseNumber, logTrueValue, evilNeighbourCount, evilPairCount, pairInfo,
   decide, INTERNAL_ONLY_STATUSES,
 } = H;
@@ -142,6 +142,14 @@ function newGame() {
     // nothing currently writes one on their behalf. Flat and public-only:
     // what was SAID, not what's true. See H.recordClaim/H.heuristicBotClaim.
     claims: [],
+    // "Showcase Theory" — a living player's own public guesses at who
+    // else really is which character, submitted from their own phone
+    // (H.recordTheory, server.js's /api/theory). Flat and public-only,
+    // same reasoning as claims/nominations just above: this is spoken at
+    // the table already, not a secret the engine is keeping. Unlike
+    // claims, a real player writes these themselves — there's no bot
+    // equivalent, Dry Run games just never populate this.
+    theories: [],
     // The narrative plan (game/storyteller/narrativePlan.js) — null until
     // server.js generates one right after dealing, and for the whole
     // game if the LLM Storyteller is off or unconfigured. A plain data
@@ -1483,6 +1491,27 @@ function gameSummary(g) {
   };
 }
 
+/** Showcase Theory's own scoring — one entry per distinct theorist across
+    every g.theories entry (a player can submit on more than one day; this
+    sums across all of them rather than keeping a separate line per day),
+    correct/total guesses against each target's own true character.
+    Reveal-gated by publicState() the same way gameSummary is, since this
+    compares against trueChar() directly. */
+function theoryScores(g) {
+  const byPlayer = {};
+  g.theories.forEach(t => {
+    const bucket = byPlayer[t.playerId] || { playerId: t.playerId, playerName: t.playerName, correct: 0, total: 0 };
+    t.guesses.forEach(gs => {
+      const target = byId(g, gs.targetId);
+      const trueC = target && trueChar(target);
+      bucket.total++;
+      if (trueC && trueC.id === gs.characterId) bucket.correct++;
+    });
+    byPlayer[t.playerId] = bucket;
+  });
+  return Object.values(byPlayer);
+}
+
 /** Sects & Violets' Evil Twin: "Good cannot win while you both live" — a
     blanket block on any good-favoring verdict, checked at each point
     checkVictory would otherwise hand good the win. Lifts the moment either
@@ -1755,6 +1784,9 @@ function publicState(g) {
     // Same visibility as nominations — a public claim is spoken out loud
     // (or, for a Dry Run bot, the equivalent), never a secret.
     claims: g.claims,
+    // Showcase Theory — same "already said at the table" visibility as
+    // claims/nominations above.
+    theories: g.theories,
     log: g.revealed ? g.log : g.log.filter(l => !l.secret),
     gameSummary: g.revealed ? gameSummary(g) : null,
     // The deterministic MVP/Play-of-the-Game/game-winning-nomination
@@ -1763,6 +1795,10 @@ function publicState(g) {
     // "inspectable before any card UI exists" step, meant to be read
     // straight off this endpoint or the persisted history record for now.
     pivotalHighlights: g.revealed ? computeHighlights(g) : null,
+    // Who correctly guessed what — unrevealed, this would leak true
+    // characters just by comparing against them, so it waits for the
+    // same reveal gate pivotalHighlights/gameSummary already use.
+    theoryScores: g.revealed ? theoryScores(g) : [],
     actionLog: g.revealed ? g.actionLog : [],
     // Same reveal gate as actionLog — every info role's actual result,
     // night by night, for exactly the situation that prompted this: a
@@ -1931,6 +1967,17 @@ function privateState(g, playerId) {
           characterOptions: activeScriptPool(g).map(x => ({ id: x.id, name: x.name })),
         }
       : null,
+    // "Showcase Theory" — a living player's own public guesses at who else
+    // really is which character, once per day like gossipClaim above. No
+    // characterOptions here (unlike gossipClaim/artistQuestion) — the
+    // builder UI fetches the full script roster via the existing, already-
+    // public /api/script instead, for the grouped-by-team/token-art picker
+    // ScriptOverlay.jsx already renders; this only needs to say who's
+    // eligible to be guessed about. Living AND dead are fair targets — a
+    // dead player's true identity is still hidden until reveal.
+    theoryPrompt: (g.phase === 'day' && publiclyAlive(p) && p.statuses.theoryDay !== g.nightNumber)
+      ? { targets: g.players.filter(x => x.id !== p.id).map(x => ({ id: x.id, name: x.name, color: x.color || null, alive: x.alive })) }
+      : null,
     // Sects & Violets' Mutant/Cerenovus "madness" — see resolveMadness.
     // `madReasons` can hold more than one simultaneously (a rare overlap of
     // both sources); one shared claim covers all of them for the day.
@@ -2006,7 +2053,7 @@ module.exports = {
   resolveDayVote, gameSummary, resolveMadness, buildSavantStatements, evaluateClaim,
   activeScriptPool, applyConfigPatch, buildStorytellerContext, BUCKET4_IDS,
   applyCannibalTransform, resolveRavenkeeperChoice, INTERNAL_ONLY_STATUSES,
-  recordClaim, heuristicBotClaim, BOT_PERSONALITIES,
+  recordClaim, heuristicBotClaim, BOT_PERSONALITIES, recordTheory, theoryScores,
   // Exposed for tools/audit-abilities.js's generic per-character invariant
   // checks, which need to iterate every entry rather than dispatch by id —
   // nothing inside game/ itself needs this, since engine.js's own functions
