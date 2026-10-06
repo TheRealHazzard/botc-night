@@ -48,7 +48,7 @@ export default function ScoreboardTool() {
   };
 
   return (
-    <SidepanelCard icon="trophy" title="Scoreboard">
+    <SidepanelCard title="Scoreboard">
       {rows.length > 0 && (
         <div className="toolkit-scorerows">
           {rows

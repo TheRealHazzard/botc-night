@@ -35,7 +35,7 @@ export default function NightView({ players, nightNumber, windowEndsAt, windowTo
       label: 'Controls',
       content: (
         <>
-          <SidepanelCard icon="clock" title="Night window">
+          <SidepanelCard title="Night window">
             {windowEndsAt && (
               <div className="timerbox">
                 <Countdown

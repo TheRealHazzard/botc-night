@@ -72,7 +72,7 @@ export default function TriviaTool() {
   const current = editing ? null : deck[order[pos]];
 
   return (
-    <SidepanelCard icon="bulb" title="Trivia">
+    <SidepanelCard title="Trivia">
       {editing ? (
         <>
           <textarea

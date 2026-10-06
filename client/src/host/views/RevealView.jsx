@@ -25,7 +25,7 @@ export default function RevealView({ config, scriptChars, activeScriptMeta, mute
       label: 'Controls',
       content: (
         <>
-          <SidepanelCard icon="gear" title="Storyteller controls">
+          <SidepanelCard title="Storyteller controls">
             <div className="sidepanel-actions">
               <button type="button" className="primary" onClick={() => post('/api/table/night')}>
                 <Icon name="moon" size={15} /> Night falls

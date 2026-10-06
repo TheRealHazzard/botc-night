@@ -69,7 +69,7 @@ export default function LobbyView({ players, script, scripts, setupRatio, browsi
       label: 'Controls',
       content: (
         <>
-          <SidepanelCard icon="users" title="Join Here">
+          <SidepanelCard title="Join Here">
             <div className="joinwrap">
               {joinAddr && hasQrEncoder ? (
                 <div className="joinqr"><QRCode text={joinAddr} /></div>

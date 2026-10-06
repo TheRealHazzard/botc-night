@@ -24,12 +24,13 @@ export default function SessionStatsCard() {
   ];
 
   return (
-    <SidepanelCard icon="trend" title="Tonight">
-      <div className="dayreport-rows">
+    <SidepanelCard title="Tonight">
+      <div className="ledger">
         {stats.map(([lbl, val]) => (
-          <div className="stat" key={lbl}>
-            <div className="stat-n mono">{val}</div>
-            <div className="stat-lbl">{lbl}</div>
+          <div className="ledger-row" key={lbl}>
+            <span className="ledger-label">{lbl}</span>
+            <span className="ledger-leader" />
+            <span className="ledger-value">{val}</span>
           </div>
         ))}
       </div>

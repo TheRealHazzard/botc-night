@@ -17,7 +17,7 @@ import TeamBadgeImg from './TeamBadgeImg.jsx';
     skipped entirely. */
 function ScriptRosterCard({ characters }) {
   return (
-    <SidepanelCard icon="scroll" title={`In this script${characters ? ' (' + characters.length + ')' : ''}`}>
+    <SidepanelCard title={`In this script${characters ? ' (' + characters.length + ')' : ''}`}>
       {characters && groupByTeam(characters).map(({ team, list }) => (
         <TeamGroup key={team} team={team} list={list} />
       ))}

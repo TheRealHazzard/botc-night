@@ -65,7 +65,7 @@ export default function TimerTool() {
   const size = 200, stroke = 10, r = (size - stroke) / 2, c = 2 * Math.PI * r;
 
   return (
-    <SidepanelCard icon="clock" title="Timer">
+    <SidepanelCard title="Timer">
       <div className="panel-tabs">
         {PRESETS.map(seconds => (
           <button

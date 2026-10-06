@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import SidepanelCard from './SidepanelCard.jsx';
 import HallOfFameOverlay from './HallOfFameOverlay.jsx';
-import Icon from './Icon.jsx';
 import { rankProfiles } from '../lib/leaderboard.js';
 
 function fmtPct(x) { return x == null ? '—' : Math.round(x * 100) + '%'; }
@@ -30,19 +29,17 @@ export default function LeaderboardTeaserCard() {
 
   return (
     <>
-      <SidepanelCard icon="trophy" title="All-time leaderboard">
-        <div className="rosterlist">
+      <SidepanelCard title="All-time leaderboard">
+        <div className="ledger-rank-list">
           {ranked.slice(0, 3).map((p, i) => (
-            <div className="rosterrow" key={p.id}>
-              <div className="rosterrow-top">
-                <strong>#{i + 1} {p.name}</strong>
-                <span className="rosterrole">{p.wins}W — {fmtPct(p.winRate)}</span>
-              </div>
+            <div className={'ledger-rank-row' + (i === 0 ? ' lead' : '')} key={p.id}>
+              <span className="ledger-rank-name"><span className="ledger-rank">#{i + 1}</span> {p.name}</span>
+              <span className="ledger-rank-value">{p.wins}W — {fmtPct(p.winRate)}</span>
             </div>
           ))}
         </div>
-        <button type="button" onClick={() => setShowFull(true)}>
-          <Icon name="trophy" size={15} /> Full leaderboard
+        <button type="button" className="ledger-cta" onClick={() => setShowFull(true)}>
+          Full leaderboard →
         </button>
       </SidepanelCard>
       {showFull && <HallOfFameOverlay onClose={() => setShowFull(false)} />}

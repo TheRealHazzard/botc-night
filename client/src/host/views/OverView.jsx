@@ -44,7 +44,7 @@ export default function OverView({ players, victory, gameSummary, pivotalHighlig
         <>
           {gameSummary && <GameSummaryCard gs={gameSummary} />}
           <PivotalMomentsCard players={players} pivotalHighlights={pivotalHighlights} />
-          <SidepanelCard icon="scroll" title="What actually happened">
+          <SidepanelCard title="What actually happened">
             <div className="log">
               {log.map((l, i) => <p key={i}>{logLabel(l)}{l.text}</p>)}
             </div>
@@ -56,7 +56,7 @@ export default function OverView({ players, victory, gameSummary, pivotalHighlig
       id: 'roster',
       label: 'Roster',
       content: (
-        <SidepanelCard icon="users" title="Full roster">
+        <SidepanelCard title="Full roster">
           <div className="rosterlist">
             {players.map(p => <RosterRow key={p.id} player={p} />)}
           </div>

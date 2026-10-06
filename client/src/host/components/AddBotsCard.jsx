@@ -30,7 +30,7 @@ export default function AddBotsCard({ room }) {
   };
 
   return (
-    <SidepanelCard icon="ghost" title="Short-handed?">
+    <SidepanelCard title="Short-handed?">
       <p className="sub">Fill empty seats with bots — they play along with everyone else, night and day.</p>
       <div className="sidepanel-actions-row">
         <input

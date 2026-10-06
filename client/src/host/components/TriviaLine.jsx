@@ -67,7 +67,11 @@ export default function TriviaLine({ scriptId }) {
 
   return (
     <div className="trivia-card">
-      <div className="trivia-card-title">Did you know</div>
+      <div className="trivia-card-title">
+        <span className="trivia-card-title-rule" />
+        <span className="trivia-card-title-text">Did you know</span>
+        <span className="trivia-card-title-rule end" />
+      </div>
       <div className="trivia-card-body">
         {showToken ? (
           <img

@@ -11,7 +11,7 @@ export default function NarratorLogCard() {
   if (!entries.length) return null;
 
   return (
-    <SidepanelCard icon="scroll" title="Narrator">
+    <SidepanelCard title="Narrator">
       <div className="log">
         {entries.map(e => <p key={e.id}>{e.text}</p>)}
       </div>

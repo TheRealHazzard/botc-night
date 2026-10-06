@@ -21,12 +21,19 @@ const profiles = [
 describe('LeaderboardTeaserCard', () => {
   it('shows the top 3 all-time profiles by wins', async () => {
     baseMocks(profiles);
-    render(<LeaderboardTeaserCard />);
+    const { container } = render(<LeaderboardTeaserCard />);
     expect(await screen.findByText('All-time leaderboard')).toBeInTheDocument();
-    expect(screen.getByText('#1 Ada')).toBeInTheDocument();
-    expect(screen.getByText('#2 Bo')).toBeInTheDocument();
-    expect(screen.getByText('#3 Cy')).toBeInTheDocument();
-    expect(screen.getByText('4W — 80%')).toBeInTheDocument();
+    // toHaveTextContent, not getByText — the rank numeral is its own
+    // <span> (so its color can differ from the name), which getByText
+    // can't see across since it only joins a node's own direct text-
+    // node children, not nested elements.
+    const rows = container.querySelectorAll('.ledger-rank-row');
+    expect(rows[0]).toHaveTextContent('#1 Ada');
+    expect(rows[0]).toHaveTextContent('4W — 80%');
+    expect(rows[1]).toHaveTextContent('#2 Bo');
+    expect(rows[2]).toHaveTextContent('#3 Cy');
+    expect(rows[0]).toHaveClass('lead');
+    expect(rows[1]).not.toHaveClass('lead');
   });
 
   it('opens the full Hall of Fame overlay from its own button', async () => {

@@ -30,7 +30,7 @@ export default function RandomizerTool() {
   };
 
   return (
-    <SidepanelCard icon="dice" title="Randomizer">
+    <SidepanelCard title="Randomizer">
       <textarea
         className="toolkit-textarea"
         rows={6}
