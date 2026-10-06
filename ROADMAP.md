@@ -361,6 +361,16 @@ at the next table:
   ambience got louder for no obvious reason"?
 - Is MVP-restricted-to-the-winning-team the right call once it's picked
   a real person in front of them, or does it feel wrong live?
+- The host dashboard's whole animation layer moved to framer-motion this
+  session (tab switching, toasts, the confirm modal, the Reference
+  drawer, the ring's seat-entrance, every phase transition) — none of it
+  has been watched played end to end yet, just unit-tested for behavior.
+- The cinematic-polish pass's two genuinely unverified pieces, specifically:
+  the `.game-ring-zone` vignette (deliberately built to avoid the exact
+  gradient-banding failure this app's own `body` background already hit
+  once on a real TV panel — worth confirming it actually did) and the
+  `backdrop-filter: blur()` on the confirm modal and Reference drawer
+  (real GPU cost, no device to test it against yet).
 
 ## Known gaps (small, named, not urgent)
 
