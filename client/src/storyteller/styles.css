@@ -44,15 +44,47 @@ body {
   width: 100%;
   max-width: 400px;
   background: var(--surface);
+  background-image: var(--grain);
+  background-repeat: repeat;
   border: 1px solid var(--line);
-  border-radius: 14px;
+  border-radius: 6px;
   padding: 28px;
 }
 
-.st-card h1, .st-card h3 {
+/* The login gate and the claim-judge modal's own heading — same flanked-
+   rule language as .sidepanel-heading/.st-section-heading elsewhere,
+   in place of the plain <h1>/<h3> this used to be. */
+.st-card-heading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+.st-card-rule {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--brass));
+}
+.st-card-rule.end {
+  background: linear-gradient(90deg, var(--brass), transparent);
+}
+.st-card-title {
   font-family: 'Cinzel Decorative', Georgia, serif;
+  font-size: 0.85rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   color: var(--brass);
-  margin: 0 0 8px;
+  white-space: nowrap;
+}
+.st-card-rule-brass {
+  height: 1px;
+  background: var(--brass);
+  margin-bottom: 2px;
+}
+.st-card-rule-soft {
+  height: 1px;
+  background: var(--line-soft);
+  margin-bottom: 16px;
 }
 
 .st-gate input {

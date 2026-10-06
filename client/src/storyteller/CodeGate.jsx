@@ -41,7 +41,13 @@ export default function CodeGate({ onEntered }) {
   return (
     <div className="st-gate">
       <form className="st-card" onSubmit={submit}>
-        <h1>The Storyteller's console</h1>
+        <div className="st-card-heading">
+          <span className="st-card-rule" />
+          <span className="st-card-title">The Storyteller's console</span>
+          <span className="st-card-rule end" />
+        </div>
+        <div className="st-card-rule-brass" />
+        <div className="st-card-rule-soft" />
         <p>Enter the Storyteller code to run tonight's table.</p>
         <input
           type="text" value={code} onChange={e => setCode(e.target.value)}

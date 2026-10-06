@@ -48,7 +48,13 @@ export default function ClaimJudgePanel({ hostState, onChange, onError, onClose 
   return (
     <div className="st-overlay">
       <div className="st-card st-claim-judge">
-        <h3>Judge a claim</h3>
+        <div className="st-card-heading">
+          <span className="st-card-rule" />
+          <span className="st-card-title">Judge a claim</span>
+          <span className="st-card-rule end" />
+        </div>
+        <div className="st-card-rule-brass" />
+        <div className="st-card-rule-soft" />
         <label>
           Player
           <select value={playerId} onChange={e => setPlayerId(e.target.value)}>
