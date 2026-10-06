@@ -1,4 +1,5 @@
 import HoldToReveal from "../HoldToReveal.jsx";
+import Card from "../Card.jsx";
 import { ResultBody } from "./ResultCard.jsx";
 
 // A player's own full history, straight from the server, not from anything
@@ -14,7 +15,7 @@ export default function ResultHistoryCard({ history }) {
   const sorted = [...history].sort((a, b) => b.night - a.night);
 
   return (
-    <div className="card">
+    <Card>
       <HoldToReveal label={"Tap to see past information given to you"}>
         {() => (
           <div className="result-history">
@@ -29,6 +30,6 @@ export default function ResultHistoryCard({ history }) {
           </div>
         )}
       </HoldToReveal>
-    </div>
+    </Card>
   );
 }

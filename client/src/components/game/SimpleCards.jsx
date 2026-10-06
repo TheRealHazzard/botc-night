@@ -1,3 +1,5 @@
+import Card from '../Card.jsx';
+
 // The plain, static-copy cards — no interaction beyond what's already
 // handled elsewhere (RoleCard, the vote flow), except DaylightCard's own
 // nominate trigger below. Grouped in one file since each is a couple of
@@ -14,11 +16,7 @@ export function LobbyCard({ name, onChangeUser, lobby }) {
   const short = count < 5;
 
   return (
-    <div className="card">
-      <h2 className="seated-head">
-        Seated as {name}
-        <button type="button" className="changebtn" onClick={onChangeUser}>Change</button>
-      </h2>
+    <Card title={`Seated as ${name}`} action={<button type="button" className="changebtn" onClick={onChangeUser}>Change</button>}>
       {others.length ? (
         <p className="dim">
           {count} seated — {others.join(', ')}.
@@ -27,25 +25,23 @@ export function LobbyCard({ name, onChangeUser, lobby }) {
       ) : (
         <p className="dim">Waiting for the table to fill.</p>
       )}
-    </div>
+    </Card>
   );
 }
 
 export function RevealCard() {
   return (
-    <div className="card">
-      <h2>Learn yourself</h2>
+    <Card title="Learn yourself">
       <p className="dim">Hold the panel above. Show no one.</p>
-    </div>
+    </Card>
   );
 }
 
 export function NightWaitingCard() {
   return (
-    <div className="card">
-      <h2>Eyes closed.</h2>
+    <Card title="Eyes closed.">
       <p className="dim">Wait.</p>
-    </div>
+    </Card>
   );
 }
 
@@ -58,22 +54,20 @@ export function NightWaitingCard() {
     short of glancing at the shared screen. */
 export function GameOverCard({ victory }) {
   return (
-    <div className="card">
-      <h2>Game over</h2>
+    <Card title="Game over">
       <p className="dim">
         {victory
           ? `${victory.winner === 'good' ? 'Good' : 'Evil'} wins. ${victory.reason || ''}`
           : 'The story is told.'}
         {' '}Look up at the screen for the full reveal.
       </p>
-    </div>
+    </Card>
   );
 }
 
 export function DaylightCard({ canNominate, onNominate }) {
   return (
-    <div className="card">
-      <h2>Daylight</h2>
+    <Card title="Daylight">
       <p className="dim">
         {canNominate
           ? 'Talk. Accuse. Decide.'
@@ -82,6 +76,6 @@ export function DaylightCard({ canNominate, onNominate }) {
       {canNominate && (
         <button type="button" className="primary" onClick={onNominate}>I Nominate</button>
       )}
-    </div>
+    </Card>
   );
 }

@@ -1,4 +1,5 @@
 import HoldToReveal from '../HoldToReveal.jsx';
+import Card from '../Card.jsx';
 
 // `kind` is optional metadata a result can carry (see game/helpers.js's
 // resultCount/resultYesNo/resultPointer) — when it's present, that shape
@@ -63,7 +64,7 @@ export function ResultBody({ result }) {
 
 export default function ResultCard({ result }) {
   return (
-    <div className="card">
+    <Card>
       <HoldToReveal label="Hold to read what you were told">
         {() => (
           <div className="result">
@@ -71,6 +72,6 @@ export default function ResultCard({ result }) {
           </div>
         )}
       </HoldToReveal>
-    </div>
+    </Card>
   );
 }

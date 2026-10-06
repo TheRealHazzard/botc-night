@@ -65,7 +65,6 @@ body.bluff-beat-active{
 .topbar{display:flex; align-items:center; gap:8px; margin-bottom:22px}
 h1{margin:0; line-height:0; flex-shrink:0}
 .wordmark{height:40px; width:auto; max-width:100%; display:block}
-.seated-head{display:flex; align-items:center; flex-wrap:wrap; gap:10px}
 .changebtn{
   width:auto; margin:0; padding:4px 10px; font-size:.72rem; border-radius:20px; flex-shrink:0;
   background:none; border:1px solid var(--line); color:var(--bone-dim);
@@ -123,7 +122,20 @@ h1{margin:0; line-height:0; flex-shrink:0}
 h2{font-family:'Cormorant Garamond',Georgia,serif; font-size:1.5rem; margin:0 0 8px; text-wrap:balance}
 .dim{color:var(--bone-dim)}
 .small{font-size:.85rem}
-.card{border:1px solid var(--line); background:var(--surface); border-radius:4px; padding:18px; margin-bottom:14px}
+/* Same "Illuminated Ledger" shell/heading the host app's SidepanelCard and
+   the storyteller console's StSection both use — grain-textured flat card,
+   a flanked-rule heading in place of a plain <h2> — via Card.jsx, the
+   component most of this app's own cards go through now instead of
+   hand-writing their own <h2>. A card with no `title` (ResultCard/
+   ResultHistoryCard — their own .result already carries a title) just
+   gets the plain shell below, unchanged in shape from before. */
+.card{border:1px solid var(--line); background:var(--surface); background-image:var(--grain); background-repeat:repeat; border-radius:6px; padding:18px; margin-bottom:14px}
+.card-heading{display:flex; align-items:center; gap:10px; margin-bottom:4px}
+.card-rule{flex:1; height:1px; background:linear-gradient(90deg, transparent, var(--brass))}
+.card-rule.end{background:linear-gradient(90deg, var(--brass), transparent)}
+.card-title{font-family:'Cinzel Decorative',Georgia,serif; font-size:.95rem; letter-spacing:.08em; text-transform:uppercase; color:var(--brass); white-space:nowrap}
+.card-rule-brass{height:1px; background:var(--brass); margin-bottom:2px}
+.card-rule-soft{height:1px; background:var(--line-soft); margin-bottom:14px}
 
 input,button,select{font-family:inherit; font-size:1.05rem}
 input[type=text],select{

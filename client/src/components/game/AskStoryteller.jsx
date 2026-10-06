@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { post } from '../../lib/api.js';
 import { showToast } from '../../lib/toast.js';
+import Card from '../Card.jsx';
 
 /** A general "speak to the Storyteller" utility — unlike Gossip/Savant/
     Artist, not gated to a specific believed character, no per-day or
@@ -26,8 +27,7 @@ export default function AskStoryteller({ token }) {
   };
 
   return (
-    <div className="card">
-      <h2>Speak to the Storyteller</h2>
+    <Card title="Speak to the Storyteller">
       <p className="dim small">Ask anything — a rules question, or something about this game right now. Answered from only what you yourself already know.</p>
       {history.length > 0 && (
         <div className="storyteller-log">
@@ -49,6 +49,6 @@ export default function AskStoryteller({ token }) {
       <button type="button" className="primary" disabled={!question.trim() || busy} onClick={ask}>
         {busy ? 'Asking…' : 'Ask'}
       </button>
-    </div>
+    </Card>
   );
 }
