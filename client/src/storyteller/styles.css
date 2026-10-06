@@ -115,20 +115,56 @@ body {
   font-size: 1.3rem;
 }
 
+/* Same "Illuminated Ledger" shell/heading the host app's SidepanelCard
+   uses (grain-textured flat card, a flanked-rule heading in place of a
+   plain uppercase <h3>) — see StSection.jsx, the component every
+   .st-section now goes through instead of hand-writing its own <h3>. */
 .st-section {
   background: var(--surface);
+  background-image: var(--grain);
+  background-repeat: repeat;
   border: 1px solid var(--line);
-  border-radius: 12px;
-  padding: 16px;
+  border-radius: 6px;
+  padding: 20px 22px;
   margin-bottom: 16px;
 }
 
-.st-section h3 {
-  margin-top: 0;
-  color: var(--bone);
-  font-size: 1rem;
+.st-section-heading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.st-section-rule {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--brass));
+}
+
+.st-section-rule.end {
+  background: linear-gradient(90deg, var(--brass), transparent);
+}
+
+.st-section-title {
+  font-family: 'Cinzel Decorative', Georgia, serif;
+  font-size: 0.8rem;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  color: var(--brass);
+  white-space: nowrap;
+}
+
+.st-rule-brass {
+  height: 1px;
+  background: var(--brass);
+  margin-bottom: 2px;
+}
+
+.st-rule-soft {
+  height: 1px;
+  background: var(--line-soft);
+  margin-bottom: 16px;
 }
 
 .st-hint {
@@ -205,8 +241,14 @@ select, textarea, input[type="text"] {
 }
 
 .st-roster li {
-  padding: 6px 0;
-  border-bottom: 1px solid var(--line-soft);
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-size: 1.05rem;
+  padding: 7px 0;
+  border-bottom: 1px dotted var(--line-soft);
+}
+
+.st-roster li:last-child {
+  border-bottom: none;
 }
 
 .st-empty { color: var(--bone-faint); font-style: italic; }

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from './api.js';
+import StSection from './StSection.jsx';
 
 /** The Storyteller adds every attendee by name — there are no phones in
     this mode for a player to join from themselves (ROADMAP.md's Phase 3),
@@ -61,16 +62,14 @@ export default function LobbyPanel({ hostState, onChange, onError }) {
     <div className="st-panel">
       <h2>Lobby</h2>
 
-      <section className="st-section">
-        <h3>Script</h3>
+      <StSection title="Script">
         <select value={scriptId} onChange={e => pickScript(e.target.value)}>
           <option value="" disabled>Choose a script…</option>
           {scripts.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
         </select>
-      </section>
+      </StSection>
 
-      <section className="st-section">
-        <h3>Seated ({players.length})</h3>
+      <StSection title={`Seated (${players.length})`}>
         <ul className="st-roster">
           {players.map(p => <li key={p.id}>{p.name}</li>)}
           {!players.length && <li className="st-empty">Nobody yet — add the table below.</li>}
@@ -79,7 +78,7 @@ export default function LobbyPanel({ hostState, onChange, onError }) {
           <input value={name} onChange={e => setName(e.target.value)} placeholder="Player name" autoFocus />
           <button type="submit" disabled={busy || !name.trim()}>Add</button>
         </form>
-      </section>
+      </StSection>
 
       <button className="st-primary" disabled={!canDeal || busy} onClick={deal}>
         Deal roles

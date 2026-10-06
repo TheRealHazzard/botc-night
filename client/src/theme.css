@@ -42,4 +42,14 @@
      different hardcoded hex values (#fff2e8 and #fff8ef) doing the exact
      same job in both stylesheets, drifted apart with nothing to notice. */
   --cream:#fff2e8;
+  /* A small repeating noise tile, used as a flat surface's own
+     background-image wherever a smooth gradient over that much dark
+     area would band on a real TV panel — reads as aged parchment/
+     candlelit texture instead, with no smooth transition left to band.
+     Previously only defined in the host stylesheet's own :root (its
+     Illuminated Ledger card redesign was the first thing to need it);
+     moved here once the storyteller console and player app joined that
+     same redesign and needed the identical texture, not a second copy
+     of this base64 blob per stylesheet. */
+  --grain: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHdpZHRoPScxMjAnIGhlaWdodD0nMTIwJz48ZmlsdGVyIGlkPSduJz48ZmVUdXJidWxlbmNlIHR5cGU9J2ZyYWN0YWxOb2lzZScgYmFzZUZyZXF1ZW5jeT0nMC44NScgbnVtT2N0YXZlcz0nMicgc3RpdGNoVGlsZXM9J3N0aXRjaCcvPjxmZUNvbG9yTWF0cml4IHR5cGU9J3NhdHVyYXRlJyB2YWx1ZXM9JzAnLz48L2ZpbHRlcj48cmVjdCB3aWR0aD0nMTAwJScgaGVpZ2h0PScxMDAlJyBmaWx0ZXI9J3VybCgjbiknIG9wYWNpdHk9JzAuMDUnLz48L3N2Zz4=");
 }

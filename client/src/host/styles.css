@@ -6,11 +6,6 @@
      the result — cleared back to this default the moment a new game starts. */
         --primary: var(--oxblood);
         --primary-hi: var(--oxblood-hi);
-        /* Shared with .settings-overlay below, not just body — a solid
-     flat --void behind an overlay whose own content is sparse (Dry Run's
-     start card, say) reads as a disconnected black void, since body's
-     own grain never shows through a fixed, opaque overlay on top of it. */
-        --grain: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHdpZHRoPScxMjAnIGhlaWdodD0nMTIwJz48ZmlsdGVyIGlkPSduJz48ZmVUdXJidWxlbmNlIHR5cGU9J2ZyYWN0YWxOb2lzZScgYmFzZUZyZXF1ZW5jeT0nMC44NScgbnVtT2N0YXZlcz0nMicgc3RpdGNoVGlsZXM9J3N0aXRjaCcvPjxmZUNvbG9yTWF0cml4IHR5cGU9J3NhdHVyYXRlJyB2YWx1ZXM9JzAnLz48L2ZpbHRlcj48cmVjdCB3aWR0aD0nMTAwJScgaGVpZ2h0PScxMDAlJyBmaWx0ZXI9J3VybCgjbiknIG9wYWNpdHk9JzAuMDUnLz48L3N2Zz4=");
       }
       * {
         box-sizing: border-box;

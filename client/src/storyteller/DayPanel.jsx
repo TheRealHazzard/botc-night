@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { api } from './api.js';
 import ClaimJudgePanel from './ClaimJudgePanel.jsx';
+import StSection from './StSection.jsx';
 
 export default function DayPanel({ hostState, onChange, onError }) {
   const living = (hostState.players || []).filter(p => p.alive);
@@ -33,8 +34,7 @@ export default function DayPanel({ hostState, onChange, onError }) {
       <h2>Day {hostState.nightNumber}</h2>
 
       {open ? (
-        <section className="st-section">
-          <h3>{open.nominatorName} nominated {open.nomineeName}</h3>
+        <StSection title={`${open.nominatorName} nominated ${open.nomineeName}`}>
           <p className="st-hint">{open.yesCount} yes so far, needs {open.threshold} to carry.</p>
           <ul className="st-roster">
             {living.map(p => {
@@ -50,10 +50,9 @@ export default function DayPanel({ hostState, onChange, onError }) {
               );
             })}
           </ul>
-        </section>
+        </StSection>
       ) : (
-        <section className="st-section">
-          <h3>Nominate</h3>
+        <StSection title="Nominate">
           <div className="st-inline-form">
             <select value={nominator} onChange={e => setNominator(e.target.value)}>
               <option value="">Nominator…</option>
@@ -70,11 +69,10 @@ export default function DayPanel({ hostState, onChange, onError }) {
               Open nomination
             </button>
           </div>
-        </section>
+        </StSection>
       )}
 
-      <section className="st-section">
-        <h3>Execution</h3>
+      <StSection title="Execution">
         <button disabled={busy} onClick={() => run(() => api.tally())}>Tally today's votes</button>
         <div className="st-inline-form">
           <select value={manualExecuteId} onChange={e => setManualExecuteId(e.target.value)}>
@@ -85,12 +83,11 @@ export default function DayPanel({ hostState, onChange, onError }) {
             Manual override
           </button>
         </div>
-      </section>
+      </StSection>
 
-      <section className="st-section">
-        <h3>Claims</h3>
+      <StSection title="Claims">
         <button onClick={() => setShowClaimJudge(true)}>Judge a Gossip/Artist claim</button>
-      </section>
+      </StSection>
 
       {showClaimJudge && (
         <ClaimJudgePanel hostState={hostState} onChange={onChange} onError={onError} onClose={() => setShowClaimJudge(false)} />

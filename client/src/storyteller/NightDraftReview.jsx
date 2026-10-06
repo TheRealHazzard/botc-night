@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from './api.js';
+import StSection from './StSection.jsx';
 
 const WHIM_LABELS = {
   'mayor-redirect': "Mayor's redirect",
@@ -57,25 +58,22 @@ export default function NightDraftReview({ hostState, onChange, onError }) {
     <div className="st-panel">
       <h2>Night {draft.night} — review before the table sees it</h2>
 
-      <section className="st-section">
-        <h3>Deaths</h3>
+      <StSection title="Deaths">
         {draft.deaths.length
           ? <ul>{draft.deaths.map((d, i) => <li key={i}>{d.name} — {d.cause}</li>)}</ul>
           : <p className="st-hint">Nobody died tonight.</p>}
-      </section>
+      </StSection>
 
-      <section className="st-section">
-        <h3>Results</h3>
+      <StSection title="Results">
         <ul>
           {Object.entries(draft.results).map(([playerId, r]) => (
             <li key={playerId}><strong>{playersById[playerId] || playerId}</strong> ({r.title}): {r.body}</li>
           ))}
           {!Object.keys(draft.results).length && <li className="st-hint">No info-role results tonight.</li>}
         </ul>
-      </section>
+      </StSection>
 
-      <section className="st-section">
-        <h3>Whim calls</h3>
+      <StSection title="Whim calls">
         {draft.whimOutcomes.length === 0 && <p className="st-hint">Nothing judgment-worthy happened tonight.</p>}
         <ul>
           {draft.whimOutcomes.map((w, i) => {
@@ -96,7 +94,7 @@ export default function NightDraftReview({ hostState, onChange, onError }) {
         {Object.keys(pendingOverrides).length > 0 && (
           <button className="st-primary" disabled={busy} onClick={applyOverrides}>Apply override(s) and re-resolve</button>
         )}
-      </section>
+      </StSection>
 
       <button className="st-primary" disabled={busy || Object.keys(pendingOverrides).length > 0} onClick={confirm}>
         Confirm — show the table
