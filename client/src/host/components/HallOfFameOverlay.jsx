@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import LeaderboardPanel from './LeaderboardPanel.jsx';
+import { rankProfiles } from '../lib/leaderboard.js';
 
 function fmtPct(x) { return x == null ? '—' : Math.round(x * 100) + '%'; }
 function initial(name) { return (name[0] || '?').toUpperCase(); }
@@ -28,10 +29,7 @@ export default function HallOfFameOverlay({ onClose }) {
     return () => { cancelled = true; };
   }, []);
 
-  const played = profiles ? profiles.filter(p => p.gamesPlayed > 0) : [];
-  const ranked = played
-    .slice()
-    .sort((a, b) => b.wins - a.wins || (b.winRate || 0) - (a.winRate || 0) || b.gamesPlayed - a.gamesPlayed);
+  const ranked = profiles ? rankProfiles(profiles) : [];
 
   return (
     <div className="settings-overlay">

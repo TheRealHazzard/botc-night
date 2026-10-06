@@ -5,6 +5,7 @@ import PivotalMomentsCard from '../components/PivotalMomentsCard.jsx';
 import SidepanelCard from '../components/SidepanelCard.jsx';
 import NarratorLogCard from '../components/NarratorLogCard.jsx';
 import SessionStatsCard from '../components/SessionStatsCard.jsx';
+import LeaderboardTeaserCard from '../components/LeaderboardTeaserCard.jsx';
 import PowerLogOverlay from '../components/PowerLogOverlay.jsx';
 import ShareCardOverlay from '../components/ShareCardOverlay.jsx';
 import Icon from '../components/Icon.jsx';
@@ -81,6 +82,7 @@ export default function OverView({ players, victory, gameSummary, pivotalHighlig
               compare against — SessionStatsCard removes itself if there
               isn't one. */}
           <SessionStatsCard />
+          <LeaderboardTeaserCard />
           <NarratorLogCard />
         </>
       ),
